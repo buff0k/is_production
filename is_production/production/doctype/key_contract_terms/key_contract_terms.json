@@ -11,8 +11,12 @@
   "sla_attach",
   "column_break_igow",
   "site",
+  "method_attach",
+  "scope_attach",
   "section_break_qfqw",
-  "specific_terms"
+  "specific_terms",
+  "scope_of_work",
+  "method_statement"
  ],
  "fields": [
   {
@@ -51,13 +55,36 @@
   {
    "fieldname": "specific_terms",
    "fieldtype": "Table",
+   "label": "Contractual",
    "options": "Specific Term",
    "reqd": 1
+  },
+  {
+   "fieldname": "method_attach",
+   "fieldtype": "Attach",
+   "label": "Method Statement"
+  },
+  {
+   "fieldname": "scope_attach",
+   "fieldtype": "Attach",
+   "label": "Scope of Work"
+  },
+  {
+   "fieldname": "scope_of_work",
+   "fieldtype": "Table",
+   "label": "Scope of Work",
+   "options": "Specific Term"
+  },
+  {
+   "fieldname": "method_statement",
+   "fieldtype": "Table",
+   "label": "Method Statement",
+   "options": "Specific Term"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-11 18:45:32.148935",
+ "modified": "2024-08-11 19:36:05.619260",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Key Contract Terms",
