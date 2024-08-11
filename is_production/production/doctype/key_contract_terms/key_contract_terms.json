@@ -1,0 +1,109 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{client}-{site}-{YYYY}",
+ "creation": "2024-08-11 15:44:26.607083",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "key_contract_terms_section",
+  "client",
+  "sla_attach",
+  "column_break_igow",
+  "site",
+  "section_break_qfqw",
+  "specific_terms"
+ ],
+ "fields": [
+  {
+   "fieldname": "key_contract_terms_section",
+   "fieldtype": "Section Break",
+   "label": "Key Contract Terms"
+  },
+  {
+   "fieldname": "client",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Client",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_igow",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sla_attach",
+   "fieldtype": "Attach",
+   "label": "Service Level Agreement"
+  },
+  {
+   "fieldname": "section_break_qfqw",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "specific_terms",
+   "fieldtype": "Table",
+   "options": "Specific Term",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-08-11 18:45:32.148935",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Key Contract Terms",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "select": 1,
+   "share": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+}

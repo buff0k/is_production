@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Production\"}}]",
+ "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"b8ARXFS6g1\",\"type\":\"card\",\"data\":{\"card_name\":\"Contract Terms\",\"col\":4}}]",
  "creation": "2024-07-29 15:25:05.760313",
  "custom_blocks": [],
  "docstatus": 0,
@@ -12,8 +12,28 @@
  "indicator_color": "green",
  "is_hidden": 0,
  "label": "Production",
- "links": [],
- "modified": "2024-07-29 15:25:15.854008",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Contract Terms",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Key Contract Terms",
+   "link_count": 0,
+   "link_to": "Key Contract Terms",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2024-08-11 15:47:18.548906",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

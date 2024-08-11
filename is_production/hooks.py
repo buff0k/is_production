@@ -4,6 +4,25 @@ app_publisher = "Isambane Mining (Pty) Ltd"
 app_description = "Isambane Mining Frappe App for Production Records"
 app_email = "eben@isambane.co.za"
 app_license = "mit"
+required_apps = ["frappe/erpnext",]
+fixtures = [
+        {"dt": "Role", "filters": [
+            [
+            "name", "in", [
+                    "Production Manager",
+                    "Production User"
+    		       ]
+                ]
+            ]}, 
+        {"dt": "Custom DocPerm", "filters": [
+            [
+            "role", "in", [
+                    "Production Manager",
+                    "Production User"
+    		       ]
+                ]
+            ]},
+        ]
 # required_apps = []
 
 # Includes in <head>
