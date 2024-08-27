@@ -7,9 +7,11 @@
  "engine": "InnoDB",
  "field_order": [
   "key_contract_terms_section",
-  "client",
+  "project",
+  "customer",
   "sla_attach",
   "column_break_igow",
+  "project_name",
   "site",
   "method_attach",
   "scope_attach",
@@ -23,14 +25,6 @@
    "fieldname": "key_contract_terms_section",
    "fieldtype": "Section Break",
    "label": "Key Contract Terms"
-  },
-  {
-   "fieldname": "client",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Client",
-   "options": "Customer",
-   "reqd": 1
   },
   {
    "fieldname": "column_break_igow",
@@ -80,11 +74,32 @@
    "fieldtype": "Table",
    "label": "Method Statement",
    "options": "Specific Term"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Client",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project_name",
+   "fieldtype": "Data",
+   "label": "Project Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-11 19:36:05.619260",
+ "modified": "2024-08-27 13:16:20.864645",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Key Contract Terms",
