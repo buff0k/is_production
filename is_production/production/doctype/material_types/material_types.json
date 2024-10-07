@@ -32,6 +32,7 @@
   {
    "fieldname": "tub_factor",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Tub Factor",
    "reqd": 1,
    "width": "2"
@@ -40,7 +41,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-10-07 08:24:43.372683",
+ "modified": "2024-10-07 12:25:42.274833",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Material Types",

@@ -7,14 +7,17 @@
  "field_order": [
   "section_break_lcaz",
   "control_clerk",
-  "location",
-  "starttime",
-  "endtime",
-  "section_break_crgu",
-  "asset_name",
   "mining_areas",
+  "asset_name",
+  "column_break_snqb",
+  "location",
+  "linked_monthly_target",
   "loads",
+  "section_break_crgu",
+  "starttime",
   "truck_capacity_mat_type",
+  "column_break_lisj",
+  "endtime",
   "tub_factor"
  ],
  "fields": [
@@ -82,11 +85,26 @@
    "fieldtype": "Read Only",
    "is_virtual": 1,
    "label": "Tub factor"
+  },
+  {
+   "fieldname": "column_break_snqb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "linked_monthly_target",
+   "fieldtype": "Link",
+   "label": "Monthly Target Info:",
+   "options": "Monthly Target Info",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_lisj",
+   "fieldtype": "Column Break"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-07 07:51:43.464457",
+ "modified": "2024-10-07 12:10:17.002641",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
@@ -102,6 +120,39 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Control Clerk",
    "share": 1,
    "write": 1
   }

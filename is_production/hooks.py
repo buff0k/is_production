@@ -10,7 +10,8 @@ fixtures = [
             [
             "name", "in", [
                     "Production Manager",
-                    "Production User"
+                    "Production User",
+                    "Control Clerk"
     		       ]
                 ]
             ]}, 
@@ -18,7 +19,8 @@ fixtures = [
             [
             "role", "in", [
                     "Production Manager",
-                    "Production User"
+                    "Production User",
+                    "Control Clerk"
     		       ]
                 ]
             ]},

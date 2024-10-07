@@ -75,6 +75,7 @@
    "label": "Material Types"
   },
   {
+   "columns": 4,
    "fieldname": "table_brmf",
    "fieldtype": "Table",
    "options": "Material Types"
@@ -93,7 +94,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-07 08:27:58.507565",
+ "modified": "2024-10-07 12:24:56.380368",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Target Info",
@@ -110,7 +111,41 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "select": 1,
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Control Clerk",
+   "select": 1,
+   "share": 1
   }
  ],
  "sort_field": "modified",
