@@ -1,0 +1,113 @@
+{
+ "actions": [],
+ "autoname": "format:{location}-{asset_name}-{starttime}",
+ "creation": "2024-10-03 13:43:04.275282",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_lcaz",
+  "control_clerk",
+  "location",
+  "starttime",
+  "endtime",
+  "section_break_crgu",
+  "asset_name",
+  "mining_areas",
+  "loads",
+  "truck_capacity_mat_type",
+  "tub_factor"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_lcaz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Site",
+   "options": "Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "asset_name",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Plant No.",
+   "link_filters": "[]",
+   "reqd": 1
+  },
+  {
+   "fieldname": "loads",
+   "fieldtype": "Data",
+   "label": "Loads",
+   "reqd": 1
+  },
+  {
+   "fieldname": "starttime",
+   "fieldtype": "Datetime",
+   "label": "Starting Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "endtime",
+   "fieldtype": "Datetime",
+   "label": "End Time"
+  },
+  {
+   "fieldname": "control_clerk",
+   "fieldtype": "Data",
+   "label": "Control Clerk",
+   "reqd": 1
+  },
+  {
+   "fieldname": "mining_areas",
+   "fieldtype": "Select",
+   "label": "Mining Areas",
+   "options": "Ramp 1\nRamp 2\nRamp 3\nRamp 4\nRamp 5",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_crgu",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "truck_capacity_mat_type",
+   "fieldtype": "Select",
+   "label": "Truck Capacity and Material Type"
+  },
+  {
+   "fieldname": "tub_factor",
+   "fieldtype": "Read Only",
+   "is_virtual": 1,
+   "label": "Tub factor"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-10-07 07:51:43.464457",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Hourly Production",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
