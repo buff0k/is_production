@@ -52,6 +52,26 @@ frappe.ui.form.on('Hourly Production', {
         frm.refresh_field('location');
     },
 
+    asset_name: function(frm) {
+        if (frm.doc.asset_name) {
+            // Fetch data from the selected Asset document
+            frappe.call({
+                method: 'frappe.client.get',
+                args: {
+                    doctype: 'Asset',
+                    name: frm.doc.asset_name
+                },
+                callback: function(r) {
+                    if (r.message) {
+                        // Populate the fields in Hourly Production with data from Asset
+                        frm.set_value('item_name', r.message.item_name);  // assuming field exists in Asset
+                        frm.set_value('custom_asset_capacity', r.message.custom_asset_capacity);  // assuming field exists in Asset
+                    }
+                }
+            });
+        }
+    },
+
     starttime: function(frm) {
         // Adjust starttime to the top of the hour and set endtime to +1 hour
         if (frm.doc.starttime) {
