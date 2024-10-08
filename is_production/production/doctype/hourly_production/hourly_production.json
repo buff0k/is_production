@@ -9,16 +9,20 @@
   "control_clerk",
   "mining_areas",
   "asset_name",
+  "item_name",
   "column_break_snqb",
   "location",
   "linked_monthly_target",
   "loads",
+  "custom_asset_capacity",
   "section_break_crgu",
   "starttime",
   "truck_capacity_mat_type",
   "column_break_lisj",
   "endtime",
-  "tub_factor"
+  "tub_factor",
+  "section_break_opra",
+  "is_included_in_daily"
  ],
  "fields": [
   {
@@ -100,11 +104,33 @@
   {
    "fieldname": "column_break_lisj",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_opra",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_included_in_daily",
+   "fieldtype": "Check",
+   "hidden": 1,
+   "label": "Is Incl. in Daily"
+  },
+  {
+   "fieldname": "custom_asset_capacity",
+   "fieldtype": "Int",
+   "label": "Plant Capacity (Ton/L)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Read Only",
+   "label": "Plant Description"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-07 12:10:17.002641",
+ "modified": "2024-10-08 07:20:44.879917",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
