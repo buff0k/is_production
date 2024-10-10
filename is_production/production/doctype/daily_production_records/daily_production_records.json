@@ -6,7 +6,17 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "hourly_prod_link"
+  "hourly_prod_link",
+  "control_clerk",
+  "mining_areas",
+  "asset_name",
+  "plant_capacity_tonl",
+  "location",
+  "loads",
+  "mat_type",
+  "tub_factor",
+  "starttime",
+  "endtime"
  ],
  "fields": [
   {
@@ -14,12 +24,62 @@
    "fieldtype": "Link",
    "label": "Hourly Production Link",
    "options": "Hourly Production"
+  },
+  {
+   "fieldname": "control_clerk",
+   "fieldtype": "Data",
+   "label": "Control Clerk"
+  },
+  {
+   "fieldname": "mining_areas",
+   "fieldtype": "Data",
+   "label": "Mining Areas"
+  },
+  {
+   "fieldname": "asset_name",
+   "fieldtype": "Data",
+   "label": "Plant No."
+  },
+  {
+   "fieldname": "plant_capacity_tonl",
+   "fieldtype": "Int",
+   "label": "Plant Capacity (Ton/L)"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "Site"
+  },
+  {
+   "fieldname": "loads",
+   "fieldtype": "Data",
+   "label": "Loads"
+  },
+  {
+   "fieldname": "mat_type",
+   "fieldtype": "Data",
+   "label": "Material Type"
+  },
+  {
+   "fieldname": "tub_factor",
+   "fieldtype": "Data",
+   "label": "Tub factor"
+  },
+  {
+   "fieldname": "starttime",
+   "fieldtype": "Datetime",
+   "label": "Starting Time"
+  },
+  {
+   "fieldname": "endtime",
+   "fieldtype": "Datetime",
+   "label": "End Time"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-10-07 19:49:08.717316",
+ "modified": "2024-10-08 20:25:43.663666",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Production Records",

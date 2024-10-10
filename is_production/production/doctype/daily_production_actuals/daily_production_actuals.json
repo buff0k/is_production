@@ -7,7 +7,10 @@
  "field_order": [
   "section_break_f8mh",
   "amended_from",
-  "location"
+  "location",
+  "date_approvals",
+  "obtain_daily_records",
+  "daily_prod_rec"
  ],
  "fields": [
   {
@@ -29,12 +32,28 @@
    "fieldtype": "Link",
    "label": "Site",
    "options": "Location"
+  },
+  {
+   "fieldname": "date_approvals",
+   "fieldtype": "Date",
+   "label": "Date of Approval"
+  },
+  {
+   "fieldname": "daily_prod_rec",
+   "fieldtype": "Table",
+   "label": "Daily  Production ",
+   "options": "Daily Production Records"
+  },
+  {
+   "fieldname": "obtain_daily_records",
+   "fieldtype": "Button",
+   "label": "Obtain Daily Records"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-07 18:55:28.596924",
+ "modified": "2024-10-08 20:50:03.979328",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Production Actuals",

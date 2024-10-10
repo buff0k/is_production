@@ -9,20 +9,19 @@
   "control_clerk",
   "mining_areas",
   "asset_name",
-  "item_name",
+  "custom_asset_capacity",
   "column_break_snqb",
   "location",
-  "linked_monthly_target",
   "loads",
-  "custom_asset_capacity",
+  "mat_type",
+  "tub_factor",
   "section_break_crgu",
   "starttime",
-  "truck_capacity_mat_type",
   "column_break_lisj",
   "endtime",
-  "tub_factor",
   "section_break_opra",
-  "is_included_in_daily"
+  "is_included_in_daily",
+  "linked_monthly_target"
  ],
  "fields": [
   {
@@ -80,14 +79,8 @@
    "fieldtype": "Section Break"
   },
   {
-   "fieldname": "truck_capacity_mat_type",
-   "fieldtype": "Select",
-   "label": "Truck Capacity and Material Type"
-  },
-  {
    "fieldname": "tub_factor",
    "fieldtype": "Read Only",
-   "is_virtual": 1,
    "label": "Tub factor"
   },
   {
@@ -98,8 +91,7 @@
    "fieldname": "linked_monthly_target",
    "fieldtype": "Link",
    "label": "Monthly Target Info:",
-   "options": "Monthly Target Info",
-   "reqd": 1
+   "options": "Monthly Target Info"
   },
   {
    "fieldname": "column_break_lisj",
@@ -123,14 +115,16 @@
    "read_only": 1
   },
   {
-   "fieldname": "item_name",
-   "fieldtype": "Read Only",
-   "label": "Plant Description"
+   "fieldname": "mat_type",
+   "fieldtype": "Select",
+   "label": "Material Type",
+   "options": "Coal: A\nCoal: B\nCoal: C\nCoal: D\nCoal: 1\nCoal: 2\nCoal: 3\nCoal: 4\nSofts: Topsoil\nSofts: Subsoil\nHards: Overburden\nHards: Midburden",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-08 07:20:44.879917",
+ "modified": "2024-10-08 16:00:15.452030",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",

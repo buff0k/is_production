@@ -63,8 +63,6 @@ frappe.ui.form.on('Hourly Production', {
                 },
                 callback: function(r) {
                     if (r.message) {
-                        // Populate the fields in Hourly Production with data from Asset
-                        frm.set_value('item_name', r.message.item_name);  // assuming field exists in Asset
                         frm.set_value('custom_asset_capacity', r.message.custom_asset_capacity);  // assuming field exists in Asset
                     }
                 }

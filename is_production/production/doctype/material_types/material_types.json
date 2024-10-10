@@ -16,7 +16,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Truck Capacity",
-   "options": "30t\n40t\n45t\n60t",
+   "options": "30\n40\n45\n60",
    "reqd": 1,
    "width": "2"
   },
@@ -41,7 +41,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-10-07 12:25:42.274833",
+ "modified": "2024-10-08 13:25:02.951729",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Material Types",
