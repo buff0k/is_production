@@ -7,7 +7,7 @@ frappe.ui.form.on('Diesel Receipt', {
         frm.set_query('asset_name', function() {
             return {
                 filters: {
-                    'asset_category': 'DIESEL BOWSER',
+                    'asset_category': 'Diesel Bowsers',
                     'location': frm.doc.location
                 }
             };

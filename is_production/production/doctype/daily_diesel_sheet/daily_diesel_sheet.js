@@ -8,7 +8,7 @@ frappe.ui.form.on('Daily Diesel Sheet', {
             return {
                 filters: {
                     'location': frm.doc.location,
-                    'asset_category': 'DIESEL BOWSER'
+                    'asset_category': 'Diesel Bowsers'
                 }
             };
         });
