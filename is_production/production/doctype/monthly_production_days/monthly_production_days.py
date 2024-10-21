@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class MaterialTypes(Document):
+class MonthlyProductionDays(Document):
 	pass

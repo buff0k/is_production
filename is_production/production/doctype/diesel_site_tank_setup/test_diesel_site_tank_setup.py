@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestMonthlyTargetInfo(FrappeTestCase):
+class TestDieselSiteTankSetup(FrappeTestCase):
 	pass

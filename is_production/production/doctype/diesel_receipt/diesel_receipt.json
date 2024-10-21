@@ -1,0 +1,142 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{location}-{date_time_diesel_receipt}",
+ "creation": "2024-10-18 12:10:27.979874",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_rany",
+  "amended_from",
+  "location",
+  "asset_name",
+  "bowser_plant_hours_km",
+  "column_break_favp",
+  "date_time_diesel_receipt",
+  "diesel_receipt_tank",
+  "open_reading_ltrs",
+  "close_reading_ltrs",
+  "column_break_tcfl",
+  "diesel_",
+  "litres_dispensed",
+  "diesel_operator_name"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_rany",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Diesel Receipt",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "asset_name",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Diesel Bowser/Plant No.",
+   "options": "Asset",
+   "reqd": 1
+  },
+  {
+   "fieldname": "date_time_diesel_receipt",
+   "fieldtype": "Datetime",
+   "label": "Date & Time Diesel Receipt",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_tcfl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_favp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "diesel_receipt_tank",
+   "fieldtype": "Link",
+   "label": "Diesel Receipt Tank",
+   "options": "Diesel Site Tank Setup",
+   "reqd": 1
+  },
+  {
+   "fieldname": "diesel_",
+   "fieldtype": "Attach",
+   "label": "Diesel Receipt Image",
+   "reqd": 1
+  },
+  {
+   "fieldname": "bowser_plant_hours_km",
+   "fieldtype": "Int",
+   "label": "Bowser/Plant No. Hours/Km",
+   "reqd": 1
+  },
+  {
+   "fieldname": "open_reading_ltrs",
+   "fieldtype": "Float",
+   "label": "Opening Reading (Ltrs)",
+   "precision": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "close_reading_ltrs",
+   "fieldtype": "Float",
+   "label": "Closing Reading (Ltrs)",
+   "precision": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "litres_dispensed",
+   "fieldtype": "Float",
+   "label": "Litres Dispensed",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "diesel_operator_name",
+   "fieldtype": "Data",
+   "label": "Diesel Operator Name & Surname",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2024-10-18 13:47:40.076432",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Diesel Receipt",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

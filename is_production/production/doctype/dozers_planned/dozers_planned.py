@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class MonthlyTargetInfo(Document):
+class DozersPlanned(Document):
 	pass

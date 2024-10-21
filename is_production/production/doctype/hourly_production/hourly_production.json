@@ -1,130 +1,126 @@
 {
  "actions": [],
- "autoname": "format:{location}-{asset_name}-{starttime}",
- "creation": "2024-10-03 13:43:04.275282",
+ "allow_rename": 1,
+ "autoname": "format:{shift_num_hour}-{month_prod_planning}",
+ "creation": "2024-10-14 15:07:43.074950",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "section_break_lcaz",
-  "control_clerk",
-  "mining_areas",
-  "asset_name",
-  "custom_asset_capacity",
-  "column_break_snqb",
   "location",
-  "loads",
-  "mat_type",
-  "tub_factor",
-  "section_break_crgu",
-  "starttime",
-  "column_break_lisj",
-  "endtime",
-  "section_break_opra",
-  "is_included_in_daily",
-  "linked_monthly_target"
+  "prod_date",
+  "column_break_utop",
+  "shift",
+  "month_prod_planning",
+  "section_break_zriz",
+  "shift_num_hour",
+  "column_break_dchy",
+  "hour_slot",
+  "team_1_equipment_combination_section",
+  "naming_series",
+  "column_break_mdvm",
+  "truck_1_1_asset_name",
+  "truck_1_2_asset_name",
+  "truck_1_3_asset_name",
+  "section_break_fxug",
+  "truck_loads"
  ],
  "fields": [
   {
-   "fieldname": "section_break_lcaz",
-   "fieldtype": "Section Break"
-  },
-  {
    "fieldname": "location",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Site",
-   "options": "Location",
-   "reqd": 1
+   "options": "Location"
   },
   {
-   "fieldname": "asset_name",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Plant No.",
-   "link_filters": "[]",
-   "reqd": 1
+   "fieldname": "prod_date",
+   "fieldtype": "Date",
+   "label": "Production Shift Start Date"
   },
   {
-   "fieldname": "loads",
-   "fieldtype": "Data",
-   "label": "Loads",
-   "reqd": 1
-  },
-  {
-   "fieldname": "starttime",
-   "fieldtype": "Datetime",
-   "label": "Starting Time",
-   "reqd": 1
-  },
-  {
-   "fieldname": "endtime",
-   "fieldtype": "Datetime",
-   "label": "End Time"
-  },
-  {
-   "fieldname": "control_clerk",
-   "fieldtype": "Data",
-   "label": "Control Clerk",
-   "reqd": 1
-  },
-  {
-   "fieldname": "mining_areas",
-   "fieldtype": "Select",
-   "label": "Mining Areas",
-   "options": "Ramp 1\nRamp 2\nRamp 3\nRamp 4\nRamp 5",
-   "reqd": 1
-  },
-  {
-   "fieldname": "section_break_crgu",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "tub_factor",
-   "fieldtype": "Read Only",
-   "label": "Tub factor"
-  },
-  {
-   "fieldname": "column_break_snqb",
+   "fieldname": "column_break_utop",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "linked_monthly_target",
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "label": "Shift",
+   "options": "A\nB"
+  },
+  {
+   "fieldname": "month_prod_planning",
    "fieldtype": "Link",
-   "label": "Monthly Target Info:",
-   "options": "Monthly Target Info"
-  },
-  {
-   "fieldname": "column_break_lisj",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "section_break_opra",
-   "fieldtype": "Section Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "is_included_in_daily",
-   "fieldtype": "Check",
-   "hidden": 1,
-   "label": "Is Incl. in Daily"
-  },
-  {
-   "fieldname": "custom_asset_capacity",
-   "fieldtype": "Int",
-   "label": "Plant Capacity (Ton/L)",
+   "in_list_view": 1,
+   "label": "Monthly Production Planning",
+   "options": "Monthly Production Planning",
    "read_only": 1
   },
   {
-   "fieldname": "mat_type",
+   "fieldname": "section_break_zriz",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "shift_num_hour",
    "fieldtype": "Select",
-   "label": "Material Type",
-   "options": "Coal: A\nCoal: B\nCoal: C\nCoal: D\nCoal: 1\nCoal: 2\nCoal: 3\nCoal: 4\nSofts: Topsoil\nSofts: Subsoil\nHards: Overburden\nHards: Midburden",
-   "reqd": 1
+   "label": "Shift Number of Hour"
+  },
+  {
+   "fieldname": "column_break_dchy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "hour_slot",
+   "fieldtype": "Read Only",
+   "label": "Hour_Slot",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_fxug",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "truck_loads",
+   "fieldtype": "Table",
+   "label": "Trucks Loads",
+   "options": "Truck Loads"
+  },
+  {
+   "fieldname": "team_1_equipment_combination_section",
+   "fieldtype": "Section Break",
+   "label": "Team 1 Equipment Combination "
+  },
+  {
+   "fieldname": "column_break_mdvm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Excavator Plant No.",
+   "options": "Asset"
+  },
+  {
+   "fieldname": "truck_1_1_asset_name",
+   "fieldtype": "Link",
+   "label": "Truck 1-1",
+   "options": "Asset"
+  },
+  {
+   "fieldname": "truck_1_2_asset_name",
+   "fieldtype": "Link",
+   "label": "Truck 1-2",
+   "options": "Asset"
+  },
+  {
+   "fieldname": "truck_1_3_asset_name",
+   "fieldtype": "Link",
+   "label": "Truck 1-3",
+   "options": "Asset"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-08 16:00:15.452030",
+ "modified": "2024-10-16 22:13:25.821183",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
@@ -142,43 +138,9 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
-  },
-  {
-   "create": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Production Manager",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Production User",
-   "share": 1,
-   "write": 1
-  },
-  {
-   "create": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "Control Clerk",
-   "share": 1,
-   "write": 1
   }
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": [],
- "track_changes": 1
+ "states": []
 }

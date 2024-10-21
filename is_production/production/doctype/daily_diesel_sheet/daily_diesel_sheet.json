@@ -1,0 +1,169 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{location}-{asset_name}-{daily_sheet_date}",
+ "creation": "2024-10-18 13:21:54.256372",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_cy2v",
+  "amended_from",
+  "location",
+  "asset_name",
+  "shift",
+  "column_break_ovqs",
+  "daily_diesel_sheet_ref",
+  "diesel_bow_operator",
+  "daily_sheet_date",
+  "daily_diesel_sheet_attachment",
+  "column_break_kcnd",
+  "start_dip",
+  "end_dip",
+  "dip_litres_used",
+  "litres_issued_equipment",
+  "section_break_ttmn",
+  "daily_diesel_entries"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_cy2v",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Daily Diesel Sheet",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Site",
+   "options": "Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "asset_name",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Diesel Bowser",
+   "options": "Asset",
+   "reqd": 1
+  },
+  {
+   "fieldname": "daily_diesel_sheet_ref",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Daily Diesel Sheet Reference",
+   "length": 5,
+   "reqd": 1
+  },
+  {
+   "fieldname": "diesel_bow_operator",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Diesel Bowser Operator",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_ovqs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "daily_sheet_date",
+   "fieldtype": "Date",
+   "label": "Daily Sheet Date",
+   "reqd": 1
+  },
+  {
+   "default": "A",
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "label": "Shift",
+   "options": "A\nB",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_kcnd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "start_dip",
+   "fieldtype": "Float",
+   "label": "Start Dip",
+   "non_negative": 1,
+   "precision": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "end_dip",
+   "fieldtype": "Float",
+   "label": "End Dip",
+   "non_negative": 1,
+   "precision": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "dip_litres_used",
+   "fieldtype": "Float",
+   "label": "Dip Litres used",
+   "non_negative": 1,
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "litres_issued_equipment",
+   "fieldtype": "Float",
+   "label": "Litres Issued to Equipment",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_ttmn",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "daily_diesel_entries",
+   "fieldtype": "Table",
+   "label": "Daily Diesel Entries",
+   "options": "Daily Diesel Entries"
+  },
+  {
+   "fieldname": "daily_diesel_sheet_attachment",
+   "fieldtype": "Attach",
+   "label": "Attach manual Daily Diesel Sheet before document is submitted"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2024-10-20 11:40:05.263342",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Daily Diesel Sheet",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

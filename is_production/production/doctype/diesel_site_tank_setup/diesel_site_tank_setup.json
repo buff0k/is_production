@@ -1,20 +1,19 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2024-10-07 18:52:15.889743",
+ "autoname": "format:{location}-{tank_description}",
+ "creation": "2024-10-18 12:49:44.063318",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "section_break_f8mh",
+  "section_break_jm3s",
   "amended_from",
   "location",
-  "prod_date",
-  "obtain_daily_records",
-  "daily_prod_rec"
+  "tank_description"
  ],
  "fields": [
   {
-   "fieldname": "section_break_f8mh",
+   "fieldname": "section_break_jm3s",
    "fieldtype": "Section Break"
   },
   {
@@ -22,7 +21,7 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "Daily Production Actuals",
+   "options": "Diesel Site Tank Setup",
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
@@ -34,29 +33,19 @@
    "options": "Location"
   },
   {
-   "fieldname": "daily_prod_rec",
-   "fieldtype": "Table",
-   "label": "Daily  Production ",
-   "options": "Daily Production Records"
-  },
-  {
-   "fieldname": "obtain_daily_records",
-   "fieldtype": "Button",
-   "label": "Obtain Daily Records"
-  },
-  {
-   "fieldname": "prod_date",
-   "fieldtype": "Date",
-   "label": "Production Date"
+   "fieldname": "tank_description",
+   "fieldtype": "Data",
+   "label": "Tank Description"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-11 11:27:46.395509",
+ "modified": "2024-10-18 13:18:55.372719",
  "modified_by": "Administrator",
  "module": "Production",
- "name": "Daily Production Actuals",
+ "name": "Diesel Site Tank Setup",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {

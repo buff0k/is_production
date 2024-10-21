@@ -1,0 +1,154 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{prod_month_end}-{location}",
+ "creation": "2024-10-11 20:47:33.946485",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "location",
+  "prod_month_end",
+  "production_plant_planned_section",
+  "prod_excavators",
+  "column_break_pbpd",
+  "prod_trucks",
+  "column_break_druy",
+  "dozer_table",
+  "month_production_days_tab",
+  "shift_system",
+  "populate_monthly_prod_days",
+  "clear_production_days",
+  "column_break_kqgs",
+  "tot_shift_a_hours",
+  "tot_shift_b_hours",
+  "total_month_prod_hours",
+  "section_break_beyf",
+  "month_prod_days"
+ ],
+ "fields": [
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Site",
+   "options": "Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "prod_month_end",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Production Month-End",
+   "reqd": 1
+  },
+  {
+   "fieldname": "shift_system",
+   "fieldtype": "Select",
+   "label": "Shift System",
+   "options": "3-shift",
+   "reqd": 1
+  },
+  {
+   "fieldname": "production_plant_planned_section",
+   "fieldtype": "Section Break",
+   "label": "Production Plant Planned"
+  },
+  {
+   "fieldname": "prod_excavators",
+   "fieldtype": "Table",
+   "label": "Excavators",
+   "options": "Excavators Planned"
+  },
+  {
+   "fieldname": "column_break_pbpd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month_production_days_tab",
+   "fieldtype": "Tab Break",
+   "label": "Month Production Days"
+  },
+  {
+   "fieldname": "month_prod_days",
+   "fieldtype": "Table",
+   "options": "Monthly Production Days"
+  },
+  {
+   "fieldname": "populate_monthly_prod_days",
+   "fieldtype": "Button",
+   "label": "Populate Monthly Production Days"
+  },
+  {
+   "fieldname": "prod_trucks",
+   "fieldtype": "Table",
+   "label": "ADT's & Rigids",
+   "options": "Trucks Planned"
+  },
+  {
+   "fieldname": "column_break_druy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dozer_table",
+   "fieldtype": "Table",
+   "label": "Dozers",
+   "options": "Dozers Planned"
+  },
+  {
+   "fieldname": "clear_production_days",
+   "fieldtype": "Button",
+   "label": "Clear Production Days"
+  },
+  {
+   "fieldname": "column_break_kqgs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tot_shift_a_hours",
+   "fieldtype": "Int",
+   "label": "Total Shift A Hours",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_beyf",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "tot_shift_b_hours",
+   "fieldtype": "Int",
+   "label": "Total Shift B Hours",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_month_prod_hours",
+   "fieldtype": "Int",
+   "label": "Total Month Production Hours",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-10-15 19:49:51.070651",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Monthly Production Planning",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
