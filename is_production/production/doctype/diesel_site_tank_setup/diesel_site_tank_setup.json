@@ -41,7 +41,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-18 13:18:55.372719",
+ "modified": "2024-10-22 11:41:51.042015",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Diesel Site Tank Setup",
@@ -60,6 +60,29 @@
    "share": 1,
    "submit": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "select": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "select": 1,
+   "share": 1
   }
  ],
  "sort_field": "modified",

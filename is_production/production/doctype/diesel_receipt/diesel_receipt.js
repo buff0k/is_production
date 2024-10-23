@@ -14,18 +14,34 @@ frappe.ui.form.on('Diesel Receipt', {
         });
     },
     close_reading_ltrs: function(frm) {
+        // Trigger validation after setting litres_dispensed
+        frm.trigger('calculate_litres_dispensed');
+        frm.trigger('validate_readings');
+    },
+    open_reading_ltrs: function(frm) {
+        // Trigger validation after setting litres_dispensed
+        frm.trigger('calculate_litres_dispensed');
+        frm.trigger('validate_readings');
+    },
+    calculate_litres_dispensed: function(frm) {
         // Calculate litres_dispensed when both close_reading_ltrs and open_reading_ltrs are filled
         if (frm.doc.close_reading_ltrs && frm.doc.open_reading_ltrs) {
             frm.set_value('litres_dispensed', frm.doc.close_reading_ltrs - frm.doc.open_reading_ltrs);
         }
     },
-    open_reading_ltrs: function(frm) {
-        // Calculate litres_dispensed when both close_reading_ltrs and open_reading_ltrs are filled
-        if (frm.doc.close_reading_ltrs && frm.doc.open_reading_ltrs) {
-            frm.set_value('litres_dispensed', frm.doc.close_reading_ltrs - frm.doc.open_reading_ltrs);
+    validate_readings: function(frm) {
+        // Validate that close_reading_ltrs is greater than or equal to open_reading_ltrs
+        if (frm.doc.open_reading_ltrs && frm.doc.close_reading_ltrs) {
+            if (frm.doc.close_reading_ltrs < frm.doc.open_reading_ltrs) {
+                frappe.msgprint(__('Close Reading (Liters) must be greater than or equal to Open Reading (Liters).'));
+                frappe.validated = false;
+            }
         }
     },
     validate: function(frm) {
+        // Trigger reading validation
+        frm.trigger('validate_readings');
+        
         // Only show the confirmation message for new documents (draft state)
         if (frm.is_new() && !frm.confirmed) {
             frappe.confirm(
@@ -44,4 +60,3 @@ frappe.ui.form.on('Diesel Receipt', {
         frm.confirmed = false;  // Reset the flag after confirmation
     }
 });
-
