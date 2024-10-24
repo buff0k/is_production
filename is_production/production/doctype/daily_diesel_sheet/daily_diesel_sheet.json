@@ -13,7 +13,8 @@
   "shift",
   "column_break_ovqs",
   "daily_diesel_sheet_ref",
-  "diesel_bow_operator",
+  "employee_name",
+  "operator_name",
   "daily_sheet_date",
   "daily_diesel_sheet_attachment",
   "column_break_kcnd",
@@ -61,13 +62,6 @@
    "in_list_view": 1,
    "label": "Daily Diesel Sheet Reference",
    "length": 5,
-   "reqd": 1
-  },
-  {
-   "fieldname": "diesel_bow_operator",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Diesel Bowser Operator",
    "reqd": 1
   },
   {
@@ -137,12 +131,26 @@
    "fieldname": "daily_diesel_sheet_attachment",
    "fieldtype": "Attach",
    "label": "Attach manual Daily Diesel Sheet before document is submitted"
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Diesel Bowser Operator",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "employee_name.employee_name",
+   "fieldname": "operator_name",
+   "fieldtype": "Read Only",
+   "label": "Diesel Bowser Operator Name"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-22 11:44:26.803551",
+ "modified": "2024-10-24 07:14:04.017978",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Diesel Sheet",

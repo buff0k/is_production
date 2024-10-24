@@ -12,8 +12,7 @@
   "open_reading",
   "close_reading",
   "litres_issued",
-  "issued_by",
-  "received_by",
+  "employee_name",
   "time_issued"
  ],
  "fields": [
@@ -61,26 +60,22 @@
    "read_only": 1
   },
   {
-   "fieldname": "issued_by",
-   "fieldtype": "Data",
-   "label": "Issued By"
-  },
-  {
-   "fieldname": "received_by",
-   "fieldtype": "Data",
-   "label": "Received By"
-  },
-  {
    "fieldname": "time_issued",
    "fieldtype": "Time",
    "label": "Time Issued",
    "reqd": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Link",
+   "label": "Received By",
+   "options": "Employee"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-10-20 07:57:38.846654",
+ "modified": "2024-10-24 06:49:23.808366",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Diesel Entries",

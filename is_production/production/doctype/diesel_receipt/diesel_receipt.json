@@ -19,7 +19,9 @@
   "column_break_tcfl",
   "diesel_",
   "litres_dispensed",
-  "diesel_operator_name"
+  "employee_name",
+  "diesel_operator_name",
+  "diesel_receipt"
  ],
  "fields": [
   {
@@ -81,8 +83,7 @@
   {
    "fieldname": "bowser_plant_hours_km",
    "fieldtype": "Int",
-   "label": "Bowser/Plant No. Hours/Km",
-   "reqd": 1
+   "label": "Bowser/Plant No. Hours/Km"
   },
   {
    "fieldname": "open_reading_ltrs",
@@ -106,16 +107,30 @@
    "read_only": 1
   },
   {
-   "fieldname": "diesel_operator_name",
+   "fieldname": "diesel_receipt",
    "fieldtype": "Data",
-   "label": "Diesel Operator Name & Surname",
+   "label": "Diesel Receipt Number",
+   "length": 5,
    "reqd": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Link",
+   "label": "Diesel Operator",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "employee_name.employee_name",
+   "fieldname": "diesel_operator_name",
+   "fieldtype": "Read Only",
+   "label": "Operator Name"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-22 11:43:18.436344",
+ "modified": "2024-10-24 07:13:10.297260",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Diesel Receipt",
