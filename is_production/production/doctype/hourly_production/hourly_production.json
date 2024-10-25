@@ -120,7 +120,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-16 22:13:25.821183",
+ "modified": "2024-10-25 10:52:34.622259",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
@@ -142,5 +142,7 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1
 }

@@ -1,0 +1,90 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2024-10-24 16:34:38.587282",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "asset_name",
+  "item_name",
+  "eng_hrs_start",
+  "eng_hrs_stop",
+  "hours_run",
+  "employee",
+  "employee_full_name",
+  "daily_checklist_number",
+  "attach_daily_checklist"
+ ],
+ "fields": [
+  {
+   "fieldname": "asset_name",
+   "fieldtype": "Link",
+   "label": "Plant No.",
+   "options": "Asset",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "asset_name.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Read Only",
+   "label": "Model",
+   "options": "Asset"
+  },
+  {
+   "fieldname": "eng_hrs_start",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Engine Hours Start",
+   "reqd": 1
+  },
+  {
+   "fieldname": "eng_hrs_stop",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Engine Hours Stop",
+   "reqd": 1
+  },
+  {
+   "fieldname": "hours_run",
+   "fieldtype": "Read Only",
+   "label": "Hours Run"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Operator Coy",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_full_name",
+   "fieldtype": "Read Only",
+   "label": "Operator Full Name"
+  },
+  {
+   "fieldname": "daily_checklist_number",
+   "fieldtype": "Data",
+   "label": "Daily Checklist Number",
+   "reqd": 1
+  },
+  {
+   "fieldname": "attach_daily_checklist",
+   "fieldtype": "Attach",
+   "label": "Attach Daily Checklist",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2024-10-25 10:41:04.763249",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Pre-use Assets",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
