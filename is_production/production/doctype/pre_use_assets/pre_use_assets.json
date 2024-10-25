@@ -17,58 +17,79 @@
  ],
  "fields": [
   {
+   "columns": 1,
    "fieldname": "asset_name",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Plant No.",
    "options": "Asset",
-   "read_only": 1
+   "read_only": 1,
+   "search_index": 1
   },
   {
+   "columns": 1,
    "fetch_from": "asset_name.item_name",
    "fieldname": "item_name",
    "fieldtype": "Read Only",
+   "in_list_view": 1,
    "label": "Model",
-   "options": "Asset"
+   "options": "Asset",
+   "search_index": 1
   },
   {
+   "columns": 1,
    "fieldname": "eng_hrs_start",
    "fieldtype": "Int",
    "in_list_view": 1,
    "label": "Engine Hours Start",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
+   "columns": 1,
    "fieldname": "eng_hrs_stop",
    "fieldtype": "Int",
    "in_list_view": 1,
    "label": "Engine Hours Stop",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
+   "columns": 1,
    "fieldname": "hours_run",
    "fieldtype": "Read Only",
-   "label": "Hours Run"
+   "in_list_view": 1,
+   "label": "Hours Run",
+   "search_index": 1
   },
   {
+   "columns": 1,
    "fieldname": "employee",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Operator Coy",
    "options": "Employee",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
+   "columns": 1,
    "fetch_from": "employee.employee_name",
    "fieldname": "employee_full_name",
    "fieldtype": "Read Only",
    "label": "Operator Full Name"
   },
   {
+   "columns": 1,
    "fieldname": "daily_checklist_number",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Daily Checklist Number",
-   "reqd": 1
+   "reqd": 1,
+   "search_index": 1
   },
   {
+   "columns": 1,
    "fieldname": "attach_daily_checklist",
    "fieldtype": "Attach",
    "label": "Attach Daily Checklist",
@@ -78,7 +99,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-10-25 10:41:04.763249",
+ "modified": "2024-10-25 11:06:03.430786",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pre-use Assets",
