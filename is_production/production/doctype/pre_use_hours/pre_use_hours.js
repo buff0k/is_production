@@ -7,20 +7,16 @@ frappe.ui.form.on('Pre-Use Hours', {
         frm.clear_table('pre_use_assets');
 
         if (frm.doc.location) {
-            // Fetch assets that match the selected location
             frappe.call({
-                method: 'frappe.client.get_list',
+                // Update to match the exact path of your Python file
+                method: 'is_production.production.doctype.pre_use_hours.pre_use_hours.get_assets_by_location',
                 args: {
-                    doctype: 'Asset',
-                    filters: {
-                        location: frm.doc.location
-                    },
-                    fields: ['name as asset_name', 'item_name']
+                    location: frm.doc.location
                 },
                 callback: function(response) {
                     const assets = response.message;
                     
-                    if (assets.length > 0) {
+                    if (assets && assets.length > 0) {
                         assets.forEach(asset => {
                             const row = frm.add_child('pre_use_assets');
                             row.asset_name = asset.asset_name;
@@ -44,20 +40,6 @@ frappe.ui.form.on('Pre-Use Hours', {
                     frm.refresh_field('pre_use_assets');
                 }
             });
-        }
-    },
-    
-    before_save: function(frm) {
-        // Validate all rows in pre_use_assets to ensure Hours_run is not negative
-        let invalid_rows = frm.doc.pre_use_assets.filter(row => row.hours_run < 0);
-
-        if (invalid_rows.length > 0) {
-            frappe.msgprint({
-                title: __('Validation Error'),
-                indicator: 'red',
-                message: __('Cannot save. Some entries have a negative Hours Run. Please correct them before saving.')
-            });
-            frappe.validated = false;  // Prevents the document from being saved
         }
     }
 });

@@ -1,6 +1,3 @@
-// Copyright (c) 2024, Isambane Mining (Pty) Ltd and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on('Daily Diesel Sheet', {
     onload: function(frm) {
         // Filter 'asset_name' in the main form based on 'location' and 'asset_category'
@@ -79,8 +76,11 @@ frappe.ui.form.on('Daily Diesel Sheet', {
             frm.refresh_field('dip_litres_used'); // Refresh the 'dip_litres_used' field to display the updated value
             console.log("Dip Litres Used:", frm.doc.dip_litres_used);
         }
-    },
+    }
+});
 
+// Handling changes within the Daily Diesel Entries table
+frappe.ui.form.on('Daily Diesel Entries', {
     close_reading: function(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
         // Validate that close_reading is not less than open_reading
@@ -212,4 +212,3 @@ function calculate_total_litres_issued_equipment(frm) {
     // Log the total litres issued for debugging
     console.log("Total Litres Issued:", total_litres_issued);
 }
-
