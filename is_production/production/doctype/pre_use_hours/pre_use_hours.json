@@ -12,6 +12,7 @@
   "shift",
   "column_break_rgso",
   "shift_date",
+  "pre_use_status_explain",
   "section_break_cean",
   "pre_use_assets"
  ],
@@ -66,12 +67,18 @@
    "fieldtype": "Table",
    "label": "Pre-Use Assets",
    "options": "Pre-use Assets"
+  },
+  {
+   "fieldname": "pre_use_status_explain",
+   "fieldtype": "HTML",
+   "label": "Pre-use Status Explanation",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-25 14:02:35.868027",
+ "modified": "2024-10-26 10:49:31.364995",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pre-Use Hours",

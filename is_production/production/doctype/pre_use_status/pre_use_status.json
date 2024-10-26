@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "autoname": "autoincrement",
+ "creation": "2024-10-26 09:59:47.756715",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "pre_use_avail_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "pre_use_avail_status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Pre-Use Availability  Status",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-10-26 10:05:32.260245",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Pre-Use Status",
+ "naming_rule": "Autoincrement",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
