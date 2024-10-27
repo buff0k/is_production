@@ -4,7 +4,7 @@ app_publisher = "Isambane Mining (Pty) Ltd"
 app_description = "Isambane Mining Frappe App for Production Records"
 app_email = "eben@isambane.co.za"
 app_license = "mit"
-required_apps = ["frappe/erpnext",]
+required_apps = ["frappe/erpnext", "buff0k/engineering"]
 fixtures = [
         {"dt": "Role", "filters": [
             [
