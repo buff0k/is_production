@@ -55,7 +55,7 @@
   {
    "fieldname": "litres_issued",
    "fieldtype": "Float",
-   "label": "Litres_issued",
+   "label": "Litres Issued",
    "non_negative": 1,
    "precision": "1",
    "read_only": 1
@@ -82,7 +82,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-10-26 08:57:50.595153",
+ "modified": "2024-10-27 20:48:11.534633",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Diesel Entries",
