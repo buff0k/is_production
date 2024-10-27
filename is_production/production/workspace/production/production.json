@@ -35,8 +35,27 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Availability",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Pre-Use Hours",
+   "link_count": 0,
+   "link_to": "Pre-Use Hours",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Diesel",
-   "link_count": 3,
+   "link_count": 4,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -73,25 +92,16 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 0,
-   "label": "Availability",
-   "link_count": 1,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Pre-Use Hours",
+   "is_query_report": 1,
+   "label": "Plant Monthly Diesel Usage",
    "link_count": 0,
-   "link_to": "Pre-Use Hours",
-   "link_type": "DocType",
+   "link_to": "Plant Monthly Diesel Usage",
+   "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   }
  ],
- "modified": "2024-10-25 10:50:10.703187",
+ "modified": "2024-10-27 20:32:40.399617",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
