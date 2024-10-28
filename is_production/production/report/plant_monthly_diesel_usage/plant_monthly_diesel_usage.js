@@ -23,6 +23,13 @@ frappe.query_reports["Plant Monthly Diesel Usage"] = {
             "fieldtype": "Date",
             "default": frappe.datetime.month_end(),
             "reqd": 1
+        },
+        {
+            "fieldname": "asset_name",
+            "label": "Asset Name",
+            "fieldtype": "Link",
+            "options": "Asset",
+            "reqd": 0
         }
     ]
 };

@@ -1,38 +1,49 @@
-# Copyright (c) 2024, Isambane Mining (Pty) Ltd and contributors
-# For license information, please see license.txt
-
 import frappe
+from frappe import _
+from frappe.utils import flt, getdate, date_diff
 
 def execute(filters=None):
     if not filters:
         filters = {}
 
-    if not filters.get("location") or not filters.get("from_date") or not filters.get("to_date"):
-        frappe.throw("Please select a location and date range to run the report.")
-
-    columns = [
-        {"label": "Document ID", "fieldname": "name", "fieldtype": "Link", "options": "Daily Diesel Sheet", "width": 100},
-        {"label": "Location", "fieldname": "location", "fieldtype": "Link", "options": "Location", "width": 120},
-        {"label": "Date", "fieldname": "daily_sheet_date", "fieldtype": "Date", "width": 100},
-        {"label": "Litres Dispensed", "fieldname": "litres_issued_equipment", "fieldtype": "Float", "width": 120},
-        # Add other necessary columns here
-    ]
-
-    conditions = "WHERE 1=1"
-    
-    if filters.get("location"):
-        conditions += " AND location = %(location)s"
-    if filters.get("from_date") and filters.get("to_date"):
-        conditions += " AND daily_sheet_date BETWEEN %(from_date)s AND %(to_date)s"
-
-    data = frappe.db.sql(f"""
-        SELECT
-            name,
-            location,
-            daily_sheet_date,
-            litres_issued_equipment
-        FROM `tabDaily Diesel Sheet`
-        {conditions}
-    """, filters, as_dict=True)
+    columns = get_columns()
+    data = get_data(filters)
 
     return columns, data
+
+def get_columns():
+    return [
+        {"label": _("Date"), "fieldname": "daily_sheet_date", "fieldtype": "Date", "width": 100},
+        {"label": _("Location"), "fieldname": "location", "fieldtype": "Link", "options": "Location", "width": 150},
+        {"label": _("Asset Name"), "fieldname": "asset_name", "fieldtype": "Link", "options": "Asset", "width": 150},
+        {"label": _("Diesel Used (Litres)"), "fieldname": "litres_used", "fieldtype": "Float", "width": 120}
+    ]
+
+def get_data(filters):
+    conditions = ["dds.docstatus = 1"]  # Ensuring only submitted records are fetched
+    
+    if filters.get("location"):
+        conditions.append("dds.location = %(location)s")
+    if filters.get("from_date") and filters.get("to_date"):
+        conditions.append("dds.daily_sheet_date BETWEEN %(from_date)s AND %(to_date)s")
+    if filters.get("asset_name"):
+        conditions.append("dde.asset_name = %(asset_name)s")
+
+    conditions_str = " AND ".join(conditions)
+    query = f"""
+        SELECT
+            dds.daily_sheet_date,
+            dds.location,
+            dde.asset_name,
+            dde.litres_issued as litres_used
+        FROM
+            `tabDaily Diesel Sheet` dds,
+            `tabDaily Diesel Entries` dde
+        WHERE
+            dde.parent = dds.name
+            {"AND " + conditions_str if conditions_str else ""}
+        ORDER BY
+            dds.daily_sheet_date ASC
+    """
+
+    return frappe.db.sql(query, filters, as_dict=1)

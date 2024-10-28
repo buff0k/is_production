@@ -78,7 +78,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-26 10:49:31.364995",
+ "modified": "2024-10-28 07:37:19.375571",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pre-Use Hours",
@@ -121,7 +121,6 @@
    "role": "Production User",
    "select": 1,
    "share": 1,
-   "submit": 1,
    "write": 1
   }
  ],

@@ -130,7 +130,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-26 17:38:16.002228",
+ "modified": "2024-10-28 07:36:06.682456",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Diesel Receipt",
@@ -177,7 +177,6 @@
    "role": "Production User",
    "select": 1,
    "share": 1,
-   "submit": 1,
    "write": 1
   }
  ],

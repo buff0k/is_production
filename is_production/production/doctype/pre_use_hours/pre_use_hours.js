@@ -41,6 +41,29 @@ frappe.ui.form.on('Pre-Use Hours', {
                 }
             });
         }
+    },
+
+    refresh: function(frm) {
+        frappe.call({
+            method: 'frappe.client.get_list',
+            args: {
+                doctype: 'Pre-Use Status',
+                fields: ['name', 'pre_use_avail_status']
+            },
+            callback: function(response) {
+                if (response.message) {
+                    let html = "<table class='table table-bordered'><tr><th>Status</th><th>Pre-Use Checklist Availability Status</th></tr>";
+                    response.message.forEach(record => {
+                        html += `<tr><td>${record.name}</td><td>${record.pre_use_avail_status}</td></tr>`;
+                    });
+                    html += "</table>";
+                    html += "<p><b>Please note that when no Pre-use checklist is available for a specific Plant No. then only the Pre-use status field must be completed for the specific plant.</b></p>";
+                    
+                    frm.set_df_property('pre_use_status_explain', 'options', html);
+                    frm.refresh_field('pre_use_status_explain');
+                }
+            }
+        });
     }
 });
 
