@@ -41,7 +41,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-22 11:41:51.042015",
+ "modified": "2024-11-04 19:44:32.315212",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Diesel Site Tank Setup",
@@ -49,6 +49,8 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,

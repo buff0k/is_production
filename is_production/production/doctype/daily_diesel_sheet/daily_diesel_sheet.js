@@ -37,19 +37,13 @@ frappe.ui.form.on('Daily Diesel Sheet', {
     validate: function(frm) {
         let is_valid = true;
 
-        // Validate that end_dip is greater than start_dip
-        if (frm.doc.end_dip <= frm.doc.start_dip) {
-            frappe.msgprint(__('End Dip must be greater than Start Dip.'));
-            is_valid = false;
-        }
-
         // Validate that an attachment is present in the daily_diesel_sheet_attachment field
         if (!frm.doc.daily_diesel_sheet_attachment) {
             frappe.msgprint(__('Please attach the Daily Diesel Sheet before submitting.'));
             is_valid = false;
         }
 
-        // Perform time-based and close_reading/open_reading validations
+        // Perform time-based validations
         let time_valid = validate_time_issued(frm);
         if (!time_valid) {
             is_valid = false;
@@ -57,24 +51,6 @@ frappe.ui.form.on('Daily Diesel Sheet', {
 
         if (!is_valid) {
             frappe.validated = false;  // Prevent form submission if validation fails
-        }
-    },
-
-    end_dip: function(frm) {
-        // Calculate 'dip_litres_used' when 'end_dip' is updated
-        if (frm.doc.start_dip && frm.doc.end_dip) {
-            frm.doc.dip_litres_used = frm.doc.end_dip - frm.doc.start_dip;
-            frm.refresh_field('dip_litres_used'); // Refresh the 'dip_litres_used' field to display the updated value
-            console.log("Dip Litres Used:", frm.doc.dip_litres_used);
-        }
-    },
-
-    start_dip: function(frm) {
-        // Calculate 'dip_litres_used' when 'start_dip' is updated
-        if (frm.doc.start_dip && frm.doc.end_dip) {
-            frm.doc.dip_litres_used = frm.doc.end_dip - frm.doc.start_dip;
-            frm.refresh_field('dip_litres_used'); // Refresh the 'dip_litres_used' field to display the updated value
-            console.log("Dip Litres Used:", frm.doc.dip_litres_used);
         }
     }
 });

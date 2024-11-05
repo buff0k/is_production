@@ -8,7 +8,33 @@ frappe.query_reports["Plant Monthly Diesel Usage"] = {
             "label": "Site",
             "fieldtype": "Link",
             "options": "Location",
-            "reqd": 1
+            "reqd": 1,
+            "on_change": function() {
+                const location = frappe.query_report.get_filter_value('location');
+                
+                if (location) {
+                    // Update the asset_name filter options based on the selected location
+                    frappe.query_report.get_filter('asset_name').get_query = function() {
+                        return {
+                            filters: {
+                                'location': location,
+                                'docstatus': 1  // Only include assets with submitted status
+                            }
+                        };
+                    };
+                    
+                    // Clear asset_name selection if location is changed
+                    frappe.query_report.set_filter_value('asset_name', null);
+                    frappe.query_report.refresh();
+                }
+            }
+        },
+        {
+            "fieldname": "asset_name",
+            "label": "Asset Name",
+            "fieldtype": "Link",
+            "options": "Asset",
+            "reqd": 0  // Make asset_name optional
         },
         {
             "fieldname": "from_date",
@@ -23,13 +49,6 @@ frappe.query_reports["Plant Monthly Diesel Usage"] = {
             "fieldtype": "Date",
             "default": frappe.datetime.month_end(),
             "reqd": 1
-        },
-        {
-            "fieldname": "asset_name",
-            "label": "Asset Name",
-            "fieldtype": "Link",
-            "options": "Asset",
-            "reqd": 0
         }
     ]
 };
