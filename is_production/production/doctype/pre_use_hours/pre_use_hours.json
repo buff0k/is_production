@@ -71,14 +71,13 @@
   {
    "fieldname": "pre_use_status_explain",
    "fieldtype": "HTML",
-   "label": "Pre-use Status Explanation",
-   "read_only": 1
+   "label": "Plant Status Explanation"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-10-28 07:37:19.375571",
+ "modified": "2024-11-08 11:17:34.376851",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pre-Use Hours",
@@ -86,6 +85,8 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,

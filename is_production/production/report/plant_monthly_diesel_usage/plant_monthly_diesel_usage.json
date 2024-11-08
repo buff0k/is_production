@@ -1,5 +1,5 @@
 {
- "add_total_row": 1,
+ "add_total_row": 0,
  "columns": [],
  "creation": "2024-10-27 18:48:17.699722",
  "disabled": 0,
@@ -10,7 +10,7 @@
  "is_standard": "Yes",
  "letter_head": "Isambane Mining",
  "letterhead": null,
- "modified": "2024-10-27 19:52:57.323452",
+ "modified": "2024-11-05 19:53:45.950246",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Plant Monthly Diesel Usage",
