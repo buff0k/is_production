@@ -9,9 +9,10 @@
   "section_break_zu2j",
   "amended_from",
   "location",
-  "shift",
-  "column_break_rgso",
   "shift_date",
+  "shift_system",
+  "column_break_rgso",
+  "shift",
   "pre_use_status_explain",
   "section_break_cean",
   "pre_use_assets"
@@ -44,7 +45,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Shift",
-   "options": "A\nB",
+   "options": "A\nB\nC",
    "reqd": 1
   },
   {
@@ -72,12 +73,17 @@
    "fieldname": "pre_use_status_explain",
    "fieldtype": "HTML",
    "label": "Plant Status Explanation"
+  },
+  {
+   "fieldname": "shift_system",
+   "fieldtype": "Read Only",
+   "label": "Shift System"
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-11-08 11:17:34.376851",
+ "modified": "2024-11-13 08:07:55.075162",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pre-Use Hours",

@@ -6,9 +6,10 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "shift_a_b_start_date",
+  "shift_start_date",
   "shift_a_hours",
   "shift_b_hours",
+  "shift_c_hours",
   "day_week"
  ],
  "fields": [
@@ -16,11 +17,6 @@
    "fieldname": "day_week",
    "fieldtype": "Read Only",
    "label": "Day of Week"
-  },
-  {
-   "fieldname": "shift_a_b_start_date",
-   "fieldtype": "Date",
-   "label": "Shift A & B Start Date"
   },
   {
    "fieldname": "shift_a_hours",
@@ -33,12 +29,23 @@
    "fieldtype": "Int",
    "label": "Shift B Hours",
    "precision": "0"
+  },
+  {
+   "fieldname": "shift_start_date",
+   "fieldtype": "Date",
+   "label": "Shift Start Date"
+  },
+  {
+   "fieldname": "shift_c_hours",
+   "fieldtype": "Int",
+   "label": "Shift C Hours",
+   "precision": "0"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-10-13 07:09:23.698915",
+ "modified": "2024-11-11 20:16:50.900924",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Days",

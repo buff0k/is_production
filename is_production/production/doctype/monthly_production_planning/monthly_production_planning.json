@@ -21,6 +21,7 @@
   "column_break_kqgs",
   "tot_shift_a_hours",
   "tot_shift_b_hours",
+  "tot_shift_c_hours",
   "total_month_prod_hours",
   "section_break_beyf",
   "month_prod_days"
@@ -45,7 +46,7 @@
    "fieldname": "shift_system",
    "fieldtype": "Select",
    "label": "Shift System",
-   "options": "3-shift",
+   "options": "2x12Hour\n3x8Hour",
    "reqd": 1
   },
   {
@@ -105,8 +106,9 @@
   },
   {
    "fieldname": "tot_shift_a_hours",
-   "fieldtype": "Int",
+   "fieldtype": "Float",
    "label": "Total Shift A Hours",
+   "precision": "1",
    "read_only": 1
   },
   {
@@ -115,20 +117,28 @@
   },
   {
    "fieldname": "tot_shift_b_hours",
-   "fieldtype": "Int",
+   "fieldtype": "Float",
    "label": "Total Shift B Hours",
+   "precision": "1",
    "read_only": 1
   },
   {
    "fieldname": "total_month_prod_hours",
-   "fieldtype": "Int",
+   "fieldtype": "Float",
    "label": "Total Month Production Hours",
+   "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "tot_shift_c_hours",
+   "fieldtype": "Float",
+   "label": "Total Shift C Hours",
+   "precision": "1"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-15 19:49:51.070651",
+ "modified": "2024-11-11 20:13:18.156575",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",
