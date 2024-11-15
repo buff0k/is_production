@@ -8,6 +8,8 @@
  "field_order": [
   "location",
   "prod_month_end",
+  "column_break_blgh",
+  "site_status",
   "production_plant_planned_section",
   "prod_excavators",
   "column_break_pbpd",
@@ -19,9 +21,10 @@
   "populate_monthly_prod_days",
   "clear_production_days",
   "column_break_kqgs",
-  "tot_shift_a_hours",
-  "tot_shift_b_hours",
-  "tot_shift_c_hours",
+  "tot_shift_day_hours",
+  "tot_shift_night_hours",
+  "tot_shift_morning_hours",
+  "tot_shift_afternoon_hours",
   "total_month_prod_hours",
   "section_break_beyf",
   "month_prod_days"
@@ -105,22 +108,8 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "tot_shift_a_hours",
-   "fieldtype": "Float",
-   "label": "Total Shift A Hours",
-   "precision": "1",
-   "read_only": 1
-  },
-  {
    "fieldname": "section_break_beyf",
    "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "tot_shift_b_hours",
-   "fieldtype": "Float",
-   "label": "Total Shift B Hours",
-   "precision": "1",
-   "read_only": 1
   },
   {
    "fieldname": "total_month_prod_hours",
@@ -130,15 +119,46 @@
    "read_only": 1
   },
   {
-   "fieldname": "tot_shift_c_hours",
+   "fieldname": "column_break_blgh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "site_status",
+   "fieldtype": "Select",
+   "label": "Production Status",
+   "options": "Planned\nEstablish\nProducing\nOn Hold\nDe-Establish\nExited"
+  },
+  {
+   "fieldname": "tot_shift_day_hours",
    "fieldtype": "Float",
-   "label": "Total Shift C Hours",
+   "label": "Total Day Shift Hours",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tot_shift_night_hours",
+   "fieldtype": "Float",
+   "label": "Total Night Shift Hours",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tot_shift_afternoon_hours",
+   "fieldtype": "Float",
+   "label": "Total Afternoon Shift Hours",
    "precision": "1"
+  },
+  {
+   "fieldname": "tot_shift_morning_hours",
+   "fieldtype": "Float",
+   "label": "Total Morning Shift Hours",
+   "precision": "1",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-11-11 20:13:18.156575",
+ "modified": "2024-11-15 15:01:57.175632",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",

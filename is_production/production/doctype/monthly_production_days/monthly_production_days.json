@@ -7,9 +7,10 @@
  "engine": "InnoDB",
  "field_order": [
   "shift_start_date",
-  "shift_a_hours",
-  "shift_b_hours",
-  "shift_c_hours",
+  "shift_day_hours",
+  "shift_night_hours",
+  "shift_morning_hours",
+  "shift_afternoon_hours",
   "day_week"
  ],
  "fields": [
@@ -19,33 +20,39 @@
    "label": "Day of Week"
   },
   {
-   "fieldname": "shift_a_hours",
-   "fieldtype": "Int",
-   "label": "Shift A Hours",
-   "precision": "0"
-  },
-  {
-   "fieldname": "shift_b_hours",
-   "fieldtype": "Int",
-   "label": "Shift B Hours",
-   "precision": "0"
-  },
-  {
    "fieldname": "shift_start_date",
    "fieldtype": "Date",
    "label": "Shift Start Date"
   },
   {
-   "fieldname": "shift_c_hours",
+   "fieldname": "shift_day_hours",
    "fieldtype": "Int",
-   "label": "Shift C Hours",
+   "label": "Day Shift Hours",
+   "precision": "0"
+  },
+  {
+   "fieldname": "shift_night_hours",
+   "fieldtype": "Int",
+   "label": "Night Shift Hours",
+   "precision": "0"
+  },
+  {
+   "fieldname": "shift_morning_hours",
+   "fieldtype": "Int",
+   "label": "Morning Shift Hours",
+   "precision": "0"
+  },
+  {
+   "fieldname": "shift_afternoon_hours",
+   "fieldtype": "Int",
+   "label": "Afternoon Shift Hours Copy",
    "precision": "0"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-11-11 20:16:50.900924",
+ "modified": "2024-11-15 14:45:33.006818",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Days",

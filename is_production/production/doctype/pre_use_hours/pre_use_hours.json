@@ -13,6 +13,7 @@
   "shift_system",
   "column_break_rgso",
   "shift",
+  "avail_util_lookup",
   "pre_use_status_explain",
   "section_break_cean",
   "pre_use_assets"
@@ -78,12 +79,17 @@
    "fieldname": "shift_system",
    "fieldtype": "Read Only",
    "label": "Shift System"
+  },
+  {
+   "fieldname": "avail_util_lookup",
+   "fieldtype": "Data",
+   "label": "Availability and Utilisation Lookup",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
- "is_submittable": 1,
  "links": [],
- "modified": "2024-11-13 08:07:55.075162",
+ "modified": "2024-11-15 11:05:34.851891",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pre-Use Hours",
@@ -91,8 +97,18 @@
  "owner": "Administrator",
  "permissions": [
   {
-   "amend": 1,
-   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Administrator",
+   "share": 1,
+   "write": 1
+  },
+  {
    "create": 1,
    "delete": 1,
    "email": 1,
@@ -102,7 +118,6 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
-   "submit": 1,
    "write": 1
   },
   {
@@ -115,7 +130,6 @@
    "role": "Production Manager",
    "select": 1,
    "share": 1,
-   "submit": 1,
    "write": 1
   },
   {

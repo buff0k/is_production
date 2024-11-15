@@ -152,7 +152,7 @@ function validate_time_issued(frm) {
             }
         }
 
-        // Validation 2: Ensure asset_name doesn't receive diesel twice within 30 minutes
+        // Validation 2: Ensure asset_name doesn't receive diesel twice within 5 minutes
         frm.doc.daily_diesel_entries.forEach(function(r, index) {
             if (index !== current_row_index && r.asset_name === row.asset_name && r.time_issued && row.time_issued) {
                 let current_time = moment(row.time_issued, "HH:mm:ss");
@@ -161,8 +161,8 @@ function validate_time_issued(frm) {
                 let diff_in_minutes = current_time.diff(prev_time, 'minutes');
                 console.log(`Time difference between asset ${r.asset_name} in row ${index + 1} and row ${current_row_index + 1}:`, diff_in_minutes, "minutes");
 
-                if (diff_in_minutes < 30) {
-                    frappe.msgprint(__('The same asset cannot receive diesel twice within 30 minutes.'));
+                if (diff_in_minutes < 5) {
+                    frappe.msgprint(__('The same asset cannot receive diesel twice within 5 minutes.'));
                     is_valid = false;
                 }
             }
