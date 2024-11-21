@@ -43,14 +43,8 @@ frappe.ui.form.on('Daily Diesel Sheet', {
             is_valid = false;
         }
 
-        // Perform time-based validations
-        let time_valid = validate_time_issued(frm);
-        if (!time_valid) {
-            is_valid = false;
-        }
-
         if (!is_valid) {
-            frappe.validated = false;  // Prevent form submission if validation fails
+            frappe.validated = false; // Prevent form submission if validation fails
         }
     }
 });
@@ -128,54 +122,6 @@ function calculate_and_lock_open_reading(frm) {
     frm.refresh_field('daily_diesel_entries');
 }
 
-// Perform the time validation logic whenever time_issued is edited or validated
-function validate_time_issued(frm) {
-    let is_valid = true;
-
-    frm.doc.daily_diesel_entries.forEach(function(row, current_row_index) {
-        console.log(`Row ${current_row_index + 1} Time Issued:`, row.time_issued);
-
-        // Validation 1: Ensure time_issued is at least 3 minutes before the next row's time_issued
-        if (current_row_index < frm.doc.daily_diesel_entries.length - 1) {
-            let next_row = frm.doc.daily_diesel_entries[current_row_index + 1];
-            if (next_row.time_issued && row.time_issued) {
-                let current_time = moment(row.time_issued, "HH:mm:ss");
-                let next_time = moment(next_row.time_issued, "HH:mm:ss");
-
-                let diff_in_minutes = next_time.diff(current_time, 'minutes');
-                console.log(`Time difference between row ${current_row_index + 1} and row ${current_row_index + 2}:`, diff_in_minutes, "minutes");
-
-                if (diff_in_minutes < 3) {
-                    frappe.msgprint(__('The time issued must be at least 3 minutes before the next row entry.'));
-                    is_valid = false;
-                }
-            }
-        }
-
-        // Validation 2: Ensure asset_name doesn't receive diesel twice within 5 minutes
-        frm.doc.daily_diesel_entries.forEach(function(r, index) {
-            if (index !== current_row_index && r.asset_name === row.asset_name && r.time_issued && row.time_issued) {
-                let current_time = moment(row.time_issued, "HH:mm:ss");
-                let prev_time = moment(r.time_issued, "HH:mm:ss");
-
-                let diff_in_minutes = current_time.diff(prev_time, 'minutes');
-                console.log(`Time difference between asset ${r.asset_name} in row ${index + 1} and row ${current_row_index + 1}:`, diff_in_minutes, "minutes");
-
-                if (diff_in_minutes < 5) {
-                    frappe.msgprint(__('The same asset cannot receive diesel twice within 5 minutes.'));
-                    is_valid = false;
-                }
-            }
-        });
-    });
-
-    if (!is_valid) {
-        frappe.validated = false;  // Prevent saving if validation fails
-    }
-
-    return is_valid;
-}
-
 // Helper function to calculate and update total litres_issued_equipment
 function calculate_total_litres_issued_equipment(frm) {
     let total_litres_issued = 0;
@@ -184,7 +130,4 @@ function calculate_total_litres_issued_equipment(frm) {
     });
     frm.set_value('litres_issued_equipment', total_litres_issued);
     frm.refresh_field('litres_issued_equipment');
-
-    // Log the total litres issued for debugging
-    console.log("Total Litres Issued:", total_litres_issued);
 }

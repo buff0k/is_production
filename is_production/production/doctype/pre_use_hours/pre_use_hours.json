@@ -46,7 +46,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Shift",
-   "options": "A\nB\nC",
+   "options": "Day\nMorning\nAfternoon\nNight",
    "reqd": 1
   },
   {
@@ -89,7 +89,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-11-15 11:05:34.851891",
+ "modified": "2024-11-15 20:53:55.900293",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pre-Use Hours",

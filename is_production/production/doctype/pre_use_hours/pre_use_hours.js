@@ -1,201 +1,93 @@
 frappe.ui.form.on('Pre-Use Hours', {
-    location: function(frm) {
+    shift_system: function (frm) {
+        update_shift_options(frm, frm.doc.shift_system);
+    },
+    location: function (frm) {
         if (frm.doc.location) {
-            // Clear the pre_use_assets table
             frm.clear_table('pre_use_assets');
+            fetch_assets(frm);
 
-            // Fetch assets for the selected location
-            frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Asset',
-                    filters: {
-                        location: frm.doc.location,
-                        asset_category: ["in", ["Excavator", "ADT", "Dozer"]],
-                        status: 'Submitted'
-                    },
-                    fields: ['name', 'asset_name', 'item_name', 'asset_category']
-                },
-                callback: function(response) {
-                    if (response.message) {
-                        response.message.forEach(asset => {
-                            const row = frm.add_child('pre_use_assets');
-                            row.asset_name = asset.asset_name;
-                            row.item_name = asset.item_name;
-                            row.asset_category = asset.asset_category;
-                        });
-                        frm.refresh_field('pre_use_assets');
-                    }
-                }
-            });
+            // Trigger shift system fetch if shift_date is populated
+            if (frm.doc.shift_date) fetch_shift_system(frm);
 
-            // Fetch the last created Pre-Use Hours document for the location before the current document's creation
-            if (frm.doc.creation) {
-                frappe.call({
-                    method: 'is_production.production.doctype.pre_use_hours.pre_use_hours.get_previous_document',
-                    args: {
-                        location: frm.doc.location,
-                        current_creation: frm.doc.creation
-                    },
-                    callback: function(response) {
-                        if (response.message) {
-                            const previous_doc = response.message;
-
-                            frm.doc.pre_use_assets.forEach(asset => {
-                                const matching_asset = previous_doc.pre_use_assets.find(
-                                    prev_asset => prev_asset.asset_name === asset.asset_name
-                                );
-                                if (matching_asset) {
-                                    asset.eng_hrs_start = matching_asset.eng_hrs_end;
-                                }
-                            });
-
-                            frm.refresh_field('pre_use_assets');
-                            disable_row_editing(frm);
-                        }
-                    }
-                });
-            }
+            set_avail_util_lookup(frm);
         }
-    
-        // Trigger shift system fetch if shift_date is populated
-        if (frm.doc.shift_date) {
-            fetch_shift_system(frm);
-        }
-
-        // Set avail_util_lookup if all fields are filled
+    },
+    shift_date: function (frm) {
+        if (frm.doc.location) fetch_shift_system(frm);
         set_avail_util_lookup(frm);
     },
-
-    onsave: function(frm) {
-        // Update the previous document's closing hours (eng_hrs_end) on save
-        frappe.call({
-            method: 'is_production.production.doctype.pre_use_hours.pre_use_hours.update_previous_document_eng_hrs',
-            args: {
-                        location: frm.doc.location,
-                        current_creation: frm.doc.creation
-                    },
-            callback: function(response) {
-                        if (response.message) {
-                            const previous_doc = response.message;
-
-                            frm.doc.pre_use_assets.forEach(asset => {
-                                const matching_asset = previous_doc.pre_use_assets.find(
-                                    prev_asset => prev_asset.asset_name === asset.asset_name
-                                );
-                                if (matching_asset) {
-                                    asset.eng_hrs_start = matching_asset.eng_hrs_end;
-                                }
-                            });
-                        }
-                    }
-        });
-    },
-
-    shift_date: function(frm) {
-        if (frm.doc.location) {
-            fetch_shift_system(frm);
-        }
+    shift: function (frm) {
         set_avail_util_lookup(frm);
     },
-    shift: function(frm) {
-        set_avail_util_lookup(frm);
-    },
-    refresh: function(frm) {
-        frappe.call({
-            method: 'frappe.client.get_list',
-            args: {
-                doctype: 'Pre-Use Status',
-                fields: ['*'],
-                order_by: 'name asc'
+    refresh: function (frm) {
+        fetch_pre_use_status(frm);
+    }
+});
+
+function update_shift_options(frm, shift_system) {
+    const shift_options = {
+        '3x8Hour': ['Morning', 'Afternoon', 'Night'],
+        '2x12Hour': ['Day', 'Night']
+    };
+    frm.set_df_property('shift', 'options', shift_options[shift_system] || []);
+}
+
+function fetch_assets(frm) {
+    frappe.call({
+        method: 'frappe.client.get_list',
+        args: {
+            doctype: 'Asset',
+            filters: {
+                location: frm.doc.location,
+                asset_category: ['in', ['Excavator', 'ADT', 'Dozer']],
+                status: 'Submitted'
             },
-            callback: function(response) {
-                const records = response.message;
-                let html = "<table style='width:100%; border-collapse: collapse;'>";
-
-                if (records && records.length > 0) {
-                    const excludedFields = ["owner", "creation", "modified", "modified_by", "docstatus", "idx"];
-                    html += "<tr>";
-                    Object.keys(records[0]).forEach(field => {
-                        if (!excludedFields.includes(field.toLowerCase())) {
-                            const fieldName = field.toLowerCase() === "name" ? "Status" : field.charAt(0).toUpperCase() + field.slice(1);
-                            html += `<th style="border: 1px solid #000; padding: 5px;">${fieldName}</th>`;
-                        }
-                    });
-                    html += "</tr>";
-
-                    records.forEach(record => {
-                        html += "<tr>";
-                        Object.keys(record).forEach(field => {
-                            if (!excludedFields.includes(field.toLowerCase())) {
-                                html += `<td style="border: 1px solid #000; padding: 5px;">${record[field]}</td>`;
-                            }
-                        });
-                        html += "</tr>";
-                    });
-
-                    html += "</table>";
-                    html += "<br><b>For all records below with a 2 or 3 status, the Engine Hours do not have to be captured.</b>";
-                    $(frm.fields_dict.pre_use_status_explain.wrapper).html(html);
-                } else {
-                    const no_records_html = "<p>No records found in 'Pre-Use Status'.</p>";
-                    $(frm.fields_dict.pre_use_status_explain.wrapper).html(no_records_html);
-                }
-            }
-        });
-    }
-});
-
-frappe.ui.form.on('Pre-Use Assets', {
-    eng_hrs_start: function(frm, cdt, cdn) {
-        const row = frappe.get_doc(cdt, cdn);
-        row.eng_hrs_end = null; // Clear eng_hrs_end when eng_hrs_start is edited
-        frm.refresh_field('pre_use_assets');
-    }
-});
+            fields: ['name', 'asset_name', 'item_name', 'asset_category']
+        },
+        callback: function (response) {
+            response.message.forEach(asset => {
+                const row = frm.add_child('pre_use_assets');
+                row.asset_name = asset.asset_name;
+                row.item_name = asset.item_name;
+                row.asset_category = asset.asset_category;
+            });
+            frm.refresh_field('pre_use_assets');
+        }
+    });
+}
 
 function fetch_shift_system(frm) {
-    const shiftDate = frappe.datetime.str_to_obj(frm.doc.shift_date);
-
-    const startOfMonth = new Date(shiftDate.getFullYear(), shiftDate.getMonth(), 1);
-    const endOfMonth = new Date(shiftDate.getFullYear(), shiftDate.getMonth() + 1, 0);
-
-    const startOfMonthStr = frappe.datetime.obj_to_str(startOfMonth);
-    const endOfMonthStr = frappe.datetime.obj_to_str(endOfMonth);
+    if (!frm.doc.location || !frm.doc.shift_date) return;
 
     frappe.call({
         method: 'frappe.client.get_list',
         args: {
             doctype: 'Monthly Production Planning',
-            filters: [
-                ['location', '=', frm.doc.location],
-                ['prod_month_end', '>=', startOfMonthStr],
-                ['prod_month_end', '<=', endOfMonthStr]
-            ],
-            fields: ['shift_system'],
-            order_by: 'prod_month_end asc',
-            limit: 1
+            filters: {
+                location: frm.doc.location,
+                prod_month_end: [">=", frm.doc.shift_date],
+                site_status: 'Producing'
+            },
+            fields: ['prod_month_end', 'shift_system'],
+            limit_page_length: 1
         },
-        callback: function(response) {
-            const planningDoc = response.message && response.message[0];
-            if (planningDoc) {
-                frm.set_value('shift_system', planningDoc.shift_system);
+        callback: function (response) {
+            if (response.message.length) {
+                const record = response.message[0];
+                const prod_month_end = frappe.datetime.str_to_obj(record.prod_month_end);
+                const shift_date = frappe.datetime.str_to_obj(frm.doc.shift_date);
 
-                if (planningDoc.shift_system === "2x12Hour") {
-                    frm.fields_dict.shift.df.options = ['A', 'B'].join('\n');
-                } else if (planningDoc.shift_system === "3x8Hour") {
-                    frm.fields_dict.shift.df.options = ['A', 'B', 'C'].join('\n');
+                // Ensure shift_date falls in the same month as prod_month_end
+                if (shift_date.getMonth() !== prod_month_end.getMonth() || shift_date.getFullYear() !== prod_month_end.getFullYear()) {
+                    frappe.throw("Shift Date must be in the same month as the month that ends on prod_month_end.");
                 }
-                frm.refresh_field('shift');
+
+                frm.set_value('shift_system', record.shift_system);
+                update_shift_options(frm, record.shift_system);
             }
         }
     });
-}
-
-function disable_row_editing(frm) {
-    frm.fields_dict['pre_use_assets'].grid.wrapper.find('.grid-remove-row').hide();
-    frm.fields_dict['pre_use_assets'].grid.wrapper.find('.grid-duplicate-row').hide();
-    frm.fields_dict['pre_use_assets'].grid.wrapper.find('[data-fieldname="eng_hrs_end"]').prop('readonly', true);
 }
 
 function set_avail_util_lookup(frm) {
@@ -203,7 +95,33 @@ function set_avail_util_lookup(frm) {
         const shift_date_formatted = frappe.datetime.str_to_user(frm.doc.shift_date);
         const avail_util_lookup_value = `${frm.doc.location}-${shift_date_formatted}-${frm.doc.shift}`;
         frm.set_value('avail_util_lookup', avail_util_lookup_value);
-    } else {
-        frm.set_value('avail_util_lookup', '');
     }
+}
+
+function fetch_pre_use_status(frm) {
+    frappe.call({
+        method: 'frappe.client.get_list',
+        args: { doctype: 'Pre-Use Status', fields: ['name', 'pre_use_avail_status'], order_by: 'name asc' },
+        callback: function (response) {
+            const records = response.message;
+            let html = records.length
+                ? generate_status_table(records)
+                : "<p>No records found in 'Pre-Use Status'.</p>";
+
+            // Append the instructional text at the bottom
+            html += "<br><b>Please ensure correct status is indicated for each Plant e.g. if Plant is not working @ shift start due to Breakdown status of 2 must be selected. Or if machine is spare then select status 3.</b>";
+
+            $(frm.fields_dict.pre_use_status_explain.wrapper).html(html);
+        }
+    });
+}
+
+function generate_status_table(records) {
+    let html = "<table style='width:100%; border-collapse: collapse;'>";
+    html += "<tr><th>Status</th><th>Pre-Use Availability Status</th></tr>";
+    records.forEach(record => {
+        html += `<tr><td>${record.name}</td><td>${record.pre_use_avail_status}</td></tr>`;
+    });
+    html += "</table>";
+    return html;
 }

@@ -72,11 +72,10 @@
    "reqd": 1
   },
   {
-   "default": "A",
    "fieldname": "shift",
    "fieldtype": "Select",
    "label": "Shift",
-   "options": "A\nB",
+   "options": "Morning\nAfternoon\nNight",
    "reqd": 1
   },
   {
@@ -123,7 +122,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-11-04 19:48:18.133329",
+ "modified": "2024-11-21 07:02:38.218336",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Diesel Sheet",
@@ -131,6 +130,8 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
