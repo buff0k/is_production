@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:{location}-{asset_name}-{daily_sheet_date}",
+ "autoname": "format:{location}-{asset_name}-{daily_sheet_date}-{shift}",
  "creation": "2024-10-18 13:21:54.256372",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -58,7 +58,7 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Daily Diesel Sheet Reference",
-   "length": 5,
+   "length": 20,
    "reqd": 1
   },
   {
@@ -122,7 +122,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2024-11-21 07:02:38.218336",
+ "modified": "2024-11-26 22:49:53.068840",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Diesel Sheet",
