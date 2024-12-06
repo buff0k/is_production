@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"b8ARXFS6g1\",\"type\":\"card\",\"data\":{\"card_name\":\"Contract Terms\",\"col\":4}},{\"id\":\"kNk6XoNWfM\",\"type\":\"card\",\"data\":{\"card_name\":\"Diesel\",\"col\":4}},{\"id\":\"dyKdlUV23b\",\"type\":\"card\",\"data\":{\"card_name\":\"Availability\",\"col\":4}}]",
+ "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"b8ARXFS6g1\",\"type\":\"card\",\"data\":{\"card_name\":\"Contract Terms\",\"col\":4}},{\"id\":\"kNk6XoNWfM\",\"type\":\"card\",\"data\":{\"card_name\":\"Diesel\",\"col\":4}},{\"id\":\"dyKdlUV23b\",\"type\":\"card\",\"data\":{\"card_name\":\"Availability & Utilization\",\"col\":4}}]",
  "creation": "2024-07-29 15:25:05.760313",
  "custom_blocks": [],
  "docstatus": 0,
@@ -13,44 +13,6 @@
  "is_hidden": 0,
  "label": "Production",
  "links": [
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Contract Terms",
-   "link_count": 1,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Key Contract Terms",
-   "link_count": 0,
-   "link_to": "Key Contract Terms",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Availability",
-   "link_count": 1,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Pre-Use Hours",
-   "link_count": 0,
-   "link_to": "Pre-Use Hours",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
   {
    "hidden": 0,
    "is_query_report": 0,
@@ -99,9 +61,77 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Contract Terms",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Key Contract Terms",
+   "link_count": 0,
+   "link_to": "Key Contract Terms",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Availability & Utilization",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Pre-Use Hours",
+   "link_count": 0,
+   "link_to": "Pre-Use Hours",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Monthly Production Planning",
+   "link_count": 0,
+   "link_to": "Monthly Production Planning",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Plant Breakdown",
+   "link_count": 0,
+   "link_to": "Plant Breakdown",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Availability and Utilisation",
+   "link_count": 0,
+   "link_to": "Availability and Utilisation",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2024-10-27 20:32:40.399617",
+ "modified": "2024-12-06 09:04:26.732542",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
