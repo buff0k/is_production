@@ -65,32 +65,96 @@ def check_previous_record_sequence(doc, monthly_plan):
     if not previous_doc:
         return  # No previous record
 
-    validate_next_shift_in_sequence(doc, previous_doc, monthly_plan)
+    validate_next_shift_and_sequence(doc, previous_doc, monthly_plan)
 
-def validate_next_shift_in_sequence(doc, previous_doc, monthly_plan):
+from datetime import datetime, date
+
+def validate_next_shift_and_sequence(doc, location, shift_date):
     """
-    Ensure correct shift sequence and continuity of shift dates.
+    Validate shift system, fetch Monthly Production Planning data, and ensure correct shift sequence.
     """
+    # Ensure shift_date is not None and in correct format
+    if not shift_date:
+        frappe.throw("Shift Date is required for validation.")
+
+    # Convert shift_date to datetime object (dd-mm-yyyy format)
+    if isinstance(shift_date, str):
+        try:
+            shift_date_obj = datetime.strptime(shift_date, "%d-%m-%Y")
+        except ValueError:
+            frappe.throw(f"Shift Date '{shift_date}' is invalid. Expected format: dd-mm-yyyy.")
+    elif isinstance(shift_date, date):
+        shift_date_obj = datetime.combine(shift_date, datetime.min.time())
+    else:
+        frappe.throw(f"Shift Date '{shift_date}' is invalid.")
+
+    # Convert shift_date to yyyy-mm-dd string for database query
+    shift_date_str = shift_date_obj.strftime("%Y-%m-%d")
+
+    # Fetch Monthly Production Planning document where shift_date falls in the relevant month
+    monthly_plan = frappe.db.sql("""
+        SELECT name, shift_system, prod_month_end 
+        FROM `tabMonthly Production Planning`
+        WHERE location = %s
+          AND %s BETWEEN DATE_ADD(prod_month_end, INTERVAL -DAY(prod_month_end)+1 DAY) AND prod_month_end
+          AND site_status = 'Producing'
+        LIMIT 1
+    """, (location, shift_date_str), as_dict=True)
+
+    if not monthly_plan:
+        frappe.throw("No Monthly Production Planning data found for the selected location and shift_date.")
+
+    monthly_plan = monthly_plan[0]  # Get the first match
+    shift_system = monthly_plan.get("shift_system")
+    if not shift_system:
+        frappe.throw("Shift System is not defined in the Monthly Production Planning for this location.")
+
+    # Fetch the previous Pre-Use Hours document
+    previous_doc = frappe.db.get_value(
+        "Pre-Use Hours",
+        filters={"location": location, "creation": ["<", doc.creation]},
+        fieldname="name",
+        order_by="creation desc"
+    )
+    
+    if not previous_doc:
+        return  # No previous record to validate against
+
+    previous_doc = frappe.get_doc("Pre-Use Hours", previous_doc)
+    previous_shift = previous_doc.shift
+    previous_shift_date = previous_doc.shift_date
+
+    # Define shift sequence logic
     shift_sequence = {
         "2x12Hour": {"Day": "Night", "Night": "Day"},
         "3x8Hour": {"Morning": "Afternoon", "Afternoon": "Night", "Night": "Morning"}
     }
-    
-    required_shift = shift_sequence.get(monthly_plan["shift_system"], {}).get(previous_doc.shift)
+
+    # Determine the required shift based on the shift system
+    required_shift = shift_sequence.get(shift_system, {}).get(previous_shift)
     if not required_shift:
-        frappe.throw(f"Invalid shift system or previous shift '{previous_doc.shift}'. Unable to determine the next shift.")
+        frappe.throw(f"Invalid shift system '{shift_system}' or previous shift '{previous_shift}'. Unable to determine the next shift.")
 
+    # Validate current shift matches expected shift
     if doc.shift != required_shift:
-        frappe.throw(f"Invalid shift sequence: Expected '{required_shift}' after '{previous_doc.shift}'.")
+        frappe.throw(f"Invalid shift sequence: Expected '{required_shift}' after '{previous_shift}'.")
 
-    if doc.shift in ["Afternoon", "Night"]:
-        if str(doc.shift_date) != str(previous_doc.shift_date):
-            frappe.throw(f"{doc.shift} shift must occur on the same date as the previous record.")
-    elif doc.shift == "Morning":
-        previous_date = datetime.strptime(str(previous_doc.shift_date), "%Y-%m-%d").date()
-        current_date = datetime.strptime(str(doc.shift_date), "%Y-%m-%d").date()
+    # Validate date continuity based on shift sequence
+    previous_date = datetime.strptime(previous_shift_date, "%d-%m-%Y").date()
+    current_date = shift_date_obj.date()
+
+    if previous_shift == "Night" and doc.shift == "Morning":
+        # Night → Morning transition must occur on the next day
         if current_date != previous_date + timedelta(days=1):
-            frappe.throw("Morning shift must occur on the next day.")
+            frappe.throw("Morning shift must occur on the next day after a Night shift.")
+    elif doc.shift in ["Afternoon", "Night"]:
+        # Same-day shifts for Afternoon and Night
+        if current_date != previous_date:
+            frappe.throw(f"{doc.shift} shift must occur on the same date as the previous record.")
+    else:
+        # Validate same-day continuity for all other cases
+        if current_date != previous_date:
+            frappe.throw("Shift date continuity is invalid.")
 
 def update_previous_eng_hrs_end(current_doc):
     """
