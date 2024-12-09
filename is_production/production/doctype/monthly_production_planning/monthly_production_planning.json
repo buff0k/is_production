@@ -26,6 +26,11 @@
   "tot_shift_morning_hours",
   "tot_shift_afternoon_hours",
   "total_month_prod_hours",
+  "num_prod_days",
+  "column_break_iitb",
+  "monthly_target_bcm",
+  "target_bcm_day",
+  "target_bcm_hour",
   "section_break_beyf",
   "month_prod_days"
  ],
@@ -154,11 +159,41 @@
    "label": "Total Morning Shift Hours",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_iitb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "monthly_target_bcm",
+   "fieldtype": "Float",
+   "label": "Monthly Target BCM",
+   "precision": "0"
+  },
+  {
+   "fieldname": "num_prod_days",
+   "fieldtype": "Int",
+   "label": "Number of Production Days",
+   "read_only": 1
+  },
+  {
+   "fieldname": "target_bcm_day",
+   "fieldtype": "Float",
+   "label": "Target BCM/Day",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "target_bcm_hour",
+   "fieldtype": "Float",
+   "label": "Target BCM/Hour",
+   "precision": "1",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-12-06 08:58:20.342067",
+ "modified": "2024-12-09 10:11:27.692391",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",

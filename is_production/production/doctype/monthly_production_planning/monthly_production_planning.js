@@ -1,8 +1,4 @@
-// Copyright (c) 2024, Isambane Mining (Pty) Ltd and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on('Monthly Production Planning', {
-    // Refresh the form and add custom buttons
     refresh: function(frm) {
         frm.add_custom_button(__('Populate Monthly Production Days'), function() {
             frm.trigger('populate_monthly_prod_days');
@@ -13,7 +9,6 @@ frappe.ui.form.on('Monthly Production Planning', {
         }, __('Actions'));
     },
 
-    // Populate the `month_prod_days` table based on the selected `prod_month_end` and `shift_system`
     populate_monthly_prod_days: function(frm) {
         if (frm.doc.prod_month_end) {
             let end_date = frappe.datetime.str_to_obj(frm.doc.prod_month_end);
@@ -81,99 +76,11 @@ frappe.ui.form.on('Monthly Production Planning', {
             frm.set_value('tot_shift_afternoon_hours', total_afternoon_hours);
             frm.set_value('total_month_prod_hours', total_day_hours + total_night_hours + total_morning_hours + total_afternoon_hours);
 
+            frm.trigger('recalculate_totals');
             frm.refresh_field('month_prod_days');
             frappe.msgprint(__('Monthly Production Days table has been populated.'));
         } else {
             frappe.msgprint(__('Please select a valid production month end date.'));
-        }
-    },
-
-    // Fetch data for Excavators, Trucks, and Dozers based on location
-    location: function(frm) {
-        if (frm.doc.location) {
-            // Clear existing data
-            frm.clear_table('prod_excavators');
-            frm.clear_table('prod_trucks');
-            frm.clear_table('dozer_table');
-
-            // Fetch Excavators
-            frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Asset',
-                    filters: {
-                        location: frm.doc.location,
-                        asset_category: 'Excavator',
-                        docstatus: 1
-                    },
-                    fields: ['asset_name', 'item_name']
-                },
-                callback: function(r) {
-                    if (r.message) {
-                        r.message.forEach(function(asset) {
-                            let row = frm.add_child('prod_excavators');
-                            row.asset_name = asset.asset_name;
-                            row.item_name = asset.item_name;
-                        });
-                        frm.refresh_field('prod_excavators');
-                    } else {
-                        frappe.msgprint(__('No Excavators found for the selected location.'));
-                    }
-                }
-            });
-
-            // Fetch Trucks
-            frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Asset',
-                    filters: [
-                        ['location', '=', frm.doc.location],
-                        ['asset_category', 'in', ['ADT', 'Rigid']],
-                        ['docstatus', '=', 1]
-                    ],
-                    fields: ['asset_name', 'item_name', 'asset_category']
-                },
-                callback: function(r) {
-                    if (r.message) {
-                        r.message.forEach(function(asset) {
-                            let row = frm.add_child('prod_trucks');
-                            row.asset_name = asset.asset_name;
-                            row.item_name = asset.item_name;
-                            row.asset_category = asset.asset_category;
-                        });
-                        frm.refresh_field('prod_trucks');
-                    } else {
-                        frappe.msgprint(__('No Trucks found for the selected location.'));
-                    }
-                }
-            });
-
-            // Fetch Dozers
-            frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Asset',
-                    filters: {
-                        location: frm.doc.location,
-                        asset_category: 'Dozer',
-                        docstatus: 1
-                    },
-                    fields: ['asset_name', 'item_name']
-                },
-                callback: function(r) {
-                    if (r.message) {
-                        r.message.forEach(function(asset) {
-                            let row = frm.add_child('dozer_table');
-                            row.asset_name = asset.asset_name;
-                            row.item_name = asset.item_name;
-                        });
-                        frm.refresh_field('dozer_table');
-                    } else {
-                        frappe.msgprint(__('No Dozers found for the selected location.'));
-                    }
-                }
-            });
         }
     },
 
@@ -185,6 +92,9 @@ frappe.ui.form.on('Monthly Production Planning', {
         frm.set_value('tot_shift_morning_hours', 0);
         frm.set_value('tot_shift_afternoon_hours', 0);
         frm.set_value('total_month_prod_hours', 0);
+        frm.set_value('num_prod_days', 0);
+        frm.set_value('target_bcm_day', 0);
+        frm.set_value('target_bcm_hour', 0);
         frappe.msgprint(__('Monthly Production Days table has been cleared.'));
     },
 
@@ -199,5 +109,65 @@ frappe.ui.form.on('Monthly Production Planning', {
                 frappe.msgprint(__('The selected date has been corrected to the last day of the month.'));
             }
         }
+    },
+
+    monthly_target_bcm: function(frm) {
+        // Trigger recalculation when monthly_target_bcm is updated
+        frm.trigger('recalculate_totals');
+    },
+
+    recalculate_totals: function(frm) {
+        let total_day_hours = 0;
+        let total_night_hours = 0;
+        let total_morning_hours = 0;
+        let total_afternoon_hours = 0;
+        let num_prod_days = 0;
+
+        frm.doc.month_prod_days.forEach(row => {
+            total_day_hours += row.shift_day_hours || 0;
+            total_night_hours += row.shift_night_hours || 0;
+            total_morning_hours += row.shift_morning_hours || 0;
+            total_afternoon_hours += row.shift_afternoon_hours || 0;
+
+            if ((row.shift_day_hours || 0) > 0 || 
+                (row.shift_night_hours || 0) > 0 || 
+                (row.shift_morning_hours || 0) > 0 || 
+                (row.shift_afternoon_hours || 0) > 0) {
+                num_prod_days++;
+            }
+        });
+
+        let total_month_prod_hours = total_day_hours + total_night_hours + total_morning_hours + total_afternoon_hours;
+
+        frm.set_value('tot_shift_day_hours', total_day_hours);
+        frm.set_value('tot_shift_night_hours', total_night_hours);
+        frm.set_value('tot_shift_morning_hours', total_morning_hours);
+        frm.set_value('tot_shift_afternoon_hours', total_afternoon_hours);
+        frm.set_value('total_month_prod_hours', total_month_prod_hours);
+        frm.set_value('num_prod_days', num_prod_days);
+
+        // Calculate target values
+        if (frm.doc.monthly_target_bcm) {
+            frm.set_value('target_bcm_day', frm.doc.monthly_target_bcm / num_prod_days);
+            frm.set_value('target_bcm_hour', frm.doc.monthly_target_bcm / total_month_prod_hours);
+        } else {
+            frm.set_value('target_bcm_day', 0);
+            frm.set_value('target_bcm_hour', 0);
+        }
+    }
+});
+
+frappe.ui.form.on('Monthly Production Days', {
+    shift_day_hours: function(frm, cdt, cdn) {
+        frm.trigger('recalculate_totals');
+    },
+    shift_night_hours: function(frm, cdt, cdn) {
+        frm.trigger('recalculate_totals');
+    },
+    shift_morning_hours: function(frm, cdt, cdn) {
+        frm.trigger('recalculate_totals');
+    },
+    shift_afternoon_hours: function(frm, cdt, cdn) {
+        frm.trigger('recalculate_totals');
     }
 });
