@@ -1,49 +1,87 @@
-# Copyright (c) 2024, Isambane Mining (Pty) Ltd and contributors
-# For license information, please see license.txt
-
 from frappe.model.document import Document
 import frappe
 from frappe.utils import getdate, get_last_day
+from frappe import _
 
 class HourlyProduction(Document):
     pass
 
+#import frappe
+from frappe.utils import getdate, get_last_day
 
 @frappe.whitelist()
 def fetch_monthly_production_plan(location, prod_date):
     """
-    Fetch the Monthly Production Planning document based on the last day of the month and location.
+    Fetch the name of the Monthly Production Planning document for a given location and production date.
     """
     if location and prod_date:
         prod_date = getdate(prod_date)
         last_day_of_month = get_last_day(prod_date)
         monthly_plan_name = f"{last_day_of_month}-{location}"
-        
-        # Fetch the document name
-        plan = frappe.get_value("Monthly Production Planning", {"name": monthly_plan_name}, "name")
-        return plan
-
+        return frappe.get_value("Monthly Production Planning", {"name": monthly_plan_name}, "name")
     return None
-
 
 @frappe.whitelist()
 def get_hour_slot(shift, shift_num_hour):
     """
     Return the time slot based on the shift and shift_num_hour.
+    Supports 2x12Hour and 3x8Hour systems.
     """
-    hour_slots = {
-        "A-1": "06:00-07:00", "A-2": "07:00-08:00", "A-3": "08:00-09:00",
-        "A-4": "09:00-10:00", "A-5": "10:00-11:00", "A-6": "11:00-12:00",
-        "A-7": "12:00-13:00", "A-8": "13:00-14:00", "A-9": "14:00-15:00",
-        "A-10": "15:00-16:00", "A-11": "16:00-17:00", "A-12": "17:00-18:00",
-        "B-1": "18:00-19:00", "B-2": "19:00-20:00", "B-3": "20:00-21:00",
-        "B-4": "21:00-22:00", "B-5": "22:00-23:00", "B-6": "23:00-00:00",
-        "B-7": "00:00-01:00", "B-8": "01:00-02:00", "B-9": "02:00-03:00",
-        "B-10": "03:00-04:00", "B-11": "04:00-05:00", "B-12": "05:00-06:00"
+    shift_timings = {
+        # 2x12Hour System
+        **{f"Day-{i+1}": f"{6+i:02d}:00-{7+i:02d}:00" for i in range(12)},
+        **{f"Night-{i+1}": f"{18+i:02d}:00-{19+i:02d}:00" if 18+i < 24 else f"{(18+i-24):02d}:00-{(19+i-24):02d}:00" for i in range(12)},
+        # 3x8Hour System
+        **{f"Morning-{i+1}": f"{6+i:02d}:00-{7+i:02d}:00" for i in range(8)},
+        **{f"Afternoon-{i+1}": f"{14+i:02d}:00-{15+i:02d}:00" for i in range(8)},
+        **{f"Night-{i+1}": f"{22+i:02d}:00-{23+i:02d}:00" if 22+i < 24 else f"{(22+i-24):02d}:00-{(23+i-24):02d}:00" for i in range(8)}
     }
+    return shift_timings.get(shift_num_hour, None)
 
-    slot = hour_slots.get(f"{shift}-{shift_num_hour}", None)
-    if not slot:
-        frappe.throw(_("Invalid shift or shift number hour selected."))
-    
-    return slot
+@frappe.whitelist()
+def get_assets(doctype, txt, searchfield, start, page_len, filters):
+    """
+    Fetch assets filtered by location and asset_category with the correct structure.
+    """
+    # Parse filters (ensure JSON string is converted to dictionary)
+    if isinstance(filters, str):
+        filters = frappe.parse_json(filters)
+
+    location = filters.get("location")
+    asset_category = filters.get("asset_category")
+
+    # Build the query
+    query = """
+        SELECT name, asset_name
+        FROM `tabAsset`
+        WHERE docstatus = 1
+        AND location = %s
+        AND asset_category = %s
+        AND (name LIKE %s OR asset_name LIKE %s)
+        LIMIT %s OFFSET %s
+    """
+
+    # Prepare parameters
+    params = [
+        location, asset_category, f"%{txt}%", f"%{txt}%", page_len, start
+    ]
+
+    # Execute the query
+    result = frappe.db.sql(query, params)
+
+    # Ensure the result includes the correct structure (name and description)
+    return [{"value": row[0], "description": row[1]} for row in result]
+
+@frappe.whitelist()
+def get_tub_factor(item_name, mat_type):
+    """
+    Fetch tub factor and its linked document for a given item_name and mat_type.
+    """
+    if item_name and mat_type:
+        return frappe.get_value("Tub Factor", {"item_name": item_name, "mat_type": mat_type}, ["tub_factor", "name"])
+    return None
+
+
+
+
+
