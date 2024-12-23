@@ -1,8 +1,9 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:{month_prod_planning}-{shift_num_hour}",
+ "autoname": "format:{unique_reference}",
  "creation": "2024-10-14 15:07:43.074950",
+ "default_view": "List",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -14,19 +15,42 @@
   "shift",
   "shift_num_hour",
   "hour_slot",
+  "unique_reference",
   "section_break_fxug",
-  "truck_loads"
+  "truck_loads",
+  "dozer_production",
+  "hour_production_summary_tab",
+  "hour_truck_and_shoval_cubes_section",
+  "total_softs_bcm",
+  "total_hards_bcm",
+  "total_coal_bcm",
+  "column_break_zlqh",
+  "total_ts_bcm",
+  "num_prod_trucks",
+  "ave_bcm_prod_truck",
+  "hour_dozing_bcm_section",
+  "total_dozing_bcm",
+  "column_break_bpkd",
+  "num_prod_dozers",
+  "ave_bcm_dozer",
+  "grand_total_section",
+  "hour_total_bcm",
+  "column_break_giwr",
+  "ts_percent",
+  "dozing_percent"
  ],
  "fields": [
   {
    "fieldname": "location",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Site",
    "options": "Location"
   },
   {
    "fieldname": "prod_date",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Production Shift Start Date"
   },
   {
@@ -36,13 +60,13 @@
   {
    "fieldname": "shift",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Shift",
    "options": "Day\nNight\nMorning\nAfternoon"
   },
   {
    "fieldname": "month_prod_planning",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Monthly Production Planning",
    "options": "Monthly Production Planning",
    "read_only": 1
@@ -55,7 +79,8 @@
   {
    "fieldname": "hour_slot",
    "fieldtype": "Read Only",
-   "label": "Hour_Slot",
+   "in_list_view": 1,
+   "label": "Hour Slot",
    "read_only": 1
   },
   {
@@ -73,11 +98,143 @@
    "fieldname": "shift_system",
    "fieldtype": "Read Only",
    "label": "Shift System"
+  },
+  {
+   "columns": 2,
+   "fieldname": "unique_reference",
+   "fieldtype": "Data",
+   "label": "Unique Reference",
+   "print_width": "300",
+   "read_only": 1,
+   "unique": 1,
+   "width": "300"
+  },
+  {
+   "fieldname": "dozer_production",
+   "fieldtype": "Table",
+   "label": "Dozer Production",
+   "options": "Dozer Production"
+  },
+  {
+   "fieldname": "hour_production_summary_tab",
+   "fieldtype": "Tab Break",
+   "label": "Hour Production Summary"
+  },
+  {
+   "fieldname": "hour_truck_and_shoval_cubes_section",
+   "fieldtype": "Section Break",
+   "label": "Hour Truck and Shoval BCMs"
+  },
+  {
+   "fieldname": "total_softs_bcm",
+   "fieldtype": "Float",
+   "label": "Total Softs BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_hards_bcm",
+   "fieldtype": "Float",
+   "label": "Total Hards BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_coal_bcm",
+   "fieldtype": "Float",
+   "label": "Total Coal BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_zlqh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_ts_bcm",
+   "fieldtype": "Float",
+   "label": "Total Truck and Shoval BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hour_dozing_bcm_section",
+   "fieldtype": "Section Break",
+   "label": "Hour Dozing BCMs"
+  },
+  {
+   "fieldname": "total_dozing_bcm",
+   "fieldtype": "Float",
+   "label": "Total Dozing BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "grand_total_section",
+   "fieldtype": "Section Break",
+   "label": "Grand Total"
+  },
+  {
+   "bold": 1,
+   "fieldname": "hour_total_bcm",
+   "fieldtype": "Float",
+   "label": "Hour Total BCMs",
+   "non_negative": 1,
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_giwr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ts_percent",
+   "fieldtype": "Percent",
+   "label": "Truck and Shoval %",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dozing_percent",
+   "fieldtype": "Percent",
+   "label": "Dozing %",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_bpkd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "num_prod_dozers",
+   "fieldtype": "Int",
+   "label": "Number of Production Dozers",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ave_bcm_dozer",
+   "fieldtype": "Float",
+   "label": "Average BCM per Prod Dozer",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "num_prod_trucks",
+   "fieldtype": "Int",
+   "label": "Number of Production Trucks",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ave_bcm_prod_truck",
+   "fieldtype": "Float",
+   "label": "Average BCM per Truck",
+   "precision": "1",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-12-10 11:44:51.235056",
+ "modified": "2024-12-17 20:28:33.770134",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
@@ -98,8 +255,9 @@
   }
  ],
  "sort_field": "modified",
- "sort_order": "DESC",
+ "sort_order": "ASC",
  "states": [],
  "track_changes": 1,
- "track_seen": 1
+ "track_seen": 1,
+ "translated_doctype": 1
 }

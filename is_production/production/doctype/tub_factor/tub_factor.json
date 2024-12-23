@@ -8,7 +8,8 @@
  "field_order": [
   "item_name",
   "mat_type",
-  "tub_factor"
+  "tub_factor",
+  "tub_factor_lookup"
  ],
  "fields": [
   {
@@ -34,11 +35,17 @@
    "label": "Tub Factor",
    "non_negative": 1,
    "reqd": 1
+  },
+  {
+   "fieldname": "tub_factor_lookup",
+   "fieldtype": "Data",
+   "label": "Tub Factor Lookup",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-10-15 19:38:01.105194",
+ "modified": "2024-12-16 08:05:23.554811",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Tub Factor",

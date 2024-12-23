@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class DailyProductionActuals(Document):
+class DozerProduction(Document):
 	pass

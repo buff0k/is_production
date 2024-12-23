@@ -12,14 +12,18 @@
   "site_status",
   "production_plant_planned_section",
   "prod_excavators",
+  "num_excavators",
   "column_break_pbpd",
   "prod_trucks",
+  "num_trucks",
   "column_break_druy",
   "dozer_table",
+  "num_dozers",
   "month_production_days_tab",
   "shift_system",
   "populate_monthly_prod_days",
   "clear_production_days",
+  "update_mtd_production",
   "column_break_kqgs",
   "tot_shift_day_hours",
   "tot_shift_night_hours",
@@ -27,10 +31,18 @@
   "tot_shift_afternoon_hours",
   "total_month_prod_hours",
   "num_prod_days",
+  "month_remaining_prod_hours",
+  "month_remaining_production_days",
   "column_break_iitb",
   "monthly_target_bcm",
   "target_bcm_day",
   "target_bcm_hour",
+  "month_actual_bcm",
+  "prod_days_completed",
+  "month_prod_hours_completed",
+  "mtd_bcm_day",
+  "mtd_bcm_hour",
+  "month_forecated_bcm",
   "section_break_beyf",
   "month_prod_days"
  ],
@@ -60,7 +72,7 @@
   {
    "fieldname": "production_plant_planned_section",
    "fieldtype": "Section Break",
-   "label": "Production Plant Planned"
+   "label": "Production Plant Allocated to Site"
   },
   {
    "fieldname": "prod_excavators",
@@ -101,7 +113,8 @@
    "fieldname": "dozer_table",
    "fieldtype": "Table",
    "label": "Dozers",
-   "options": "Dozers Planned"
+   "options": "Dozers Planned",
+   "read_only": 1
   },
   {
    "fieldname": "clear_production_days",
@@ -167,7 +180,7 @@
   {
    "fieldname": "monthly_target_bcm",
    "fieldtype": "Float",
-   "label": "Monthly Target BCM",
+   "label": "Monthly Target BCMs",
    "precision": "0"
   },
   {
@@ -189,11 +202,85 @@
    "label": "Target BCM/Hour",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "update_mtd_production",
+   "fieldtype": "Button",
+   "label": "Update Month to Date Production"
+  },
+  {
+   "fieldname": "month_actual_bcm",
+   "fieldtype": "Float",
+   "label": "Monthly Actual BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "prod_days_completed",
+   "fieldtype": "Int",
+   "label": "Number of Production Days Completed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_prod_hours_completed",
+   "fieldtype": "Float",
+   "label": "Month Production Hours Completed",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "mtd_bcm_day",
+   "fieldtype": "Float",
+   "label": "MTD Actual BCMs / Day",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_remaining_prod_hours",
+   "fieldtype": "Float",
+   "label": "Month Remaining Production Hours",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_forecated_bcm",
+   "fieldtype": "Float",
+   "label": "Month Forecasted BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_remaining_production_days",
+   "fieldtype": "Int",
+   "label": "Month Remaining Production Days"
+  },
+  {
+   "fieldname": "mtd_bcm_hour",
+   "fieldtype": "Float",
+   "label": "MTD Actual BCMs /Hour"
+  },
+  {
+   "fieldname": "num_excavators",
+   "fieldtype": "Int",
+   "label": "Number of Excavators",
+   "read_only": 1
+  },
+  {
+   "fieldname": "num_trucks",
+   "fieldtype": "Int",
+   "label": "Number of Trucks",
+   "read_only": 1
+  },
+  {
+   "fieldname": "num_dozers",
+   "fieldtype": "Int",
+   "label": "Number of Dozers",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-12-09 10:11:27.692391",
+ "modified": "2024-12-18 21:53:18.335755",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",
