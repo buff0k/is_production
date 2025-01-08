@@ -6,7 +6,6 @@
  "engine": "InnoDB",
  "field_order": [
   "asset_name",
-  "custom_asset_capacity",
   "item_name"
  ],
  "fields": [
@@ -18,11 +17,6 @@
    "options": "Asset"
   },
   {
-   "fieldname": "custom_asset_capacity",
-   "fieldtype": "Read Only",
-   "label": "Plant Capacity (Ton/Load)"
-  },
-  {
    "fieldname": "item_name",
    "fieldtype": "Read Only",
    "label": "Model"
@@ -31,7 +25,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-10-12 11:17:03.614142",
+ "modified": "2025-01-07 19:43:40.456683",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Trucks Planned",

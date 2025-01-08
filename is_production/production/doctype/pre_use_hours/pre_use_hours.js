@@ -43,7 +43,8 @@ function fetch_assets(frm) {
                 asset_category: ['in', ['Excavator', 'ADT', 'Dozer']],
                 status: 'Submitted'
             },
-            fields: ['name', 'asset_name', 'item_name', 'asset_category']
+            fields: ['name', 'asset_name', 'item_name', 'asset_category'],
+            limit_page_length: 1000 // Set a large enough limit or manage pagination
         },
         callback: function (response) {
             response.message.forEach(asset => {
