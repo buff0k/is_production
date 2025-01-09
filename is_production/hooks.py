@@ -6,24 +6,9 @@ app_email = "eben@isambane.co.za"
 app_license = "mit"
 required_apps = ["frappe/erpnext", "buff0k/engineering"]
 fixtures = [
-        {"dt": "Role", "filters": [
-            [
-            "name", "in", [
-                    "Production Manager",
-                    "Production User",
-                    "Control Clerk"
-    		       ]
-                ]
-            ]}, 
-        {"dt": "Custom DocPerm", "filters": [
-            [
-            "role", "in", [
-                    "Production Manager",
-                    "Production User",
-                    "Control Clerk"
-    		       ]
-                ]
-            ]},
+        {"dt": "Role", "filters": [["name", "in", ["Production Manager", "Production User", "Control Clerk"]]]}, 
+        {"dt": "Custom DocPerm", "filters": [["role", "in", ["Production Manager", "Production User", "Control Clerk"]]]},
+        {"dt": "Asset Category", "filters": [["name", "in", ["Dozer", "ADT", "Rigid", "Excavator"]]]}
         ]
 # required_apps = []
 
