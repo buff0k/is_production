@@ -6,10 +6,13 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "site_details_and_plant_tab",
   "location",
   "prod_month_end",
   "column_break_blgh",
   "site_status",
+  "prod_month_start_date",
+  "prod_month_end_date",
   "production_plant_planned_section",
   "prod_excavators",
   "num_excavators",
@@ -25,26 +28,29 @@
   "clear_production_days",
   "update_mtd_production",
   "column_break_kqgs",
+  "section_break_beyf",
+  "month_prod_days",
+  "month_production_stats_tab",
+  "shift_day_and_month_hours_section",
+  "month_production_hours_days_column",
   "tot_shift_day_hours",
   "tot_shift_night_hours",
   "tot_shift_morning_hours",
   "tot_shift_afternoon_hours",
-  "total_month_prod_hours",
   "num_prod_days",
-  "month_remaining_prod_hours",
+  "total_month_prod_hours",
+  "prod_days_completed",
+  "month_prod_hours_completed",
   "month_remaining_production_days",
-  "column_break_iitb",
+  "month_remaining_prod_hours",
+  "column_break_jdas",
   "monthly_target_bcm",
   "target_bcm_day",
   "target_bcm_hour",
   "month_actual_bcm",
-  "prod_days_completed",
-  "month_prod_hours_completed",
   "mtd_bcm_day",
   "mtd_bcm_hour",
-  "month_forecated_bcm",
-  "section_break_beyf",
-  "month_prod_days"
+  "month_forecated_bcm"
  ],
  "fields": [
   {
@@ -59,7 +65,7 @@
    "fieldname": "prod_month_end",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Production Month-End",
+   "label": "Production Month End Invoicing",
    "reqd": 1
   },
   {
@@ -174,10 +180,6 @@
    "read_only": 1
   },
   {
-   "fieldname": "column_break_iitb",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "monthly_target_bcm",
    "fieldtype": "Float",
    "label": "Monthly Target BCMs",
@@ -276,11 +278,47 @@
    "fieldtype": "Int",
    "label": "Number of Dozers",
    "read_only": 1
+  },
+  {
+   "fieldname": "month_production_stats_tab",
+   "fieldtype": "Tab Break",
+   "label": "Month Production Stats"
+  },
+  {
+   "fieldname": "shift_day_and_month_hours_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_jdas",
+   "fieldtype": "Column Break",
+   "label": "Month BCM Target, Actual and Forecasted"
+  },
+  {
+   "fieldname": "month_production_hours_days_column",
+   "fieldtype": "Column Break",
+   "label": "Month Production Hours, Days"
+  },
+  {
+   "fieldname": "site_details_and_plant_tab",
+   "fieldtype": "Tab Break",
+   "label": "Site Details and Plant"
+  },
+  {
+   "fieldname": "prod_month_start_date",
+   "fieldtype": "Date",
+   "label": "Production Month Start Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "prod_month_end_date",
+   "fieldtype": "Date",
+   "label": "Production Month End Date",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-12-18 21:53:18.335755",
+ "modified": "2025-01-16 07:52:09.619061",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",

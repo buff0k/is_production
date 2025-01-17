@@ -40,31 +40,6 @@ frappe.ui.form.on('Hourly Production', {
         }
     },
 
-    before_save: function (frm) {
-        // Fetch the unique_reference from the server before saving
-        frappe.call({
-            method: 'is_production.production.doctype.hourly_production.hourly_production.get_unique_reference',
-            args: {
-                doc: frm.doc
-            },
-            callback: function (r) {
-                if (r.message) {
-                    frm.set_value('unique_reference', r.message); // Set value in the form
-                    frm.set_value('name', r.message); // Set as the document name
-                } else {
-                    frappe.msgprint(__('Unable to generate Unique Reference. Please try again.'), 'Validation Error');
-                    frappe.validated = false;
-                }
-            },
-            async: false
-        });
-
-        if (!frm.doc.unique_reference) {
-            frappe.msgprint(__('Unique Reference field is required to save the document.'), 'Validation Error');
-            frappe.validated = false; // Prevent save if unique_reference is missing
-        }
-    },
-
     refresh: function (frm) {
         // Ensure unique_reference is visible when the document is refreshed
         if (!frm.is_new() && frm.doc.unique_reference) {

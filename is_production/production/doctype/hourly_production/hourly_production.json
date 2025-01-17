@@ -1,7 +1,6 @@
 {
  "actions": [],
- "allow_rename": 1,
- "autoname": "format:{unique_reference}",
+ "autoname": "format:{location}-{prod_date}-{####}",
  "creation": "2024-10-14 15:07:43.074950",
  "default_view": "List",
  "doctype": "DocType",
@@ -15,7 +14,6 @@
   "shift",
   "shift_num_hour",
   "hour_slot",
-  "unique_reference",
   "section_break_fxug",
   "truck_loads",
   "dozer_production",
@@ -44,14 +42,18 @@
    "fieldname": "location",
    "fieldtype": "Link",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Site",
-   "options": "Location"
+   "options": "Location",
+   "reqd": 1
   },
   {
    "fieldname": "prod_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Production Shift Start Date"
+   "in_standard_filter": 1,
+   "label": "Production Shift Start Date",
+   "reqd": 1
   },
   {
    "fieldname": "column_break_utop",
@@ -61,8 +63,10 @@
    "fieldname": "shift",
    "fieldtype": "Select",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Shift",
-   "options": "Day\nNight\nMorning\nAfternoon"
+   "options": "Day\nNight\nMorning\nAfternoon",
+   "reqd": 1
   },
   {
    "fieldname": "month_prod_planning",
@@ -80,8 +84,10 @@
    "fieldname": "hour_slot",
    "fieldtype": "Read Only",
    "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Hour Slot",
-   "read_only": 1
+   "read_only": 1,
+   "reqd": 1
   },
   {
    "fieldname": "section_break_fxug",
@@ -98,16 +104,6 @@
    "fieldname": "shift_system",
    "fieldtype": "Read Only",
    "label": "Shift System"
-  },
-  {
-   "columns": 2,
-   "fieldname": "unique_reference",
-   "fieldtype": "Data",
-   "label": "Unique Reference",
-   "print_width": "300",
-   "read_only": 1,
-   "unique": 1,
-   "width": "300"
   },
   {
    "fieldname": "dozer_production",
@@ -234,7 +230,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-12-17 20:28:33.770134",
+ "modified": "2025-01-09 13:07:28.962974",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",

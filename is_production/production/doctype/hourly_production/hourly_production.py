@@ -75,29 +75,6 @@ class HourlyProduction(Document):
         self.ave_bcm_dozer = (total_dozing_bcm / num_prod_dozers) if num_prod_dozers else 0
         self.ave_bcm_prod_truck = (total_ts_bcm / num_prod_trucks) if num_prod_trucks else 0
 
-        # Generate and validate the unique_reference
-        if self.location and self.prod_date and self.shift and self.hour_slot:
-            new_unique_reference = f"{cstr(self.location)}-{cstr(self.prod_date)}-{cstr(self.shift)}-{cstr(self.hour_slot)}"
-            if not self.unique_reference or self.unique_reference != new_unique_reference:
-                self.unique_reference = new_unique_reference
-                if not self.is_new():
-                    frappe.rename_doc(
-                        doctype="Hourly Production",
-                        old_name=self.name,
-                        new_name=self.unique_reference,
-                        force=True
-                    )
-        else:
-            frappe.throw(_("Unique Reference cannot be generated. Please ensure all required fields are filled."))
-
-        # Check for duplicate unique_reference
-        duplicate = frappe.db.exists(
-            "Hourly Production",
-            {"unique_reference": self.unique_reference, "name": ["!=", self.name]}
-        )
-        if duplicate:
-            frappe.throw(_(f"A record with the same Unique Reference '{self.unique_reference}' already exists."))
-
 @frappe.whitelist()
 def fetch_monthly_production_plan(location, prod_date):
     """
@@ -120,27 +97,6 @@ def get_tub_factor(item_name, mat_type):
         tub_factor_lookup = f"{item_name}-{mat_type}"  # No spaces around the hyphen
         return frappe.get_value("Tub Factor", {"tub_factor_lookup": tub_factor_lookup}, "tub_factor")
     return None
-
-@frappe.whitelist()
-def get_unique_reference(doc):
-    """
-    Generate unique reference based on the document fields.
-    """
-    import json
-    # Ensure `doc` is parsed correctly if passed as a JSON string
-    if isinstance(doc, str):
-        try:
-            doc = json.loads(doc)  # Parse JSON string into a dictionary
-        except json.JSONDecodeError:
-            frappe.throw(_("Invalid document format. Unable to parse JSON."))
-
-    doc = frappe._dict(doc)  # Convert to frappe._dict for compatibility
-
-    # Check required fields
-    if doc.location and doc.prod_date and doc.shift and doc.hour_slot:
-        return f"{cstr(doc.location)}-{cstr(doc.prod_date)}-{cstr(doc.shift)}-{cstr(doc.hour_slot)}"
-    
-    frappe.throw(_("Unique Reference cannot be generated. Please ensure all required fields are filled."))
 
 @frappe.whitelist()
 def fetch_dozer_production_assets(location):
