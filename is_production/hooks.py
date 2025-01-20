@@ -5,6 +5,18 @@ app_description = "Isambane Mining Frappe App for Production Records"
 app_email = "eben@isambane.co.za"
 app_license = "mit"
 required_apps = ["frappe/erpnext", "buff0k/engineering"]
+source_link = "http://github.com/buff0k/is_production"
+app_logo_url = "/assets/is_production/images/is-logo.svg"
+app_home = "/app/production"
+add_to_apps_screen = [
+	{
+		"name": "is_production",
+		"logo": "/assets/is_production/images/is-logo.svg",
+		"title": "Production",
+		"route": "/app/production",
+		"has_permission": "is_production.production.utils.check_app_permission",
+	}
+]
 fixtures = [
         {"dt": "Role", "filters": [["name", "in", ["Production Manager", "Production User", "Control Clerk"]]]}, 
         {"dt": "Custom DocPerm", "filters": [["role", "in", ["Production Manager", "Production User", "Control Clerk"]]]},
