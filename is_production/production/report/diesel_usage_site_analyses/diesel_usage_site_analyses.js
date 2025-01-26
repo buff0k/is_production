@@ -4,17 +4,16 @@
 frappe.query_reports["Diesel Usage Site Analyses"] = {
     "filters": [
         {
-            "fieldname": "month",
-            "label": __("Month"),
-            "fieldtype": "Select",
-            "options": ["", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"],
-            "default": frappe.datetime.get_today().split("-")[1]
+            "fieldname": "date_from",
+            "label": __("Date From"),
+            "fieldtype": "Date",
+            "default": frappe.datetime.add_months(frappe.datetime.get_today(), -1)
         },
         {
-            "fieldname": "year",
-            "label": __("Year"),
-            "fieldtype": "Int",
-            "default": frappe.datetime.get_today().split("-")[0]
+            "fieldname": "date_to",
+            "label": __("Date To"),
+            "fieldtype": "Date",
+            "default": frappe.datetime.get_today()
         },
         {
             "fieldname": "site",
@@ -26,7 +25,7 @@ frappe.query_reports["Diesel Usage Site Analyses"] = {
             "fieldname": "group_by",
             "label": __("Group By"),
             "fieldtype": "Select",
-            "options": ["Site", "Asset Name"],
+            "options": ["Site", "Asset Name", "Asset Category"],
             "default": "Site"
         },
         {
@@ -34,6 +33,20 @@ frappe.query_reports["Diesel Usage Site Analyses"] = {
             "label": __("Asset Name"),
             "fieldtype": "Link",
             "options": "Asset"
+        },
+        {
+            "fieldname": "docstatus",
+            "label": __("Docstatus"),
+            "fieldtype": "Select",
+            "options": ["","0", "1"],
+            "default": ""
+        },
+        {
+            "fieldname": "asset_category",
+            "label": __("Asset Category"),
+            "fieldtype": "Select",
+            "options": ["", "ADT", "Diesel Bowsers", "Dozer", "Excavator", "Grader", "Lightning Plant", "Service Truck", "TLB", "Water Bowser", "LDV"],
+            "default": ""
         }
     ],
 
