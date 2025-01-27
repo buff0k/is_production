@@ -6,7 +6,62 @@
 import frappe
 
 def execute(filters=None):
-    return get_columns(), get_data(filters)
+    columns, data = get_columns(), get_data(filters)
+
+    # Add total row for each group
+    grouped_totals = {}
+    grand_total = 0
+    for row in data:
+        group_value = row.get("group_value")
+        if group_value not in grouped_totals:
+            grouped_totals[group_value] = 0
+        grouped_totals[group_value] += row.get("litres_issued", 0)
+        grand_total += row.get("litres_issued", 0)
+
+    # Check if the filter is set to show only totals
+    if filters.get("view_mode") == "Only Totals":
+        data = []
+        for group_value, total in grouped_totals.items():
+            data.append({
+                "day": "Total",
+                "group_value": group_value,
+                "litres_issued": total,
+                "asset_category": None,
+                "docstatus": None
+            })
+
+        # Append grand total row
+        data.append({
+            "day": "Grand Total",
+            "group_value": None,
+            "litres_issued": grand_total,
+            "asset_category": None,
+            "docstatus": None
+        })
+    else:
+        # Append total rows to the data for detailed view
+        for group_value, total in grouped_totals.items():
+            data.append({
+                "day": "Total",
+                "group_value": group_value,
+                "litres_issued": total,
+                "asset_category": None,
+                "docstatus": None
+            })
+
+        # Append grand total row
+        data.append({
+            "day": "Grand Total",
+            "group_value": None,
+            "litres_issued": grand_total,
+            "asset_category": None,
+            "docstatus": None
+        })
+
+    # Sort to ensure totals appear at the end of each group
+    data.sort(key=lambda x: (x["group_value"] if x["group_value"] else "", x["day"] != "Total"))
+
+    return columns, data
 
 def get_columns():
     return [

@@ -38,7 +38,7 @@ frappe.query_reports["Diesel Usage Site Analyses"] = {
             "fieldname": "docstatus",
             "label": __("Docstatus"),
             "fieldtype": "Select",
-            "options": ["","0", "1"],
+            "options": ["", "0", "1"],
             "default": ""
         },
         {
@@ -47,6 +47,13 @@ frappe.query_reports["Diesel Usage Site Analyses"] = {
             "fieldtype": "Select",
             "options": ["", "ADT", "Diesel Bowsers", "Dozer", "Excavator", "Grader", "Lightning Plant", "Service Truck", "TLB", "Water Bowser", "LDV"],
             "default": ""
+        },
+        {
+            "fieldname": "view_mode",
+            "label": __("View Mode"),
+            "fieldtype": "Select",
+            "options": ["Totals and Details", "Only Totals"],
+            "default": "Totals and Details"
         }
     ],
 
@@ -75,3 +82,4 @@ frappe.query_reports["Diesel Usage Site Analyses"] = {
         }
     }
 };
+
