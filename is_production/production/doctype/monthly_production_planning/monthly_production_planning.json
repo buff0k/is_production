@@ -28,6 +28,9 @@
   "clear_production_days",
   "update_mtd_production",
   "column_break_kqgs",
+  "weekday_shift_hours",
+  "saturday_shift_hours",
+  "num_sat_shifts",
   "section_break_beyf",
   "month_prod_days",
   "month_production_stats_tab",
@@ -66,7 +69,7 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "Production Month End Invoicing",
-   "reqd": 1
+   "read_only": 1
   },
   {
    "fieldname": "shift_system",
@@ -314,11 +317,30 @@
    "fieldtype": "Date",
    "label": "Production Month End Date",
    "reqd": 1
+  },
+  {
+   "fieldname": "weekday_shift_hours",
+   "fieldtype": "Float",
+   "label": "Weekday Shift No. Working Hours",
+   "precision": "1"
+  },
+  {
+   "fieldname": "saturday_shift_hours",
+   "fieldtype": "Float",
+   "label": "Saturday Shift No. Working Hours",
+   "precision": "1"
+  },
+  {
+   "fieldname": "num_sat_shifts",
+   "fieldtype": "Select",
+   "label": "No. Saturday Shifts",
+   "options": "1\n2\n3",
+   "precision": "1"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-01-16 07:52:09.619061",
+ "modified": "2025-01-27 15:48:18.109774",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",

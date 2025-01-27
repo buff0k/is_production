@@ -50,7 +50,7 @@
   {
    "fieldname": "shift_afternoon_hours",
    "fieldtype": "Int",
-   "label": "Afternoon Shift Hours Copy",
+   "label": "Afternoon Shift Hours",
    "precision": "0"
   },
   {
@@ -92,7 +92,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-12-18 15:07:05.121138",
+ "modified": "2025-01-27 14:30:12.813757",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Days",
