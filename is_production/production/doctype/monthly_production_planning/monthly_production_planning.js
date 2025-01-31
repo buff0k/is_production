@@ -2,20 +2,66 @@
 frappe.ui.form.on('Monthly Production Planning', {
     refresh: function(frm) {
         console.log("Form Refresh triggered");
+
+        // Disable onboarding tour if enabled
+        if (frappe.ui.init_onboarding_tour) {
+            frappe.ui.init_onboarding_tour = function() {};
+        }
+
+        // Button for populating Monthly Production Days
         frm.add_custom_button(__('Populate Monthly Production Days'), function() {
             frm.trigger('populate_monthly_prod_days');
         }, __('Actions'));
 
+        // Button for clearing Production Days
         frm.add_custom_button(__('Clear Production Days'), function() {
             frm.trigger('clear_production_days');
         }, __('Actions'));
-    },
 
-    // Section 2: Populate Monthly Production Days Function
+        // Ensure modals handle focus properly
+        $(document).on('hidden.bs.modal', function (event) {
+            let modal = event.target;
+            
+            // Ensure `aria-hidden` is properly removed
+            requestAnimationFrame(() => {
+                modal.removeAttribute("aria-hidden");
+                modal.removeAttribute("inert");
+
+                // Move focus to a safe element outside the modal
+                let safeElement = document.querySelector(".btn-primary") || document.body;
+                safeElement.focus();
+
+                // Force blur on elements inside the modal to prevent retained focus
+                modal.querySelectorAll("button, input, a, textarea, select").forEach(el => el.blur());
+            });
+        });
+
+        $(document).on('shown.bs.modal', function (event) {
+            let modal = event.target;
+            
+            // Ensure accessibility attributes are properly set
+            requestAnimationFrame(() => {
+                modal.removeAttribute("inert");
+                modal.removeAttribute("aria-hidden");
+
+                // Ensure focus is properly set inside the opened modal
+                let focusable = modal.querySelector("button, input, a, textarea, select");
+                if (focusable) {
+                    focusable.focus();
+                }
+            });
+        });
+    }
+});
+
+
+// Section 2: Populate Monthly Production Days Function
+frappe.ui.form.on('Monthly Production Planning', {
     populate_monthly_prod_days: function(frm) {
         try {
             console.log("populate_monthly_prod_days triggered");
 
+            // Check if start and end dates are selected
             if (!frm.doc.prod_month_start_date || !frm.doc.prod_month_end_date) {
                 frappe.msgprint(__('Please select valid production start and end dates.'));
                 console.log("Missing start or end date");
@@ -28,12 +74,14 @@ frappe.ui.form.on('Monthly Production Planning', {
             console.log("Start Date:", start_date);
             console.log("End Date:", end_date);
 
+            // If invalid dates are found, show a message
             if (!start_date || !end_date) {
                 frappe.msgprint(__('Invalid production start or end date format.'));
                 console.log("Invalid start or end date format");
                 return;
             }
 
+            // Last day of the month
             let last_day = end_date.getDate();
             frm.clear_table('month_prod_days');
             console.log("Cleared 'month_prod_days' table");
@@ -43,6 +91,7 @@ frappe.ui.form.on('Monthly Production Planning', {
             let total_morning_hours = 0;
             let total_afternoon_hours = 0;
 
+            // Loop through each day of the month
             for (let day = start_date.getDate(); day <= last_day; day++) {
                 let day_date = new Date(start_date.getFullYear(), start_date.getMonth(), day);
                 let day_of_week = day_date.toLocaleDateString('en-US', { weekday: 'long' });
@@ -52,6 +101,7 @@ frappe.ui.form.on('Monthly Production Planning', {
                 let day_shift_hours = 0, night_shift_hours = 0;
                 let morning_shift_hours = 0, afternoon_shift_hours = 0;
 
+                // Check shift system and calculate hours
                 if (frm.doc.shift_system === '2x12Hour') {
                     if (day_of_week === 'Saturday') {
                         day_shift_hours = 7;
@@ -84,6 +134,7 @@ frappe.ui.form.on('Monthly Production Planning', {
                 total_morning_hours += morning_shift_hours;
                 total_afternoon_hours += afternoon_shift_hours;
 
+                // Add data to the 'month_prod_days' child table
                 let row = frm.add_child('month_prod_days');
                 row.shift_start_date = frappe.datetime.obj_to_str(day_date);
                 row.day_week = day_of_week;
@@ -93,12 +144,14 @@ frappe.ui.form.on('Monthly Production Planning', {
                 row.shift_afternoon_hours = afternoon_shift_hours;
             }
 
+            // Update total hours and refresh fields
             frm.set_value('tot_shift_day_hours', total_day_hours);
             frm.set_value('tot_shift_night_hours', total_night_hours);
             frm.set_value('tot_shift_morning_hours', total_morning_hours);
             frm.set_value('tot_shift_afternoon_hours', total_afternoon_hours);
             frm.set_value('total_month_prod_hours', total_day_hours + total_night_hours + total_morning_hours + total_afternoon_hours);
 
+            // Recalculate totals and refresh the child table
             frm.trigger('recalculate_totals');
             frm.refresh_field('month_prod_days');
             frappe.msgprint(__('Monthly Production Days table has been populated.'));
@@ -106,9 +159,11 @@ frappe.ui.form.on('Monthly Production Planning', {
             console.error('Error in populate_monthly_prod_days:', error);
             frappe.msgprint(__('An error occurred: ' + error.message));
         }
-    },
+    }
+});
 
-    // Section 3: Location Function
+// Section 3: Location Function
+frappe.ui.form.on('Monthly Production Planning', {
     location: function(frm) {
         if (frm.doc.location) {
             frm.clear_table('prod_excavators');
@@ -203,9 +258,11 @@ frappe.ui.form.on('Monthly Production Planning', {
         } else {
             frappe.msgprint(__('Please select a location.'));
         }
-    },
+    }
+});
 
-    // Section 4: Clear Production Days Function
+// Section 4: Clear Production Days Function
+frappe.ui.form.on('Monthly Production Planning', {
     clear_production_days: function(frm) {
         frm.clear_table('month_prod_days');
         frm.refresh_field('month_prod_days');
@@ -221,9 +278,11 @@ frappe.ui.form.on('Monthly Production Planning', {
         frm.set_value('num_trucks', 0);
         frm.set_value('num_dozers', 0);
         frappe.msgprint(__('Monthly Production Days table has been cleared.'));
-    },
+    }
+});
 
-    // Section 5: Calculate Production Month End (Updated)
+// Section 5: Calculate Production Month End
+frappe.ui.form.on('Monthly Production Planning', {
     prod_month_end_date: function(frm) {
         let selected_date = frm.doc.prod_month_end_date;
         if (selected_date) {
@@ -233,9 +292,11 @@ frappe.ui.form.on('Monthly Production Planning', {
             frm.set_value('prod_month_end', frappe.datetime.obj_to_str(last_day_of_month));
             frappe.msgprint(__('Production month end has been set to the last day of the month.'));
         }
-    },
+    }
+});
 
-    // Section 6: Monthly Target BCM & Recalculate Totals Functions
+// Section 6: Monthly Target BCM & Recalculate Totals Functions
+frappe.ui.form.on('Monthly Production Planning', {
     monthly_target_bcm: function(frm) {
         frm.trigger('recalculate_totals');
     },
@@ -277,9 +338,11 @@ frappe.ui.form.on('Monthly Production Planning', {
             frm.set_value('target_bcm_day', 0);
             frm.set_value('target_bcm_hour', 0);
         }
-    },
+    }
+});
 
-    // Section 7: Update Month-to-Date (MTD) Production Function
+// Section 7: Update Month-to-Date (MTD) Production Function
+frappe.ui.form.on('Monthly Production Planning', {
     update_mtd_production: function(frm) {
         if (!frm.doc.name) {
             frappe.msgprint(__('Please save the document first.'));
@@ -334,66 +397,27 @@ frappe.ui.form.on('Monthly Production Planning', {
                             (row.afternoon_shift_bcms || 0);
                     });
 
-                    // Additional calculations
-                    let month_actual_bcm = frm.doc.month_prod_days.reduce((total, row) => total + (row.total_daily_bcms || 0), 0);
-                    let prod_days_completed = 0;
-                    let month_prod_hours_completed = 0;
-                    let today = frappe.datetime.get_today();
-
-                    frm.doc.month_prod_days.forEach(row => {
-                        if (row.shift_start_date < today) {
-                            let daily_hours = (row.shift_day_hours || 0) + (row.shift_night_hours || 0) +
-                                (row.shift_morning_hours || 0) + (row.shift_afternoon_hours || 0);
-                        
-                            if (daily_hours > 0) {
-                                prod_days_completed++;
-                                month_prod_hours_completed += daily_hours;
-                            }
-                        }
-                    });
-
-                    let mtd_bcm_day = prod_days_completed > 0 ? month_actual_bcm / prod_days_completed : 0;
-                    let mtd_bcm_hour = month_prod_hours_completed > 0 ? month_actual_bcm / month_prod_hours_completed : 0;
-                    let month_remaining_prod_hours = frm.doc.total_month_prod_hours - month_prod_hours_completed;
-                    let month_remaining_production_days = frm.doc.num_prod_days - prod_days_completed;
-                    let month_forecated_bcm = mtd_bcm_hour * frm.doc.total_month_prod_hours;
-
-                    frm.set_value('month_actual_bcm', month_actual_bcm);
-                    frm.set_value('prod_days_completed', prod_days_completed);
-                    frm.set_value('month_prod_hours_completed', month_prod_hours_completed);
-                    frm.set_value('mtd_bcm_day', mtd_bcm_day);
-                    frm.set_value('mtd_bcm_hour', mtd_bcm_hour);
-                    frm.set_value('month_remaining_prod_hours', month_remaining_prod_hours);
-                    frm.set_value('month_remaining_production_days', month_remaining_production_days);
-                    frm.set_value('month_forecated_bcm', month_forecated_bcm);
-
-                    frm.refresh_fields([
-                        'month_actual_bcm', 'prod_days_completed', 'month_prod_hours_completed',
-                        'mtd_bcm_day', 'mtd_bcm_hour', 'month_remaining_prod_hours',
-                        'month_remaining_production_days', 'month_forecated_bcm'
-                    ]);
-
                     frappe.msgprint(__('Month-to-Date Production updated successfully.'));
                 } else {
                     frappe.msgprint(__('No Hourly Production data found for this Monthly Production Planning document.'));
                 }
             }
         });
-    },
+    }
+});
 
-    // Section 8: Trigger Sections
-    'Monthly Production Days': {
-        shift_day_hours: function(frm, cdt, cdn) {
-            frm.trigger('recalculate_totals');
-        },
-        shift_night_hours: function(frm, cdt, cdn) {
-            frm.trigger('recalculate_totals');
-        },
-        shift_morning_hours: function(frm, cdt, cdn) {
-            frm.trigger('recalculate_totals');
-        },
-        shift_afternoon_hours: function(frm, cdt, cdn) {
-            frm.trigger('recalculate_totals');
-        }
+// Section 8: Trigger Sections
+frappe.ui.form.on('Monthly Production Days', {
+    shift_day_hours: function(frm, cdt, cdn) {
+        frm.trigger('recalculate_totals');
+    },
+    shift_night_hours: function(frm, cdt, cdn) {
+        frm.trigger('recalculate_totals');
+    },
+    shift_morning_hours: function(frm, cdt, cdn) {
+        frm.trigger('recalculate_totals');
+    },
+    shift_afternoon_hours: function(frm, cdt, cdn) {
+        frm.trigger('recalculate_totals');
     }
 });
