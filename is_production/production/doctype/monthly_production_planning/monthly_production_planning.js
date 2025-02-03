@@ -9,62 +9,97 @@ frappe.ui.form.on('Monthly Production Planning', {
         }
 
         // Button for populating Monthly Production Days
-        frm.add_custom_button(__('Populate Monthly Production Days'), function() {
+        frm.add_custom_button(__('Populate Monthly Production Days'), function(event) {
+            // Remove focus from the button immediately to prevent issues with modals
+            if (event && event.currentTarget) {
+                event.currentTarget.blur();
+            }
             frm.trigger('populate_monthly_prod_days');
         }, __('Actions'));
 
         // Button for clearing Production Days
-        frm.add_custom_button(__('Clear Production Days'), function() {
+        frm.add_custom_button(__('Clear Production Days'), function(event) {
+            if (event && event.currentTarget) {
+                event.currentTarget.blur();
+            }
             frm.trigger('clear_production_days');
         }, __('Actions'));
 
-        // Ensure modals handle focus properly
+        // --- Updated Modal Event Handlers ---
+
+        // Before the modal starts to hide, ensure no element inside is focused,
+        // and mark the modal as inert to prevent focus on its descendants.
+        $(document).on('hide.bs.modal', function (event) {
+            let modal = event.target;
+            // If any element inside the modal is currently focused, blur it.
+            if (modal.contains(document.activeElement)) {
+                document.activeElement.blur();
+            }
+            // Use inert to make all children unfocusable while hidden.
+            modal.setAttribute("inert", "");
+        });
+
+        // When the modal is fully hidden, remove the inert and aria-hidden attributes
+        // and force blur any focusable elements (as a clean-up step).
         $(document).on('hidden.bs.modal', function (event) {
             let modal = event.target;
-            
-            // Ensure `aria-hidden` is properly removed
             requestAnimationFrame(() => {
                 modal.removeAttribute("aria-hidden");
                 modal.removeAttribute("inert");
-
-                // Move focus to a safe element outside the modal
-                let safeElement = document.querySelector(".btn-primary") || document.body;
-                safeElement.focus();
-
-                // Force blur on elements inside the modal to prevent retained focus
                 modal.querySelectorAll("button, input, a, textarea, select").forEach(el => el.blur());
             });
         });
 
+        // When the modal is shown, remove inert and aria-hidden and set focus
+        // to the first focusable element within the modal.
         $(document).on('shown.bs.modal', function (event) {
             let modal = event.target;
-            
-            // Ensure accessibility attributes are properly set
-            requestAnimationFrame(() => {
-                modal.removeAttribute("inert");
-                modal.removeAttribute("aria-hidden");
-
-                // Ensure focus is properly set inside the opened modal
-                let focusable = modal.querySelector("button, input, a, textarea, select");
-                if (focusable) {
-                    focusable.focus();
-                }
-            });
+            // Remove inert and aria-hidden so that elements are focusable again.
+            modal.removeAttribute("inert");
+            modal.removeAttribute("aria-hidden");
+            // Focus the first available focusable element.
+            let focusable = modal.querySelector("button, input, a, textarea, select");
+            if (focusable) {
+                focusable.focus();
+            }
         });
     }
 });
-
 
 // Section 2: Populate Monthly Production Days Function
 frappe.ui.form.on('Monthly Production Planning', {
     populate_monthly_prod_days: function(frm) {
         try {
+            // Ensure no element is retaining focus (helps with modal issues)
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
+
             console.log("populate_monthly_prod_days triggered");
 
-            // Check if start and end dates are selected
+            // Check if start and end dates are selected and log them
+            console.log("prod_month_start_date:", frm.doc.prod_month_start_date, typeof frm.doc.prod_month_start_date);
+            console.log("prod_month_end_date:", frm.doc.prod_month_end_date, typeof frm.doc.prod_month_end_date);
             if (!frm.doc.prod_month_start_date || !frm.doc.prod_month_end_date) {
                 frappe.msgprint(__('Please select valid production start and end dates.'));
                 console.log("Missing start or end date");
+                return;
+            }
+
+            // Debug logging for the shift fields
+            console.log("weekday_shift_hours:", frm.doc.weekday_shift_hours, typeof frm.doc.weekday_shift_hours);
+            console.log("saturday_shift_hours:", frm.doc.saturday_shift_hours, typeof frm.doc.saturday_shift_hours);
+            console.log("num_sat_shifts:", frm.doc.num_sat_shifts, typeof frm.doc.num_sat_shifts);
+
+            // Check if required shift fields are populated.
+            // This condition checks for null or an empty string.
+            if (
+                frm.doc.weekday_shift_hours == null || frm.doc.weekday_shift_hours === "" ||
+                frm.doc.saturday_shift_hours == null || frm.doc.saturday_shift_hours === "" ||
+                frm.doc.num_sat_shifts == null || frm.doc.num_sat_shifts === ""
+            ) {
+                frappe.msgprint(__('Please populate Weekday Shift Hours, Saturday Shift Hours, and Number of Saturday Shifts.'));
+                console.log("Missing shift hour fields");
                 return;
             }
 
@@ -74,15 +109,13 @@ frappe.ui.form.on('Monthly Production Planning', {
             console.log("Start Date:", start_date);
             console.log("End Date:", end_date);
 
-            // If invalid dates are found, show a message
             if (!start_date || !end_date) {
                 frappe.msgprint(__('Invalid production start or end date format.'));
                 console.log("Invalid start or end date format");
                 return;
             }
 
-            // Last day of the month
-            let last_day = end_date.getDate();
+            // Clear existing production days table
             frm.clear_table('month_prod_days');
             console.log("Cleared 'month_prod_days' table");
 
@@ -91,41 +124,66 @@ frappe.ui.form.on('Monthly Production Planning', {
             let total_morning_hours = 0;
             let total_afternoon_hours = 0;
 
-            // Loop through each day of the month
-            for (let day = start_date.getDate(); day <= last_day; day++) {
-                let day_date = new Date(start_date.getFullYear(), start_date.getMonth(), day);
-                let day_of_week = day_date.toLocaleDateString('en-US', { weekday: 'long' });
+            // Convert shift fields to numbers
+            const weekday_shift_hours = Number(frm.doc.weekday_shift_hours);
+            const saturday_shift_hours = Number(frm.doc.saturday_shift_hours);
+            const num_sat_shifts = Number(frm.doc.num_sat_shifts);
 
+            let current_date = new Date(start_date);
+            while (current_date <= end_date) {
+                let day_date = new Date(current_date);
+                let day_of_week = day_date.toLocaleDateString('en-US', { weekday: 'long' });
                 console.log('Processing Date:', day_date, 'Day of Week:', day_of_week);
 
                 let day_shift_hours = 0, night_shift_hours = 0;
                 let morning_shift_hours = 0, afternoon_shift_hours = 0;
 
-                // Check shift system and calculate hours
                 if (frm.doc.shift_system === '2x12Hour') {
-                    if (day_of_week === 'Saturday') {
-                        day_shift_hours = 7;
-                        night_shift_hours = 7;
-                    } else if (day_of_week === 'Sunday') {
+                    if (day_of_week === 'Sunday') {
                         day_shift_hours = 0;
                         night_shift_hours = 0;
+                    } else if (day_of_week === 'Saturday') {
+                        if (num_sat_shifts === 1) {
+                            day_shift_hours = saturday_shift_hours;
+                            night_shift_hours = 0;
+                        } else if (num_sat_shifts === 2) {
+                            day_shift_hours = saturday_shift_hours;
+                            night_shift_hours = saturday_shift_hours;
+                        } else {
+                            day_shift_hours = saturday_shift_hours;
+                            night_shift_hours = saturday_shift_hours;
+                        }
                     } else {
-                        day_shift_hours = 9;
-                        night_shift_hours = 9;
+                        day_shift_hours = weekday_shift_hours;
+                        night_shift_hours = weekday_shift_hours;
                     }
                 } else if (frm.doc.shift_system === '3x8Hour') {
-                    if (day_of_week === 'Saturday') {
-                        morning_shift_hours = 5;
-                        afternoon_shift_hours = 5;
-                        night_shift_hours = 5;
-                    } else if (day_of_week === 'Sunday') {
+                    if (day_of_week === 'Sunday') {
                         morning_shift_hours = 0;
                         afternoon_shift_hours = 0;
                         night_shift_hours = 0;
+                    } else if (day_of_week === 'Saturday') {
+                        if (num_sat_shifts === 1) {
+                            morning_shift_hours = saturday_shift_hours;
+                            afternoon_shift_hours = 0;
+                            night_shift_hours = 0;
+                        } else if (num_sat_shifts === 2) {
+                            morning_shift_hours = saturday_shift_hours;
+                            afternoon_shift_hours = saturday_shift_hours;
+                            night_shift_hours = 0;
+                        } else if (num_sat_shifts === 3) {
+                            morning_shift_hours = saturday_shift_hours;
+                            afternoon_shift_hours = saturday_shift_hours;
+                            night_shift_hours = saturday_shift_hours;
+                        } else {
+                            morning_shift_hours = saturday_shift_hours;
+                            afternoon_shift_hours = saturday_shift_hours;
+                            night_shift_hours = saturday_shift_hours;
+                        }
                     } else {
-                        morning_shift_hours = 6;
-                        afternoon_shift_hours = 6;
-                        night_shift_hours = 6;
+                        morning_shift_hours = weekday_shift_hours;
+                        afternoon_shift_hours = weekday_shift_hours;
+                        night_shift_hours = weekday_shift_hours;
                     }
                 }
 
@@ -134,7 +192,6 @@ frappe.ui.form.on('Monthly Production Planning', {
                 total_morning_hours += morning_shift_hours;
                 total_afternoon_hours += afternoon_shift_hours;
 
-                // Add data to the 'month_prod_days' child table
                 let row = frm.add_child('month_prod_days');
                 row.shift_start_date = frappe.datetime.obj_to_str(day_date);
                 row.day_week = day_of_week;
@@ -142,16 +199,16 @@ frappe.ui.form.on('Monthly Production Planning', {
                 row.shift_night_hours = night_shift_hours;
                 row.shift_morning_hours = morning_shift_hours;
                 row.shift_afternoon_hours = afternoon_shift_hours;
+
+                current_date.setDate(current_date.getDate() + 1);
             }
 
-            // Update total hours and refresh fields
             frm.set_value('tot_shift_day_hours', total_day_hours);
             frm.set_value('tot_shift_night_hours', total_night_hours);
             frm.set_value('tot_shift_morning_hours', total_morning_hours);
             frm.set_value('tot_shift_afternoon_hours', total_afternoon_hours);
             frm.set_value('total_month_prod_hours', total_day_hours + total_night_hours + total_morning_hours + total_afternoon_hours);
 
-            // Recalculate totals and refresh the child table
             frm.trigger('recalculate_totals');
             frm.refresh_field('month_prod_days');
             frappe.msgprint(__('Monthly Production Days table has been populated.'));
