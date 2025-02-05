@@ -1,0 +1,118 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{location}-{shift_date}-{shift}",
+ "creation": "2025-02-05 05:54:21.217487",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_wrbu",
+  "amended_from",
+  "location",
+  "shift_date",
+  "monthly_production_planning",
+  "column_break_bekh",
+  "shift_system",
+  "shift",
+  "section_break_klmu",
+  "daily_lost_hours_assets_table"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_wrbu",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Daily Lost Hours Recon",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Site",
+   "options": "Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "shift_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Shift Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "monthly_production_planning",
+   "fieldtype": "Link",
+   "label": "Monthly Production Planning Link",
+   "options": "Monthly Production Planning",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_bekh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "monthly_production_planning.shift_system",
+   "fieldname": "shift_system",
+   "fieldtype": "Data",
+   "label": "Shift System",
+   "read_only": 1
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Shift",
+   "options": "Day\nMorning\nAfternoon\nNight",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_klmu",
+   "fieldtype": "Section Break"
+  },
+  {
+   "columns": 11,
+   "fieldname": "daily_lost_hours_assets_table",
+   "fieldtype": "Table",
+   "label": "Daily Lost Hours Asset Detail",
+   "options": "Daily Lost Hours Assets"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-02-05 09:35:15.338024",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Daily Lost Hours Recon",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

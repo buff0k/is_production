@@ -1,0 +1,49 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-02-05 09:16:03.349892",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "asset_name",
+  "item_name",
+  "asset_category"
+ ],
+ "fields": [
+  {
+   "fieldname": "asset_name",
+   "fieldtype": "Link",
+   "label": "Plant No.",
+   "link_filters": "[[\"Asset\",\"asset_category\",\"in\",[\"Dozer\",\"ADT\",\"Rigid\",\"Excavator\",\"Drills\",\"Water pump\",\"Water Bowser\",\"Diesel Bowsers\",\"TLB\"]]]",
+   "options": "Asset",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "asset_name.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Model",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "asset_name.asset_category",
+   "fieldname": "asset_category",
+   "fieldtype": "Data",
+   "label": "Asset Category",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-02-05 10:44:57.522837",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Daily Lost Hours Assets",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
