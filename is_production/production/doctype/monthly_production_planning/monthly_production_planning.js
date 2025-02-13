@@ -428,7 +428,7 @@ frappe.ui.form.on('Monthly Production Planning', {
                         row.total_daily_bcms = 0;
                     });
 
-                    // Process Hourly Production data
+                    // Process Hourly Production data: Add production per shift to the corresponding day
                     hourly_production_data.forEach(entry => {
                         frm.doc.month_prod_days.forEach(row => {
                             if (row.shift_start_date === frappe.datetime.obj_to_str(entry.prod_date)) {
@@ -445,7 +445,7 @@ frappe.ui.form.on('Monthly Production Planning', {
                         });
                     });
 
-                    // Calculate total_daily_bcms for each row
+                    // Calculate total_daily_bcms for each child row by summing shift BCMs
                     frm.doc.month_prod_days.forEach(row => {
                         row.total_daily_bcms =
                             (row.day_shift_bcms || 0) +
@@ -453,6 +453,82 @@ frappe.ui.form.on('Monthly Production Planning', {
                             (row.morning_shift_bcms || 0) +
                             (row.afternoon_shift_bcms || 0);
                     });
+
+                    // Sum total_daily_bcms from all child rows and update the parent field "month_actual_bcm"
+                    let month_actual_bcm = frm.doc.month_prod_days.reduce((sum, row) => {
+                        return sum + (row.total_daily_bcms || 0);
+                    }, 0);
+                    frm.set_value('month_actual_bcm', month_actual_bcm);
+                    frm.refresh_field('month_actual_bcm');
+
+                    // Calculate prod_days_completed: count of days (child rows) where there is at least one shift with non-zero hours
+                    // and the shift_start_date is on or before yesterday's date.
+                    let prod_days_completed = 0;
+                    let today = new Date();
+                    let yesterday = new Date();
+                    yesterday.setDate(today.getDate() - 1);
+                    
+                    frm.doc.month_prod_days.forEach(row => {
+                        let row_date = frappe.datetime.str_to_obj(row.shift_start_date);
+                        if (row_date <= yesterday && (
+                            (row.shift_day_hours || 0) > 0 ||
+                            (row.shift_night_hours || 0) > 0 ||
+                            (row.shift_morning_hours || 0) > 0 ||
+                            (row.shift_afternoon_hours || 0) > 0
+                        )) {
+                            prod_days_completed++;
+                        }
+                    });
+                    frm.set_value('prod_days_completed', prod_days_completed);
+                    frm.refresh_field('prod_days_completed');
+
+                    // Calculate month_prod_hours_completed: sum of shift hours for each day (child row)
+                    // where there is at least one shift with non-zero hours and the shift_start_date is on or before yesterday's date.
+                    let month_prod_hours_completed = 0;
+                    frm.doc.month_prod_days.forEach(row => {
+                        let row_date = frappe.datetime.str_to_obj(row.shift_start_date);
+                        if (row_date <= yesterday && (
+                            (row.shift_day_hours || 0) > 0 ||
+                            (row.shift_night_hours || 0) > 0 ||
+                            (row.shift_morning_hours || 0) > 0 ||
+                            (row.shift_afternoon_hours || 0) > 0
+                        )) {
+                            month_prod_hours_completed += 
+                                (row.shift_day_hours || 0) +
+                                (row.shift_night_hours || 0) +
+                                (row.shift_morning_hours || 0) +
+                                (row.shift_afternoon_hours || 0);
+                        }
+                    });
+                    frm.set_value('month_prod_hours_completed', month_prod_hours_completed);
+                    frm.refresh_field('month_prod_hours_completed');
+
+                    // Calculate month_remaining_production_days:
+                    // (num_prod_days - prod_days_completed)
+                    let month_remaining_production_days = (frm.doc.num_prod_days || 0) - prod_days_completed;
+                    frm.set_value('month_remaining_production_days', month_remaining_production_days);
+                    frm.refresh_field('month_remaining_production_days');
+
+                    // Calculate month_remaining_prod_hours:
+                    // (total_month_prod_hours - month_prod_hours_completed)
+                    let month_remaining_prod_hours = (frm.doc.total_month_prod_hours || 0) - month_prod_hours_completed;
+                    frm.set_value('month_remaining_prod_hours', month_remaining_prod_hours);
+                    frm.refresh_field('month_remaining_prod_hours');
+
+                    // Calculate mtd_bcm_day: month_actual_bcm / prod_days_completed
+                    let mtd_bcm_day = prod_days_completed ? (month_actual_bcm / prod_days_completed) : 0;
+                    frm.set_value('mtd_bcm_day', mtd_bcm_day);
+                    frm.refresh_field('mtd_bcm_day');
+
+                    // Calculate mtd_bcm_hour: month_actual_bcm / month_prod_hours_completed
+                    let mtd_bcm_hour = month_prod_hours_completed ? (month_actual_bcm / month_prod_hours_completed) : 0;
+                    frm.set_value('mtd_bcm_hour', mtd_bcm_hour);
+                    frm.refresh_field('mtd_bcm_hour');
+
+                    // Calculate month_forecated_bcm: mtd_bcm_hour x total_month_prod_hours
+                    let month_forecated_bcm = mtd_bcm_hour * (frm.doc.total_month_prod_hours || 0);
+                    frm.set_value('month_forecated_bcm', month_forecated_bcm);
+                    frm.refresh_field('month_forecated_bcm');
 
                     frappe.msgprint(__('Month-to-Date Production updated successfully.'));
                 } else {

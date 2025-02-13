@@ -8,7 +8,17 @@
  "field_order": [
   "asset_name",
   "item_name",
-  "asset_category"
+  "asset_category",
+  "spec_oper_train_medical_hours",
+  "absenteeism_no_replacement_hours",
+  "total_plant_specific_lost_hours",
+  "gen_training_hours_child",
+  "weather_non_work_hours_child",
+  "vfl_non_work_hours_child",
+  "dust_water_bowser_issues_hours_child",
+  "diesel_or_diesel_bowser_hours_child",
+  "other_non_work_hours_child",
+  "total_general_lost_hours_child"
  ],
  "fields": [
   {
@@ -32,12 +42,88 @@
    "fieldtype": "Data",
    "label": "Asset Category",
    "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "spec_oper_train_medical_hours",
+   "fieldtype": "Float",
+   "label": "Specific Operator Training or Medical No Replacement ",
+   "non_negative": 1,
+   "precision": "1"
+  },
+  {
+   "default": "0",
+   "fieldname": "absenteeism_no_replacement_hours",
+   "fieldtype": "Float",
+   "label": "Operator Absenteeism No Replacement",
+   "non_negative": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "total_plant_specific_lost_hours",
+   "fieldtype": "Float",
+   "label": "Total Non Breakdown Specific Plant Based",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "gen_training_hours_child",
+   "fieldtype": "Float",
+   "label": "General Training Lost Hours ",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "weather_non_work_hours_child",
+   "fieldtype": "Float",
+   "label": "Weather non working hours",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "vfl_non_work_hours_child",
+   "fieldtype": "Float",
+   "label": "VFL Non Work Hours",
+   "non_negative": 1,
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "other_non_work_hours_child",
+   "fieldtype": "Float",
+   "label": "Other non work hours",
+   "non_negative": 1,
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_general_lost_hours_child",
+   "fieldtype": "Float",
+   "label": "Total General Hours Lost Plant Impact",
+   "non_negative": 1,
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dust_water_bowser_issues_hours_child",
+   "fieldtype": "Float",
+   "label": "Dust and or Water Bowser Lost Hours",
+   "non_negative": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "diesel_or_diesel_bowser_hours_child",
+   "fieldtype": "Float",
+   "label": "Diesel and or Diesel Bowser Lost Hours",
+   "non_negative": 1,
+   "precision": "1",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-02-05 10:44:57.522837",
+ "modified": "2025-02-07 08:11:40.269705",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Lost Hours Assets",

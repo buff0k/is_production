@@ -1,18 +1,127 @@
-// Copyright (c) 2025, Isambane Mining (Pty) Ltd and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on("Daily Lost Hours Recon", {
-    location: function(frm) {
-        fetch_monthly_production_planning(frm);
-		fetch_assets(frm);
+    // When shift_date changes, set day_of_week immediately
+    shift_date(frm) {
+        set_day_of_week(frm);
     },
-    shift_date: function(frm) {
+
+    // Trigger when location changes (existing logic)
+    location(frm) {
         fetch_monthly_production_planning(frm);
+        fetch_assets(frm);
     },
-    monthly_production_planning: function(frm) {
+
+    // Trigger when monthly_production_planning changes (existing logic)
+    monthly_production_planning(frm) {
         fetch_shift_system(frm);
+    },
+
+    // When general lost hours fields change, update both the parent total and child rows
+    gen_training_hours(frm) {
+        update_parent_total_general_lost_hours(frm);
+        update_child_general_lost_hours(frm);
+    },
+    weather_non_work_hours(frm) {
+        update_parent_total_general_lost_hours(frm);
+        update_child_general_lost_hours(frm);
+    },
+    vfl_non_work_hours(frm) {
+        update_parent_total_general_lost_hours(frm);
+        update_child_general_lost_hours(frm);
+    },
+    other_non_work_hours(frm) {
+        update_parent_total_general_lost_hours(frm);
+        update_child_general_lost_hours(frm);
+    },
+    diesel_or_diesel_bowser_hours(frm) {
+        update_parent_total_general_lost_hours(frm);
+        update_child_general_lost_hours(frm);
+    },
+    dust_water_bowser_issues_hours(frm) {
+        update_parent_total_general_lost_hours(frm);
+        update_child_general_lost_hours(frm);
     }
 });
+
+// Child Table Triggers
+frappe.ui.form.on("Daily Lost Hours Assets", {
+    // Recalculate total_plant_specific_lost_hours when either field changes
+    absenteeism_no_replacement_hours(frm, cdt, cdn) {
+        recalculate_total_plant_specific_lost_hours(frm, cdt, cdn);
+    },
+    spec_oper_train_medical_hours(frm, cdt, cdn) {
+        recalculate_total_plant_specific_lost_hours(frm, cdt, cdn);
+    }
+});
+
+/* ------------------------------------------------------------------
+    HELPER FUNCTIONS
+------------------------------------------------------------------ */
+
+// Set 'day_of_week' from shift_date automatically
+function set_day_of_week(frm) {
+    if (frm.doc.shift_date) {
+        const weekday = moment(frm.doc.shift_date).format("dddd");
+        frm.set_value("day_of_week", weekday);
+        frm.refresh_field("day_of_week");
+    } else {
+        frm.set_value("day_of_week", null);
+        frm.refresh_field("day_of_week");
+    }
+}
+
+// Calculate parent total_general_lost_hours
+function update_parent_total_general_lost_hours(frm) {
+    const total = (
+        (frm.doc.gen_training_hours || 0) +
+        (frm.doc.weather_non_work_hours || 0) +
+        (frm.doc.vfl_non_work_hours || 0) +
+        (frm.doc.other_non_work_hours || 0) +
+        (frm.doc.diesel_or_diesel_bowser_hours || 0) +
+        (frm.doc.dust_water_bowser_issues_hours || 0)
+    );
+    frm.set_value("total_general_lost_hours", total);
+    frm.refresh_field("total_general_lost_hours");
+}
+
+// Update child rows with parent general lost hour values
+function update_child_general_lost_hours(frm) {
+    frm.doc.daily_lost_hours_assets_table.forEach(row => {
+        frappe.model.set_value(row.doctype, row.name, "gen_training_hours_child", frm.doc.gen_training_hours || 0);
+        frappe.model.set_value(row.doctype, row.name, "weather_non_work_hours_child", frm.doc.weather_non_work_hours || 0);
+        frappe.model.set_value(row.doctype, row.name, "vfl_non_work_hours_child", frm.doc.vfl_non_work_hours || 0);
+        frappe.model.set_value(row.doctype, row.name, "other_non_work_hours_child", frm.doc.other_non_work_hours || 0);
+        frappe.model.set_value(row.doctype, row.name, "diesel_or_diesel_bowser_hours_child", frm.doc.diesel_or_diesel_bowser_hours || 0);
+        frappe.model.set_value(row.doctype, row.name, "dust_water_bowser_issues_hours_child", frm.doc.dust_water_bowser_issues_hours || 0);
+
+        // Calculate and update total_general_lost_hours_child
+        const total_child_hours = (
+            (frm.doc.gen_training_hours || 0) +
+            (frm.doc.weather_non_work_hours || 0) +
+            (frm.doc.vfl_non_work_hours || 0) +
+            (frm.doc.other_non_work_hours || 0) +
+            (frm.doc.diesel_or_diesel_bowser_hours || 0) +
+            (frm.doc.dust_water_bowser_issues_hours || 0)
+        );
+
+        frappe.model.set_value(row.doctype, row.name, "total_general_lost_hours_child", total_child_hours);
+    });
+
+    frm.refresh_field("daily_lost_hours_assets_table");
+}
+
+// Recalculate 'total_plant_specific_lost_hours' in a child row when certain fields change
+function recalculate_total_plant_specific_lost_hours(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    row.total_plant_specific_lost_hours = (
+        (row.absenteeism_no_replacement_hours || 0) +
+        (row.spec_oper_train_medical_hours || 0)
+    );
+    frappe.model.set_value(cdt, cdn, "total_plant_specific_lost_hours", row.total_plant_specific_lost_hours);
+}
+
+/* ------------------------------------------------------------------
+    EXISTING FUNCTIONS (UNCHANGED OR MINOR ADJUSTMENTS)
+------------------------------------------------------------------ */
 
 function fetch_monthly_production_planning(frm) {
     if (frm.doc.location && frm.doc.shift_date) {
@@ -25,7 +134,7 @@ function fetch_monthly_production_planning(frm) {
             callback: function(response) {
                 if (response.message) {
                     frm.set_value("monthly_production_planning", response.message);
-                    fetch_shift_system(frm);  // Fetch shift system when monthly production planning is set
+                    fetch_shift_system(frm);
                 } else {
                     frm.set_value("monthly_production_planning", null);
                     frm.set_value("shift_system", null);
@@ -59,10 +168,8 @@ function update_shift_options(frm, shift_system) {
     } else if (shift_system === "2x12Hour") {
         shift_options = ["Day", "Night"];
     }
-    
     frm.set_df_property("shift", "options", shift_options.join("\n"));
 }
-
 
 function fetch_assets(frm) {
     if (frm.doc.location) {
@@ -76,9 +183,9 @@ function fetch_assets(frm) {
                     frm.clear_table("daily_lost_hours_assets_table");
                     response.message.forEach(asset => {
                         let row = frm.add_child("daily_lost_hours_assets_table");
-                        row.asset_name = asset.asset_name;  // Populate asset name in child table
-                        row.item_name = asset.item_name;    // Populate item name
-                        row.asset_category = asset.asset_category;  // Populate asset category
+                        row.asset_name = asset.asset_name;
+                        row.item_name = asset.item_name;
+                        row.asset_category = asset.asset_category;
                     });
                     frm.refresh_field("daily_lost_hours_assets_table");
                 }

@@ -34,17 +34,20 @@
    "reqd": 1
   },
   {
+   "default": "0",
    "fieldname": "bcm_hour",
-   "fieldtype": "Float",
+   "fieldtype": "Int",
    "label": "BCM in Hour",
+   "non_negative": 1,
+   "options": "0\n100\n110\n120\n130\n140\n150\n180\n190\n200",
    "precision": "1",
-   "read_only": 1
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-12-17 17:23:51.076151",
+ "modified": "2025-02-09 12:20:32.852486",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Dozer Production",

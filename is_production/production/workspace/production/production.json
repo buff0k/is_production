@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"b8ARXFS6g1\",\"type\":\"card\",\"data\":{\"card_name\":\"Contract Terms\",\"col\":4}},{\"id\":\"kNk6XoNWfM\",\"type\":\"card\",\"data\":{\"card_name\":\"Diesel\",\"col\":4}},{\"id\":\"dyKdlUV23b\",\"type\":\"card\",\"data\":{\"card_name\":\"Availability & Utilization (AU)\",\"col\":4}}]",
+ "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"b8ARXFS6g1\",\"type\":\"card\",\"data\":{\"card_name\":\"Contract Terms\",\"col\":4}},{\"id\":\"kNk6XoNWfM\",\"type\":\"card\",\"data\":{\"card_name\":\"Diesel\",\"col\":4}},{\"id\":\"dyKdlUV23b\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Monitoring\",\"col\":4}}]",
  "creation": "2024-07-29 15:25:05.760313",
  "custom_blocks": [],
  "docstatus": 0,
@@ -28,65 +28,6 @@
    "label": "Key Contract Terms",
    "link_count": 0,
    "link_to": "Key Contract Terms",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Availability & Utilization (AU)",
-   "link_count": 5,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Monthly Production Planning",
-   "link_count": 0,
-   "link_to": "Monthly Production Planning",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Hourly Production",
-   "link_count": 0,
-   "link_to": "Hourly Production",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Pre-Use Hours",
-   "link_count": 0,
-   "link_to": "Pre-Use Hours",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Plant Breakdown",
-   "link_count": 0,
-   "link_to": "Plant Breakdown",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Availability and Utilisation",
-   "link_count": 0,
-   "link_to": "Availability and Utilisation",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -149,9 +90,98 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Production Monitoring",
+   "link_count": 8,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Monthly Production Planning",
+   "link_count": 0,
+   "link_to": "Monthly Production Planning",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Hourly Production",
+   "link_count": 0,
+   "link_to": "Hourly Production",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Pre-Use Hours",
+   "link_count": 0,
+   "link_to": "Pre-Use Hours",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Plant Breakdown",
+   "link_count": 0,
+   "link_to": "Plant Breakdown",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Availability and Utilisation Documents",
+   "link_count": 0,
+   "link_to": "Availability and Utilisation",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Non Breakdown Production Hour Losses ",
+   "link_count": 0,
+   "link_to": "Daily Lost Hours Recon",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Production Volumes Monthly",
+   "link_count": 0,
+   "link_to": "Production Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Avail & Util Monthly",
+   "link_count": 0,
+   "link_to": "Availability & Utilisation- Monthly",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2025-01-26 12:21:29.197488",
+ "modified": "2025-02-11 20:06:57.511529",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

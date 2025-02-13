@@ -26,7 +26,6 @@
   "shift_system",
   "populate_monthly_prod_days",
   "clear_production_days",
-  "update_mtd_production",
   "column_break_kqgs",
   "weekday_shift_hours",
   "saturday_shift_hours",
@@ -53,7 +52,8 @@
   "month_actual_bcm",
   "mtd_bcm_day",
   "mtd_bcm_hour",
-  "month_forecated_bcm"
+  "month_forecated_bcm",
+  "update_mtd_production"
  ],
  "fields": [
   {
@@ -262,7 +262,8 @@
   {
    "fieldname": "mtd_bcm_hour",
    "fieldtype": "Float",
-   "label": "MTD Actual BCMs /Hour"
+   "label": "MTD Actual BCMs /Hour",
+   "read_only": 1
   },
   {
    "fieldname": "num_excavators",
@@ -340,7 +341,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-01-27 15:48:18.109774",
+ "modified": "2025-02-07 12:25:57.339287",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",

@@ -7,30 +7,34 @@
  "engine": "InnoDB",
  "field_order": [
   "section_break_wrbu",
-  "amended_from",
   "location",
   "shift_date",
+  "day_of_week",
   "monthly_production_planning",
   "column_break_bekh",
   "shift_system",
   "shift",
+  "weekday_required_hours",
+  "sat_required_shift_hours",
+  "general_lost_hours_section",
+  "gen_training_hours",
+  "weather_non_work_hours",
+  "vfl_non_work_hours",
+  "other_non_work_hours",
+  "dust_water_bowser_issues_hours",
+  "diesel_or_diesel_bowser_hours",
+  "total_general_lost_hours",
+  "column_break_nuby",
+  "gen_lost_hours_comments",
   "section_break_klmu",
-  "daily_lost_hours_assets_table"
+  "daily_lost_hours_assets_table",
+  "amended_from"
  ],
  "fields": [
   {
    "fieldname": "section_break_wrbu",
-   "fieldtype": "Section Break"
-  },
-  {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Daily Lost Hours Recon",
-   "print_hide": 1,
-   "read_only": 1,
-   "search_index": 1
+   "fieldtype": "Section Break",
+   "label": "Capture Only Non Breakdown Lost Hours"
   },
   {
    "fieldname": "location",
@@ -86,12 +90,114 @@
    "fieldtype": "Table",
    "label": "Daily Lost Hours Asset Detail",
    "options": "Daily Lost Hours Assets"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Daily Lost Hours Recon",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "monthly_production_planning.weekday_shift_hours",
+   "fieldname": "weekday_required_hours",
+   "fieldtype": "Float",
+   "label": "Weekday Required Shift Production Hours",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "monthly_production_planning.saturday_shift_hours",
+   "fieldname": "sat_required_shift_hours",
+   "fieldtype": "Float",
+   "label": "Saturday Required Shift Hours",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "general_lost_hours_section",
+   "fieldtype": "Section Break",
+   "label": "General Lost Hours"
+  },
+  {
+   "fieldname": "gen_training_hours",
+   "fieldtype": "Float",
+   "label": "Training Non Work Hours",
+   "non_negative": 1,
+   "precision": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "weather_non_work_hours",
+   "fieldtype": "Float",
+   "label": "Weather Conditions Non Work Hours",
+   "non_negative": 1,
+   "precision": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "vfl_non_work_hours",
+   "fieldtype": "Float",
+   "label": "VFL Non Work Hours",
+   "non_negative": 1,
+   "precision": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "other_non_work_hours",
+   "fieldtype": "Float",
+   "label": "Other Non Work Hours",
+   "non_negative": 1,
+   "precision": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_nuby",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "gen_lost_hours_comments",
+   "fieldtype": "Small Text",
+   "label": "General Lost Hours Comments"
+  },
+  {
+   "fieldname": "day_of_week",
+   "fieldtype": "Read Only",
+   "label": "Day of Week",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_general_lost_hours",
+   "fieldtype": "Float",
+   "label": "Total General Non Breakdown Lost Hours",
+   "non_negative": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dust_water_bowser_issues_hours",
+   "fieldtype": "Float",
+   "label": "Dust and or Water Bowser Lost Hours",
+   "non_negative": 1,
+   "precision": "1",
+   "reqd": 1
+  },
+  {
+   "fieldname": "diesel_or_diesel_bowser_hours",
+   "fieldtype": "Float",
+   "label": "Diesel and or Diesel Bowser Lost Hours",
+   "non_negative": 1,
+   "precision": "1",
+   "reqd": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-02-05 09:35:15.338024",
+ "modified": "2025-02-07 08:14:52.778792",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Lost Hours Recon",

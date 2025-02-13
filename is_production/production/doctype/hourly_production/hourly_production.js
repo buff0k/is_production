@@ -6,7 +6,8 @@ frappe.ui.form.on('Hourly Production', {
                 return {
                     filters: {
                         docstatus: 1,
-                        asset_category: 'Excavator'
+                        asset_category: 'Excavator',
+                        location: frm.doc.location  // Ensures asset's location equals parent doc location
                     }
                 };
             };
@@ -15,11 +16,16 @@ frappe.ui.form.on('Hourly Production', {
 
     location: function (frm) {
         fetch_monthly_production_planning(frm);
-        populate_truck_loads_and_lookup(frm);
+        // Only auto-populate if the document is new
+        if (frm.doc.__islocal) { 
+            populate_truck_loads_and_lookup(frm);
+        }
     },
 
     prod_date: function (frm) {
         fetch_monthly_production_planning(frm);
+        // Derive the day number from prod_date and set the day_number field
+        set_day_number(frm);
     },
 
     after_save: function (frm) {
@@ -54,6 +60,18 @@ function set_field_options(frm, fieldname, options) {
         frm.set_df_property(fieldname, 'options', options.join('\n'));
     } else {
         console.warn(`Field "${fieldname}" not found.`);
+    }
+}
+
+// Function to derive and set the day number from the prod_date field
+function set_day_number(frm) {
+    if (frm.doc.prod_date) {
+        // Create a Date object from the prod_date string (expected format: YYYY-MM-DD)
+        let prodDate = new Date(frm.doc.prod_date);
+        // Get the day of the month (1-31)
+        let dayNumber = prodDate.getDate();
+        // Set the derived value in the day_number field
+        frm.set_value('day_number', dayNumber);
     }
 }
 
@@ -123,14 +141,26 @@ function update_hour_slot(frm) {
 function fetch_monthly_production_planning(frm) {
     if (frm.doc.location && frm.doc.prod_date) {
         frappe.call({
-            method: 'is_production.production.doctype.hourly_production.hourly_production.fetch_monthly_production_plan',
+            method: 'frappe.client.get_list',
             args: {
-                location: frm.doc.location,
-                prod_date: frm.doc.prod_date
+                doctype: 'Monthly Production Planning',
+                fields: ['name', 'prod_month_start_date', 'prod_month_end_date'],
+                filters: [
+                    ['location', '=', frm.doc.location],
+                    ['prod_month_start_date', '<=', frm.doc.prod_date],
+                    ['prod_month_end_date', '>=', frm.doc.prod_date]
+                ],
+                limit_page_length: 1
             },
             callback: function (r) {
-                frm.set_value('month_prod_planning', r.message || null);
-                update_doc_name(frm);
+                if (r.message && r.message.length > 0) {
+                    // Set the monthly production planning document name in the parent form field
+                    frm.set_value('month_prod_planning', r.message[0].name);
+                    update_doc_name(frm);
+                } else {
+                    frm.set_value('month_prod_planning', null);
+                    frappe.msgprint(__('No Monthly Production Planning document found for the selected location and production date.'));
+                }
             }
         });
     }
@@ -241,23 +271,5 @@ frappe.ui.form.on("Hourly Production", {
         fetch_monthly_production_planning(frm);
         populate_truck_loads_and_lookup(frm);
         populate_dozer_production_table(frm);
-    }
-});
-
-// Update bcm_hour based on dozer_service selection
-frappe.ui.form.on("Dozer Production", {
-    dozer_service: function (frm, cdt, cdn) {
-        const row = frappe.get_doc(cdt, cdn);
-        const service_bcm_map = {
-            "No Dozing": 0,
-            "Tip Dozing": 0,
-            "Production Dozing-50m": 180,
-            "Production Dozing-100m": 150,
-            "Levelling": 0
-        };
-
-        row.bcm_hour = service_bcm_map[row.dozer_service] || 0; // Set based on mapping
-        frappe.model.set_value(cdt, cdn, "bcm_hour", row.bcm_hour);
-        frm.refresh_field("dozer_production");
     }
 });

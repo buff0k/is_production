@@ -14,6 +14,7 @@
   "shift",
   "shift_num_hour",
   "hour_slot",
+  "day_number",
   "section_break_fxug",
   "truck_loads",
   "dozer_production",
@@ -226,11 +227,17 @@
    "label": "Average BCM per Truck",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "day_number",
+   "fieldtype": "Int",
+   "label": "Day Number",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-01-09 13:07:28.962974",
+ "modified": "2025-02-11 12:01:30.380430",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",

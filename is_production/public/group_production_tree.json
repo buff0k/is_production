@@ -1,0 +1,50 @@
+{
+    "Hourly Production": {
+        "Site": "Location",
+        "Production Date": "Shift Start Date",
+        "Shift": [
+            "Day",
+            "Night",
+            "Morning",
+            "Afternoon"
+        ],
+        "Truck Loads": {
+            "Truck Plant No.": {
+                "Truck Model": "Item Name",
+                "Excavator Plant No.": {
+                    "Excavator Model": "Item Name Excavator"
+                },
+                "Material Type": [
+                    "Softs",
+                    "Hards",
+                    "Coal"
+                ],
+                "Loads Count": "Loads",
+                "Total BCMs Moved": "BCMs"
+            }
+        },
+        "Dozer Production": {
+            "Dozer ID": {
+                "Dozer Model": "Item Name",
+                "Dozer Service Type": [
+                    "No Dozing",
+                    "Tip Dozing",
+                    "Production Dozing-50m",
+                    "Production Dozing-100m",
+                    "Levelling"
+                ],
+                "BCM per Hour": "BCM Hour"
+            }
+        },
+        "Aggregates": {
+            "Total Softs BCMs": "total_softs_bcm",
+            "Total Hards BCMs": "total_hards_bcm",
+            "Total Coal BCMs": "total_coal_bcm",
+            "Total Truck & Shovel BCMs": "total_ts_bcm",
+            "Total Dozing BCMs": "total_dozing_bcm",
+            "Hourly Total BCMs": "hour_total_bcm",
+            "Truck & Shovel Contribution (%)": "ts_percent",
+            "Dozing Contribution (%)": "dozing_percent"
+        }
+    }
+}
