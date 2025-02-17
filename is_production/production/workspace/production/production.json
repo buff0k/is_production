@@ -133,19 +133,9 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Plant Breakdown",
+   "label": "Plant Breakdown Updates",
    "link_count": 0,
    "link_to": "Plant Breakdown",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Availability and Utilisation Documents",
-   "link_count": 0,
-   "link_to": "Availability and Utilisation",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -163,7 +153,7 @@
   {
    "hidden": 0,
    "is_query_report": 1,
-   "label": "Production Volumes Monthly",
+   "label": "Production Volumes Tracking",
    "link_count": 0,
    "link_to": "Production Report",
    "link_type": "Report",
@@ -173,15 +163,25 @@
   {
    "hidden": 0,
    "is_query_report": 1,
-   "label": "Avail & Util Monthly",
+   "label": "Avail & Util Tracking",
    "link_count": 0,
    "link_to": "Availability & Utilisation- Monthly",
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Breakdown History",
+   "link_count": 0,
+   "link_to": "Breakdown Status History",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2025-02-11 20:06:57.511529",
+ "modified": "2025-02-17 14:58:43.694819",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
