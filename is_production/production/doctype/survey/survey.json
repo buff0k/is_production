@@ -1,0 +1,131 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{location}-{####}",
+ "creation": "2025-02-19 10:10:05.461292",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_awyo",
+  "amended_from",
+  "last_production_shift_start_date",
+  "location",
+  "sub_site_description",
+  "survey_report_notes",
+  "survey_datetime",
+  "total_surveyed_bcm",
+  "surveyed_values"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_awyo",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Survey",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "last_production_shift_start_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Last Production Shift Start Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Location",
+   "reqd": 1
+  },
+  {
+   "description": "Here you can describe further area that was surveyed e.g. Area D, Area E etc., ROM Stockpile etc. NB This field is optional",
+   "fieldname": "sub_site_description",
+   "fieldtype": "Data",
+   "label": "Sub Site Description"
+  },
+  {
+   "fieldname": "survey_report_notes",
+   "fieldtype": "Attach",
+   "label": "Formal Survey Notes or Report",
+   "reqd": 1
+  },
+  {
+   "fieldname": "survey_datetime",
+   "fieldtype": "Datetime",
+   "label": "Survey Date and Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "surveyed_values",
+   "fieldtype": "Table",
+   "label": "Surveyed Values",
+   "options": "Surveyed Values"
+  },
+  {
+   "fieldname": "total_surveyed_bcm",
+   "fieldtype": "Float",
+   "label": "Total Surveyed BCM",
+   "precision": "1",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-02-19 13:07:53.935097",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Survey",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "External Surveyor",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

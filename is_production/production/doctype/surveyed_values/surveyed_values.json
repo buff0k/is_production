@@ -1,0 +1,62 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-02-19 12:22:53.894314",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "mat_type",
+  "mat_type_ref",
+  "bcm",
+  "rd",
+  "metric_tonnes"
+ ],
+ "fields": [
+  {
+   "fieldname": "mat_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Material Type",
+   "options": "Softs\nHards\nCoal",
+   "reqd": 1
+  },
+  {
+   "fieldname": "mat_type_ref",
+   "fieldtype": "Data",
+   "label": "Material Type Ref"
+  },
+  {
+   "fieldname": "bcm",
+   "fieldtype": "Float",
+   "label": "Bank Cubic Meters",
+   "precision": "1"
+  },
+  {
+   "default": "1",
+   "fieldname": "rd",
+   "fieldtype": "Float",
+   "label": "Relative Density",
+   "precision": "2"
+  },
+  {
+   "fieldname": "metric_tonnes",
+   "fieldtype": "Float",
+   "label": "Metric Tonnes",
+   "precision": "1",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-02-19 12:45:15.917871",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Surveyed Values",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
