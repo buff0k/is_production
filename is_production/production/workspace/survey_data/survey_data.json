@@ -1,0 +1,49 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"70CtpqZyzz\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Survey Data</span>\",\"col\":12}},{\"id\":\"jxCvbfNGKY\",\"type\":\"card\",\"data\":{\"card_name\":\"Survey Data\",\"col\":4}}]",
+ "creation": "2025-02-19 13:48:23.174564",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "table_2",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Survey Data",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Survey Data",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Survey",
+   "link_count": 0,
+   "link_to": "Survey",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2025-02-19 13:51:36.866269",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Survey Data",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "Production",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 45.0,
+ "shortcuts": [],
+ "title": "Survey Data"
+}
