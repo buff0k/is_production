@@ -1,0 +1,25 @@
+{
+ "cards": [
+  {
+   "card": "Total Hards BCms"
+  }
+ ],
+ "charts": [
+  {
+   "chart": "Diesel Usage",
+   "width": "Half"
+  }
+ ],
+ "creation": "2025-02-17 20:02:39.477095",
+ "dashboard_name": "Diesel",
+ "docstatus": 0,
+ "doctype": "Dashboard",
+ "idx": 0,
+ "is_default": 0,
+ "is_standard": 1,
+ "modified": "2025-02-17 20:19:50.797356",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Diesel",
+ "owner": "Administrator"
+}

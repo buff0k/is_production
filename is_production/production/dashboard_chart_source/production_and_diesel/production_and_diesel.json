@@ -1,0 +1,13 @@
+{
+ "creation": "2025-02-18 20:28:48.154880",
+ "docstatus": 0,
+ "doctype": "Dashboard Chart Source",
+ "idx": 0,
+ "modified": "2025-02-18 20:29:51.427146",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production and Diesel",
+ "owner": "Administrator",
+ "source_name": "Production and Diesel",
+ "timeseries": 1
+}

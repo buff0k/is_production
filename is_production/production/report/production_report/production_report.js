@@ -26,8 +26,19 @@ frappe.query_reports["Production Report"] = {
 			"fieldname": "time_column",
 			"label": __("Time Column Parameter"),
 			"fieldtype": "Select",
-			"options": "\nMonth Only\nDays and Month\nWeek and Month",
+			"options": "\nMonth Only\nDays and Month\nWeek and Month\nDays Only\nWeeks Only",
 			"default": "Month Only"
+		},
+		{
+			"fieldname": "exclude_assets",
+			"label": __("Exclude Assets"),
+			"fieldtype": "MultiSelectList",
+			// This options function queries the asset list.
+			// Adjust this to the appropriate doctype or list of asset names.
+			"get_data": function(txt) {
+				return frappe.db.get_link_options("Asset", txt);
+			},
+			"description": __("Select assets to exclude from diesel calculations.")
 		}
 	]
 };

@@ -71,10 +71,18 @@
 </table>
 
 <!-- Primary Chart -->
-{% if (chart) { %}
+{% if (chart && chart.primary) { %}
     <h4 class="text-center">Primary Chart (Production Data)</h4>
     <div class="chart-area">
-        {%= frappe.render_chart(chart) %}
+        {%= frappe.render_chart(chart.primary) %}
+    </div>
+{% } %}
+
+<!-- Secondary Chart (Fuel Cap) -->
+{% if (chart && chart.secondary) { %}
+    <h4 class="text-center">Secondary Chart (Fuel Cap)</h4>
+    <div class="chart-area">
+        {%= frappe.render_chart(chart.secondary) %}
     </div>
 {% } %}
 
