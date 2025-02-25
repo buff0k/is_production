@@ -1,0 +1,84 @@
+{%
+	// Retrieve primary columns and data using the standard API.
+	var columns = report.get_columns_for_print();
+	columns = columns.filter(col => !col.hidden);
+	var data = data;  // data is the second element of the tuple
+	if (columns.length > 8) {
+	    frappe.throw(__("Too many columns. Export the report and print it using a spreadsheet application."));
+	}
+%}
+
+<style>
+	.diesel-recon-important td {
+		font-weight: bold;
+	}
+	.diesel-recon-blank-row td {
+		height: 37px;
+	}
+	.chart-area {
+	    margin: 20px 0;
+	}
+</style>
+
+<h2 class="text-center">{%= __(report.report_name) %}</h2>
+{% if (filters.site) { %}
+	<h3 class="text-center">{%= filters.site %}</h3>
+{% } %}
+{% if (filters.asset_name) { %}
+	<h3 class="text-center">{%= filters.asset_name %}</h3>
+{% } %}
+{% if (filters.from_date && filters.to_date) { %}
+	<h5 class="text-center">
+		{%= frappe.datetime.str_to_user(filters.from_date) %} - {%= frappe.datetime.str_to_user(filters.to_date) %}
+	</h5>
+{% } %}
+{% if (filters.time_bucket) { %}
+	<h5 class="text-center">Time Bucket: {%= filters.time_bucket %}</h5>
+{% } %}
+<hr>
+
+<!-- Primary Table (Diesel Recon Hierarchical Data) -->
+<h4 class="text-center">Diesel Reconciliation Data (Hierarchical View)</h4>
+<table class="table table-bordered">
+	<thead>
+		<tr>
+			<th style="width: {%= 100 - (columns.length - 1) * 13 %}%"></th>
+			{% for (let i = 1, l = columns.length; i < l; i++) { %}
+				<th class="text-right">{%= columns[i].label %}</th>
+			{% } %}
+		</tr>
+	</thead>
+	<tbody>
+		{% for (let j = 0, k = data.length; j < k; j++) { %}
+			{%
+				var row = data[j];
+				var row_class = row.is_group ? "diesel-recon-important" : "";
+			%}
+			<tr class="{%= row_class %}">
+				<td>
+					<span style="padding-left: {%= cint(row.indent) * 2 %}em">{%= row.label %}</span>
+				</td>
+				{% for (let i = 1, l = columns.length; i < l; i++) { %}
+					<td class="text-right">
+						{% const fieldname = columns[i].fieldname; %}
+						{% if (!is_null(row[fieldname])) { %}
+							{%= frappe.format(row[fieldname], columns[i], {}, row) %}
+						{% } %}
+					</td>
+				{% } %}
+			</tr>
+		{% } %}
+	</tbody>
+</table>
+
+<!-- Optional Chart -->
+{% if (chart && chart.primary) { %}
+    <h4 class="text-center">Chart (Diesel Recon Data)</h4>
+    <div class="chart-area">
+        {%= frappe.render_chart(chart.primary) %}
+    </div>
+{% } %}
+
+<p class="text-right text-muted">
+	Printed On {%= frappe.datetime.str_to_user(frappe.datetime.get_datetime_as_string()) %}
+</p>

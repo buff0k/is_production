@@ -8,7 +8,7 @@
  "for_user": "",
  "hide_custom": 0,
  "icon": "arrow-up-right",
- "idx": 1,
+ "idx": 2,
  "indicator_color": "green",
  "is_hidden": 0,
  "label": "Production",
@@ -29,65 +29,6 @@
    "link_count": 0,
    "link_to": "Key Contract Terms",
    "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Diesel",
-   "link_count": 5,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Diesel Site Tank Setup",
-   "link_count": 0,
-   "link_to": "Diesel Site Tank Setup",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Diesel Receipt",
-   "link_count": 0,
-   "link_to": "Diesel Receipt",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Daily Diesel Sheet",
-   "link_count": 0,
-   "link_to": "Daily Diesel Sheet",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Plant Monthly Diesel Usage",
-   "link_count": 0,
-   "link_to": "Plant Monthly Diesel Usage",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Diesel Usage Site ",
-   "link_count": 0,
-   "link_to": "Diesel Usage Site Analyses",
-   "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   },
@@ -179,9 +120,68 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diesel",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diesel Site Tank Setup",
+   "link_count": 0,
+   "link_to": "Diesel Site Tank Setup",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diesel Receipt",
+   "link_count": 0,
+   "link_to": "Diesel Receipt",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Daily Diesel Sheet",
+   "link_count": 0,
+   "link_to": "Daily Diesel Sheet",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Plant Monthly Diesel Usage",
+   "link_count": 0,
+   "link_to": "Plant Monthly Diesel Usage",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Diesel Usage Site ",
+   "link_count": 0,
+   "link_to": "Diesel Usage Site Analyses",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2025-02-17 14:58:43.694819",
+ "modified": "2025-02-22 10:15:47.866810",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
