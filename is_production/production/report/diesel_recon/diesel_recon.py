@@ -24,7 +24,6 @@ def get_month_columns_from_date_range(from_date, to_date):
         key = current.strftime("%b_%Y").lower()  # e.g., "feb_2025"
         label = current.strftime("%b %Y")         # e.g., "Feb 2025"
         columns.append({"key": key, "label": label})
-        # Move to the first day of next month:
         if current.month == 12:
             current = current.replace(year=current.year + 1, month=1)
         else:
@@ -43,14 +42,23 @@ def get_day_columns_from_date_range(from_date, to_date):
     return columns
 
 def get_week_columns_from_date_range(from_date, to_date):
-    """Generate weekly buckets (using ISO weeks) between from_date and to_date."""
+    """
+    Generate weekly buckets (using ISO weeks) between from_date and to_date.
+    For each week, the label includes two lines:
+      - First line: "W08 (2025)"
+      - Second line: "WE Sun 23/2"
+    """
     weeks = {}
     current = from_date
     while current <= to_date:
         iso_week = current.isocalendar()[1]
-        week_key = f"{current.year}-W{iso_week:02d}"  # e.g., "2025-W05"
+        week_key = f"{current.year}-W{iso_week:02d}"  # e.g., "2025-W08"
         if week_key not in weeks:
-            weeks[week_key] = f"W{iso_week:02d} ({current.year})"
+            year = int(week_key.split("-W")[0])
+            week_num = int(week_key.split("-W")[1])
+            sunday = datetime.date.fromisocalendar(year, week_num, 7)
+            label = f"W{week_num:02d} ({year})\nWE {sunday.strftime('%a')} {sunday.day}/{sunday.month}"
+            weeks[week_key] = label
         current += datetime.timedelta(days=1)
     sorted_week_keys = sorted(weeks.keys())
     columns = [{"key": key, "label": weeks[key]} for key in sorted_week_keys]
@@ -76,7 +84,6 @@ def get_time_columns(filters):
     elif time_bucket == "Weeks Only":
         return get_week_columns_from_date_range(from_date, to_date)
     else:
-        # Fallback to Month Only if an invalid option is provided.
         return get_month_columns_from_date_range(from_date, to_date)
 
 def get_columns(time_columns):
@@ -116,74 +123,85 @@ def get_time_bucket_key(d, time_bucket):
 def build_diesel_receipts_section(diesel_receipts, time_columns, filters):
     """
     Build the Diesel Receipts section:
-      - Top-level row: Asset (with "(Diesel Receipts)" appended).
-      - Detail rows (indent 1): Group by diesel_receipt; aggregate litres_dispensed
-        using date_time_diesel_receipt.
+      - Level 1 row only: Asset (with "(Diesel Receipts)" appended),
+        aggregating all litres_dispensed using date_time_diesel_receipt.
     """
     data = []
     asset = filters.get("asset_name")
     receipt_asset_row = {"label": f"{asset} (Diesel Receipts)", "indent": 0, "is_group": True}
     for col in time_columns:
         receipt_asset_row[col["key"]] = 0
-    data.append(receipt_asset_row)
-    
-    # Group records by diesel_receipt.
-    receipt_groups = {}
     for rec in diesel_receipts:
-        dr_no = rec.get("diesel_receipt")
-        receipt_groups.setdefault(dr_no, []).append(rec)
-    
-    for dr_no in sorted(receipt_groups.keys()):
-        row = {"label": dr_no, "indent": 1, "is_group": False}
-        for col in time_columns:
-            row[col["key"]] = 0
-        for rec in receipt_groups[dr_no]:
-            dt = rec.get("date_time_diesel_receipt")
-            if dt:
-                d = str_to_obj(dt)
-                key = get_time_bucket_key(d, filters.get("time_bucket", "Month Only"))
-                row[key] += flt(rec.get("litres_dispensed", 0))
-        data.append(row)
-        # Aggregate detail rows into the top-level asset row.
-        for col in time_columns:
-            receipt_asset_row[col["key"]] += row[col["key"]]
-    
+        dt = rec.get("date_time_diesel_receipt")
+        if dt:
+            d = str_to_obj(dt)
+            key = get_time_bucket_key(d, filters.get("time_bucket", "Month Only"))
+            receipt_asset_row[key] += flt(rec.get("litres_dispensed", 0))
+    data.append(receipt_asset_row)
     return data
 
 def build_diesel_issues_section(diesel_issues, time_columns, filters):
     """
     Build the Diesel Issues section:
-      - Top-level row: Asset (with "(Diesel Issues)" appended).
-      - Detail rows (indent 1): Group by daily_diesel_sheet_ref; aggregate litres_issued_equipment
-        using daily_sheet_date.
+      - Level 1 row: Asset (with "(Diesel Issues)" appended) that aggregates all
+        litres_issued_equipment from Daily Diesel Sheet records.
+      - Then add new Level 2 rows grouping child records by asset_category (normalized)
+        and Level 3 rows for each asset (from Daily Diesel Entries) with its aggregated
+        sum of litres_issued.
     """
     data = []
     asset = filters.get("asset_name")
     issues_asset_row = {"label": f"{asset} (Diesel Issues)", "indent": 0, "is_group": True}
     for col in time_columns:
         issues_asset_row[col["key"]] = 0
+    for rec in diesel_issues:
+        dt = rec.get("daily_sheet_date")
+        if dt:
+            d = str_to_obj(dt)
+            key = get_time_bucket_key(d, filters.get("time_bucket", "Month Only"))
+            issues_asset_row[key] += flt(rec.get("litres_issued_equipment", 0))
     data.append(issues_asset_row)
     
-    # Group records by daily_diesel_sheet_ref.
-    issues_groups = {}
-    for rec in diesel_issues:
-        ref = rec.get("daily_diesel_sheet_ref")
-        issues_groups.setdefault(ref, []).append(rec)
-    
-    for ref in sorted(issues_groups.keys()):
-        row = {"label": ref, "indent": 1, "is_group": False}
-        for col in time_columns:
-            row[col["key"]] = 0
-        for rec in issues_groups[ref]:
-            dt = rec.get("daily_sheet_date")
-            if dt:
-                d = str_to_obj(dt)
-                key = get_time_bucket_key(d, filters.get("time_bucket", "Month Only"))
-                row[key] += flt(rec.get("litres_issued_equipment", 0))
-        data.append(row)
-        # Aggregate detail rows into the top-level asset row.
-        for col in time_columns:
-            issues_asset_row[col["key"]] += row[col["key"]]
+    # Get parent's docnames from diesel_issues.
+    parent_names = [rec.get("name") for rec in diesel_issues if rec.get("name")]
+    if parent_names:
+        # Query child table for these parents, grouping by asset_name.
+        child_entries = frappe.db.sql("""
+            SELECT asset_name, SUM(litres_issued) AS total_litres
+            FROM `tabDaily Diesel Entries`
+            WHERE parent IN ({})
+            GROUP BY asset_name
+        """.format(", ".join(["%s"] * len(parent_names))), tuple(parent_names), as_dict=1)
+        
+        # Group child entries by asset_category (normalized).
+        category_groups = {}
+        category_labels = {}
+        for child in child_entries:
+            a_name = child.get("asset_name")
+            asset_cat = frappe.db.get_value("Asset", a_name, "asset_category") or "Unknown"
+            norm_cat = asset_cat.strip().lower()
+            if norm_cat not in category_groups:
+                category_groups[norm_cat] = []
+                category_labels[norm_cat] = asset_cat  # preserve original label
+            category_groups[norm_cat].append(child)
+        
+        # For each asset_category, add a Level 2 row and then Level 3 rows.
+        for norm_cat in sorted(category_groups.keys()):
+            level2_row = {"label": category_labels[norm_cat], "indent": 1, "is_group": False}
+            for col in time_columns:
+                level2_row[col["key"]] = 0
+            data.append(level2_row)
+            for child in category_groups[norm_cat]:
+                level3_row = {"label": child.get("asset_name"), "indent": 2, "is_group": False}
+                for col in time_columns:
+                    level3_row[col["key"]] = 0
+                # Use a fixed bucket key derived from the filter's from_date (or adjust as needed).
+                sample_date = getdate(filters.get("from_date"))
+                bucket_key = get_time_bucket_key(sample_date, filters.get("time_bucket", "Month Only"))
+                level3_row[bucket_key] = flt(child.get("total_litres"))
+                level2_row[bucket_key] += flt(child.get("total_litres"))
+                issues_asset_row[bucket_key] += flt(child.get("total_litres"))
+                data.append(level3_row)
     
     return data
 
@@ -212,6 +230,8 @@ def execute(filters=None):
     params["site"] = filters.get("site")
     conditions_receipts += " AND asset_name = %(asset_name)s"
     params["asset_name"] = filters.get("asset_name")
+    # Only select records with docstatus 0 or 1.
+    conditions_receipts += " AND docstatus IN (0,1)"
     
     diesel_receipts = frappe.db.sql(f"""
         SELECT asset_name, date_time_diesel_receipt, diesel_receipt, litres_dispensed
@@ -230,9 +250,11 @@ def execute(filters=None):
     params_issues["site"] = filters.get("site")
     conditions_issues += " AND asset_name = %(asset_name)s"
     params_issues["asset_name"] = filters.get("asset_name")
+    # Only select records with docstatus 0 or 1.
+    conditions_issues += " AND docstatus IN (0,1)"
     
     diesel_issues = frappe.db.sql(f"""
-        SELECT asset_name, daily_diesel_sheet_ref, daily_sheet_date, litres_issued_equipment
+        SELECT name, asset_name, daily_diesel_sheet_ref, daily_sheet_date, litres_issued_equipment
         FROM `tabDaily Diesel Sheet`
         {conditions_issues}
         ORDER BY daily_diesel_sheet_ref, daily_sheet_date
@@ -242,8 +264,7 @@ def execute(filters=None):
     receipts_section = build_diesel_receipts_section(diesel_receipts, time_columns, filters)
     issues_section = build_diesel_issues_section(diesel_issues, time_columns, filters)
     
-    # Combine the two sections.
+    # Combine the sections.
     data = receipts_section + issues_section
     
-    # Return the report without a chart.
     return primary_columns, data, None, None, [], None
