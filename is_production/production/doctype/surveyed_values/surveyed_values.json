@@ -8,6 +8,7 @@
  "field_order": [
   "mat_type",
   "mat_type_ref",
+  "handling_method",
   "bcm",
   "rd",
   "metric_tonnes"
@@ -54,12 +55,20 @@
    "label": "Metric Tonnes",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "handling_method",
+   "fieldtype": "Select",
+   "label": "Handling Method",
+   "options": "Truck and Shovel\nDozing",
+   "reqd": 1
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-02-19 14:08:48.307994",
+ "modified": "2025-03-26 13:57:17.709149",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Surveyed Values",

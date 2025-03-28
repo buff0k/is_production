@@ -1,5 +1,5 @@
-// Section 1: Introduction - Monthly Production Planning
 frappe.ui.form.on('Monthly Production Planning', {
+	// Section 1: Introduction - Monthly Production Planning
     refresh: function(frm) {
         console.log("Form Refresh triggered");
 
@@ -63,11 +63,9 @@ frappe.ui.form.on('Monthly Production Planning', {
                 focusable.focus();
             }
         });
-    }
-});
+    },
 
-// Section 2: Populate Monthly Production Days Function
-frappe.ui.form.on('Monthly Production Planning', {
+    // Section 2: Populate Monthly Production Days Function
     populate_monthly_prod_days: function(frm) {
         try {
             // Ensure no element is retaining focus (helps with modal issues)
@@ -216,11 +214,9 @@ frappe.ui.form.on('Monthly Production Planning', {
             console.error('Error in populate_monthly_prod_days:', error);
             frappe.msgprint(__('An error occurred: ' + error.message));
         }
-    }
-});
+    },
 
-// Section 3: Location Function
-frappe.ui.form.on('Monthly Production Planning', {
+    // Section 3: Location Function
     location: function(frm) {
         if (frm.doc.location) {
             frm.clear_table('prod_excavators');
@@ -315,11 +311,9 @@ frappe.ui.form.on('Monthly Production Planning', {
         } else {
             frappe.msgprint(__('Please select a location.'));
         }
-    }
-});
+    },
 
-// Section 4: Clear Production Days Function
-frappe.ui.form.on('Monthly Production Planning', {
+    // Section 4: Clear Production Days Function
     clear_production_days: function(frm) {
         frm.clear_table('month_prod_days');
         frm.refresh_field('month_prod_days');
@@ -335,11 +329,9 @@ frappe.ui.form.on('Monthly Production Planning', {
         frm.set_value('num_trucks', 0);
         frm.set_value('num_dozers', 0);
         frappe.msgprint(__('Monthly Production Days table has been cleared.'));
-    }
-});
+    },
 
-// Section 5: Calculate Production Month End
-frappe.ui.form.on('Monthly Production Planning', {
+    // Section 5: Calculate Production Month End
     prod_month_end_date: function(frm) {
         let selected_date = frm.doc.prod_month_end_date;
         if (selected_date) {
@@ -349,11 +341,9 @@ frappe.ui.form.on('Monthly Production Planning', {
             frm.set_value('prod_month_end', frappe.datetime.obj_to_str(last_day_of_month));
             frappe.msgprint(__('Production month end has been set to the last day of the month.'));
         }
-    }
-});
+    },
 
-// Section 6: Monthly Target BCM & Recalculate Totals Functions
-frappe.ui.form.on('Monthly Production Planning', {
+    // Section 6: Monthly Target BCM & Recalculate Totals Functions
     monthly_target_bcm: function(frm) {
         frm.trigger('recalculate_totals');
     },
@@ -395,11 +385,9 @@ frappe.ui.form.on('Monthly Production Planning', {
             frm.set_value('target_bcm_day', 0);
             frm.set_value('target_bcm_hour', 0);
         }
-    }
-});
+    },
 
-// Section 7: Update Month-to-Date (MTD) Production Function
-frappe.ui.form.on('Monthly Production Planning', {
+    // Section 7: Update Month-to-Date (MTD) Production Function
     update_mtd_production: function(frm) {
         if (!frm.doc.name) {
             frappe.msgprint(__('Please save the document first.'));
