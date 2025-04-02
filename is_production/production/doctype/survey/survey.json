@@ -11,9 +11,13 @@
   "last_production_shift_start_date",
   "location",
   "sub_site_description",
-  "survey_report_notes",
   "survey_datetime",
+  "survey_report_notes",
+  "column_break_vmle",
+  "total_dozing_bcm",
+  "total_ts_bcm",
   "total_surveyed_bcm",
+  "section_break_iaqd",
   "surveyed_values"
  ],
  "fields": [
@@ -75,12 +79,35 @@
    "label": "Total Surveyed BCM",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_vmle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_dozing_bcm",
+   "fieldtype": "Float",
+   "label": "Total Dozing BCM",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_iaqd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "total_ts_bcm",
+   "fieldtype": "Float",
+   "label": "Total Truck and Shovel BCM",
+   "precision": "1",
+   "read_only": 1
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-02-19 13:07:53.935097",
+ "modified": "2025-03-31 08:31:18.101314",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Survey",

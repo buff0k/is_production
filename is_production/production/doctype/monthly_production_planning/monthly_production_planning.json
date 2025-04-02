@@ -49,7 +49,10 @@
   "monthly_target_bcm",
   "target_bcm_day",
   "target_bcm_hour",
+  "month_act_ts_bcm_tallies",
+  "month_act_dozing_bcm_tallies",
   "month_actual_bcm",
+  "monthly_act_tally_survey_variance",
   "mtd_bcm_day",
   "mtd_bcm_hour",
   "month_forecated_bcm",
@@ -337,11 +340,33 @@
    "label": "No. Saturday Shifts",
    "options": "1\n2\n3",
    "precision": "1"
+  },
+  {
+   "fieldname": "month_act_ts_bcm_tallies",
+   "fieldtype": "Float",
+   "label": "Monthly Actual Truck and Shovel Tally BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_act_dozing_bcm_tallies",
+   "fieldtype": "Float",
+   "label": "Monthly Actual Dozing Tally BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "monthly_act_tally_survey_variance",
+   "fieldtype": "Float",
+   "label": "Monthly Actual BCM Tally Variance",
+   "precision": "1",
+   "read_only": 1
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-02-07 12:25:57.339287",
+ "modified": "2025-03-31 09:33:23.980236",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",

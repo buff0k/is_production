@@ -16,7 +16,17 @@
   "morning_shift_bcms",
   "afternoon_shift_bcms",
   "night_shift_bcms",
-  "total_daily_bcms"
+  "total_dozing_bcms",
+  "total_ts_bcms",
+  "total_daily_bcms",
+  "tot_cumulative_dozing_bcms",
+  "cum_ts_bcms",
+  "tot_cum_dozing_survey",
+  "tot_cum_ts_survey",
+  "cum_dozing_variance",
+  "cum_ts_variance",
+  "month_survey_totals",
+  "cum_survey_variance"
  ],
  "fields": [
   {
@@ -87,12 +97,81 @@
    "label": "Total Day Shift BCMs",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "total_dozing_bcms",
+   "fieldtype": "Float",
+   "label": "Total Dozing BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_ts_bcms",
+   "fieldtype": "Float",
+   "label": "Total Truck  and Shovel BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_survey_totals",
+   "fieldtype": "Float",
+   "label": "Month Survey Totals"
+  },
+  {
+   "fieldname": "cum_survey_variance",
+   "fieldtype": "Float",
+   "label": "Cumulative survey variance",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tot_cum_dozing_survey",
+   "fieldtype": "Float",
+   "label": "Total Cumulative Dozing Survey",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tot_cum_ts_survey",
+   "fieldtype": "Float",
+   "label": "Total Cumulative Truck and Shovel Survey",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cum_dozing_variance",
+   "fieldtype": "Float",
+   "label": "Cumulative Dozing Variance",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cum_ts_variance",
+   "fieldtype": "Float",
+   "label": "Cumulative Truck and Shovel Variance",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tot_cumulative_dozing_bcms",
+   "fieldtype": "Float",
+   "label": "Total Cumulative Dozing BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cum_ts_bcms",
+   "fieldtype": "Float",
+   "label": "Total Cumulative Truck & Shovel  BCMs",
+   "precision": "1",
+   "read_only": 1
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-01-27 14:30:12.813757",
+ "modified": "2025-04-01 20:42:55.190906",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Days",
