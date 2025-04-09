@@ -101,10 +101,10 @@
    "options": "Truck Loads"
   },
   {
-   "fetch_from": "month_prod_planning.shift_system",
    "fieldname": "shift_system",
-   "fieldtype": "Read Only",
-   "label": "Shift System"
+   "fieldtype": "Data",
+   "label": "Shift System",
+   "read_only": 1
   },
   {
    "fieldname": "dozer_production",
@@ -235,9 +235,10 @@
    "read_only": 1
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-03-17 12:37:08.620633",
+ "modified": "2025-04-09 13:19:32.930264",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
@@ -281,6 +282,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "ASC",
  "states": [],

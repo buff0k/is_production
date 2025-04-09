@@ -1,3 +1,6 @@
+# Copyright (c) 2025, BuFf0k and contributors
+# For license information, please see license.txt
+
 from frappe.model.document import Document
 import frappe
 from frappe import _
@@ -17,32 +20,44 @@ class HourlyProduction(Document):
 
         if hasattr(self, 'truck_loads'):
             for row in self.truck_loads:
-                # Set `tub_factor_doc_lookup` as `<item_name>-<mat_type>`
-                if row.item_name and row.mat_type:
-                    row.tub_factor_doc_lookup = f"{row.item_name}-{row.mat_type}"
-                    row.tub_factor = frappe.db.get_value(
-                        "Tub Factor",
-                        {"tub_factor_lookup": row.tub_factor_doc_lookup},
-                        "tub_factor"
-                    )
+                # Look up the actual Tub Factor document based on the fields
+                tub_factor_doc = frappe.get_all(
+                    "Tub Factor",
+                    filters={
+                        "item_name": row.item_name,
+                        "mat_type": row.mat_type
+                    },
+                    fields=["name", "tub_factor"],
+                    limit=1
+                )
+
+                if tub_factor_doc:
+                    row.tub_factor_doc_lookup = tub_factor_doc[0]["name"]
+                    row.tub_factor = tub_factor_doc[0]["tub_factor"]
                 else:
                     row.tub_factor_doc_lookup = None
                     row.tub_factor = None
+        else:
+            row.tub_factor_doc_lookup = None
+            row.tub_factor = None
 
-                # Calculate `bcms`
-                row.bcms = (row.loads * row.tub_factor) if row.loads and row.tub_factor else None
+        # Calculate `bcms`
+        try:
+            row.bcms = float(row.loads or 0) * float(row.tub_factor or 0)
+        except Exception:
+                    row.bcms = None
 
-                # Summing totals
-                if row.bcms:
-                    total_ts_bcm += row.bcms
-                    if row.mat_type == "Softs":
-                        total_softs_bcm += row.bcms
-                    elif row.mat_type == "Hards":
-                        total_hards_bcm += row.bcms
-                    elif row.mat_type == "Coal":
-                        total_coal_bcm += row.bcms
-                    if row.bcms > 0:
-                        num_prod_trucks += 1
+        # Summing totals
+        if row.bcms:
+            total_ts_bcm += row.bcms
+            if row.mat_type == "Softs":
+                total_softs_bcm += row.bcms
+            elif row.mat_type == "Hards":
+                total_hards_bcm += row.bcms
+            elif row.mat_type == "Coal":
+                total_coal_bcm += row.bcms
+            if row.bcms > 0:
+                num_prod_trucks += 1
 
         # --- Dozer Production Calculations & Validation ---
         total_dozing_bcm = 0.0
@@ -106,17 +121,36 @@ def fetch_monthly_production_plan(location, prod_date):
         return frappe.get_value("Monthly Production Planning", {"name": monthly_plan_name}, "name")
     return None
 
-
 @frappe.whitelist()
 def get_tub_factor(item_name, mat_type):
     """
-    Fetch tub factor and its linked document for a given `item_name` and `mat_type`.
+    Fetch tub factor and its linked document name for a given `item_name` and `mat_type`.
+    Returns:
+        dict: {
+            "tub_factor": int or None,
+            "tub_factor_doc_link": str or None
+        }
     """
     if item_name and mat_type:
-        tub_factor_lookup = f"{item_name}-{mat_type}"  # No spaces around the hyphen
-        return frappe.get_value("Tub Factor", {"tub_factor_lookup": tub_factor_lookup}, "tub_factor")
-    return None
+        result = frappe.get_all(
+            "Tub Factor",
+            filters={"item_name": item_name, "mat_type": mat_type},
+            fields=["name", "tub_factor"],
+            limit=1
+        )
 
+        if result:
+            return {
+                "tub_factor": result[0]["tub_factor"],
+                "tub_factor_doc_link": result[0]["name"]
+            }
+
+        frappe.msgprint(_("No Tub Factor found for Item Name: {0} and Material Type: {1}").format(item_name, mat_type))
+
+    return {
+        "tub_factor": None,
+        "tub_factor_doc_link": None
+    }
 
 @frappe.whitelist()
 def fetch_dozer_production_assets(location):

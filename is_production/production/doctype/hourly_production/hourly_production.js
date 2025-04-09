@@ -1,3 +1,6 @@
+// Copyright (c) 2025, BuFf0k and contributors
+// For license information, please see license.txt
+
 frappe.ui.form.on('Hourly Production', {
     // Setup: Ensure form initializes correctly
     setup: function (frm) {
@@ -146,7 +149,7 @@ function fetch_monthly_production_planning(frm) {
             method: 'frappe.client.get_list',
             args: {
                 doctype: 'Monthly Production Planning',
-                fields: ['name', 'prod_month_start_date', 'prod_month_end_date'],
+                fields: ['name', 'prod_month_start_date', 'prod_month_end_date', 'shift_system'],
                 filters: [
                     ['location', '=', frm.doc.location],
                     ['prod_month_start_date', '<=', frm.doc.prod_date],
@@ -156,11 +159,13 @@ function fetch_monthly_production_planning(frm) {
             },
             callback: function (r) {
                 if (r.message && r.message.length > 0) {
-                    // Set the monthly production planning document name in the parent form field
-                    frm.set_value('month_prod_planning', r.message[0].name);
+                    const plan = r.message[0];
+                    frm.set_value('month_prod_planning', plan.name);
+                    frm.set_value('shift_system', plan.shift_system || null);
                     update_doc_name(frm);
                 } else {
                     frm.set_value('month_prod_planning', null);
+                    frm.set_value('shift_system', null);
                     frappe.msgprint(__('No Monthly Production Planning document found for the selected location and production date.'));
                 }
             }
@@ -171,6 +176,7 @@ function fetch_monthly_production_planning(frm) {
 // Populate truck loads table
 function populate_truck_loads_and_lookup(frm) {
     if (frm.doc.location) {
+
         frappe.call({
             method: 'frappe.client.get_list',
             args: {
@@ -188,15 +194,17 @@ function populate_truck_loads_and_lookup(frm) {
                     frm.clear_table('truck_loads');
                     r.message.forEach(asset => {
                         const row = frm.add_child('truck_loads');
-                        row.asset_name_truck = asset.asset_name;
-                        row.item_name = asset.item_name || "Unknown Model";
+                        // Only set what’s relevant here
                         frappe.model.set_value(row.doctype, row.name, 'asset_name_truck', asset.asset_name);
-                        frappe.model.set_value(row.doctype, row.name, 'item_name', asset.item_name || "Unknown Model");
+                        frappe.model.set_value(row.doctype, row.name, 'item_name', asset.item_name || "");
+                        // Do NOT touch asset_name_shoval or item_name_excavator here
                     });
                     frm.refresh_field('truck_loads');
                 } else {
                     frappe.msgprint(__('No assets found for the selected location.'));
                 }
+
+                suppress_excavator_autofill = false;  // done
             }
         });
     }
@@ -206,8 +214,43 @@ frappe.ui.form.on('Truck Loads', {
     item_name: function (frm, cdt, cdn) {
         update_tub_factor_doc_link(frm, cdt, cdn);
     },
+
     mat_type: function (frm, cdt, cdn) {
         update_tub_factor_doc_link(frm, cdt, cdn);
+    },
+
+    asset_name_shoval: function (frm, cdt, cdn) {
+        const row = frappe.get_doc(cdt, cdn);
+        if (!row.asset_name_shoval) {
+            frappe.model.set_value(cdt, cdn, 'item_name_excavator', null);
+            return;
+        }
+        frappe.call({
+            method: 'frappe.client.get',
+            args: {
+                doctype: 'Asset',
+                name: row.asset_name_shoval
+            },
+            callback: function (r) {
+                if (r.message && r.message.item_code) {
+                   // Only set if the value has changed
+                    if (row.item_name_excavator !== r.message.item_code) {
+                        frappe.model.set_value(cdt, cdn, 'item_name_excavator', r.message.item_code);
+                    }
+                } else {
+                    frappe.model.set_value(cdt, cdn, 'item_name_excavator', null);
+                    frappe.msgprint(__('Item Code not found for selected Asset.'));
+                }
+            }
+        });
+    },
+
+    tub_factor: function (frm, cdt, cdn) {
+        calculate_bcms(cdt, cdn);
+    },
+
+    loads: function (frm, cdt, cdn) {
+        calculate_bcms(cdt, cdn);
     }
 });
 
@@ -270,5 +313,18 @@ function populate_dozer_production_table(frm) {
                 }
             }
         });
+    }
+}
+
+// Helper function to calculate and set `bcms`
+function calculate_bcms(cdt, cdn) {
+    const row = frappe.get_doc(cdt, cdn);
+    const loads = parseFloat(row.loads);
+    const tub_factor = parseFloat(row.tub_factor);
+
+    if (!isNaN(loads) && !isNaN(tub_factor)) {
+        frappe.model.set_value(cdt, cdn, 'bcms', loads * tub_factor);
+    } else {
+        frappe.model.set_value(cdt, cdn, 'bcms', null);
     }
 }
