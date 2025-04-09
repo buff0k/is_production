@@ -37,27 +37,26 @@ class HourlyProduction(Document):
                 else:
                     row.tub_factor_doc_lookup = None
                     row.tub_factor = None
-        else:
-            row.tub_factor_doc_lookup = None
-            row.tub_factor = None
 
-        # Calculate `bcms`
-        try:
-            row.bcms = float(row.loads or 0) * float(row.tub_factor or 0)
-        except Exception:
+                # Calculate `bcms` for the current row
+                try:
+                    row.bcms = float(row.loads or 0) * float(row.tub_factor or 0)
+                except Exception:
                     row.bcms = None
 
-        # Summing totals
-        if row.bcms:
-            total_ts_bcm += row.bcms
-            if row.mat_type == "Softs":
-                total_softs_bcm += row.bcms
-            elif row.mat_type == "Hards":
-                total_hards_bcm += row.bcms
-            elif row.mat_type == "Coal":
-                total_coal_bcm += row.bcms
-            if row.bcms > 0:
-                num_prod_trucks += 1
+                # Sum totals for each row processed
+                if row.bcms:
+                    total_ts_bcm += row.bcms
+
+                    if row.mat_type == "Softs":
+                        total_softs_bcm += row.bcms
+                    elif row.mat_type == "Hards":
+                        total_hards_bcm += row.bcms
+                    elif row.mat_type == "Coal":
+                        total_coal_bcm += row.bcms
+
+                    if row.bcms > 0:
+                        num_prod_trucks += 1
 
         # --- Dozer Production Calculations & Validation ---
         total_dozing_bcm = 0.0
