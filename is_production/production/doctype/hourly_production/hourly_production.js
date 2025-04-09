@@ -16,6 +16,8 @@ frappe.ui.form.on('Hourly Production', {
 
     location: function (frm) {
         fetch_monthly_production_planning(frm);
+        populate_truck_loads_and_lookup(frm);
+        populate_dozer_production_table(frm);
         // Only auto-populate if the document is new
         if (frm.doc.__islocal) { 
             populate_truck_loads_and_lookup(frm);
@@ -212,33 +214,39 @@ frappe.ui.form.on('Truck Loads', {
 function update_tub_factor_doc_link(frm, cdt, cdn) {
     const row = frappe.get_doc(cdt, cdn);
 
+    // Check if required fields are present
     if (row.item_name && row.mat_type) {
-        // Remove spaces around the hyphen when generating the link
-        row.tub_factor_doc_link = `${row.item_name}-${row.mat_type}`;
-        frappe.model.set_value(cdt, cdn, 'tub_factor_doc_link', row.tub_factor_doc_link);
-
-        // Fetch the tub_factor value
+        // Call server to find matching Tub Factor document
         frappe.call({
-            method: 'frappe.client.get_value',
+            method: 'frappe.client.get_list',
             args: {
                 doctype: 'Tub Factor',
-                filters: { tub_factor_lookup: row.tub_factor_doc_link },
-                fieldname: 'tub_factor'
+                filters: {
+                    item_name: row.item_name,
+                    mat_type: row.mat_type
+                },
+                fields: ['name', 'tub_factor'],
+                limit_page_length: 1
             },
             callback: function (r) {
-                if (r.message) {
-                    frappe.model.set_value(cdt, cdn, 'tub_factor', r.message.tub_factor);
+                if (r.message && r.message.length > 0) {
+                    const tubFactorDoc = r.message[0];
+                    // Set the actual document name in tub_factor_doc_link
+                    frappe.model.set_value(cdt, cdn, 'tub_factor_doc_link', tubFactorDoc.name);
+                    frappe.model.set_value(cdt, cdn, 'tub_factor', tubFactorDoc.tub_factor);
                 } else {
-                    frappe.msgprint(__('Tub Factor not found for the selected Item Name and Material Type.'));
+                    frappe.msgprint(__('No Tub Factor found for the selected Item Name and Material Type.'));
+                    frappe.model.set_value(cdt, cdn, 'tub_factor_doc_link', null);
                     frappe.model.set_value(cdt, cdn, 'tub_factor', null);
                 }
             }
         });
     } else {
-        // Clear the fields if item_name or mat_type is missing
+        // Clear fields if necessary input is missing
         frappe.model.set_value(cdt, cdn, 'tub_factor_doc_link', null);
         frappe.model.set_value(cdt, cdn, 'tub_factor', null);
     }
+
     frm.refresh_field('truck_loads');
 }
 
@@ -264,12 +272,3 @@ function populate_dozer_production_table(frm) {
         });
     }
 }
-
-// Trigger on location field change
-frappe.ui.form.on("Hourly Production", {
-    location: function (frm) {
-        fetch_monthly_production_planning(frm);
-        populate_truck_loads_and_lookup(frm);
-        populate_dozer_production_table(frm);
-    }
-});
