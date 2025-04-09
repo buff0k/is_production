@@ -51,8 +51,8 @@
   "target_bcm_hour",
   "month_act_ts_bcm_tallies",
   "month_act_dozing_bcm_tallies",
-  "month_actual_bcm",
   "monthly_act_tally_survey_variance",
+  "month_actual_bcm",
   "mtd_bcm_day",
   "mtd_bcm_hour",
   "month_forecated_bcm",
@@ -326,13 +326,13 @@
    "fieldname": "weekday_shift_hours",
    "fieldtype": "Float",
    "label": "Weekday Shift No. Working Hours",
-   "precision": "1"
+   "precision": "2"
   },
   {
    "fieldname": "saturday_shift_hours",
    "fieldtype": "Float",
    "label": "Saturday Shift No. Working Hours",
-   "precision": "1"
+   "precision": "2"
   },
   {
    "fieldname": "num_sat_shifts",
@@ -366,7 +366,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-03-31 09:33:23.980236",
+ "modified": "2025-04-08 20:39:50.549466",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",
@@ -408,6 +408,7 @@
    "share": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
