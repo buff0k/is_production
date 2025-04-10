@@ -10,6 +10,7 @@
  ],
  "fields": [
   {
+   "columns": 1,
    "fieldname": "asset_name",
    "fieldtype": "Read Only",
    "in_list_view": 1,
@@ -17,21 +18,25 @@
    "options": "Asset"
   },
   {
+   "columns": 1,
    "fieldname": "item_name",
    "fieldtype": "Read Only",
+   "in_list_view": 1,
    "label": "Model",
    "options": "Asset"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-10-12 11:22:57.490038",
+ "modified": "2025-04-09 19:33:15.494304",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Excavators Planned",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []
