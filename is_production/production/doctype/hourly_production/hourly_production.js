@@ -1,5 +1,6 @@
 // Copyright (c) 2025, BuFf0k and contributors
 // For license information, please see license.txt
+// Rest Git
 
 frappe.ui.form.on('Hourly Production', {
     // Setup: Ensure form initializes correctly
