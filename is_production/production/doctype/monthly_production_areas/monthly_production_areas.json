@@ -1,0 +1,32 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-04-14 12:44:25.460668",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "mining_areas"
+ ],
+ "fields": [
+  {
+   "fieldname": "mining_areas",
+   "fieldtype": "Data",
+   "label": "Mining Areas"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-04-14 12:46:04.837577",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Monthly Production-Areas",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

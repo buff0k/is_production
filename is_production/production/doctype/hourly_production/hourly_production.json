@@ -10,6 +10,7 @@
   "prod_date",
   "month_prod_planning",
   "shift_system",
+  "mining_areas_options",
   "column_break_utop",
   "shift",
   "shift_num_hour",
@@ -233,12 +234,18 @@
    "fieldtype": "Int",
    "label": "Day Number",
    "read_only": 1
+  },
+  {
+   "fieldname": "mining_areas_options",
+   "fieldtype": "Table",
+   "label": "Mining Areas Options",
+   "options": "Monthly Production-Areas"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-09 13:19:32.930264",
+ "modified": "2025-04-14 16:40:37.253180",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",

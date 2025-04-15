@@ -13,6 +13,8 @@
   "site_status",
   "prod_month_start_date",
   "prod_month_end_date",
+  "column_break_pogh",
+  "mining_areas",
   "production_plant_planned_section",
   "prod_excavators",
   "num_excavators",
@@ -361,12 +363,23 @@
    "label": "Monthly Actual BCM Tally Variance",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_pogh",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 2,
+   "fieldname": "mining_areas",
+   "fieldtype": "Table",
+   "label": "Mining Areas",
+   "options": "Monthly Production-Areas"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-08 20:39:50.549466",
+ "modified": "2025-04-14 12:50:13.121965",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",
