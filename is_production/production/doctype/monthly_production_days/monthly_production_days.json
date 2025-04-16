@@ -26,7 +26,8 @@
   "cum_dozing_variance",
   "cum_ts_variance",
   "month_survey_totals",
-  "cum_survey_variance"
+  "cum_survey_variance",
+  "hourly_production_reference"
  ],
  "fields": [
   {
@@ -165,13 +166,18 @@
    "label": "Total Cumulative Truck & Shovel  BCMs",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "hourly_production_reference",
+   "fieldtype": "Data",
+   "label": "Hourly Production Reference"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-04-07 19:23:58.075825",
+ "modified": "2025-04-16 05:06:42.073759",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Days",

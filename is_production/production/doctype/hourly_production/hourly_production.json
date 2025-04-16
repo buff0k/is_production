@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_import": 1,
  "autoname": "format:{location}-{prod_date}-{####}",
  "creation": "2024-10-14 15:07:43.074950",
  "default_view": "List",
@@ -9,6 +10,7 @@
   "location",
   "prod_date",
   "month_prod_planning",
+  "monthly_production_child_ref",
   "shift_system",
   "mining_areas_options",
   "column_break_utop",
@@ -240,12 +242,17 @@
    "fieldtype": "Table",
    "label": "Mining Areas Options",
    "options": "Monthly Production-Areas"
+  },
+  {
+   "fieldname": "monthly_production_child_ref",
+   "fieldtype": "Data",
+   "label": "Monthly Production Planning Child Reference"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-14 16:40:37.253180",
+ "modified": "2025-04-16 06:09:03.386394",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
