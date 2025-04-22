@@ -27,14 +27,8 @@ frappe.query_reports["Diesel Recon"] = {
 			"fieldtype": "Link",
 			"options": "Asset",
 			"get_query": function() {
-				var site = frappe.query_report.get_filter_value("site");
-				if (!site) {
-					frappe.msgprint(__("Please select a Site first to filter Assets."));
-					return { filters: { "name": "" } };
-				}
 				return {
 					filters: {
-						"location": site,
 						"asset_category": "Diesel Bowsers"
 					}
 				};
