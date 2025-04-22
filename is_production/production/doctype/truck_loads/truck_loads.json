@@ -6,6 +6,7 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "loads",
   "asset_name_shoval",
   "item_name_excavator",
   "asset_name_truck",
@@ -13,7 +14,6 @@
   "mat_type",
   "tub_factor_doc_link",
   "tub_factor",
-  "loads",
   "bcms"
  ],
  "fields": [
@@ -62,10 +62,8 @@
    "reqd": 1
   },
   {
-   "columns": 1,
    "fieldname": "tub_factor_doc_link",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Tub Factor Doc Link",
    "options": "Tub Factor",
    "read_only": 1
@@ -101,7 +99,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-04-09 13:38:07.377156",
+ "modified": "2025-04-22 06:30:28.729097",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Truck Loads",

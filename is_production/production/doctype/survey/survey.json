@@ -10,6 +10,8 @@
   "amended_from",
   "last_production_shift_start_date",
   "location",
+  "monthly_production_plan_ref",
+  "hourly_prod_ref",
   "sub_site_description",
   "survey_datetime",
   "survey_report_notes",
@@ -101,13 +103,26 @@
    "label": "Total Truck and Shovel BCM",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "monthly_production_plan_ref",
+   "fieldtype": "Link",
+   "label": "MPP Ref",
+   "options": "Monthly Production Planning",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hourly_prod_ref",
+   "fieldtype": "Data",
+   "label": "Hourly Production Reference",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-03-31 08:31:18.101314",
+ "modified": "2025-04-20 15:01:01.925051",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Survey",
@@ -115,10 +130,13 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
    "export": 1,
+   "if_owner": 1,
    "print": 1,
    "read": 1,
    "report": 1,
@@ -152,6 +170,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

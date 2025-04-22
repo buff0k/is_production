@@ -7,7 +7,8 @@
  "field_order": [
   "prod_date",
   "mpp2_link",
-  "mpp2_link2"
+  "mpp2_link2",
+  "dozer_production"
  ],
  "fields": [
   {
@@ -25,12 +26,18 @@
    "fieldname": "mpp2_link2",
    "fieldtype": "Data",
    "label": "Mpp2 link 2"
+  },
+  {
+   "fieldname": "dozer_production",
+   "fieldtype": "Table",
+   "label": "Dozer Production",
+   "options": "Dozer Production"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-16 09:21:09.111050",
+ "modified": "2025-04-16 20:07:53.179851",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "HP 2",

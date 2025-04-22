@@ -1,473 +1,344 @@
-// --- Override the onboarding tour early to avoid errors ---
-if (frappe.ui && frappe.ui.init_onboarding_tour) {
-    frappe.ui.init_onboarding_tour = function() {
-        try {
-            return;
-        } catch (e) {
-            console.error("Onboarding tour error suppressed:", e);
-        }
-    }
-}
-
 frappe.ui.form.on('Monthly Production Planning', {
-    // Section 1: Introduction - Monthly Production Planning
-    refresh: function(frm) {
-        console.log("Refresh triggered");
+    // Section 0: Before Save - Set hourly_production_reference
+    before_save: function(frm) {
+        if (frm.doc.month_prod_days) {
+            frm.doc.month_prod_days.forEach(row => {
+                row.hourly_production_reference = frm.doc.name + '-' + row.shift_start_date;
+            });
+            frm.refresh_field('month_prod_days');
+        }
+    },
 
-        // Button for populating Monthly Production Days
-        frm.add_custom_button(__('Populate Monthly Production Days'), function(event) {
-            if (event && event.currentTarget) {
-                event.currentTarget.blur();
-            }
+    // Section 1: Refresh - Add buttons, update refs, recalc metrics
+    refresh: function(frm) {
+        frm.add_custom_button(__('Populate Monthly Production Days'), function() {
             frm.trigger('populate_monthly_prod_days');
         }, __('Actions'));
-
-        // Button for clearing Production Days
-        frm.add_custom_button(__('Clear Production Days'), function(event) {
-            if (event && event.currentTarget) {
-                event.currentTarget.blur();
-            }
+        frm.add_custom_button(__('Clear Production Days'), function() {
             frm.trigger('clear_production_days');
         }, __('Actions'));
 
-        // --- Updated Modal Event Handlers ---
-        $(document).on('hide.bs.modal', function(event) {
-            let modal = event.target;
-            if (modal.contains(document.activeElement)) {
-                document.activeElement.blur();
-            }
-            modal.setAttribute("inert", "");
-        });
-        $(document).on('hidden.bs.modal', function(event) {
-            let modal = event.target;
-            requestAnimationFrame(() => {
-                modal.removeAttribute("aria-hidden");
-                modal.removeAttribute("inert");
-                modal.querySelectorAll("button, input, a, textarea, select").forEach(el => el.blur());
-            });
-        });
-        $(document).on('shown.bs.modal', function(event) {
-            let modal = event.target;
-            modal.removeAttribute("inert");
-            modal.removeAttribute("aria-hidden");
-            let focusable = modal.querySelector("button, input, a, textarea, select");
-            if (focusable) {
-                focusable.focus();
-            }
-        });
-
-        // Update hourly production references in child table if document is saved
         if (!frm.doc.__islocal && frm.doc.month_prod_days) {
-            frm.doc.month_prod_days.forEach(function(row, index) {
-                let referenceValue = frm.doc.name + "-" + row.shift_start_date;
-                row.hourly_production_reference = referenceValue;
-                console.log("Row " + index + " hourly_production_reference updated to:", referenceValue);
+            // Update hourly_production_reference for each row
+            frm.doc.month_prod_days.forEach(row => {
+                row.hourly_production_reference = frm.doc.name + '-' + row.shift_start_date;
             });
             frm.refresh_field('month_prod_days');
-            frappe.msgprint(__('Hourly Production Reference fields updated on refresh.'));
+            frappe.msgprint(__('References updated.'));
+
+            // Recalculate metrics and equipment counts
+            frm.trigger('update_mtd_production');
+            frm.trigger('update_equipment_counts');
         }
     },
 
-    // Section 2: Populate Monthly Production Days Function
+    // Section 2: Populate Monthly Production Days
     populate_monthly_prod_days: function(frm) {
-        try {
-            if (document.activeElement) {
-                document.activeElement.blur();
-            }
-            console.log("populate_monthly_prod_days triggered");
-
-            // Log the parent production start and end dates
-            console.log("Production start date from doc:", frm.doc.prod_month_start_date);
-            console.log("Production end date from doc:", frm.doc.prod_month_end_date);
-
-            if (!frm.doc.prod_month_start_date || !frm.doc.prod_month_end_date) {
-                frappe.msgprint(__('Please select valid production start and end dates.'));
-                console.log("Missing start or end date");
-                return;
-            }
-            if (
-                frm.doc.weekday_shift_hours == null || frm.doc.weekday_shift_hours === "" ||
-                frm.doc.saturday_shift_hours == null || frm.doc.saturday_shift_hours === "" ||
-                frm.doc.num_sat_shifts == null || frm.doc.num_sat_shifts === ""
-            ) {
-                frappe.msgprint(__('Please populate Weekday Shift Hours, Saturday Shift Hours, and Number of Saturday Shifts.'));
-                console.log("Missing shift hour fields");
-                return;
-            }
-
-            // Convert production start and end date strings to Date objects
-            let start_date = frappe.datetime.str_to_obj(frm.doc.prod_month_start_date);
-            let end_date = frappe.datetime.str_to_obj(frm.doc.prod_month_end_date);
-            console.log("Converted start date:", start_date);
-            console.log("Converted end date:", end_date);
-            if (!start_date || !end_date) {
-                frappe.msgprint(__('Invalid production start or end date format.'));
-                console.log("Invalid start or end date format");
-                return;
-            }
-
-            // Clear existing child table entries before populating
-            frm.clear_table('month_prod_days');
-            let total_day_hours = 0,
-                total_night_hours = 0,
-                total_morning_hours = 0,
-                total_afternoon_hours = 0;
-
-            const weekday_shift_hours = Number(frm.doc.weekday_shift_hours),
-                saturday_shift_hours = Number(frm.doc.saturday_shift_hours),
-                num_sat_shifts = Number(frm.doc.num_sat_shifts);
-
-            // Start with a new Date cloned from start_date
-            let current_date = new Date(start_date);
-            while (current_date <= end_date) {
-                let day_date = new Date(current_date); // clone current_date for this iteration
-                let day_of_week = day_date.toLocaleDateString('en-US', { weekday: 'long' });
-                console.log("Processing date:", frappe.datetime.obj_to_str(day_date), "Day of week:", day_of_week);
-
-                let day_shift_hours = 0,
-                    night_shift_hours = 0,
-                    morning_shift_hours = 0,
-                    afternoon_shift_hours = 0;
-
-                // Calculate shift hours based on shift system
-                if (frm.doc.shift_system === '2x12Hour') {
-                    if (day_of_week === 'Sunday') {
-                        day_shift_hours = 0;
-                        night_shift_hours = 0;
-                    } else if (day_of_week === 'Saturday') {
-                        if (num_sat_shifts === 1) {
-                            day_shift_hours = saturday_shift_hours;
-                            night_shift_hours = 0;
-                        } else if (num_sat_shifts === 2) {
-                            day_shift_hours = saturday_shift_hours;
-                            night_shift_hours = saturday_shift_hours;
-                        } else {
-                            day_shift_hours = saturday_shift_hours;
-                            night_shift_hours = saturday_shift_hours;
-                        }
-                    } else {
-                        day_shift_hours = weekday_shift_hours;
-                        night_shift_hours = weekday_shift_hours;
-                    }
-                } else if (frm.doc.shift_system === '3x8Hour') {
-                    if (day_of_week === 'Sunday') {
-                        morning_shift_hours = 0;
-                        afternoon_shift_hours = 0;
-                        night_shift_hours = 0;
-                    } else if (day_of_week === 'Saturday') {
-                        if (num_sat_shifts === 1) {
-                            morning_shift_hours = saturday_shift_hours;
-                            afternoon_shift_hours = 0;
-                            night_shift_hours = 0;
-                        } else if (num_sat_shifts === 2) {
-                            morning_shift_hours = saturday_shift_hours;
-                            afternoon_shift_hours = saturday_shift_hours;
-                            night_shift_hours = 0;
-                        } else if (num_sat_shifts === 3) {
-                            morning_shift_hours = saturday_shift_hours;
-                            afternoon_shift_hours = saturday_shift_hours;
-                            night_shift_hours = saturday_shift_hours;
-                        } else {
-                            morning_shift_hours = saturday_shift_hours;
-                            afternoon_shift_hours = saturday_shift_hours;
-                            night_shift_hours = saturday_shift_hours;
-                        }
-                    } else {
-                        morning_shift_hours = weekday_shift_hours;
-                        afternoon_shift_hours = weekday_shift_hours;
-                        night_shift_hours = weekday_shift_hours;
-                    }
-                }
-                total_day_hours += day_shift_hours;
-                total_night_hours += night_shift_hours;
-                total_morning_hours += morning_shift_hours;
-                total_afternoon_hours += afternoon_shift_hours;
-
-                // Add a new row in the child table using frappe's obj_to_str for correct formatting
-                let row = frm.add_child('month_prod_days');
-                let formatted_date = frappe.datetime.obj_to_str(day_date);
-                row.shift_start_date = formatted_date;
-                row.day_week = day_of_week;
-                row.shift_day_hours = day_shift_hours;
-                row.shift_night_hours = night_shift_hours;
-                row.shift_morning_hours = morning_shift_hours;
-                row.shift_afternoon_hours = afternoon_shift_hours;
-
-                console.log("Added row with date:", formatted_date);
-
-                // Increment current_date by one day
-                current_date.setDate(current_date.getDate() + 1);
-            }
-
-            frm.set_value('tot_shift_day_hours', total_day_hours);
-            frm.set_value('tot_shift_night_hours', total_night_hours);
-            frm.set_value('tot_shift_morning_hours', total_morning_hours);
-            frm.set_value('tot_shift_afternoon_hours', total_afternoon_hours);
-            frm.set_value('total_month_prod_hours', total_day_hours + total_night_hours + total_morning_hours + total_afternoon_hours);
-
-            frm.trigger('recalculate_totals');
-            frm.refresh_field('month_prod_days');
-            frappe.msgprint(__('Monthly Production Days table has been populated.'));
-        } catch (error) {
-            console.error('Error in populate_monthly_prod_days:', error);
-            frappe.msgprint(__('An error occurred: ' + error.message));
+        if (!frm.doc.prod_month_start_date || !frm.doc.prod_month_end_date) {
+            frappe.msgprint(__('Please select production start and end dates.'));
+            return;
         }
+        if ([frm.doc.weekday_shift_hours, frm.doc.saturday_shift_hours, frm.doc.num_sat_shifts].some(v => v == null)) {
+            frappe.msgprint(__('Please enter shift hours and number of Saturday shifts.'));
+            return;
+        }
+        let start = frappe.datetime.str_to_obj(frm.doc.prod_month_start_date);
+        let end   = frappe.datetime.str_to_obj(frm.doc.prod_month_end_date);
+        frm.clear_table('month_prod_days');
+        let totals = { day:0, night:0, morning:0, afternoon:0 };
+        const wH  = +frm.doc.weekday_shift_hours;
+        const sH  = +frm.doc.saturday_shift_hours;
+        const sSh = +frm.doc.num_sat_shifts;
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
+            let dow   = d.toLocaleDateString('en-US',{ weekday:'long' });
+            let hours = { day:0, night:0, morning:0, afternoon:0 };
+
+            if (frm.doc.shift_system==='2x12Hour') {
+                if (dow==='Saturday') {
+                    hours.day   = sH;
+                    hours.night = (sSh > 1 ? sH : 0);
+                } else if (dow!=='Sunday') {
+                    hours.day = hours.night = wH;
+                }
+            } else {
+                if (dow==='Saturday') {
+                    hours.morning = sH;
+                    if (sSh > 1) hours.afternoon = sH;
+                    if (sSh > 2) hours.night     = sH;
+                } else if (dow!=='Sunday') {
+                    hours.morning = hours.afternoon = hours.night = wH;
+                }
+            }
+
+            totals.day      += hours.day;
+            totals.night    += hours.night;
+            totals.morning  += hours.morning;
+            totals.afternoon+= hours.afternoon;
+
+            let row = frm.add_child('month_prod_days');
+            row.shift_start_date       = frappe.datetime.obj_to_str(d);
+            row.day_week               = dow;
+            row.shift_day_hours        = hours.day;
+            row.shift_night_hours      = hours.night;
+            row.shift_morning_hours    = hours.morning;
+            row.shift_afternoon_hours  = hours.afternoon;
+        }
+
+        frm.set_value({
+            tot_shift_day_hours:       totals.day,
+            tot_shift_night_hours:     totals.night,
+            tot_shift_morning_hours:   totals.morning,
+            tot_shift_afternoon_hours: totals.afternoon,
+            total_month_prod_hours:    totals.day + totals.night + totals.morning + totals.afternoon
+        });
+        frm.trigger('recalculate_totals');
+        frm.refresh_field('month_prod_days');
+        frappe.msgprint(__('Monthly Production Days populated.'));
     },
 
-    // Section 3: Location Function
+    // Section 3: Location Change - clear equipment tables
     location: function(frm) {
         if (frm.doc.location) {
-            frm.clear_table('prod_excavators');
-            frm.clear_table('prod_trucks');
-            frm.clear_table('dozer_table');
-            frm.refresh_fields(['prod_excavators', 'prod_trucks', 'dozer_table']);
-
-            // Fetch Excavators
-            frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Asset',
-                    filters: {
-                        location: frm.doc.location,
-                        asset_category: 'Excavator',
-                        docstatus: 1
-                    },
-                    fields: ['asset_name', 'item_name', 'asset_category']
-                },
-                callback: function(r) {
-                    if (r && r.message) {
-                        r.message.forEach(function(asset) {
-                            let row = frm.add_child('prod_excavators');
-                            row.asset_name = asset.asset_name;
-                            row.item_name = asset.item_name;
-                        });
-                        frm.refresh_field('prod_excavators');
-                        frm.set_value('num_excavators', frm.doc.prod_excavators.length);
-                    } else {
-                        frappe.msgprint(__('No Excavators found for the selected location.'));
-                        frm.set_value('num_excavators', 0);
-                    }
-                }
-            });
-
-            // Fetch Trucks
-            frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Asset',
-                    filters: {
-                        location: frm.doc.location,
-                        asset_category: ['in', ['ADT', 'RIGID']],
-                        docstatus: 1
-                    },
-                    fields: ['asset_name', 'item_name', 'asset_category']
-                },
-                callback: function(r) {
-                    if (r && r.message) {
-                        r.message.forEach(function(asset) {
-                            let row = frm.add_child('prod_trucks');
-                            row.asset_name = asset.asset_name;
-                            row.item_name = asset.item_name;
-                            row.asset_category = asset.asset_category;
-                        });
-                        frm.refresh_field('prod_trucks');
-                        frm.set_value('num_trucks', frm.doc.prod_trucks.length);
-                    } else {
-                        frappe.msgprint(__('No Trucks found for the selected location.'));
-                        frm.set_value('num_trucks', 0);
-                    }
-                }
-            });
-
-            // Fetch Dozers
-            frappe.call({
-                method: 'frappe.client.get_list',
-                args: {
-                    doctype: 'Asset',
-                    filters: {
-                        location: frm.doc.location,
-                        asset_category: 'Dozer',
-                        docstatus: 1
-                    },
-                    fields: ['asset_name', 'item_name']
-                },
-                callback: function(r) {
-                    if (r && r.message) {
-                        r.message.forEach(function(asset) {
-                            let row = frm.add_child('dozer_table');
-                            row.asset_name = asset.asset_name;
-                            row.item_name = asset.item_name;
-                        });
-                        frm.refresh_field('dozer_table');
-                        frm.set_value('num_dozers', frm.doc.dozer_table.length);
-                    } else {
-                        frappe.msgprint(__('No Dozers found for the selected location.'));
-                        frm.set_value('num_dozers', 0);
-                    }
-                }
-            });
+            ['prod_excavators','prod_trucks','dozer_table'].forEach(tbl =>
+                frm.clear_table(tbl)
+            );
+            frm.refresh_fields(['prod_excavators','prod_trucks','dozer_table']);
+            frm.trigger('update_equipment_counts');
         } else {
             frappe.msgprint(__('Please select a location.'));
         }
     },
 
-    // Section 4: Clear Production Days Function
+    // Section 4: Clear Production Days table and totals
     clear_production_days: function(frm) {
         frm.clear_table('month_prod_days');
         frm.refresh_field('month_prod_days');
-        frm.set_value('tot_shift_day_hours', 0);
-        frm.set_value('tot_shift_night_hours', 0);
-        frm.set_value('tot_shift_morning_hours', 0);
-        frm.set_value('tot_shift_afternoon_hours', 0);
-        frm.set_value('total_month_prod_hours', 0);
-        frm.set_value('num_prod_days', 0);
-        frm.set_value('target_bcm_day', 0);
-        frm.set_value('target_bcm_hour', 0);
-        frm.set_value('num_excavators', 0);
-        frm.set_value('num_trucks', 0);
-        frm.set_value('num_dozers', 0);
-        frappe.msgprint(__('Monthly Production Days table has been cleared.'));
+        [
+            'tot_shift_day_hours','tot_shift_night_hours','tot_shift_morning_hours','tot_shift_afternoon_hours',
+            'total_month_prod_hours','num_prod_days','target_bcm_day','target_bcm_hour',
+            'num_excavators','num_trucks','num_dozers'
+        ].forEach(f => frm.set_value(f, 0));
+        frappe.msgprint(__('Production Days cleared.'));
     },
 
-    // Section 5: Calculate Production Month End
+    // Section 5: Set last day of month as prod_month_end
     prod_month_end_date: function(frm) {
-        let selected_date = frm.doc.prod_month_end_date;
-        if (selected_date) {
-            let date_obj = new Date(selected_date);
-            let last_day_of_month = new Date(date_obj.getFullYear(), date_obj.getMonth() + 1, 0);
-            frm.set_value('prod_month_end', frappe.datetime.obj_to_str(last_day_of_month));
-            frappe.msgprint(__('Production month end has been set to the last day of the month.'));
+        if (frm.doc.prod_month_end_date) {
+            let d    = new Date(frm.doc.prod_month_end_date);
+            let last = new Date(d.getFullYear(), d.getMonth()+1, 0);
+            frm.set_value('prod_month_end', frappe.datetime.obj_to_str(last));
+            frappe.msgprint(__('Month end set to last day.'));
         }
     },
 
-    // Section 6: Monthly Target BCM & Recalculate Totals Functions
+    // Section 6: Recalculate totals and targets
     monthly_target_bcm: function(frm) {
         frm.trigger('recalculate_totals');
     },
-
     recalculate_totals: function(frm) {
-        let total_day_hours = 0,
-            total_night_hours = 0,
-            total_morning_hours = 0,
-            total_afternoon_hours = 0,
-            num_prod_days = 0;
-
-        frm.doc.month_prod_days.forEach(row => {
-            total_day_hours += row.shift_day_hours || 0;
-            total_night_hours += row.shift_night_hours || 0;
-            total_morning_hours += row.shift_morning_hours || 0;
-            total_afternoon_hours += row.shift_afternoon_hours || 0;
-
-            if ((row.shift_day_hours || 0) > 0 ||
-                (row.shift_night_hours || 0) > 0 ||
-                (row.shift_morning_hours || 0) > 0 ||
-                (row.shift_afternoon_hours || 0) > 0) {
-                num_prod_days++;
-            }
+        let sums = { day:0, night:0, morning:0, afternoon:0, days:0 };
+        frm.doc.month_prod_days.forEach(r => {
+            let hrs = (r.shift_day_hours||0) + (r.shift_night_hours||0) +
+                      (r.shift_morning_hours||0) + (r.shift_afternoon_hours||0);
+            if (hrs > 0) sums.days++;
+            sums.day      += r.shift_day_hours || 0;
+            sums.night    += r.shift_night_hours || 0;
+            sums.morning  += r.shift_morning_hours || 0;
+            sums.afternoon+= r.shift_afternoon_hours || 0;
         });
-
-        let total_month_prod_hours = total_day_hours + total_night_hours + total_morning_hours + total_afternoon_hours;
-
-        frm.set_value('tot_shift_day_hours', total_day_hours);
-        frm.set_value('tot_shift_night_hours', total_night_hours);
-        frm.set_value('tot_shift_morning_hours', total_morning_hours);
-        frm.set_value('tot_shift_afternoon_hours', total_afternoon_hours);
-        frm.set_value('total_month_prod_hours', total_month_prod_hours);
-        frm.set_value('num_prod_days', num_prod_days);
-
+        let totalHrs = sums.day + sums.night + sums.morning + sums.afternoon;
+        frm.set_value({
+            tot_shift_day_hours:       sums.day,
+            tot_shift_night_hours:     sums.night,
+            tot_shift_morning_hours:   sums.morning,
+            tot_shift_afternoon_hours: sums.afternoon,
+            total_month_prod_hours:    totalHrs,
+            num_prod_days:             sums.days
+        });
         if (frm.doc.monthly_target_bcm) {
-            frm.set_value('target_bcm_day', frm.doc.monthly_target_bcm / num_prod_days);
-            frm.set_value('target_bcm_hour', frm.doc.monthly_target_bcm / total_month_prod_hours);
-        } else {
-            frm.set_value('target_bcm_day', 0);
-            frm.set_value('target_bcm_hour', 0);
+            frm.set_value('target_bcm_day',  frm.doc.monthly_target_bcm / sums.days);
+            frm.set_value('target_bcm_hour', frm.doc.monthly_target_bcm / totalHrs);
         }
     },
 
-    // Section 7: Update Month-to-Date (MTD) Production Function with Debug Logging
+    // Section 7: Update MTD Production & all downstream metrics in one go
     update_mtd_production: function(frm) {
-        if (!frm.doc.name) {
-            frappe.msgprint(__('Please save the document first.'));
-            return;
-        }
-        // Retrieve Hourly Production records that match:
-        // - The current Monthly Production Planning reference,
-        // - Production date range, and location.
+        if (!frm.doc.name) return frappe.msgprint(__('Save first.'));
+        let refs = frm.doc.month_prod_days
+                      .map(r => r.hourly_production_reference)
+                      .filter(Boolean);
+        if (!refs.length) return frappe.msgprint(__('No refs to query.'));
+
+        // 1) Fetch Hourly Production
         frappe.call({
             method: 'frappe.client.get_list',
             args: {
                 doctype: 'Hourly Production',
                 filters: [
-                    ['month_prod_planning', '=', frm.doc.name],
-                    ['prod_date', '>=', frm.doc.prod_month_start_date],
-                    ['prod_date', '<=', frm.doc.prod_month_end_date],
-                    ['location', '=', frm.doc.location]
+                    ['month_prod_planning','=', frm.doc.name],
+                    ['monthly_production_child_ref','in', refs]
                 ],
-                fields: ['shift', 'prod_date', 'total_ts_bcm', 'total_dozing_bcm']
+                fields: ['monthly_production_child_ref as ref','shift','total_ts_bcm','total_dozing_bcm']
             },
             callback: function(r) {
-                if (r && r.message) {
-                    let hourly_data = r.message;
-                    let dateSums = {};
-                    // Group and sum records per production date and by shift.
-                    hourly_data.forEach(entry => {
-                        // Convert entry.prod_date to a "YYYY-MM-DD" string.
-                        let prodDateStr = frappe.datetime.obj_to_str(new Date(entry.prod_date));
-                        if (!dateSums[prodDateStr]) {
-                            dateSums[prodDateStr] = { Day: 0, Night: 0, Morning: 0, Afternoon: 0, total: 0 };
-                        }
-                        let production = (entry.total_ts_bcm || 0) + (entry.total_dozing_bcm || 0);
-                        // Sum production per shift type:
-                        if (entry.shift in dateSums[prodDateStr]) {
-                            dateSums[prodDateStr][entry.shift] += production;
-                        }
-                        dateSums[prodDateStr].total += production;
+                let sumsMap = {};
+                (r.message||[]).forEach(e => {
+                    let ts  = e.total_ts_bcm    || 0,
+                        dz  = e.total_dozing_bcm|| 0,
+                        bcm = ts + dz;
+                    sumsMap[e.ref] = sumsMap[e.ref] || { Day:0, Night:0, Morning:0, Afternoon:0, total:0, ts:0, dz:0 };
+                    sumsMap[e.ref][e.shift] += bcm;
+                    sumsMap[e.ref].total    += bcm;
+                    sumsMap[e.ref].ts       += ts;
+                    sumsMap[e.ref].dz       += dz;
+                });
+                // write daily totals back
+                frm.doc.month_prod_days.forEach(row => {
+                    let s = sumsMap[row.hourly_production_reference] || { Day:0, Night:0, Morning:0, Afternoon:0, total:0, ts:0, dz:0 };
+                    frappe.model.set_value(row.doctype, row.name, {
+                        day_shift_bcms:     s.Day,
+                        night_shift_bcms:   s.Night,
+                        morning_shift_bcms: s.Morning,
+                        afternoon_shift_bcms:s.Afternoon,
+                        total_daily_bcms:   s.total,
+                        total_ts_bcms:      s.ts,
+                        total_dozing_bcms:  s.dz
                     });
-                    console.log("Hourly Production Sums grouped by Date:", dateSums);
+                });
+                frm.refresh_field('month_prod_days');
 
-                    // For each day in the Monthly Production Planning child table,
-                    // update the corresponding production sums and log results.
-                    frm.doc.month_prod_days.forEach(row => {
-                        let row_date = frappe.datetime.obj_to_str(new Date(row.shift_start_date));
-                        if (dateSums[row_date]) {
-                            console.log("For date " + row_date + ": ", dateSums[row_date]);
-                            row.day_shift_bcms = dateSums[row_date].Day;
-                            row.night_shift_bcms = dateSums[row_date].Night;
-                            row.morning_shift_bcms = dateSums[row_date].Morning;
-                            row.afternoon_shift_bcms = dateSums[row_date].Afternoon;
-                            row.total_daily_bcms = dateSums[row_date].total;
-                        } else {
-                            console.log("No Hourly Production records found for date " + row_date);
+                // 2) Child cumulatives (cum_ts_bcms & tot_cumulative_dozing_bcms)
+                let runTs = 0, runDz = 0;
+                frm.doc.month_prod_days
+                    .slice()
+                    .sort((a,b) => new Date(a.shift_start_date) - new Date(b.shift_start_date))
+                    .forEach(row => {
+                        runTs += row.total_ts_bcms    || 0;
+                        runDz += row.total_dozing_bcms|| 0;
+                        frappe.model.set_value(row.doctype, row.name, {
+                            cum_ts_bcms:                runTs,
+                            tot_cumulative_dozing_bcms: runDz
+                        });
+                    });
+                frm.refresh_field('month_prod_days');
+
+                // 3) Fetch Survey & calculate variances + parent metrics
+                frappe.call({
+                    method: 'frappe.client.get_list',
+                    args: {
+                        doctype: 'Survey',
+                        filters: [
+                            ['hourly_prod_ref','in', refs],
+                            ['docstatus','=', 1]
+                        ],
+                        fields: ['hourly_prod_ref as ref','total_dozing_bcm','total_ts_bcm']
+                    },
+                    callback: function(srv) {
+                        const map = {};
+                        (srv.message||[]).forEach(s => {
+                            map[s.ref] = { dz: s.total_dozing_bcm||0, ts: s.total_ts_bcm||0 };
+                        });
+                        // survey totals & variances on child rows
+                        frm.doc.month_prod_days.forEach(row => {
+                            let v = map[row.hourly_production_reference] || { dz:0, ts:0 };
+                            let upd = {
+                                tot_cum_dozing_survey: v.dz,
+                                tot_cum_ts_survey:     v.ts
+                            };
+                            if (v.dz>0 || v.ts>0) {
+                                upd.cum_dozing_variance = v.dz - (row.tot_cumulative_dozing_bcms||0);
+                                upd.cum_ts_variance     = v.ts - (row.cum_ts_bcms||0);
+                            }
+                            frappe.model.set_value(row.doctype, row.name, upd);
+                        });
+                        frm.refresh_field('month_prod_days');
+
+                        // parent tallies
+                        let totalTs = 0, totalDz = 0;
+                        frm.doc.month_prod_days.forEach(r => {
+                            totalTs += r.total_ts_bcms    || 0;
+                            totalDz += r.total_dozing_bcms|| 0;
+                        });
+
+                        // survey variance from the most recent non-zero row
+                        let varRows = frm.doc.month_prod_days
+                            .filter(r => (r.cum_dozing_variance||0)!==0 || (r.cum_ts_variance||0)!==0)
+                            .sort((a,b) => new Date(b.shift_start_date) - new Date(a.shift_start_date));
+                        let surveyVar = 0;
+                        if (varRows.length) {
+                            let latest = varRows[0];
+                            surveyVar = (latest.cum_dozing_variance||0) + (latest.cum_ts_variance||0);
                         }
-                    });
-                    frm.refresh_field('month_prod_days');
 
-                    // Debug: Sum overall total production from the grouped data.
-                    let overall_total = 0;
-                    Object.keys(dateSums).forEach(dateKey => {
-                        overall_total += dateSums[dateKey].total;
-                    });
-                    console.log("Overall Total Production from Hourly Production:", overall_total);
+                        // progress metrics
+                        let today = new Date(),
+                            yest  = new Date(today.getFullYear(), today.getMonth(), today.getDate()-1),
+                            doneDays=0, doneHrs=0;
+                        frm.doc.month_prod_days.forEach(r => {
+                            let rd = frappe.datetime.str_to_obj(r.shift_start_date);
+                            if (rd <= yest) {
+                                let hrs = (r.shift_day_hours||0) + (r.shift_night_hours||0) +
+                                          (r.shift_morning_hours||0) + (r.shift_afternoon_hours||0);
+                                if (hrs) doneDays++;
+                                doneHrs += hrs;
+                            }
+                        });
 
-                    frappe.msgprint(__('Month-to-Date Production updated successfully. Check the browser console for per-day sums.'));
-                }
+                        // final parent updates
+                        let actual   = totalTs + totalDz + surveyVar,
+                            mtdDay   = actual / (frm.doc.prod_days_completed = doneDays),
+                            mtdHr    = actual / (frm.doc.month_prod_hours_completed = doneHrs),
+                            forecast = mtdHr * (frm.doc.total_month_prod_hours || 0);
+
+                        frm.set_value({
+                            month_act_ts_bcm_tallies:          totalTs,
+                            month_act_dozing_bcm_tallies:      totalDz,
+                            monthly_act_tally_survey_variance: surveyVar,
+                            month_actual_bcm:                  actual,
+                            prod_days_completed:               doneDays,
+                            month_prod_hours_completed:        doneHrs,
+                            month_remaining_production_days:   frm.doc.num_prod_days - doneDays,
+                            month_remaining_prod_hours:        frm.doc.total_month_prod_hours - doneHrs,
+                            mtd_bcm_day:                       mtdDay,
+                            mtd_bcm_hour:                      mtdHr,
+                            month_forecated_bcm:               forecast
+                        });
+                        frm.refresh_fields([
+                            'month_act_ts_bcm_tallies',
+                            'month_act_dozing_bcm_tallies',
+                            'monthly_act_tally_survey_variance',
+                            'month_actual_bcm',
+                            'prod_days_completed',
+                            'month_prod_hours_completed',
+                            'month_remaining_production_days',
+                            'month_remaining_prod_hours',
+                            'mtd_bcm_day',
+                            'mtd_bcm_hour',
+                            'month_forecated_bcm'
+                        ]);
+                        frappe.msgprint(__('Full MTD & forecast recalculated.'));
+                    }
+                });
             }
         });
-    }
-});
+    },
 
-// Section 8: Trigger Sections for Child Table Updates
-frappe.ui.form.on('Monthly Production Days', {
-    shift_day_hours: function(frm, cdt, cdn) {
-        frm.trigger('recalculate_totals');
+    // Section 8: Child Table Triggers
+    'Monthly Production Days': {
+        shift_day_hours:       frm => frm.trigger('recalculate_totals'),
+        shift_night_hours:     frm => frm.trigger('recalculate_totals'),
+        shift_morning_hours:   frm => frm.trigger('recalculate_totals'),
+        shift_afternoon_hours: frm => frm.trigger('recalculate_totals')
     },
-    shift_night_hours: function(frm, cdt, cdn) {
-        frm.trigger('recalculate_totals');
-    },
-    shift_morning_hours: function(frm, cdt, cdn) {
-        frm.trigger('recalculate_totals');
-    },
-    shift_afternoon_hours: function(frm, cdt, cdn) {
-        frm.trigger('recalculate_totals');
+
+    // Section 9: Update Equipment Counts
+    update_equipment_counts: function(frm) {
+        frm.set_value({
+            num_excavators: frm.doc.prod_excavators?.length || 0,
+            num_trucks:     frm.doc.prod_trucks?.length    || 0,
+            num_dozers:     frm.doc.dozer_table?.length    || 0
+        });
+        frm.refresh_fields(['num_excavators','num_trucks','num_dozers']);
     }
 });

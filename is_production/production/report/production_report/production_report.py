@@ -452,3 +452,26 @@ def execute(filters=None):
     primitive_summary = None
     
     return primary_columns, primary_data, None, primary_chart, report_summary, primitive_summary
+
+@frappe.whitelist()
+def get_monthly_planning_records(from_date, to_date):
+    """
+    Return all MPP parents and their shift_start_date
+    (plus cum_dozing_variance and cum_ts_variance) for any
+    month_prod_days.shift_start_date in the given range.
+    """
+    return frappe.db.sql("""
+        SELECT 
+            p.name                     AS parent_name,
+            p.location                 AS location,
+            m.shift_start_date         AS shift_start_date,
+            m.cum_dozing_variance      AS cum_dozing_variance,
+            m.cum_ts_variance          AS cum_ts_variance
+        FROM `tabMonthly Production Planning` p
+        JOIN `tabMonthly Production Days`   m
+          ON m.parent = p.name
+        WHERE m.shift_start_date BETWEEN %(from_date)s AND %(to_date)s
+    """, {
+        "from_date": from_date,
+        "to_date":   to_date
+    }, as_dict=1)

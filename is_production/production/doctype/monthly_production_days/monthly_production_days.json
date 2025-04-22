@@ -7,11 +7,11 @@
  "engine": "InnoDB",
  "field_order": [
   "shift_start_date",
+  "day_week",
   "shift_day_hours",
   "shift_night_hours",
   "shift_morning_hours",
   "shift_afternoon_hours",
-  "day_week",
   "day_shift_bcms",
   "morning_shift_bcms",
   "afternoon_shift_bcms",
@@ -31,24 +31,32 @@
  ],
  "fields": [
   {
+   "columns": 1,
    "fieldname": "day_week",
    "fieldtype": "Read Only",
+   "in_list_view": 1,
    "label": "Day of Week"
   },
   {
+   "columns": 1,
    "fieldname": "shift_start_date",
    "fieldtype": "Date",
+   "in_list_view": 1,
    "label": "Shift Start Date"
   },
   {
+   "columns": 1,
    "fieldname": "shift_day_hours",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Day Shift Hours",
    "precision": "2"
   },
   {
+   "columns": 1,
    "fieldname": "shift_night_hours",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Night Shift Hours",
    "precision": "2"
   },
@@ -100,15 +108,19 @@
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "total_dozing_bcms",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Dozing BCMs",
    "precision": "1",
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "total_ts_bcms",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Truck  and Shovel BCMs",
    "precision": "1",
    "read_only": 1
@@ -126,15 +138,19 @@
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "tot_cum_dozing_survey",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Cumulative Dozing Survey",
    "precision": "1",
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "tot_cum_ts_survey",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Cumulative Truck and Shovel Survey",
    "precision": "1",
    "read_only": 1
@@ -154,15 +170,19 @@
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "tot_cumulative_dozing_bcms",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Cumulative Dozing BCMs",
    "precision": "1",
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "cum_ts_bcms",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Cumulative Truck & Shovel  BCMs",
    "precision": "1",
    "read_only": 1
@@ -177,7 +197,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-04-16 05:06:42.073759",
+ "modified": "2025-04-22 06:35:06.120486",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Days",

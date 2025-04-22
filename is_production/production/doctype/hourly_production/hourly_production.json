@@ -13,6 +13,7 @@
   "monthly_production_child_ref",
   "shift_system",
   "mining_areas_options",
+  "update_hourly_references",
   "column_break_utop",
   "shift",
   "shift_num_hour",
@@ -247,12 +248,17 @@
    "fieldname": "monthly_production_child_ref",
    "fieldtype": "Data",
    "label": "Monthly Production Planning Child Reference"
+  },
+  {
+   "fieldname": "update_hourly_references",
+   "fieldtype": "Button",
+   "label": "Update Hourly Production References"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-16 06:09:03.386394",
+ "modified": "2025-04-21 19:53:47.041763",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
