@@ -1,16 +1,14 @@
 /**
  * Logs a diagnostic message or exception to the console
- * and into the Error Log DocType, populating the
- * “method” field so you see your context in the Method column.
+ * and into the Error Log DocType (method field).
  *
- * @param {String} context    A short description of where/what this log is for
+ * @param {String} context    A short description of this log’s context
  * @param {Object|String} data  The payload to record
  */
 function logError(context, data) {
   console.error(`ERROR — ${context}:`, data);
 
   const frmDoc = cur_frm?.doc;
-  // <— use frmDoc here, not frm
   const methodName = frmDoc
     ? `${frmDoc.doctype} ${frmDoc.name} — ${context}`
     : context;
@@ -36,7 +34,7 @@ function logError(context, data) {
 }
 
 frappe.ui.form.on('Monthly Production Planning', {
-  // Section 0: Before Save
+  // Section 0: Before Save
   before_save(frm) {
     try {
       frm.doc.month_prod_days?.forEach(r => {
@@ -48,7 +46,7 @@ frappe.ui.form.on('Monthly Production Planning', {
     }
   },
 
-  // Section 1: Refresh
+  // Section 1: Refresh
   refresh(frm) {
     try {
       frm.add_custom_button(__('Populate Monthly Production Days'),
@@ -74,7 +72,7 @@ frappe.ui.form.on('Monthly Production Planning', {
     }
   },
 
-  // Section 2: Populate days
+  // Section 2: Populate Monthly Production Days
   populate_monthly_prod_days(frm) {
     try {
       if (!frm.doc.prod_month_start_date || !frm.doc.prod_month_end_date) {
@@ -82,8 +80,7 @@ frappe.ui.form.on('Monthly Production Planning', {
         return;
       }
       if ([frm.doc.weekday_shift_hours, frm.doc.saturday_shift_hours, frm.doc.num_sat_shifts]
-          .some(v => v == null)
-      ) {
+          .some(v => v == null)) {
         frappe.msgprint(__('Please enter shift hours and number of Saturday shifts.'));
         return;
       }
@@ -98,22 +95,22 @@ frappe.ui.form.on('Monthly Production Planning', {
       const sSh  = +frm.doc.num_sat_shifts;
 
       for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
-        const dow   = d.toLocaleDateString('en-US',{ weekday:'long' });
+        const dow = d.toLocaleDateString('en-US',{ weekday:'long' });
         let hours = { day:0, night:0, morning:0, afternoon:0 };
 
-        if (frm.doc.shift_system==='2x12Hour') {
-          if (dow==='Saturday') {
+        if (frm.doc.shift_system === '2x12Hour') {
+          if (dow === 'Saturday') {
             hours.day   = sH;
-            hours.night = sSh>1 ? sH : 0;
-          } else if (dow!=='Sunday') {
+            hours.night = sSh > 1 ? sH : 0;
+          } else if (dow !== 'Sunday') {
             hours.day = hours.night = wH;
           }
         } else {
-          if (dow==='Saturday') {
+          if (dow === 'Saturday') {
             hours.morning = sH;
-            if (sSh>1) hours.afternoon = sH;
-            if (sSh>2) hours.night     = sH;
-          } else if (dow!=='Sunday') {
+            if (sSh > 1) hours.afternoon = sH;
+            if (sSh > 2) hours.night     = sH;
+          } else if (dow !== 'Sunday') {
             hours.morning = hours.afternoon = hours.night = wH;
           }
         }
@@ -124,12 +121,12 @@ frappe.ui.form.on('Monthly Production Planning', {
         totals.afternoon+= hours.afternoon;
 
         const row = frm.add_child('month_prod_days');
-        row.shift_start_date       = frappe.datetime.obj_to_str(d);
-        row.day_week               = dow;
-        row.shift_day_hours        = hours.day;
-        row.shift_night_hours      = hours.night;
-        row.shift_morning_hours    = hours.morning;
-        row.shift_afternoon_hours  = hours.afternoon;
+        row.shift_start_date      = frappe.datetime.obj_to_str(d);
+        row.day_week              = dow;
+        row.shift_day_hours       = hours.day;
+        row.shift_night_hours     = hours.night;
+        row.shift_morning_hours   = hours.morning;
+        row.shift_afternoon_hours = hours.afternoon;
       }
 
       frm.set_value({
@@ -147,7 +144,7 @@ frappe.ui.form.on('Monthly Production Planning', {
     }
   },
 
-  // Section 3: Location
+  // Section 3: Location
   location(frm) {
     try {
       if (!frm.doc.location) {
@@ -171,8 +168,8 @@ frappe.ui.form.on('Monthly Production Planning', {
             if (r.message?.length) {
               r.message.forEach(a => {
                 const row = frm.add_child(tableField);
-                row.asset_name = a.asset_name;
-                row.item_name  = a.item_name;
+                row.asset_name     = a.asset_name;
+                row.item_name      = a.item_name;
                 row.asset_category = a.asset_category;
               });
               frm.refresh_field(tableField);
@@ -194,7 +191,7 @@ frappe.ui.form.on('Monthly Production Planning', {
     }
   },
 
-  // Section 4: Clear
+  // Section 4: Clear Production Days
   clear_production_days(frm) {
     try {
       frm.clear_table('month_prod_days');
@@ -214,7 +211,7 @@ frappe.ui.form.on('Monthly Production Planning', {
   prod_month_end_date(frm) {
     try {
       if (!frm.doc.prod_month_end_date) return;
-      const d  = new Date(frm.doc.prod_month_end_date);
+      const d    = new Date(frm.doc.prod_month_end_date);
       const last = new Date(d.getFullYear(), d.getMonth()+1, 0);
       frm.set_value('prod_month_end', frappe.datetime.obj_to_str(last));
       frappe.msgprint(__('Month end set to last day.'));
@@ -257,7 +254,7 @@ frappe.ui.form.on('Monthly Production Planning', {
     }
   },
 
-  // Section 7: update_mtd_production
+  // Section 7: Update MTD Production
   update_mtd_production(frm) {
     try {
       if (!frm.doc.name) {
@@ -272,7 +269,7 @@ frappe.ui.form.on('Monthly Production Planning', {
         return;
       }
 
-      // Fetch Hourly Production
+      // Fetch ALL Hourly Production
       frappe.call({
         method: 'frappe.client.get_list',
         args: {
@@ -287,7 +284,9 @@ frappe.ui.form.on('Monthly Production Planning', {
             'shift',
             'total_ts_bcm',
             'total_dozing_bcm'
-          ]
+          ],
+          limit_page_length: 0,
+          limit_start: 0
         },
         callback: r => {
           try {
@@ -309,25 +308,19 @@ frappe.ui.form.on('Monthly Production Planning', {
             logError('Hourly Production Fetch Summary', { recordCount, totalTS, totalDZ, totalBCM });
 
             // Aggregate & Write‑back
-            let sumsMap = {};
+            const sumsMap = {};
             records.forEach(e => {
               const ts  = e.total_ts_bcm    || 0;
               const dz  = e.total_dozing_bcm|| 0;
               const bcm = ts + dz;
-              sumsMap[e.ref] = sumsMap[e.ref] || {
-                Day:0, Night:0, Morning:0, Afternoon:0,
-                total:0, ts:0, dz:0
-              };
+              sumsMap[e.ref] = sumsMap[e.ref] || { Day:0, Night:0, Morning:0, Afternoon:0, total:0, ts:0, dz:0 };
               sumsMap[e.ref][e.shift] += bcm;
               sumsMap[e.ref].total    += bcm;
               sumsMap[e.ref].ts       += ts;
               sumsMap[e.ref].dz       += dz;
             });
             frm.doc.month_prod_days.forEach(row => {
-              const s = sumsMap[row.hourly_production_reference] || {
-                Day:0, Night:0, Morning:0, Afternoon:0,
-                total:0, ts:0, dz:0
-              };
+              const s = sumsMap[row.hourly_production_reference] || { Day:0, Night:0, Morning:0, Afternoon:0, total:0, ts:0, dz:0 };
               frappe.model.set_value(row.doctype, row.name, {
                 day_shift_bcms:      s.Day,
                 night_shift_bcms:    s.Night,
@@ -342,8 +335,7 @@ frappe.ui.form.on('Monthly Production Planning', {
 
             // Checksum
             const expected = Object.keys(sumsMap).length;
-            const updated  = frm.doc.month_prod_days
-                              .filter(r => sumsMap[r.hourly_production_reference]).length;
+            const updated  = frm.doc.month_prod_days.filter(r => sumsMap[r.hourly_production_reference]).length;
             logError('HP Update Checksum', { expected, updated });
 
             // Post‑update Totals
@@ -357,19 +349,21 @@ frappe.ui.form.on('Monthly Production Planning', {
             }, { day:0, night:0, morning:0, afternoon:0, total:0 });
             logError('Monthly Prod Days BCM Totals', tableTotals);
 
-            // Cumulative Totals
+            // Cumulative Totals (fixed field names)
             let runTs = 0, runDz = 0;
             frm.doc.month_prod_days
-               .slice()
-               .sort((a,b) => new Date(a.shift_start_date) - new Date(b.shift_start_date))
-               .forEach(rw => {
-                 runTs += rw.total_ts_bcms    || 0;
-                 runDz += rw.total_dozing_bcms|| 0;
-                 frappe.model.set_value(rw.doctype, rw.name, {
-                   cum_ts_bcms:                runTs,
-                   tot_cumulative_dozing_bcms: runDz
-                 });
-               });
+              .slice()
+              .sort((a, b) => new Date(a.shift_start_date) - new Date(b.shift_start_date))
+              .forEach(rw => {
+                // use the actual child‐table field names
+                runTs += rw.total_ts_bcms    || 0;
+                runDz += rw.total_dozing_bcms|| 0;
+
+                frappe.model.set_value(rw.doctype, rw.name, {
+                  cum_ts_bcms:                runTs,
+                  tot_cumulative_dozing_bcms: runDz
+                });
+              });
             frm.refresh_field('month_prod_days');
           } catch (inner) {
             logError('Processing HP Callback', inner);
@@ -381,51 +375,129 @@ frappe.ui.form.on('Monthly Production Planning', {
         }
       });
 
-      // Section 7b: Fetch Survey & calculate variances + parent metrics
-      frappe.call({
-        method: 'frappe.client.get_list',
-        args: {
-          doctype: 'Survey',
-          filters: [
-            ['hourly_prod_ref','in', refs],
-            ['docstatus','=', 1]
-          ],
-          fields: [
-            'hourly_prod_ref as ref',
-            'total_dozing_bcm',
-            'total_ts_bcm'
-          ]
-        },
-        callback: function(srv) {
-          try {
-            const map = {};
-            (srv.message||[]).forEach(s => {
-              map[s.ref] = { dz: s.total_dozing_bcm||0, ts: s.total_ts_bcm||0 };
-            });
-            frm.doc.month_prod_days.forEach(rw => {
-              const v   = map[rw.hourly_production_reference] || { dz:0, ts:0 };
-              const upd = {
-                tot_cum_dozing_survey: v.dz,
-                tot_cum_ts_survey:     v.ts
-              };
-              if (v.dz||v.ts) {
-                upd.cum_dozing_variance = v.dz - (rw.tot_cumulative_dozing_bcms||0);
-                upd.cum_ts_variance     = v.ts - (rw.cum_ts_bcms||0);
-              }
-              frappe.model.set_value(rw.doctype, rw.name, upd);
-            });
-            frm.refresh_field('month_prod_days');
+        // 3) Fetch ALL Survey & calculate variances + parent‐level metrics
+        frappe.call({
+          method: 'frappe.client.get_list',
+          args: {
+            doctype: 'Survey',
+            filters: [
+              ['hourly_prod_ref','in', refs],
+              ['docstatus','=', 1]
+            ],
+            fields: [
+              'hourly_prod_ref as ref',
+              'total_dozing_bcm',
+              'total_ts_bcm'
+            ],
+            limit_page_length: 0,
+            limit_start: 0
+          },
+          callback: function(srv) {
+            try {
+              // Build a map of survey totals by ref
+              const map = {};
+              (srv.message || []).forEach(s => {
+                map[s.ref] = {
+                  dz: s.total_dozing_bcm  || 0,
+                  ts: s.total_ts_bcm      || 0
+                };
+              });
 
-            // Parent MTD & forecast logic...
-          } catch (inner) {
-            logError('Processing Survey Callback', inner);
+              // Write survey totals and variances into each child row
+              frm.doc.month_prod_days.forEach(row => {
+                const v = map[row.hourly_production_reference] || { dz:0, ts:0 };
+                const upd = {
+                  tot_cum_dozing_survey: v.dz,
+                  tot_cum_ts_survey:     v.ts
+                };
+                // ORIGINAL variance logic: compare cumulative child‐level to survey totals
+                if (v.dz || v.ts) {
+                  upd.cum_dozing_variance = v.dz - (row.tot_cumulative_dozing_bcms || 0);
+                  upd.cum_ts_variance     = v.ts - (row.cum_ts_bcms             || 0);
+                }
+                frappe.model.set_value(row.doctype, row.name, upd);
+              });
+              frm.refresh_field('month_prod_days');
+
+              // Parent‐level tallies
+              let totalTs = 0, totalDz = 0;
+              frm.doc.month_prod_days.forEach(r => {
+                totalTs += r.total_ts_bcms     || 0;
+                totalDz += r.total_dozing_bcms || 0;
+              });
+
+              // ORIGINAL survey‐variance from most recent non-zero child variance
+              let varRows = frm.doc.month_prod_days
+                .filter(r => (r.cum_dozing_variance || 0) !== 0
+                          || (r.cum_ts_variance     || 0) !== 0)
+                .sort((a,b) => new Date(b.shift_start_date) - new Date(a.shift_start_date));
+              let surveyVar = 0;
+              if (varRows.length) {
+                const latest = varRows[0];
+                surveyVar = (latest.cum_dozing_variance || 0)
+                          + (latest.cum_ts_variance     || 0);
+              }
+
+              // Completed days & hours (up to yesterday)
+              let today    = new Date(),
+                  yest     = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1),
+                  doneDays = 0,
+                  doneHrs  = 0;
+              frm.doc.month_prod_days.forEach(r => {
+                const rd = frappe.datetime.str_to_obj(r.shift_start_date);
+                if (rd <= yest) {
+                  const hrs = (r.shift_day_hours     || 0)
+                            + (r.shift_night_hours   || 0)
+                            + (r.shift_morning_hours || 0)
+                            + (r.shift_afternoon_hours || 0);
+                  if (hrs) doneDays++;
+                  doneHrs += hrs;
+                }
+              });
+
+              // Final parent‐level updates
+              const actual   = totalTs + totalDz + surveyVar,
+                    mtdDay   = actual / doneDays,
+                    mtdHr    = actual / doneHrs,
+                    forecast = mtdHr * (frm.doc.total_month_prod_hours || 0);
+
+              frm.set_value({
+                month_act_ts_bcm_tallies:          totalTs,
+                month_act_dozing_bcm_tallies:      totalDz,
+                monthly_act_tally_survey_variance: surveyVar,      // ← original calculation restored
+                month_actual_bcm:                  actual,
+                prod_days_completed:               doneDays,
+                month_prod_hours_completed:        doneHrs,
+                month_remaining_production_days:   frm.doc.num_prod_days - doneDays,
+                month_remaining_prod_hours:        frm.doc.total_month_prod_hours - doneHrs,
+                mtd_bcm_day:                       mtdDay,
+                mtd_bcm_hour:                      mtdHr,
+                month_forecated_bcm:               forecast
+              });
+              frm.refresh_fields([
+                'month_act_ts_bcm_tallies',
+                'month_act_dozing_bcm_tallies',
+                'monthly_act_tally_survey_variance',
+                'month_actual_bcm',
+                'prod_days_completed',
+                'month_prod_hours_completed',
+                'month_remaining_production_days',
+                'month_remaining_prod_hours',
+                'mtd_bcm_day',
+                'mtd_bcm_hour',
+                'month_forecated_bcm'
+              ]);
+
+            } catch (inner) {
+              logError('Processing Survey Callback', inner);
+            }
+          },
+          error: function(err) {
+            logError('Call Survey', err);
+            frappe.msgprint(__('Unable to load Survey data. See Error Log.'));
           }
-        },
-        error: err => {
-          logError('Call Survey', err);
-          frappe.msgprint(__('Unable to load Survey data. See Error Log.'));
-        }
-      });
+        });
+
 
     } catch (e) {
       logError('update_mtd_production', e);
