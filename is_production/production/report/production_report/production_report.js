@@ -57,9 +57,10 @@ frappe.query_reports["Production Report"] = {
                         const loc = row.location || "—";
                         acc[loc] = acc[loc] || [];
                         acc[loc].push({
-                            shift_start_date:     row.shift_start_date,
-                            cum_dozing_variance:  row.cum_dozing_variance,
-                            cum_ts_variance:      row.cum_ts_variance
+                            shift_start_date:               row.shift_start_date,
+                            cum_dozing_variance:            row.cum_dozing_variance,
+                            cum_ts_variance:                row.cum_ts_variance,
+                            hourly_production_reference:    row.hourly_production_reference,
                         });
                         return acc;
                     }, {});

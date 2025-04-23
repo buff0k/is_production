@@ -10,7 +10,7 @@
  ],
  "fields": [
   {
-   "columns": 1,
+   "columns": 2,
    "fieldname": "asset_name",
    "fieldtype": "Read Only",
    "in_list_view": 1,
@@ -18,9 +18,10 @@
    "options": "Asset"
   },
   {
-   "columns": 1,
+   "columns": 2,
    "fieldname": "item_name",
    "fieldtype": "Read Only",
+   "in_list_view": 1,
    "label": "Model"
   }
  ],
@@ -28,7 +29,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-04-09 19:32:32.507697",
+ "modified": "2025-04-23 14:13:04.131426",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Trucks Planned",

@@ -89,6 +89,7 @@
    "label": "Production Plant Allocated to Site"
   },
   {
+   "columns": 2,
    "fieldname": "prod_excavators",
    "fieldtype": "Table",
    "label": "Excavators",
@@ -114,6 +115,7 @@
    "label": "Populate Monthly Production Days"
   },
   {
+   "columns": 2,
    "fieldname": "prod_trucks",
    "fieldtype": "Table",
    "label": "ADT's & Rigids",
@@ -124,6 +126,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "columns": 2,
    "fieldname": "dozer_table",
    "fieldtype": "Table",
    "label": "Dozers",
@@ -369,7 +372,7 @@
    "fieldtype": "Column Break"
   },
   {
-   "columns": 2,
+   "columns": 1,
    "fieldname": "mining_areas",
    "fieldtype": "Table",
    "label": "Mining Areas",
@@ -379,7 +382,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-14 12:50:13.121965",
+ "modified": "2025-04-23 14:10:54.940389",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",
