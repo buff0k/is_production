@@ -375,7 +375,7 @@ frappe.ui.form.on('Monthly Production Planning', {
         }
       });
 
-        // Section 3: Fetch ALL Survey & calculate variances + parent‐level metrics
+        // Section 3: Fetch ALL Survey & calculate variances (last‐only) + parent-level updates
         frappe.call({
           method: 'frappe.client.get_list',
           args: {
@@ -394,7 +394,7 @@ frappe.ui.form.on('Monthly Production Planning', {
           },
           callback: function(srv) {
             try {
-              // 1) Build a map of survey totals by ref
+              // 1) Build survey map
               const surveyMap = {};
               (srv.message || []).forEach(s => {
                 surveyMap[s.ref] = {
@@ -403,43 +403,56 @@ frappe.ui.form.on('Monthly Production Planning', {
                 };
               });
 
-              // 2) Forward-fill logic
-              let lastSurveyDZ = 0, lastSurveyTS = 0;
-              let lastCumDZ    = 0, lastCumTS    = 0;
+              // 2) Determine which ref is the latest
+              const surveyRows = frm.doc.month_prod_days
+                .filter(r => surveyMap[r.hourly_production_reference]);
+              let lastRef = null;
+              if (surveyRows.length) {
+                const lastRow = surveyRows.reduce((prev, curr) =>
+                  new Date(curr.shift_start_date) > new Date(prev.shift_start_date)
+                    ? curr : prev,
+                  surveyRows[0]
+                );
+                lastRef = lastRow.hourly_production_reference;
+              }
 
-              // Sort rows chronologically
-              const rows = frm.doc.month_prod_days
-                .slice()
-                .sort((a, b) => new Date(a.shift_start_date) - new Date(b.shift_start_date));
+              // 3) Loop every child-row: keep variance only on lastRef, zero out others
+              frm.doc.month_prod_days.forEach(row => {
+                const ref    = row.hourly_production_reference;
+                const baseDz = row.tot_cumulative_dozing_bcms || 0;
+                const baseTs = row.cum_ts_bcms             || 0;
 
-              rows.forEach(row => {
-                const ref = row.hourly_production_reference;
-                // If we have new survey data for this ref, update “last seen” values
-                if (surveyMap[ref]) {
-                  lastSurveyDZ = surveyMap[ref].dz;
-                  lastSurveyTS = surveyMap[ref].ts;
-                  lastCumDZ    = row.tot_cumulative_dozing_bcms || 0;
-                  lastCumTS    = row.cum_ts_bcms             || 0;
+                if (ref === lastRef) {
+                  const survey = surveyMap[ref];
+                  frappe.model.set_value(row.doctype, row.name, {
+                    tot_cum_dozing_survey: survey.dz,
+                    tot_cum_ts_survey:     survey.ts,
+                    cum_dozing_variance:   survey.dz - baseDz,
+                    cum_ts_variance:       survey.ts - baseTs
+                  });
+                } else {
+                  // clear out any previous values
+                  frappe.model.set_value(row.doctype, row.name, {
+                    tot_cum_dozing_survey: 0,
+                    tot_cum_ts_survey:     0,
+                    cum_dozing_variance:   0,
+                    cum_ts_variance:       0
+                  });
                 }
-                // Write survey totals and variances on every row
-                frappe.model.set_value(row.doctype, row.name, {
-                  tot_cum_dozing_survey: lastSurveyDZ,
-                  tot_cum_ts_survey:     lastSurveyTS,
-                  cum_dozing_variance:   lastSurveyDZ - lastCumDZ,
-                  cum_ts_variance:       lastSurveyTS - lastCumTS
-                });
               });
 
               frm.refresh_field('month_prod_days');
 
-              // 3) Parent-level tallies
+              // --- Final parent-level updates (unchanged) ---
+
+              // 4) Parent-level tallies
               let totalTs = 0, totalDz = 0;
               frm.doc.month_prod_days.forEach(r => {
-                totalTs += r.total_ts_bcms     || 0;
-                totalDz += r.total_dozing_bcms || 0;
+                totalTs += r.total_ts_bcms       || 0;
+                totalDz += r.total_dozing_bcms   || 0;
               });
 
-              // 4) ORIGINAL survey‐variance from most recent non-zero child variance
+              // 5) ORIGINAL survey-variance from most recent non-zero child variance
               let varRows = frm.doc.month_prod_days
                 .filter(r => (r.cum_dozing_variance || 0) !== 0
                           || (r.cum_ts_variance     || 0) !== 0)
@@ -451,23 +464,24 @@ frappe.ui.form.on('Monthly Production Planning', {
                           + (latest.cum_ts_variance     || 0);
               }
 
-              // 5) Completed days & hours (up to yesterday)
+              // 6) Completed days & hours (up to yesterday)
               const today = new Date();
               const yest  = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
               let doneDays = 0, doneHrs = 0;
               frm.doc.month_prod_days.forEach(r => {
                 const rd = frappe.datetime.str_to_obj(r.shift_start_date);
                 if (rd <= yest) {
-                  const hrs = (r.shift_day_hours     || 0)
-                            + (r.shift_night_hours   || 0)
-                            + (r.shift_morning_hours || 0)
-                            + (r.shift_afternoon_hours || 0);
+                  const hrs =
+                    (r.shift_day_hours     || 0) +
+                    (r.shift_night_hours   || 0) +
+                    (r.shift_morning_hours || 0) +
+                    (r.shift_afternoon_hours || 0);
                   if (hrs) doneDays++;
                   doneHrs += hrs;
                 }
               });
 
-              // 6) Final parent-level updates
+              // 7) Final parent-level updates
               const actual   = totalTs + totalDz + surveyVar;
               const mtdDay   = actual / doneDays;
               const mtdHr    = actual / doneHrs;
@@ -509,7 +523,6 @@ frappe.ui.form.on('Monthly Production Planning', {
             frappe.msgprint(__('Unable to load Survey data. See Error Log.'));
           }
         });
-
 
 
     } catch (e) {
