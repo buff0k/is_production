@@ -7,15 +7,13 @@ from frappe.model.document import Document
 import frappe
 from frappe import _
 from frappe.utils import getdate, get_last_day, add_to_date, nowdate
-from frappe.utils.data import add_days
-
-
 
 class HourlyProduction(Document):
     def before_save(self):
         """
         Ensures all child tables and derived fields are updated before saving the parent document.
         Also validates Dozer Production entries based on the Dozer Service selected.
+        Always recalculates hour_sort_key (and hour_slot) from shift_num_hour.
         """
         # --- Truck Loads Calculations ---
         total_softs_bcm = total_hards_bcm = total_coal_bcm = total_ts_bcm = 0.0
@@ -23,7 +21,7 @@ class HourlyProduction(Document):
 
         if hasattr(self, 'truck_loads'):
             for row in self.truck_loads:
-                tub_factor_doc = frappe.get_all(
+                tf = frappe.get_all(
                     "Tub Factor",
                     filters={
                         "item_name": row.item_name,
@@ -32,9 +30,9 @@ class HourlyProduction(Document):
                     fields=["name", "tub_factor"],
                     limit=1
                 )
-                if tub_factor_doc:
-                    row.tub_factor_doc_lookup = tub_factor_doc[0]["name"]
-                    row.tub_factor = tub_factor_doc[0]["tub_factor"]
+                if tf:
+                    row.tub_factor_doc_lookup = tf[0]["name"]
+                    row.tub_factor = tf[0]["tub_factor"]
                 else:
                     row.tub_factor_doc_lookup = None
                     row.tub_factor = None
@@ -95,85 +93,26 @@ class HourlyProduction(Document):
         self.ave_bcm_dozer      = (total_dozing_bcm / num_prod_dozers) if num_prod_dozers else 0
         self.ave_bcm_prod_truck = (total_ts_bcm / num_prod_trucks) if num_prod_trucks else 0
 
+        # --- NEW: Recompute hour_sort_key & hour_slot from shift_num_hour ---
+        if self.shift_num_hour:
+            try:
+                _, idx_str = self.shift_num_hour.split("-")
+                idx = int(idx_str)
+                self.hour_sort_key = idx
+                # compute hour_slot
+                base = (
+                    6 if self.shift in ("Day", "Morning") else
+                    14 if self.shift == "Afternoon" else
+                    18 if self.shift == "Night" and self.shift_system=="2x12Hour" else
+                    22
+                )
+                start = (base + (idx - 1)) % 24
+                end   = (start + 1) % 24
+                self.hour_slot = f"{start}:00-{end}:00"
+            except (ValueError, IndexError):
+                self.hour_sort_key = None
+                self.hour_slot = None
 
-@frappe.whitelist()
-def fetch_monthly_production_plan(location, prod_date):
-    """
-    Legacy helper: returns the Monthly Production Planning name
-    based on last‐day‐of‐month naming convention
-    (e.g. "2025-04-30-Uitgevallen").
-    """
-    if location and prod_date:
-        dt = getdate(prod_date)
-        last_day = get_last_day(dt)
-        plan_name = f"{last_day}-{location}"
-        return frappe.get_value(
-            "Monthly Production Planning",
-            {"name": plan_name},
-            "name"
-        )
-    return None
-
-
-@frappe.whitelist()
-def get_tub_factor(item_name, mat_type):
-    if item_name and mat_type:
-        result = frappe.get_all(
-            "Tub Factor",
-            filters={"item_name": item_name, "mat_type": mat_type},
-            fields=["name","tub_factor"],
-            limit=1
-        )
-        if result:
-            return {
-                "tub_factor": result[0]["tub_factor"],
-                "tub_factor_doc_link": result[0]["name"]
-            }
-        frappe.msgprint(_(
-            "No Tub Factor found for Item Name: {0} and Material Type: {1}"
-        ).format(item_name, mat_type))
-    return {"tub_factor": None, "tub_factor_doc_link": None}
-
-
-@frappe.whitelist()
-def fetch_dozer_production_assets(location):
-    if not location:
-        return []
-    return frappe.get_all(
-        "Asset",
-        filters={"location": location, "asset_category": "Dozer", "docstatus": 1},
-        fields=["name as asset_name"]
-    )
-
-
-@frappe.whitelist()
-def get_plan_for_date(location, prod_date):
-    """
-    Return the Monthly Production Planning & child‐row reference using the
-    naming‐convention plan name + location, then finding the row matching
-    month_prod_days == prod_date.
-    """
-    dt = getdate(prod_date)
-    last_day = get_last_day(dt)
-    plan_name = f"{last_day}-{location}"
-
-    try:
-        mp = frappe.get_doc("Monthly Production Planning", plan_name)
-    except frappe.DoesNotExistError:
-        frappe.throw(_("No Monthly Production Plan named {0}").format(plan_name))
-
-    for row in mp.month_prod_days or []:
-        if row.month_prod_days == str(prod_date):
-            return {
-                "name":         mp.name,
-                "shift_system": mp.shift_system,
-                "reference":    row.hourly_production_reference
-            }
-
-    frappe.throw(
-        _('No child row found for {0} in plan {1}').format(prod_date, plan_name),
-        frappe.DoesNotExistError
-    )
 
 @frappe.whitelist()
 def update_hourly_references():
@@ -183,7 +122,7 @@ def update_hourly_references():
     recs = frappe.get_all(
         'Hourly Production',
         filters={'prod_date': ['>=', threshold]},
-        fields=['name', 'prod_date', 'location']
+        fields=['name', 'prod_date', 'location', 'shift', 'shift_system', 'shift_num_hour']
     )
 
     updated_entries = []
@@ -191,6 +130,7 @@ def update_hourly_references():
     for r in recs:
         pd = getdate(r.prod_date)
 
+        # find matching plan
         plans = frappe.get_all(
             'Monthly Production Planning',
             filters=[
@@ -207,6 +147,7 @@ def update_hourly_references():
 
         mpp = frappe.get_doc('Monthly Production Planning', plans[0].name)
 
+        # fetch reference
         ref = next(
             (row.hourly_production_reference
              for row in mpp.month_prod_days
@@ -214,17 +155,38 @@ def update_hourly_references():
             None
         )
 
-        if ref:
-            frappe.db.set_value(
-                'Hourly Production',
-                r.name,
-                'monthly_production_child_ref',
-                ref
+        # prepare hour_sort_key & hour_slot from r.shift_num_hour
+        try:
+            _, idx_str = r.shift_num_hour.split("-")
+            idx = int(idx_str)
+            base = (
+                6 if r.shift in ("Day", "Morning") else
+                14 if r.shift == "Afternoon" else
+                18 if r.shift == "Night" and r.shift_system=="2x12Hour" else
+                22
             )
-            updated_entries.append(f"{r.name} → {ref}")
+            start = (base + (idx - 1)) % 24
+            end   = (start + 1) % 24
+            slot = f"{start}:00-{end}:00"
+        except Exception:
+            idx = None
+            slot = None
+
+        # update fields
+        values = {}
+        if ref:
+            values['monthly_production_child_ref'] = ref
+        if idx is not None:
+            values['hour_sort_key'] = idx
+            values['hour_slot']     = slot
+
+        if values:
+            frappe.db.set_value('Hourly Production', r.name, values)
+            updated_entries.append(f"{r.name} → {values}")
 
     frappe.db.commit()
 
+    # log what changed
     if updated_entries:
         message = (
             f"update_hourly_references synced the following Hourly Production records\n"

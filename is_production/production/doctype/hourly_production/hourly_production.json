@@ -19,6 +19,7 @@
   "shift_num_hour",
   "hour_slot",
   "day_number",
+  "hour_sort_key",
   "section_break_fxug",
   "truck_loads",
   "dozer_production",
@@ -253,12 +254,20 @@
    "fieldname": "update_hourly_references",
    "fieldtype": "Button",
    "label": "Update Hourly Production References"
+  },
+  {
+   "columns": 1,
+   "fieldname": "hour_sort_key",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Hour Sort Key",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-21 19:53:47.041763",
+ "modified": "2025-04-23 08:03:27.901746",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",

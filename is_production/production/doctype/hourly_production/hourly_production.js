@@ -286,27 +286,70 @@ function _calculate_bcms(frm, cdt, cdn) {
 // ——————————————————————
 function update_shift_options(frm) {
     let opts = [];
-    if (frm.doc.shift_system === '2x12Hour') opts = ['Day','Night'];
-    else if (frm.doc.shift_system === '3x8Hour') opts = ['Morning','Afternoon','Night'];
+    if (frm.doc.shift_system === '2x12Hour') {
+        opts = ['Day', 'Night'];
+    } else if (frm.doc.shift_system === '3x8Hour') {
+        opts = ['Morning', 'Afternoon', 'Night'];
+    }
     _set_options(frm, 'shift', opts);
     frm.set_value('shift', null);
 }
 
 function update_shift_num_hour_options(frm) {
-    const s = frm.doc.shift, sys = frm.doc.shift_system;
-    let count = (s==='Day'?12: s==='Night'?(sys==='2x12Hour'?12:8):8);
-    _set_options(frm, 'shift_num_hour', Array.from({length:count},(_,i)=>`${s}-${i+1}`));
+    const s = frm.doc.shift;
+    const sys = frm.doc.shift_system;
+    let count;
+    if (s === 'Day') {
+        count = 12;
+    } else if (s === 'Night') {
+        count = (sys === '2x12Hour') ? 12 : 8;
+    } else {
+        // Morning or Afternoon in a 3×8 system
+        count = 8;
+    }
+    const opts = Array.from({ length: count }, (_, i) => `${s}-${i + 1}`);
+    _set_options(frm, 'shift_num_hour', opts);
     frm.set_value('shift_num_hour', null);
 }
 
 function update_hour_slot(frm) {
-    const [s,i] = (frm.doc.shift_num_hour||'').split('-');
-    const idx = parseInt(i,10); if (!s||isNaN(idx)) return;
-    const start = (s==='Day'||s==='Morning'?6:
-                   s==='Afternoon'?14:
-                   s==='Night'&&(frm.doc.shift_system==='2x12Hour')?18:22) + idx - 1;
-    frm.set_value('hour_slot', `${start}:00-${(start+1)%24}:00`);
+    // split e.g. "Day-1" → ["Day","1"]
+    const [s, i] = (frm.doc.shift_num_hour || '').split('-');
+    const idx = parseInt(i, 10);
+    if (!s || isNaN(idx)) {
+        return;
+    }
+
+    // 1) Populate the sort-key (read-only field)
+    frm.set_value('hour_sort_key', idx);
+
+    // 2) Compute the raw start hour
+    const baseHour =
+        (s === 'Day' || s === 'Morning')               ?  6  :
+        (s === 'Afternoon')                            ? 14  :
+        (s === 'Night' && frm.doc.shift_system === '2x12Hour') ? 18  :
+                                                        22;
+    const rawStart = baseHour + (idx - 1);
+
+    // 3) Wrap into 0–23 for display
+    let displayStart = rawStart;
+    if (displayStart >= 24) {
+        displayStart -= 24;
+    }
+
+    // 4) Compute and wrap end hour
+    let displayEnd = displayStart + 1;
+    if (displayEnd >= 24) {
+        displayEnd -= 24;
+    }
+
+    // 5) Format and set the label
+    const fmt = h => `${h}:00`;
+    frm.set_value('hour_slot', `${fmt(displayStart)}-${fmt(displayEnd)}`);
 }
 
 function _set_options(frm, field, opts) {
-    if (frm.fields_dict[field]) frm.set_df_property(field,'options',opts.join('\n'));}
+    if (frm.fields_dict[field]) {
+        frm.set_df_property(field, 'options', opts.join('\n'));
+    }
+}
