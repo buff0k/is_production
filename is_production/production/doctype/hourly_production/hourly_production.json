@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_import": 1,
- "autoname": "format:{location}-{prod_date}-{####}",
+ "autoname": "format:{location}-{prod_date}-{hour_slot}",
  "creation": "2024-10-14 15:07:43.074950",
  "default_view": "List",
  "doctype": "DocType",
@@ -267,7 +267,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-23 08:03:27.901746",
+ "modified": "2025-04-24 10:09:08.790053",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
