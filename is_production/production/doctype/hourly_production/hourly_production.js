@@ -22,6 +22,68 @@ function set_day_number(frm) {
 }
 
 // ——————————————————————
+// Sync MTD Data from Monthly Production Planning
+// ——————————————————————
+function sync_mtd_data(frm) {
+    const mpp = frm.doc.month_prod_planning;
+    if (!mpp) {
+        return;
+    }
+    // Trigger server-side MTD update
+    frappe.call({
+        method: 'is_production.production.doctype.monthly_production_planning.monthly_production_planning.update_mtd_production',
+        args: { name: mpp },
+        callback: () => {
+            // Re-fetch virtual fields
+            frappe.call({
+                method: 'frappe.client.get',
+                args: {
+                    doctype: 'Monthly Production Planning',
+                    name: mpp,
+                    fields: [
+                        'monthly_target_bcm',
+                        'target_bcm_day',
+                        'target_bcm_hour',
+                        'month_act_ts_bcm_tallies',
+                        'month_act_dozing_bcm_tallies',
+                        'monthly_act_tally_survey_variance',
+                        'month_actual_bcm',
+                        'mtd_bcm_day',
+                        'mtd_bcm_hour',
+                        'month_forecated_bcm'
+                    ]
+                },
+                callback: r => {
+                    const m = r.message || {};
+                    frm.set_value('monthly_target_bcm',                m.monthly_target_bcm);
+                    frm.set_value('target_bcm_day',                    m.target_bcm_day);
+                    frm.set_value('target_bcm_hour',                   m.target_bcm_hour);
+                    frm.set_value('month_act_ts_bcm_tallies',          m.month_act_ts_bcm_tallies);
+                    frm.set_value('month_act_dozing_bcm_tallies',      m.month_act_dozing_bcm_tallies);
+                    frm.set_value('monthly_act_tally_survey_variance', m.monthly_act_tally_survey_variance);
+                    frm.set_value('month_actual_bcm',                  m.month_actual_bcm);
+                    frm.set_value('mtd_bcm_day',                       m.mtd_bcm_day);
+                    frm.set_value('mtd_bcm_hour',                      m.mtd_bcm_hour);
+                    frm.set_value('month_forecated_bcm',               m.month_forecated_bcm);
+                    frm.refresh_field([
+                        'monthly_target_bcm',
+                        'target_bcm_day',
+                        'target_bcm_hour',
+                        'month_act_ts_bcm_tallies',
+                        'month_act_dozing_bcm_tallies',
+                        'monthly_act_tally_survey_variance',
+                        'month_actual_bcm',
+                        'mtd_bcm_day',
+                        'mtd_bcm_hour',
+                        'month_forecated_bcm'
+                    ]);
+                }
+            });
+        }
+    });
+}
+
+// ——————————————————————
 // Form Events
 // ——————————————————————
 frappe.ui.form.on('Hourly Production', {
@@ -35,6 +97,12 @@ frappe.ui.form.on('Hourly Production', {
                         location: frm.doc.location
                     }
                 });
+        }
+    },
+    refresh(frm) {
+        // Sync virtual fields on load
+        if (!frm.is_new()) {
+            sync_mtd_data(frm);
         }
     },
     location(frm) {
@@ -56,9 +124,9 @@ frappe.ui.form.on('Hourly Production', {
         update_hour_slot(frm);
     },
     after_save(frm) {
-        frm.reload_doc();
+        // Original reload removed; now sync MTD after save
+        sync_mtd_data(frm);
     },
-    // New: button handler to update hourly references for last 30 days
     update_hourly_references(frm) {
         frappe.call({
             method: 'is_production.production.doctype.hourly_production.hourly_production.update_hourly_references',
@@ -88,67 +156,37 @@ function fetch_monthly_production_plan(frm) {
             doctype: 'Monthly Production Planning',
             fields: ['name', 'shift_system'],
             filters: [
-                ['location',              '=', location],
+                ['location', '=', location],
                 ['prod_month_start_date', '<=', prod_date],
-                ['prod_month_end_date',   '>=', prod_date]
+                ['prod_month_end_date', '>=', prod_date]
             ],
             order_by: 'prod_month_start_date asc',
             limit_page_length: 1
         },
         callback(r) {
-            if (!r.message?.length) {
-                frappe.msgprint(__('No plan found for {0} at {1}', [prod_date, location]), 'Validation');
-                return;
-            }
-            const planSummary = r.message[0];
-
-            frm.set_value('month_prod_planning', planSummary.name);
-            frm.set_value('shift_system',        planSummary.shift_system);
+            if (!r.message?.length) return;
+            const plan = r.message[0];
+            frm.set_value('month_prod_planning', plan.name);
+            frm.set_value('shift_system', plan.shift_system);
             update_shift_options(frm);
 
-            // fetch full plan doc to find the matching child row
             frappe.call({
                 method: 'frappe.client.get',
-                args: {
-                    doctype: 'Monthly Production Planning',
-                    name: planSummary.name
-                },
+                args: { doctype: 'Monthly Production Planning', name: plan.name },
                 callback(r2) {
                     const mpp = r2.message;
-                    if (!mpp) {
-                        frappe.msgprint(__('Failed to load plan {0}', [planSummary.name]), 'Error');
-                        return;
-                    }
-
-                    console.log('Monthly Production Planning:', mpp);
-                    console.table(mpp.month_prod_days || []);
-
-                    // match on shift_start_date
-                    const match = (mpp.month_prod_days || []).find(row =>
-                        row.shift_start_date === prod_date
-                    );
-
+                    const match = (mpp.month_prod_days || []).find(d => d.shift_start_date === frm.doc.prod_date);
                     if (match) {
                         frm.set_value('monthly_production_child_ref', match.hourly_production_reference);
-
-                        // persist only if document already exists
                         if (!frm.is_new()) {
                             frappe.db.set_value(
                                 frm.doc.doctype,
                                 frm.doc.name,
                                 'monthly_production_child_ref',
                                 match.hourly_production_reference
-                            ).then(() => {
-                                console.log('Persisted monthly_production_child_ref:', match.hourly_production_reference);
-                            });
+                            );
                         }
-                    } else {
-                        frappe.msgprint(
-                            __('No entry for shift_start_date {0} in month_prod_days of {1}', [prod_date, planSummary.name]),
-                            'Validation'
-                        );
                     }
-
                     populate_mining_areas(frm, mpp.mining_areas || []);
                 }
             });
@@ -177,11 +215,11 @@ function populate_truck_loads_and_lookup(frm) {
         method: 'frappe.client.get_list',
         args: {
             doctype: 'Asset',
-            fields: ['asset_name','item_name'],
+            fields: ['asset_name', 'item_name'],
             filters: [
-                ['location','=', frm.doc.location],
-                ['asset_category','in',['ADT','RIGID']],
-                ['docstatus','=',1]
+                ['location', '=', frm.doc.location],
+                ['asset_category', 'in', ['ADT','RIGID']],
+                ['docstatus', '=', 1]
             ],
             order_by: 'asset_name asc'
         },
@@ -217,8 +255,8 @@ function populate_dozer_production_table(frm) {
             frm.clear_table('dozer_production');
             (r.message||[]).forEach(asset => {
                 const row = frm.add_child('dozer_production');
-                row.asset_name    = asset.asset_name;
-                row.bcm_hour      = 0;
+                row.asset_name = asset.asset_name;
+                row.bcm_hour = 0;
                 row.dozer_service = 'No Dozing';
             });
             frm.refresh_field('dozer_production');
@@ -240,7 +278,7 @@ frappe.ui.form.on('Truck Loads', {
         }
         frappe.call({
             method: 'frappe.client.get',
-            args: { doctype:'Asset', name: row.asset_name_shoval },
+            args: { doctype: 'Asset', name: row.asset_name_shoval },
             callback(r) {
                 frappe.model.set_value(cdt, cdn, 'item_name_excavator', r.message?.item_code || null);
             }
@@ -256,11 +294,12 @@ function _update_tub_factor(frm, cdt, cdn) {
     frappe.call({
         method: 'frappe.client.get_list',
         args: {
-            doctype:'Tub Factor',
-            filters:{ item_name: row.item_name, mat_type: row.mat_type },
-            fields:['name','tub_factor'], limit_page_length:1
+            doctype: 'Tub Factor',
+            filters: { item_name: row.item_name, mat_type: row.mat_type },
+            fields: ['name', 'tub_factor'],
+            limit_page_length: 1
         },
-        callback(r) {
+        callback: r => {
             const doc = r.message[0];
             if (doc) {
                 frappe.model.set_value(cdt, cdn, 'tub_factor_doc_link', doc.name);
@@ -277,7 +316,8 @@ function _update_tub_factor(frm, cdt, cdn) {
 
 function _calculate_bcms(frm, cdt, cdn) {
     const row = frappe.get_doc(cdt, cdn);
-    const loads = parseFloat(row.loads), tf = parseFloat(row.tub_factor);
+    const loads = parseFloat(row.loads);
+    const tf = parseFloat(row.tub_factor);
     frappe.model.set_value(cdt, cdn, 'bcms', (!isNaN(loads) && !isNaN(tf)) ? loads * tf : null);
 }
 
@@ -304,7 +344,6 @@ function update_shift_num_hour_options(frm) {
     } else if (s === 'Night') {
         count = (sys === '2x12Hour') ? 12 : 8;
     } else {
-        // Morning or Afternoon in a 3×8 system
         count = 8;
     }
     const opts = Array.from({ length: count }, (_, i) => `${s}-${i + 1}`);
@@ -313,39 +352,26 @@ function update_shift_num_hour_options(frm) {
 }
 
 function update_hour_slot(frm) {
-    // split e.g. "Day-1" → ["Day","1"]
     const [s, i] = (frm.doc.shift_num_hour || '').split('-');
     const idx = parseInt(i, 10);
     if (!s || isNaN(idx)) {
         return;
     }
-
-    // 1) Populate the sort-key (read-only field)
     frm.set_value('hour_sort_key', idx);
-
-    // 2) Compute the raw start hour
-    const baseHour =
-        (s === 'Day' || s === 'Morning')               ?  6  :
-        (s === 'Afternoon')                            ? 14  :
-        (s === 'Night' && frm.doc.shift_system === '2x12Hour') ? 18  :
-                                                        22;
-    const rawStart = baseHour + (idx - 1);
-
-    // 3) Wrap into 0–23 for display
-    let displayStart = rawStart;
-    if (displayStart >= 24) {
-        displayStart -= 24;
+    let baseHour;
+    if (s === 'Day' || s === 'Morning') {
+        baseHour = 6;
+    } else if (s === 'Afternoon') {
+        baseHour = 14;
+    } else if (s === 'Night' && frm.doc.shift_system === '2x12Hour') {
+        baseHour = 18;
+    } else {
+        baseHour = 22;
     }
-
-    // 4) Compute and wrap end hour
-    let displayEnd = displayStart + 1;
-    if (displayEnd >= 24) {
-        displayEnd -= 24;
-    }
-
-    // 5) Format and set the label
+    const start = (baseHour + (idx - 1)) % 24;
+    const end = (start + 1) % 24;
     const fmt = h => `${h}:00`;
-    frm.set_value('hour_slot', `${fmt(displayStart)}-${fmt(displayEnd)}`);
+    frm.set_value('hour_slot', `${fmt(start)}-${fmt(end)}`);
 }
 
 function _set_options(frm, field, opts) {

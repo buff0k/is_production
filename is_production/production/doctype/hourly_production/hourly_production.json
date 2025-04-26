@@ -20,6 +20,7 @@
   "hour_slot",
   "day_number",
   "hour_sort_key",
+  "whatsapp_rec",
   "section_break_fxug",
   "truck_loads",
   "dozer_production",
@@ -41,7 +42,18 @@
   "hour_total_bcm",
   "column_break_giwr",
   "ts_percent",
-  "dozing_percent"
+  "dozing_percent",
+  "mtd_summary_tab",
+  "monthly_target_bcm",
+  "target_bcm_day",
+  "target_bcm_hour",
+  "month_act_ts_bcm_tallies",
+  "month_act_dozing_bcm_tallies",
+  "monthly_act_tally_survey_variance",
+  "month_actual_bcm",
+  "mtd_bcm_day",
+  "mtd_bcm_hour",
+  "month_forecated_bcm"
  ],
  "fields": [
   {
@@ -262,12 +274,102 @@
    "in_list_view": 1,
    "label": "Hour Sort Key",
    "read_only": 1
+  },
+  {
+   "fieldname": "mtd_summary_tab",
+   "fieldtype": "Tab Break",
+   "label": "MtD Summary"
+  },
+  {
+   "fieldname": "monthly_target_bcm",
+   "fieldtype": "Float",
+   "is_virtual": 1,
+   "label": "Month Target BCM",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "target_bcm_day",
+   "fieldtype": "Float",
+   "is_virtual": 1,
+   "label": "Target BCM per Day",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "target_bcm_hour",
+   "fieldtype": "Float",
+   "is_virtual": 1,
+   "label": "Target BCM per Hour",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_act_ts_bcm_tallies",
+   "fieldtype": "Float",
+   "is_virtual": 1,
+   "label": "MtD Actual TS Tallies",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_act_dozing_bcm_tallies",
+   "fieldtype": "Float",
+   "is_virtual": 1,
+   "label": "MtD Actual Dozing Tallies ",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "monthly_act_tally_survey_variance",
+   "fieldtype": "Float",
+   "is_virtual": 1,
+   "label": "MtD Survey Variance Total",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_actual_bcm",
+   "fieldtype": "Float",
+   "is_virtual": 1,
+   "label": "MtD Actual BCM",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "mtd_bcm_day",
+   "fieldtype": "Float",
+   "is_virtual": 1,
+   "label": "MtD BCM per Day",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "mtd_bcm_hour",
+   "fieldtype": "Float",
+   "is_virtual": 1,
+   "label": "MtD BCM per Hour",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_forecated_bcm",
+   "fieldtype": "Float",
+   "is_virtual": 1,
+   "label": "MtD Forecasted BCM",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "whatsapp_rec",
+   "fieldtype": "Data",
+   "label": "WhatsApp Recipient"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-24 10:09:08.790053",
+ "modified": "2025-04-25 19:23:43.349808",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
