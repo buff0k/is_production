@@ -129,7 +129,7 @@ frappe.ui.form.on('Hourly Production', {
     },
     update_hourly_references(frm) {
         frappe.call({
-            method: 'is_production.production.doctype.hourly_production.hourly_production.update_hourly_references',
+            method: 'is_production.doctype.hourly_production.hourly_production.update_hourly_references',
             args: {},
             callback: r => {
                 if (r.exc) {
