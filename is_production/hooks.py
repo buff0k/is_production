@@ -22,6 +22,11 @@ fixtures = [
         {"dt": "Custom DocPerm", "filters": [["role", "in", ["Production Manager", "Production User", "Control Clerk", "External Surveryor"]]]},
         {"dt": "Asset Category", "filters": [["name", "in", ["Dozer", "ADT", "Rigid", "Excavator"]]]}
         ]
+
+override_whitelisted_methods = {
+    # Override the PDF‐body renderer
+    "frappe.utils.pdf.pdf_body_html": "is_production.utils.pdf.pdf_body_html"
+}
 # required_apps = []
 
 # Includes in <head>

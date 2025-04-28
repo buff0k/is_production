@@ -100,7 +100,6 @@ frappe.ui.form.on('Hourly Production', {
         }
     },
     refresh(frm) {
-        // Sync virtual fields on load
         if (!frm.is_new()) {
             sync_mtd_data(frm);
         }
@@ -124,7 +123,6 @@ frappe.ui.form.on('Hourly Production', {
         update_hour_slot(frm);
     },
     after_save(frm) {
-        // Original reload removed; now sync MTD after save
         sync_mtd_data(frm);
     },
     update_hourly_references(frm) {
@@ -172,18 +170,15 @@ function fetch_monthly_production_plan(frm) {
 
             frappe.call({
                 method: 'frappe.client.get',
-                args: { doctype: 'Monthly Production Planning', name: plan.name },
+                args: {doctype: 'Monthly Production Planning', name: plan.name},
                 callback(r2) {
                     const mpp = r2.message;
                     const match = (mpp.month_prod_days || []).find(d => d.shift_start_date === frm.doc.prod_date);
                     if (match) {
                         frm.set_value('monthly_production_child_ref', match.hourly_production_reference);
                         if (!frm.is_new()) {
-                            frappe.db.set_value(
-                                frm.doc.doctype,
-                                frm.doc.name,
-                                'monthly_production_child_ref',
-                                match.hourly_production_reference
+                            frappe.db.set_value(frm.doc.doctype, frm.doc.name,
+                                'monthly_production_child_ref', match.hourly_production_reference
                             );
                         }
                     }
@@ -225,7 +220,7 @@ function populate_truck_loads_and_lookup(frm) {
         },
         callback(r) {
             frm.clear_table('truck_loads');
-            (r.message||[]).forEach(asset => {
+            (r.message || []).forEach(asset => {
                 const row = frm.add_child('truck_loads');
                 frappe.model.set_value(row.doctype, row.name, 'asset_name_truck', asset.asset_name);
                 frappe.model.set_value(row.doctype, row.name, 'item_name', asset.item_name || '');
@@ -245,15 +240,11 @@ function populate_dozer_production_table(frm) {
         args: {
             doctype: 'Asset',
             fields: ['name as asset_name'],
-            filters: {
-                location: frm.doc.location,
-                asset_category: 'Dozer',
-                docstatus: 1
-            }
+            filters: {location: frm.doc.location, asset_category: 'Dozer', docstatus: 1}
         },
         callback(r) {
             frm.clear_table('dozer_production');
-            (r.message||[]).forEach(asset => {
+            (r.message || []).forEach(asset => {
                 const row = frm.add_child('dozer_production');
                 row.asset_name = asset.asset_name;
                 row.bcm_hour = 0;
@@ -278,7 +269,7 @@ frappe.ui.form.on('Truck Loads', {
         }
         frappe.call({
             method: 'frappe.client.get',
-            args: { doctype: 'Asset', name: row.asset_name_shoval },
+            args: {doctype: 'Asset', name: row.asset_name_shoval},
             callback(r) {
                 frappe.model.set_value(cdt, cdn, 'item_name_excavator', r.message?.item_code || null);
             }
@@ -295,7 +286,7 @@ function _update_tub_factor(frm, cdt, cdn) {
         method: 'frappe.client.get_list',
         args: {
             doctype: 'Tub Factor',
-            filters: { item_name: row.item_name, mat_type: row.mat_type },
+            filters: {item_name: row.item_name, mat_type: row.mat_type},
             fields: ['name', 'tub_factor'],
             limit_page_length: 1
         },
@@ -346,7 +337,7 @@ function update_shift_num_hour_options(frm) {
     } else {
         count = 8;
     }
-    const opts = Array.from({ length: count }, (_, i) => `${s}-${i + 1}`);
+    const opts = Array.from({length: count}, (_, i) => `${s}-${i+1}`);
     _set_options(frm, 'shift_num_hour', opts);
     frm.set_value('shift_num_hour', null);
 }
@@ -354,9 +345,7 @@ function update_shift_num_hour_options(frm) {
 function update_hour_slot(frm) {
     const [s, i] = (frm.doc.shift_num_hour || '').split('-');
     const idx = parseInt(i, 10);
-    if (!s || isNaN(idx)) {
-        return;
-    }
+    if (!s || isNaN(idx)) return;
     frm.set_value('hour_sort_key', idx);
     let baseHour;
     if (s === 'Day' || s === 'Morning') {
@@ -370,8 +359,7 @@ function update_hour_slot(frm) {
     }
     const start = (baseHour + (idx - 1)) % 24;
     const end = (start + 1) % 24;
-    const fmt = h => `${h}:00`;
-    frm.set_value('hour_slot', `${fmt(start)}-${fmt(end)}`);
+    frm.set_value('hour_slot', `${start}:00-${end}:00`);
 }
 
 function _set_options(frm, field, opts) {

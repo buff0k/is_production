@@ -6,7 +6,7 @@
 from frappe.model.document import Document
 import frappe
 from frappe import _
-from frappe.utils import getdate, get_last_day, add_to_date, nowdate
+from frappe.utils import getdate, add_to_date, nowdate
 
 class HourlyProduction(Document):
     def before_save(self):
@@ -23,10 +23,7 @@ class HourlyProduction(Document):
             for row in self.truck_loads:
                 tf = frappe.get_all(
                     "Tub Factor",
-                    filters={
-                        "item_name": row.item_name,
-                        "mat_type": row.mat_type
-                    },
+                    filters={"item_name": row.item_name, "mat_type": row.mat_type},
                     fields=["name", "tub_factor"],
                     limit=1
                 )
@@ -93,17 +90,16 @@ class HourlyProduction(Document):
         self.ave_bcm_dozer      = (total_dozing_bcm / num_prod_dozers) if num_prod_dozers else 0
         self.ave_bcm_prod_truck = (total_ts_bcm / num_prod_trucks) if num_prod_trucks else 0
 
-        # --- NEW: Recompute hour_sort_key & hour_slot from shift_num_hour ---
+        # --- Recompute hour_sort_key & hour_slot from shift_num_hour ---
         if self.shift_num_hour:
             try:
                 _, idx_str = self.shift_num_hour.split("-")
                 idx = int(idx_str)
                 self.hour_sort_key = idx
-                # compute hour_slot
                 base = (
-                    6 if self.shift in ("Day", "Morning") else
+                    6 if self.shift in ("Day","Morning") else
                     14 if self.shift == "Afternoon" else
-                    18 if self.shift == "Night" and self.shift_system=="2x12Hour" else
+                    18 if self.shift == "Night" and self.shift_system == "2x12Hour" else
                     22
                 )
                 start = (base + (idx - 1)) % 24
@@ -111,14 +107,35 @@ class HourlyProduction(Document):
                 self.hour_slot = f"{start}:00-{end}:00"
             except (ValueError, IndexError):
                 self.hour_sort_key = None
-                self.hour_slot = None
+                self.hour_slot     = None
 
+    def before_print(self, print_settings):
+        """
+        Hook to sync MtD values just before printing (preview or PDF).
+        """
+        if getattr(self, 'month_prod_planning', None):
+            # Recalculate MtD on linked Monthly Production Planning
+            frappe.get_attr(
+                "is_production.production.doctype.monthly_production_planning."
+                "monthly_production_planning.update_mtd_production"
+            )(name=self.month_prod_planning)
+
+            # Fetch updated MPP and copy MtD fields
+            mpp = frappe.get_doc("Monthly Production Planning", self.month_prod_planning)
+            for field in [
+                'monthly_target_bcm', 'target_bcm_day', 'target_bcm_hour',
+                'month_act_ts_bcm_tallies', 'month_act_dozing_bcm_tallies',
+                'monthly_act_tally_survey_variance', 'month_actual_bcm',
+                'mtd_bcm_day', 'mtd_bcm_hour', 'month_forecated_bcm'
+            ]:
+                setattr(self, field, getattr(mpp, field))
 
 @frappe.whitelist()
 def update_hourly_references():
-    # subtract 30 days from today
+    """
+    Sync Hourly Production references from Monthly Production Planning and update slot keys.
+    """
     threshold = add_to_date(nowdate(), days=-30)
-    
     recs = frappe.get_all(
         'Hourly Production',
         filters={'prod_date': ['>=', threshold]},
@@ -126,17 +143,14 @@ def update_hourly_references():
     )
 
     updated_entries = []
-
     for r in recs:
         pd = getdate(r.prod_date)
-
-        # find matching plan
         plans = frappe.get_all(
             'Monthly Production Planning',
             filters=[
-                ['location',               '=', r.location],
+                ['location', '=', r.location],
                 ['prod_month_start_date', '<=', pd],
-                ['prod_month_end_date',   '>=', pd]
+                ['prod_month_end_date', '>=', pd]
             ],
             fields=['name'],
             order_by='prod_month_start_date asc',
@@ -146,53 +160,41 @@ def update_hourly_references():
             continue
 
         mpp = frappe.get_doc('Monthly Production Planning', plans[0].name)
-
-        # fetch reference
         ref = next(
-            (row.hourly_production_reference
-             for row in mpp.month_prod_days
-             if row.shift_start_date == pd),
+            (row.hourly_production_reference for row in mpp.month_prod_days if row.shift_start_date == pd),
             None
         )
 
-        # prepare hour_sort_key & hour_slot from r.shift_num_hour
+        values = {}
+        if ref:
+            values['monthly_production_child_ref'] = ref
         try:
             _, idx_str = r.shift_num_hour.split("-")
             idx = int(idx_str)
             base = (
-                6 if r.shift in ("Day", "Morning") else
+                6 if r.shift in ("Day","Morning") else
                 14 if r.shift == "Afternoon" else
-                18 if r.shift == "Night" and r.shift_system=="2x12Hour" else
+                18 if r.shift == "Night" and r.shift_system == "2x12Hour" else
                 22
             )
             start = (base + (idx - 1)) % 24
             end   = (start + 1) % 24
-            slot = f"{start}:00-{end}:00"
-        except Exception:
-            idx = None
-            slot = None
-
-        # update fields
-        values = {}
-        if ref:
-            values['monthly_production_child_ref'] = ref
-        if idx is not None:
             values['hour_sort_key'] = idx
-            values['hour_slot']     = slot
+            values['hour_slot']     = f"{start}:00-{end}:00"
+        except Exception:
+            pass
 
         if values:
             frappe.db.set_value('Hourly Production', r.name, values)
             updated_entries.append(f"{r.name} → {values}")
 
     frappe.db.commit()
-
-    # log what changed
     if updated_entries:
-        message = (
-            f"update_hourly_references synced the following Hourly Production records\n"
-            f"(prod_date ≥ {threshold}):\n\n"
-            + "\n".join(updated_entries)
+        frappe.log_error(
+            message=(
+                f"update_hourly_references synced the following Hourly Production records\n"
+                f"(prod_date ≥ {threshold}):\n\n" + "\n".join(updated_entries)
+            ),
+            title="update_hourly_references"
         )
-        frappe.log_error(message=message, title="update_hourly_references")
-
     return {'updated': len(updated_entries)}
