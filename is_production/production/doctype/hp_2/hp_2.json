@@ -8,7 +8,9 @@
   "prod_date",
   "mpp2_link",
   "mpp2_link2",
-  "dozer_production"
+  "dozer_production",
+  "mining_areas_tab",
+  "pwa"
  ],
  "fields": [
   {
@@ -32,12 +34,23 @@
    "fieldtype": "Table",
    "label": "Dozer Production",
    "options": "Dozer Production"
+  },
+  {
+   "fieldname": "mining_areas_tab",
+   "fieldtype": "Tab Break",
+   "label": "Mining Areas"
+  },
+  {
+   "fieldname": "pwa",
+   "fieldtype": "Table",
+   "label": "Mining Areas",
+   "options": "Monthly Production-Areas"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-16 20:07:53.179851",
+ "modified": "2025-05-03 19:33:02.850154",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "HP 2",

@@ -6,8 +6,13 @@
 if (frappe.ui && frappe.ui.init_onboarding_tour) {
     const _origOnboarding = frappe.ui.init_onboarding_tour;
     frappe.ui.init_onboarding_tour = function() {
-        if (document.querySelector('.onboarding-tour-container')) {
-            _origOnboarding.apply(this, arguments);
+        const container = document.querySelector('.onboarding-tour-container');
+        if (container) {
+            try {
+                _origOnboarding.apply(this, arguments);
+            } catch (e) {
+                console.warn('Onboarding tour init skipped:', e);
+            }
         }
     };
 }
@@ -26,15 +31,12 @@ function set_day_number(frm) {
 // ——————————————————————
 function sync_mtd_data(frm) {
     const mpp = frm.doc.month_prod_planning;
-    if (!mpp) {
-        return;
-    }
-    // Trigger server-side MTD update
+    if (!mpp) return;
+
     frappe.call({
         method: 'is_production.production.doctype.monthly_production_planning.monthly_production_planning.update_mtd_production',
         args: { name: mpp },
         callback: () => {
-            // Re-fetch virtual fields
             frappe.call({
                 method: 'frappe.client.get',
                 args: {
@@ -55,16 +57,18 @@ function sync_mtd_data(frm) {
                 },
                 callback: r => {
                     const m = r.message || {};
-                    frm.set_value('monthly_target_bcm',                m.monthly_target_bcm);
-                    frm.set_value('target_bcm_day',                    m.target_bcm_day);
-                    frm.set_value('target_bcm_hour',                   m.target_bcm_hour);
-                    frm.set_value('month_act_ts_bcm_tallies',          m.month_act_ts_bcm_tallies);
-                    frm.set_value('month_act_dozing_bcm_tallies',      m.month_act_dozing_bcm_tallies);
-                    frm.set_value('monthly_act_tally_survey_variance', m.monthly_act_tally_survey_variance);
-                    frm.set_value('month_actual_bcm',                  m.month_actual_bcm);
-                    frm.set_value('mtd_bcm_day',                       m.mtd_bcm_day);
-                    frm.set_value('mtd_bcm_hour',                      m.mtd_bcm_hour);
-                    frm.set_value('month_forecated_bcm',               m.month_forecated_bcm);
+                    [
+                        'monthly_target_bcm',
+                        'target_bcm_day',
+                        'target_bcm_hour',
+                        'month_act_ts_bcm_tallies',
+                        'month_act_dozing_bcm_tallies',
+                        'monthly_act_tally_survey_variance',
+                        'month_actual_bcm',
+                        'mtd_bcm_day',
+                        'mtd_bcm_hour',
+                        'month_forecated_bcm'
+                    ].forEach(field => frm.set_value(field, m[field]));
                     frm.refresh_field([
                         'monthly_target_bcm',
                         'target_bcm_day',
@@ -84,8 +88,120 @@ function sync_mtd_data(frm) {
 }
 
 // ——————————————————————
+// Populate MPP Child Ref & Mining Areas
+// ——————————————————————
+function fetch_monthly_production_plan(frm) {
+    const { location, prod_date } = frm.doc;
+    if (!location || !prod_date) return;
+
+    frappe.call({
+        method: 'frappe.client.get_list',
+        args: {
+            doctype: 'Monthly Production Planning',
+            fields: ['name', 'shift_system'],
+            filters: [
+                ['location', '=', location],
+                ['prod_month_start_date', '<=', prod_date],
+                ['prod_month_end_date', '>=', prod_date]
+            ],
+            order_by: 'prod_month_start_date asc',
+            limit_page_length: 1
+        },
+        callback: r => {
+            if (!r.message?.length) return;
+            const plan = r.message[0];
+            frm.set_value('month_prod_planning', plan.name);
+            frm.set_value('shift_system', plan.shift_system);
+            update_shift_options(frm);
+
+            frappe.call({
+                method: 'frappe.client.get',
+                args: { doctype: 'Monthly Production Planning', name: plan.name },
+                callback: r2 => {
+                    const mpp = r2.message;
+                    const match = (mpp.month_prod_days || [])
+                        .find(d => d.shift_start_date === frm.doc.prod_date);
+                    if (match) {
+                        frm.set_value('monthly_production_child_ref', match.hourly_production_reference);
+                        if (!frm.is_new()) {
+                            frappe.db.set_value(
+                                frm.doc.doctype,
+                                frm.doc.name,
+                                'monthly_production_child_ref',
+                                match.hourly_production_reference
+                            );
+                        }
+                    }
+                    populate_mining_areas(frm, mpp.mining_areas || []);
+                }
+            });
+        }
+    });
+}
+
+function populate_mining_areas(frm, areas) {
+    frm.clear_table('mining_areas_options');
+    areas.forEach(a => {
+        const row = frm.add_child('mining_areas_options');
+        frappe.model.set_value(row.doctype, row.name, 'mining_areas', a.mining_areas);
+    });
+    frm.refresh_field('mining_areas_options');
+    update_mining_area_trucks_options(frm);
+    update_mining_area_dozer_options(frm);
+}
+
+// ——————————————————————
+// Dynamic options for mining_areas_trucks
+// ——————————————————————
+function update_mining_area_trucks_options(frm) {
+    const opts = (frm.doc.mining_areas_options || [])
+        .map(r => r.mining_areas)
+        .filter(v => !!v);
+    const options_str = opts.join('\n');
+
+    if (frm.fields_dict.truck_loads?.grid) {
+        frm.fields_dict.truck_loads.grid.update_docfield_property(
+            'mining_areas_trucks',
+            'options',
+            options_str
+        );
+    }
+    frm.refresh_field('truck_loads');
+}
+
+// ——————————————————————
+// Dynamic options for mining_areas_dozer_child
+// ——————————————————————
+function update_mining_area_dozer_options(frm) {
+    const opts = (frm.doc.mining_areas_options || [])
+        .map(r => r.mining_areas)
+        .filter(v => !!v);
+    const options_str = opts.join('\n');
+
+    if (frm.fields_dict.dozer_production?.grid) {
+        frm.fields_dict.dozer_production.grid.update_docfield_property(
+            'mining_areas_dozer_child',
+            'options',
+            options_str
+        );
+    }
+    frm.refresh_field('dozer_production');
+}
+
+// ——————————————————————
 // Form Events
 // ——————————————————————
+frappe.ui.form.on('Mining Areas Options', {
+    mining_areas(frm) {
+        update_mining_area_trucks_options(frm);
+        update_mining_area_dozer_options(frm);
+    },
+    refresh(frm) {
+        update_mining_area_trucks_options(frm);
+        update_mining_area_dozer_options(frm);
+    }
+});
+
 frappe.ui.form.on('Hourly Production', {
     setup(frm) {
         if (frm.fields_dict.truck_loads?.grid) {
@@ -98,11 +214,15 @@ frappe.ui.form.on('Hourly Production', {
                     }
                 });
         }
+        update_mining_area_trucks_options(frm);
+        update_mining_area_dozer_options(frm);
     },
     refresh(frm) {
         if (!frm.is_new()) {
             sync_mtd_data(frm);
         }
+        update_mining_area_trucks_options(frm);
+        update_mining_area_dozer_options(frm);
     },
     location(frm) {
         fetch_monthly_production_plan(frm);
@@ -124,6 +244,11 @@ frappe.ui.form.on('Hourly Production', {
     },
     after_save(frm) {
         sync_mtd_data(frm);
+        update_mining_area_trucks_options(frm);
+        update_mining_area_dozer_options(frm);
+    },
+    truck_loads_add(frm) {
+        update_mining_area_trucks_options(frm);
     },
     update_hourly_references(frm) {
         frappe.call({
@@ -142,67 +267,7 @@ frappe.ui.form.on('Hourly Production', {
 });
 
 // ——————————————————————
-// CORE: fetch MPP by date range & populate child ref
-// ——————————————————————
-function fetch_monthly_production_plan(frm) {
-    const { location, prod_date } = frm.doc;
-    if (!location || !prod_date) return;
-
-    frappe.call({
-        method: 'frappe.client.get_list',
-        args: {
-            doctype: 'Monthly Production Planning',
-            fields: ['name', 'shift_system'],
-            filters: [
-                ['location', '=', location],
-                ['prod_month_start_date', '<=', prod_date],
-                ['prod_month_end_date', '>=', prod_date]
-            ],
-            order_by: 'prod_month_start_date asc',
-            limit_page_length: 1
-        },
-        callback(r) {
-            if (!r.message?.length) return;
-            const plan = r.message[0];
-            frm.set_value('month_prod_planning', plan.name);
-            frm.set_value('shift_system', plan.shift_system);
-            update_shift_options(frm);
-
-            frappe.call({
-                method: 'frappe.client.get',
-                args: {doctype: 'Monthly Production Planning', name: plan.name},
-                callback(r2) {
-                    const mpp = r2.message;
-                    const match = (mpp.month_prod_days || []).find(d => d.shift_start_date === frm.doc.prod_date);
-                    if (match) {
-                        frm.set_value('monthly_production_child_ref', match.hourly_production_reference);
-                        if (!frm.is_new()) {
-                            frappe.db.set_value(frm.doc.doctype, frm.doc.name,
-                                'monthly_production_child_ref', match.hourly_production_reference
-                            );
-                        }
-                    }
-                    populate_mining_areas(frm, mpp.mining_areas || []);
-                }
-            });
-        }
-    });
-}
-
-// ——————————————————————
-// MINING AREAS
-// ——————————————————————
-function populate_mining_areas(frm, areas) {
-    frm.clear_table('mining_areas_options');
-    areas.forEach(a => {
-        const row = frm.add_child('mining_areas_options');
-        frappe.model.set_value(row.doctype, row.name, 'mining_areas', a.mining_areas);
-    });
-    frm.refresh_field('mining_areas_options');
-}
-
-// ——————————————————————
-// TRUCK LOADS
+// TRUCK LOADS: populate & lookup
 // ——————————————————————
 function populate_truck_loads_and_lookup(frm) {
     if (!frm.doc.location) return;
@@ -218,7 +283,7 @@ function populate_truck_loads_and_lookup(frm) {
             ],
             order_by: 'asset_name asc'
         },
-        callback(r) {
+        callback: r => {
             frm.clear_table('truck_loads');
             (r.message || []).forEach(asset => {
                 const row = frm.add_child('truck_loads');
@@ -226,6 +291,7 @@ function populate_truck_loads_and_lookup(frm) {
                 frappe.model.set_value(row.doctype, row.name, 'item_name', asset.item_name || '');
             });
             frm.refresh_field('truck_loads');
+            update_mining_area_trucks_options(frm);
         }
     });
 }
@@ -240,9 +306,9 @@ function populate_dozer_production_table(frm) {
         args: {
             doctype: 'Asset',
             fields: ['name as asset_name'],
-            filters: {location: frm.doc.location, asset_category: 'Dozer', docstatus: 1}
+            filters: { location: frm.doc.location, asset_category: 'Dozer', docstatus: 1 }
         },
-        callback(r) {
+        callback: r => {
             frm.clear_table('dozer_production');
             (r.message || []).forEach(asset => {
                 const row = frm.add_child('dozer_production');
@@ -251,6 +317,7 @@ function populate_dozer_production_table(frm) {
                 row.dozer_service = 'No Dozing';
             });
             frm.refresh_field('dozer_production');
+            update_mining_area_dozer_options(frm);
         }
     });
 }
@@ -269,8 +336,8 @@ frappe.ui.form.on('Truck Loads', {
         }
         frappe.call({
             method: 'frappe.client.get',
-            args: {doctype: 'Asset', name: row.asset_name_shoval},
-            callback(r) {
+            args: { doctype: 'Asset', name: row.asset_name_shoval },
+            callback: r => {
                 frappe.model.set_value(cdt, cdn, 'item_name_excavator', r.message?.item_code || null);
             }
         });
@@ -282,11 +349,12 @@ frappe.ui.form.on('Truck Loads', {
 function _update_tub_factor(frm, cdt, cdn) {
     const row = frappe.get_doc(cdt, cdn);
     if (!row.item_name || !row.mat_type) return;
+
     frappe.call({
         method: 'frappe.client.get_list',
         args: {
             doctype: 'Tub Factor',
-            filters: {item_name: row.item_name, mat_type: row.mat_type},
+            filters: { item_name: row.item_name, mat_type: row.mat_type },
             fields: ['name', 'tub_factor'],
             limit_page_length: 1
         },
@@ -309,7 +377,9 @@ function _calculate_bcms(frm, cdt, cdn) {
     const row = frappe.get_doc(cdt, cdn);
     const loads = parseFloat(row.loads);
     const tf = parseFloat(row.tub_factor);
-    frappe.model.set_value(cdt, cdn, 'bcms', (!isNaN(loads) && !isNaN(tf)) ? loads * tf : null);
+    frappe.model.set_value(cdt, cdn, 'bcms',
+        (!isNaN(loads) && !isNaN(tf)) ? loads * tf : null
+    );
 }
 
 // ——————————————————————
@@ -327,7 +397,7 @@ function update_shift_options(frm) {
 }
 
 function update_shift_num_hour_options(frm) {
-    const s = frm.doc.shift;
+    const s   = frm.doc.shift;
     const sys = frm.doc.shift_system;
     let count;
     if (s === 'Day') {
@@ -337,7 +407,7 @@ function update_shift_num_hour_options(frm) {
     } else {
         count = 8;
     }
-    const opts = Array.from({length: count}, (_, i) => `${s}-${i+1}`);
+    const opts = Array.from({ length: count }, (_, i) => `${s}-${i+1}`);
     _set_options(frm, 'shift_num_hour', opts);
     frm.set_value('shift_num_hour', null);
 }
@@ -347,6 +417,7 @@ function update_hour_slot(frm) {
     const idx = parseInt(i, 10);
     if (!s || isNaN(idx)) return;
     frm.set_value('hour_sort_key', idx);
+
     let baseHour;
     if (s === 'Day' || s === 'Morning') {
         baseHour = 6;
@@ -357,8 +428,9 @@ function update_hour_slot(frm) {
     } else {
         baseHour = 22;
     }
+
     const start = (baseHour + (idx - 1)) % 24;
-    const end = (start + 1) % 24;
+    const end   = (start + 1) % 24;
     frm.set_value('hour_slot', `${start}:00-${end}:00`);
 }
 

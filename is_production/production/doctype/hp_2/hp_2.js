@@ -2,86 +2,87 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("HP 2", {
-    // 0) On form refresh, log the full parent document for inspection
-    refresh: function(frm) {
-        console.log("Refresh event: Full Parent Document:", frm.doc);
+    // 0) On form load/refresh, make sure Dozer options reflect any pre‐existing PWA rows
+    refresh(frm) {
+      console.log("Refresh:", frm.doc);
+      update_dozer_options(frm);
     },
-
-    // 1) When the MPP 2 link changes, fetch the linked document and populate mpp2_link2
-    mpp2_link: function(frm) {
-        console.log("mpp2_link event triggered: Full Parent Document:", frm.doc);
-
-        if (!frm.doc.mpp2_link) {
-            console.warn("No value found in mpp2_link field. Aborting process.");
-            return;
-        }
-
-        console.log("Fetching MPP 2 document with id:", frm.doc.mpp2_link);
-        frappe.db.get_doc("MPP 2", frm.doc.mpp2_link)
-            .then(function(mpp2_doc) {
-                console.log("Successfully fetched MPP 2 document:", mpp2_doc);
-
-                if (!mpp2_doc.month_prod_days || mpp2_doc.month_prod_days.length === 0) {
-                    console.warn("No month_prod_days child rows found.");
-                    return;
-                }
-
-                // Log parent's prod_date for comparison
-                console.log("Parent prod_date raw:", frm.doc.prod_date,
-                            "formatted:", moment(frm.doc.prod_date).format('YYYY-MM-DD'));
-
-                let matchFound = false;
-                mpp2_doc.month_prod_days.forEach(function(childRow, idx) {
-                    console.log(`Row ${idx+1} shift_start_date raw:`, childRow.shift_start_date,
-                                "formatted:", moment(childRow.shift_start_date).format('YYYY-MM-DD'));
-
-                    // Compare day‐level equality
-                    if (moment(frm.doc.prod_date).isSame(moment(childRow.shift_start_date), 'day')) {
-                        console.log("Match found! Setting mpp2_link2 to:", childRow.hourly_production_reference);
-                        frm.set_value("mpp2_link2", childRow.hourly_production_reference);
-                        frm.refresh_field("mpp2_link2");
-                        matchFound = true;
-                    }
-                });
-
-                if (!matchFound) {
-                    console.warn("No matching child row found for parent's prod_date:",
-                                 moment(frm.doc.prod_date).format('YYYY-MM-DD'));
-                }
-            })
-            .catch(function(error) {
-                console.error("Error fetching MPP 2 document:", error);
+  
+    // 1) When the MPP 2 link changes, fetch its mining_areas and fill your PWA table
+    mpp2_link(frm) {
+      console.log("mpp2_link:", frm.doc.mpp2_link);
+      if (!frm.doc.mpp2_link) {
+        console.warn("No MPP 2 selected—skipping.");
+        return;
+      }
+  
+      frappe.db.get_doc("MPP 2", frm.doc.mpp2_link)
+        .then(mpp2 => {
+          console.log("Fetched MPP 2:", mpp2);
+  
+          // Clear out old PWA rows
+          frm.clear_table("pwa");
+  
+          // Copy each mining_areas row into your PWA table
+          (mpp2.mining_areas || []).forEach(areaRow => {
+            // detect actual field key
+            const val = areaRow.mining_area !== undefined
+              ? areaRow.mining_area
+              : areaRow.mining_areas;
+  
+            frm.add_child("pwa", {
+              mining_areas: val
             });
-    },
-
-    // 2) When mpp2_link2 is set, dynamically update the dozer_production child‐table options
-    mpp2_link2: function(frm) {
-        console.log("mpp2_link2 changed. New value:", frm.doc.mpp2_link2);
-
-        // Assume mpp2_link2 is a comma‐separated list of mining areas
-        let raw = frm.doc.mpp2_link2 || "";
-        let opts = raw.split(",").map(o => o.trim()).filter(o => o);
-        let options_str = opts.join("\n");
-
-        // Update the select options on the child‐table field
-        frm.fields_dict['dozer_production']
-           .grid
-           .update_docfield_property(
-             'mining_areas_dozer_child',  // child fieldname
-             'options',                   // property to update
-             options_str                  // newline‐separated options
-           );
-
-        // Set each existing row’s value to the first option (or blank if none)
-        frm.doc.dozer_production.forEach(row => {
-            frappe.ui.form.set_value({
-                fieldname: 'mining_areas_dozer_child',
-                value: opts[0] || "",
-                row: row
-            });
+          });
+  
+          frm.refresh_field("pwa");
+  
+          // Immediately rebuild Dozer options off the new PWA rows
+          update_dozer_options(frm);
+        })
+        .catch(err => {
+          console.error("Error fetching MPP 2:", err);
         });
-
-        // Refresh the grid to show new options & values
-        frm.refresh_field('dozer_production');
+    },
+  
+    // 2) Whenever the user adds or removes a row in PWA, rebuild Dozer options
+    pwa_add(frm, cdt, cdn) {
+      console.log("PWA row added");
+      update_dozer_options(frm);
+    },
+    pwa_remove(frm, cdt, cdn) {
+      console.log("PWA row removed");
+      update_dozer_options(frm);
     }
-});
+  });
+  
+  // ── helper to rebuild the Dozer dropdown ──
+  function update_dozer_options(frm) {
+    // Gather non-empty mining_areas values
+    const opts = (frm.doc.pwa || [])
+      .map(r => r.mining_areas)
+      .filter(v => v);
+  
+    const options_str = opts.join("\n");
+    console.log("Updating Dozer options to:", opts);
+  
+    frm.fields_dict['dozer_production']
+      .grid
+      .update_docfield_property(
+        'mining_areas_dozer_child',
+        'options',
+        options_str
+      );
+  
+    // If you want to default existing rows to the first option, uncomment:
+    // frm.doc.dozer_production.forEach(row =>
+    //   frappe.ui.form.set_value({
+    //     fieldname: 'mining_areas_dozer_child',
+    //     value: opts[0] || "",
+    //     row: row
+    //   })
+    // );
+  
+    frm.refresh_field('dozer_production');
+  }
+  

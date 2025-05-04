@@ -7,7 +7,9 @@
  "field_order": [
   "prod_start_date",
   "prod_end",
-  "month_prod_days"
+  "month_prod_days",
+  "primary_working_aeas_tab",
+  "mining_areas"
  ],
  "fields": [
   {
@@ -25,12 +27,23 @@
    "fieldtype": "Table",
    "label": "Monthly Prod Days",
    "options": "Monthly Production Days"
+  },
+  {
+   "fieldname": "primary_working_aeas_tab",
+   "fieldtype": "Tab Break",
+   "label": "Primary Working Aeas"
+  },
+  {
+   "fieldname": "mining_areas",
+   "fieldtype": "Table",
+   "label": "PWA",
+   "options": "Monthly Production-Areas"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-16 09:07:15.647209",
+ "modified": "2025-05-03 19:30:42.649712",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "MPP 2",

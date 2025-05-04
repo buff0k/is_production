@@ -52,6 +52,7 @@
    "reqd": 1
   },
   {
+   "columns": 1,
    "fieldname": "mining_areas_dozer_child",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -62,7 +63,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-04-22 06:31:11.817646",
+ "modified": "2025-05-04 20:30:21.597320",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Dozer Production",
