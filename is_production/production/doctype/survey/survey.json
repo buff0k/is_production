@@ -122,7 +122,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-04-20 15:01:01.925051",
+ "modified": "2025-05-06 17:19:50.614657",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Survey",
@@ -157,6 +157,8 @@
    "write": 1
   },
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
