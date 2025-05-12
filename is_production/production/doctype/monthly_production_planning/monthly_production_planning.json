@@ -18,12 +18,11 @@
   "production_plant_planned_section",
   "prod_excavators",
   "num_excavators",
+  "dozer_table",
+  "num_dozers",
   "column_break_pbpd",
   "prod_trucks",
   "num_trucks",
-  "column_break_druy",
-  "dozer_table",
-  "num_dozers",
   "month_production_days_tab",
   "shift_system",
   "populate_monthly_prod_days",
@@ -120,10 +119,6 @@
    "fieldtype": "Table",
    "label": "ADT's & Rigids",
    "options": "Trucks Planned"
-  },
-  {
-   "fieldname": "column_break_druy",
-   "fieldtype": "Column Break"
   },
   {
    "columns": 2,
@@ -382,7 +377,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-23 14:10:54.940389",
+ "modified": "2025-05-09 14:42:24.773075",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",

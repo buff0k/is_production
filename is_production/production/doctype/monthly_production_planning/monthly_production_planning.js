@@ -1,34 +1,55 @@
+// Helper: Reapply default_excavator options on refresh and location
+function updateDefaultExcavatorOptions(frm) {
+  if (!frm.doc.location) return;
+  frappe.call({
+    method: 'frappe.client.get_list',
+    args: {
+      doctype: 'Asset',
+      filters: [
+        ['location', '=', frm.doc.location],
+        ['asset_category', '=', 'Excavator'],
+        ['docstatus', '=', 1]
+      ],
+      fields: ['asset_name']
+    },
+    callback: r => {
+      const names = (r.message || []).map(a => a.asset_name);
+      const opts  = names.join('\n');
+      console.log('[Defaults] ↺ Resetting excavator options:', names);
+      const grid = frm.get_field('prod_trucks').grid;
+      grid.update_docfield_property('default_excavator', 'options', opts);
+      frm.refresh_field('prod_trucks');
+    },
+    error: err => {
+      console.error('[Defaults] Error fetching Excavators:', err);
+      logError('updateDefaultExcavatorOptions', err);
+    }
+  });
+}
+
 /**
  * Logs a diagnostic message or exception to the console
  * and into the Error Log DocType (method field).
- *
- * @param {String} context    A short description of this log’s context
- * @param {Object|String} data  The payload to record
  */
 function logError(context, data) {
   console.error(`ERROR — ${context}:`, data);
-
   const frmDoc = cur_frm?.doc;
   const methodName = frmDoc
     ? `${frmDoc.doctype} ${frmDoc.name} — ${context}`
     : context;
-
-  const message = (typeof data === 'object')
+  const message = typeof data === 'object'
     ? JSON.stringify(data, null, 2)
     : String(data);
-
   frappe.call({
     method: 'frappe.client.insert',
-    args: {
-      doc: {
-        doctype: 'Error Log',
-        method: methodName,
-        error: message,
-        traceback: message,
-        reference_doctype: frmDoc?.doctype,
-        reference_name: frmDoc?.name
-      }
-    },
+    args: { doc: {
+      doctype: 'Error Log',
+      method: methodName,
+      error: message,
+      traceback: message,
+      reference_doctype: frmDoc?.doctype,
+      reference_name: frmDoc?.name
+    }},
     error: err => console.error('Failed to write Error Log:', err)
   });
 }
@@ -50,14 +71,11 @@ frappe.ui.form.on('Monthly Production Planning', {
   refresh(frm) {
     try {
       frm.add_custom_button(__('Populate Monthly Production Days'),
-        () => frm.trigger('populate_monthly_prod_days'),
-        __('Actions')
+        () => frm.trigger('populate_monthly_prod_days'), __('Actions')
       );
       frm.add_custom_button(__('Clear Production Days'),
-        () => frm.trigger('clear_production_days'),
-        __('Actions')
+        () => frm.trigger('clear_production_days'), __('Actions')
       );
-
       if (!frm.doc.__islocal && frm.doc.month_prod_days) {
         frm.doc.month_prod_days.forEach(r => {
           r.hourly_production_reference = `${frm.doc.name}-${r.shift_start_date}`;
@@ -66,6 +84,10 @@ frappe.ui.form.on('Monthly Production Planning', {
         frappe.msgprint(__('References updated.'));
         frm.trigger('update_mtd_production');
         frm.trigger('update_equipment_counts');
+      }
+      // Reapply dynamic excavator options on load
+      if (!frm.doc.__islocal) {
+        updateDefaultExcavatorOptions(frm);
       }
     } catch (e) {
       logError('refresh', e);
@@ -84,42 +106,36 @@ frappe.ui.form.on('Monthly Production Planning', {
         frappe.msgprint(__('Please enter shift hours and number of Saturday shifts.'));
         return;
       }
-
       const start = frappe.datetime.str_to_obj(frm.doc.prod_month_start_date);
       const end   = frappe.datetime.str_to_obj(frm.doc.prod_month_end_date);
       frm.clear_table('month_prod_days');
-
       let totals = { day:0, night:0, morning:0, afternoon:0 };
-      const wH   = +frm.doc.weekday_shift_hours;
-      const sH   = +frm.doc.saturday_shift_hours;
-      const sSh  = +frm.doc.num_sat_shifts;
-
+      const wH = +frm.doc.weekday_shift_hours;
+      const sH = +frm.doc.saturday_shift_hours;
+      const sSh= +frm.doc.num_sat_shifts;
       for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
         const dow = d.toLocaleDateString('en-US',{ weekday:'long' });
         let hours = { day:0, night:0, morning:0, afternoon:0 };
-
         if (frm.doc.shift_system === '2x12Hour') {
           if (dow === 'Saturday') {
-            hours.day   = sH;
-            hours.night = sSh > 1 ? sH : 0;
+            hours.day = sH;
+            hours.night = sSh>1 ? sH : 0;
           } else if (dow !== 'Sunday') {
             hours.day = hours.night = wH;
           }
         } else {
           if (dow === 'Saturday') {
             hours.morning = sH;
-            if (sSh > 1) hours.afternoon = sH;
-            if (sSh > 2) hours.night     = sH;
+            if (sSh>1) hours.afternoon = sH;
+            if (sSh>2) hours.night     = sH;
           } else if (dow !== 'Sunday') {
             hours.morning = hours.afternoon = hours.night = wH;
           }
         }
-
         totals.day      += hours.day;
         totals.night    += hours.night;
         totals.morning  += hours.morning;
         totals.afternoon+= hours.afternoon;
-
         const row = frm.add_child('month_prod_days');
         row.shift_start_date      = frappe.datetime.obj_to_str(d);
         row.day_week              = dow;
@@ -128,13 +144,12 @@ frappe.ui.form.on('Monthly Production Planning', {
         row.shift_morning_hours   = hours.morning;
         row.shift_afternoon_hours = hours.afternoon;
       }
-
       frm.set_value({
-        tot_shift_day_hours:       totals.day,
-        tot_shift_night_hours:     totals.night,
-        tot_shift_morning_hours:   totals.morning,
+        tot_shift_day_hours: totals.day,
+        tot_shift_night_hours: totals.night,
+        tot_shift_morning_hours: totals.morning,
         tot_shift_afternoon_hours: totals.afternoon,
-        total_month_prod_hours:    totals.day + totals.night + totals.morning + totals.afternoon
+        total_month_prod_hours: totals.day+totals.night+totals.morning+totals.afternoon
       });
       frm.trigger('recalculate_totals');
       frm.refresh_field('month_prod_days');
@@ -147,46 +162,144 @@ frappe.ui.form.on('Monthly Production Planning', {
   // Section 3: Location
   location(frm) {
     try {
+      console.log('[Location] 📍 handler start – location =', frm.doc.location);
+
       if (!frm.doc.location) {
         frappe.msgprint(__('Please select a location.'));
+        console.log('[Location] ❌ No location selected, aborting.');
         return;
       }
+
+      // 1. Clear out old rows
       frm.clear_table('prod_excavators');
       frm.clear_table('prod_trucks');
       frm.clear_table('dozer_table');
       frm.refresh_fields(['prod_excavators','prod_trucks','dozer_table']);
+      console.log('[Location] 🧹 Cleared prod_excavators, prod_trucks, dozer_table');
 
-      function fetchAssets(filters, tableField, numField) {
-        frappe.call({
-          method: 'frappe.client.get_list',
-          args: {
-            doctype: 'Asset',
-            filters,
-            fields: ['asset_name','item_name','asset_category']
-          },
-          callback: r => {
-            if (r.message?.length) {
-              r.message.forEach(a => {
-                const row = frm.add_child(tableField);
+      // 2. Fetch Excavators and build default_excavator options
+      const excavatorFilters = [
+        ['location', '=', frm.doc.location],
+        ['asset_category', '=', 'Excavator'],
+        ['docstatus', '=', 1]
+      ];
+      console.log('[Location] 🔍 Fetching Excavators with filters:', excavatorFilters);
+
+      frappe.call({
+        method: 'frappe.client.get_list',
+        args: {
+          doctype: 'Asset',
+          filters: excavatorFilters,
+          fields: ['asset_name','item_name','asset_category']
+        },
+        callback: r => {
+          const excavators = r.message || [];
+          console.log('[Location] ✅ Excavators fetched:', excavators);
+
+          // Populate prod_excavators table
+          excavators.forEach(a => {
+            const row = frm.add_child('prod_excavators');
+            row.asset_name     = a.asset_name;
+            row.item_name      = a.item_name;
+            row.asset_category = a.asset_category;
+          });
+          frm.refresh_field('prod_excavators');
+          frm.set_value('num_excavators', excavators.length);
+          console.log(`[Location] 🏗  Added ${excavators.length} rows to prod_excavators`);
+
+          // Build newline-separated list of excavator names
+          const opts = excavators.map(a => a.asset_name).join('\n');
+          console.log('[Location] ✏️  Built options string for default_excavator:', opts);
+
+          // Overwrite the Select field’s options in prod_trucks
+          const grid = frm.get_field('prod_trucks').grid;
+          console.log('[Location] 🔧 prod_trucks grid instance:', grid);
+          grid.update_docfield_property('default_excavator', 'options', opts);
+          console.log('[Location] 🔄 Called update_docfield_property for default_excavator');
+          frm.refresh_field('prod_trucks');
+          console.log('[Location] 🎨 Refreshed prod_trucks to apply new options');
+
+          // 3. Fetch Trucks (nested to ensure options applied first)
+          const truckFilters = [
+            ['location', '=', frm.doc.location],
+            ['asset_category', 'in', ['ADT','RIGID']],
+            ['docstatus', '=', 1]
+          ];
+          console.log('[Location] 🔍 Fetching Trucks with filters:', truckFilters);
+
+          frappe.call({
+            method: 'frappe.client.get_list',
+            args: {
+              doctype: 'Asset',
+              filters: truckFilters,
+              fields: ['asset_name','item_name','asset_category']
+            },
+            callback: t => {
+              const trucks = t.message || [];
+              console.log('[Location] ✅ Trucks fetched:', trucks);
+
+              trucks.forEach(a => {
+                const row = frm.add_child('prod_trucks');
                 row.asset_name     = a.asset_name;
                 row.item_name      = a.item_name;
                 row.asset_category = a.asset_category;
               });
-              frm.refresh_field(tableField);
-              frm.set_value(numField, frm.doc[tableField].length);
-            } else {
-              frappe.msgprint(__(`No ${tableField} found for the selected location.`));
-              frm.set_value(numField, 0);
+              frm.refresh_field('prod_trucks');
+              frm.set_value('num_trucks', trucks.length);
+              console.log(`[Location] 🏗  Added ${trucks.length} rows to prod_trucks`);
+            },
+            error: err => {
+              console.error('[Location] ⚠️ Error fetching Trucks:', err);
+              logError('fetchAssets prod_trucks', err);
             }
-          },
-          error: err => logError(`fetchAssets ${tableField}`, err)
-        });
-      }
+          });
+        },
+        error: err => {
+          console.error('[Location] ⚠️ Error fetching Excavators:', err);
+          logError('fetchAssets prod_excavators', err);
+        }
+      });
 
-      fetchAssets({ location:frm.doc.location, asset_category:'Excavator', docstatus:1 }, 'prod_excavators', 'num_excavators');
-      fetchAssets({ location:frm.doc.location, asset_category:['in',['ADT','RIGID']], docstatus:1 }, 'prod_trucks', 'num_trucks');
-      fetchAssets({ location:frm.doc.location, asset_category:'Dozer', docstatus:1 }, 'dozer_table', 'num_dozers');
+      // 4. Fetch Dozers (independent)
+      const dozerFilters = [
+        ['location', '=', frm.doc.location],
+        ['asset_category', '=', 'Dozer'],
+        ['docstatus', '=', 1]
+      ];
+      console.log('[Location] 🔍 Fetching Dozers with filters:', dozerFilters);
+
+      frappe.call({
+        method: 'frappe.client.get_list',
+        args: {
+          doctype: 'Asset',
+          filters: dozerFilters,
+          fields: ['asset_name','item_name','asset_category']
+        },
+        callback: r => {
+          const dozers = r.message || [];
+          console.log('[Location] ✅ Dozers fetched:', dozers);
+
+          dozers.forEach(a => {
+            const row = frm.add_child('dozer_table');
+            row.asset_name     = a.asset_name;
+            row.item_name      = a.item_name;
+            row.asset_category = a.asset_category;
+          });
+          frm.refresh_field('dozer_table');
+          frm.set_value('num_dozers', dozers.length);
+          console.log(`[Location] 🏗  Added ${dozers.length} rows to dozer_table`);
+        },
+        error: err => {
+          console.error('[Location] ⚠️ Error fetching Dozers:', err);
+          logError('fetchAssets dozer_table', err);
+        }
+      });
+
+      // Reapply in case nested timing varies
+      updateDefaultExcavatorOptions(frm);
+
     } catch (e) {
+      console.error('[Location] 💥 Unexpected error in location handler:', e);
       logError('location', e);
     }
   },

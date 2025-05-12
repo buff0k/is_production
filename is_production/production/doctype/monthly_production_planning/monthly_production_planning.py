@@ -1,9 +1,12 @@
+# apps/is_production/is_production/production/doctype/monthly_production_planning/monthly_production_planning.py
+
 # Copyright (c) 2024, Isambane Mining (Pty) Ltd and contributors
 # For license information, please see license.txt
 
 import frappe
 from frappe.model.document import Document
 import datetime
+from frappe.exceptions import TimestampMismatchError
 
 class MonthlyProductionPlanning(Document):
     def update_mtd_production(self):
@@ -99,7 +102,12 @@ class MonthlyProductionPlanning(Document):
         done_hours = 0
         for r in self.month_prod_days:
             if r.shift_start_date and r.shift_start_date <= yesterday:
-                hrs = (r.shift_day_hours or 0) + (r.shift_night_hours or 0) + (r.shift_morning_hours or 0) + (r.shift_afternoon_hours or 0)
+                hrs = (
+                    (r.shift_day_hours or 0) +
+                    (r.shift_night_hours or 0) +
+                    (r.shift_morning_hours or 0) +
+                    (r.shift_afternoon_hours or 0)
+                )
                 if hrs:
                     done_days += 1
                     done_hours += hrs
@@ -127,13 +135,27 @@ class MonthlyProductionPlanning(Document):
         if self.total_month_prod_hours:
             self.target_bcm_hour = self.monthly_target_bcm / self.total_month_prod_hours
 
-        self.save()
+        # Safely save without raising TimestampMismatchError
+        try:
+            self.save()
+        except TimestampMismatchError as e:
+            frappe.log_error(
+                message=f"TimestampMismatchError in update_mtd_production for {self.name}: {e}",
+                title="update_mtd_production"
+            )
 
 @frappe.whitelist()
 def update_mtd_production(name):
     """
     RPC wrapper so Hourly Production can trigger the MPP MTD update.
     """
-    doc = frappe.get_doc('Monthly Production Planning', name)
-    doc.update_mtd_production()
-    return {"status": "success", "name": name}
+    try:
+        doc = frappe.get_doc('Monthly Production Planning', name)
+        doc.update_mtd_production()
+        return {"status": "success", "name": name}
+    except Exception as e:
+        frappe.log_error(
+            message=f"Error in RPC update_mtd_production for {name}: {e}",
+            title="update_mtd_production RPC"
+        )
+        return {"status": "error", "message": str(e)}
