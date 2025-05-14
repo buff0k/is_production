@@ -116,23 +116,22 @@ function fetch_monthly_production_plan(frm) {
 
             frappe.call({
                 method: 'frappe.client.get',
-                args: { doctype: 'Monthly Production Planning', name: plan.name },
+                args: {
+                    doctype: 'Monthly Production Planning',
+                    name: plan.name
+                },
                 callback: r2 => {
                     const mpp = r2.message;
                     const match = (mpp.month_prod_days || [])
                         .find(d => d.shift_start_date === frm.doc.prod_date);
                     if (match) {
                         frm.set_value('monthly_production_child_ref', match.hourly_production_reference);
-                        if (!frm.is_new()) {
-                            frappe.db.set_value(
-                                frm.doc.doctype,
-                                frm.doc.name,
-                                'monthly_production_child_ref',
-                                match.hourly_production_reference
-                            );
-                        }
-                    }
+                     }
                     populate_mining_areas(frm, mpp.mining_areas || []);
+                    const geoRows = mpp.geo_mat_layer || [];
+                    const geoDescriptions = geoRows.map(row => row.geo_ref_description);
+                    frm.truck_geo_options_str = geoDescriptions.join('\n');
+                    update_truck_geo_options(frm);
                 }
             });
         }
@@ -154,40 +153,67 @@ function populate_mining_areas(frm, areas) {
 // Dynamic options for mining_areas_trucks
 // ——————————————————————
 function update_mining_area_trucks_options(frm) {
-    const opts = (frm.doc.mining_areas_options || [])
-        .map(r => r.mining_areas)
-        .filter(v => !!v);
-    const options_str = opts.join('\n');
+  const opts = (frm.doc.mining_areas_options || [])
+    .map(r => r.mining_areas)
+    .filter(v => v);
 
-    if (frm.fields_dict.truck_loads?.grid) {
-        frm.fields_dict.truck_loads.grid.update_docfield_property(
-            'mining_areas_trucks',
-            'options',
-            options_str
-        );
-    }
-    frm.refresh_field('truck_loads');
+  // array of options, blank first
+  const options_list = [''].concat(opts);
+
+  // update the child-DocType’s DocField
+  frappe.meta.get_docfield('Truck Loads', 'mining_areas_trucks')
+    .options = options_list;
+
+  // re-render the entire child table
+  frm.refresh_field('truck_loads');
 }
+
+
 
 // ——————————————————————
 // Dynamic options for mining_areas_dozer_child
 // ——————————————————————
 function update_mining_area_dozer_options(frm) {
-    const opts = (frm.doc.mining_areas_options || [])
-        .map(r => r.mining_areas)
-        .filter(v => !!v);
-    const options_str = opts.join('\n');
+  const opts = (frm.doc.mining_areas_options || [])
+    .map(r => r.mining_areas)
+    .filter(v => v);
 
-    if (frm.fields_dict.dozer_production?.grid) {
-        frm.fields_dict.dozer_production.grid.update_docfield_property(
-            'mining_areas_dozer_child',
-            'options',
-            options_str
-        );
-    }
-    frm.refresh_field('dozer_production');
+  const options_list = [''].concat(opts);
+
+  frappe.meta.get_docfield('Dozer Production', 'mining_areas_dozer_child')
+    .options = options_list;
+
+  frm.refresh_field('dozer_production');
 }
 
+
+// ——————————————————————
+// Geo layer dropdown helper
+// ——————————————————————
+function update_dozer_geo_options(frm) {
+  const opts = frm.dozer_geo_options_str
+    ? frm.dozer_geo_options_str.split('\n').filter(v => v)
+    : [];
+  const options_list = [''].concat(opts);
+
+  frappe.meta.get_docfield('Dozer Production', 'dozer_geo_mat_layer')
+    .options = options_list;
+
+  frm.refresh_field('dozer_production');
+}
+
+// Geo layer dropdown helper for trucks
+function update_truck_geo_options(frm) {
+  const opts = frm.truck_geo_options_str
+    ? frm.truck_geo_options_str.split('\n').filter(v => v)
+    : [];
+  const options_list = [''].concat(opts);
+
+  frappe.meta.get_docfield('Truck Loads', 'geo_mat_layer_truck')
+    .options = options_list;
+
+  frm.refresh_field('truck_loads');
+}
 // ——————————————————————
 // Form Events
 // ——————————————————————
@@ -204,52 +230,110 @@ frappe.ui.form.on('Mining Areas Options', {
 
 frappe.ui.form.on('Hourly Production', {
     setup(frm) {
-        if (frm.fields_dict.truck_loads?.grid) {
-            frm.fields_dict.truck_loads.grid
-                .get_field('asset_name_shoval').get_query = () => ({
-                    filters: {
-                        docstatus: 1,
-                        asset_category: 'Excavator',
-                        location: frm.doc.location
-                    }
-                });
+        // ——————————————————————————————
+        // 1) Prime child‐table selects with a blank entry
+        // ——————————————————————————————
+        const truckGrid = frm.fields_dict.truck_loads?.grid;
+        if (truckGrid) {
+        // blank placeholder for mining_areas_trucks
+        truckGrid.update_docfield_property(
+            'mining_areas_trucks',
+            'options',
+            '\n'
+        );
+        // blank placeholder for geo_mat_layer_truck
+        truckGrid.update_docfield_property(
+            'geo_mat_layer_truck',
+            'options',
+            '\n'
+        );
+        // your existing asset_name_shoval query
+        truckGrid
+            .get_field('asset_name_shoval')
+            .get_query = () => ({
+            filters: {
+                docstatus: 1,
+                asset_category: 'Excavator',
+                location: frm.doc.location
+            }
+            });
         }
+
+        const dozerGrid = frm.fields_dict.dozer_production?.grid;
+        if (dozerGrid) {
+        // blank placeholder for mining_areas_dozer_child
+        dozerGrid.update_docfield_property(
+            'mining_areas_dozer_child',
+            'options',
+            '\n'
+        );
+        // blank placeholder for dozer_geo_mat_layer
+        dozerGrid.update_docfield_property(
+            'dozer_geo_mat_layer',
+            'options',
+            '\n'
+        );
+        }
+
+        // ——————————————————————————————
+        // 2) Now inject your real, dynamic options & rebuild inline editors
+        // ——————————————————————————————
         update_mining_area_trucks_options(frm);
         update_mining_area_dozer_options(frm);
+        update_dozer_geo_options(frm);
+        update_truck_geo_options(frm);
     },
+
     refresh(frm) {
         if (!frm.is_new()) {
-            sync_mtd_data(frm);
+        //    sync_mtd_data(frm);
         }
         update_mining_area_trucks_options(frm);
         update_mining_area_dozer_options(frm);
+        update_dozer_geo_options(frm);
+        update_truck_geo_options(frm);
     },
+
     location(frm) {
         fetch_monthly_production_plan(frm);
         populate_truck_loads_and_lookup(frm);
         populate_dozer_production_table(frm);
     },
+
     prod_date(frm) {
         set_day_number(frm);
         fetch_monthly_production_plan(frm);
     },
+
     shift_system(frm) {
         update_shift_options(frm);
     },
+
     shift(frm) {
         update_shift_num_hour_options(frm);
     },
+
     shift_num_hour(frm) {
         update_hour_slot(frm);
     },
+
+
     after_save(frm) {
-        sync_mtd_data(frm);
-        update_mining_area_trucks_options(frm);
-        update_mining_area_dozer_options(frm);
+        // first, reload the doc so we pick up the new modified timestamp
+        frm.reload_doc().then(() => {
+            // now it’s safe to re-sync MtD and rebuild your selects
+            sync_mtd_data(frm);
+            update_mining_area_trucks_options(frm);
+            update_mining_area_dozer_options(frm);
+        });
     },
+
+
     truck_loads_add(frm) {
         update_mining_area_trucks_options(frm);
+        update_truck_geo_options(frm);
     },
+
     update_hourly_references(frm) {
         frappe.call({
             method: 'is_production.doctype.hourly_production.hourly_production.update_hourly_references',
@@ -263,6 +347,70 @@ frappe.ui.form.on('Hourly Production', {
                 }
             }
         });
+    },
+
+    month_prod_planning(frm) {
+        // only run on new docs when month_prod_planning is set
+        if (!frm.is_new() || !frm.doc.month_prod_planning) return;
+
+        frappe.call({
+            method: 'frappe.client.get',
+            args: {
+                doctype: 'Monthly Production Planning',
+                name: frm.doc.month_prod_planning
+            },
+            callback: function(r) {
+                try {
+                    const mppDoc = r.message || {};
+
+                    // — Populate asset_name_shoval in truck_loads —
+                    const prodTrucks = mppDoc.prod_trucks || [];
+                    const confirmation = [];
+                    (frm.doc.truck_loads || []).forEach(loadRow => {
+                        const match = prodTrucks.find(pt =>
+                            pt.asset_name === loadRow.asset_name_truck
+                        );
+                        const excav = match ? match.default_excavator : null;
+                        frappe.model.set_value(
+                            loadRow.doctype,
+                            loadRow.name,
+                            'asset_name_shoval',
+                            excav
+                        );
+                        confirmation.push({
+                            asset_name_truck: loadRow.asset_name_truck,
+                            asset_name_shoval: excav
+                        });
+                    });
+                    frm.refresh_field('truck_loads');
+                    console.log('[asset_name_shoval populated]:', confirmation);
+
+                    // — Build geo_ref_description options string —
+                    const geoRows = mppDoc.geo_mat_layer || [];
+                    const geoDescriptions = geoRows.map(row =>
+                        row.geo_ref_description
+                    );
+                    console.log('[geo_ref_description array]:', geoDescriptions);
+
+                    // Store newline-separated options for dozer
+                    frm.dozer_geo_options_str = geoDescriptions.join('\n');
+
+                    // Apply to existing and future dozer_production rows
+                    update_dozer_geo_options(frm);
+
+                    // In fetch_monthly_production_plan callback, after building geoDescriptions:
+                    frm.truck_geo_options_str = geoDescriptions.join('\n');
+                    update_truck_geo_options(frm);
+
+                } catch (e) {
+                    console.error('Error in month_prod_planning callback:', e);
+                }
+            }
+        });
+    },
+
+    dozer_production_add(frm, cdt, cdn) {
+        update_dozer_geo_options(frm);
     }
 });
 
@@ -292,6 +440,25 @@ function populate_truck_loads_and_lookup(frm) {
             });
             frm.refresh_field('truck_loads');
             update_mining_area_trucks_options(frm);
+
+            // Only if month_prod_planning has been set
+            if (frm.doc.month_prod_planning) {
+                frappe.call({
+                    method: 'frappe.client.get',
+                    args: {
+                        doctype: 'Monthly Production Planning',
+                        name: frm.doc.month_prod_planning,
+                        // fetch just the child‐table field
+                        fields: ['prod_trucks']
+                    },
+                    callback: r2 => {
+                        const prodTrucks = (r2.message && r2.message.prod_trucks) || [];
+                        // extract asset_name from each child‐row
+                        const names = prodTrucks.map(row => row.asset_name);
+                        console.log('[Monthly Production → prod_trucks.asset_name]:', names);
+                    }
+                });
+            }
         }
     });
 }
@@ -407,7 +574,7 @@ function update_shift_num_hour_options(frm) {
     } else {
         count = 8;
     }
-    const opts = Array.from({ length: count }, (_, i) => `${s}-${i+1}`);
+    const opts = Array.from({ length: count }, (_, i) => `${s}-${i + 1}`);
     _set_options(frm, 'shift_num_hour', opts);
     frm.set_value('shift_num_hour', null);
 }

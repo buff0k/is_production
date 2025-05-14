@@ -15,6 +15,8 @@
   "prod_month_end_date",
   "column_break_pogh",
   "mining_areas",
+  "section_break_zozx",
+  "geo_mat_layer",
   "production_plant_planned_section",
   "prod_excavators",
   "num_excavators",
@@ -372,12 +374,22 @@
    "fieldtype": "Table",
    "label": "Mining Areas",
    "options": "Monthly Production-Areas"
+  },
+  {
+   "fieldname": "geo_mat_layer",
+   "fieldtype": "Table",
+   "label": "Geo / Mat / Layer",
+   "options": "Geo_mat_layer"
+  },
+  {
+   "fieldname": "section_break_zozx",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-09 14:42:24.773075",
+ "modified": "2025-05-12 19:25:55.932568",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",

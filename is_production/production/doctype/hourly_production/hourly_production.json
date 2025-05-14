@@ -254,6 +254,7 @@
   {
    "fieldname": "mining_areas_options",
    "fieldtype": "Table",
+   "hidden": 1,
    "label": "Mining Areas Options",
    "options": "Monthly Production-Areas"
   },
@@ -369,7 +370,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-04-25 19:23:43.349808",
+ "modified": "2025-05-13 12:41:52.780868",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",

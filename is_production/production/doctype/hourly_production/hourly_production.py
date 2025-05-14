@@ -93,8 +93,10 @@ class HourlyProduction(Document):
         # --- Recompute hour_sort_key & hour_slot from shift_num_hour ---
         if self.shift_num_hour:
             try:
-                _, idx_str = self.shift_num_hour.split("-")
+                # don’t clobber '_'—use a different name for the first part
+                shift_label, idx_str = self.shift_num_hour.split("-", 1)
                 idx = int(idx_str)
+
                 self.hour_sort_key = idx
                 base = (
                     6 if self.shift in ("Day","Morning") else
@@ -108,6 +110,7 @@ class HourlyProduction(Document):
             except (ValueError, IndexError):
                 self.hour_sort_key = None
                 self.hour_slot     = None
+
 
     def before_print(self, print_settings):
         """

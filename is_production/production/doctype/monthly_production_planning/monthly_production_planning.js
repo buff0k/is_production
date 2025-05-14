@@ -53,6 +53,16 @@ function logError(context, data) {
     error: err => console.error('Failed to write Error Log:', err)
   });
 }
+function calculateGeoRefDescription(frm, cdt, cdn) {
+  const row  = locals[cdt][cdn];
+  const desc = row.geo_mat_type_description || '';
+  // Find this row’s index in the geo_mat_layer table (1-based)
+  const rows = frm.doc.geo_mat_layer || [];
+  const idx  = rows.findIndex(r => r.name === row.name) + 1;
+  // Always "<row number> - <description>"
+  const combined = `${idx} - ${desc}`;
+  frappe.model.set_value(cdt, cdn, 'geo_ref_description', combined);
+}
 
 frappe.ui.form.on('Monthly Production Planning', {
   // Section 0: Before Save
@@ -89,6 +99,10 @@ frappe.ui.form.on('Monthly Production Planning', {
       if (!frm.doc.__islocal) {
         updateDefaultExcavatorOptions(frm);
       }
+            // ← insert geo layer recalculation here
+      (frm.doc.geo_mat_layer || []).forEach(row => {
+        calculateGeoRefDescription(frm, row.doctype, row.name);
+      });
     } catch (e) {
       logError('refresh', e);
     }
@@ -664,5 +678,15 @@ frappe.ui.form.on('Monthly Production Planning', {
     } catch (e) {
       logError('update_equipment_counts', e);
     }
+  }
+});
+
+// When either source field changes on a Geo_mat_layer row:
+frappe.ui.form.on('Geo_mat_layer', {
+  geo_mat_layer_ref: function(frm, cdt, cdn) {
+    calculateGeoRefDescription(frm, cdt, cdn);
+  },
+  geo_mat_type_description: function(frm, cdt, cdn) {
+    calculateGeoRefDescription(frm, cdt, cdn);
   }
 });
