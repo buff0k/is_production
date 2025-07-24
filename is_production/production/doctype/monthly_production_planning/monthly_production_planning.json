@@ -17,14 +17,11 @@
   "mining_areas",
   "section_break_zozx",
   "geo_mat_layer",
-  "production_plant_planned_section",
-  "prod_excavators",
-  "num_excavators",
+  "month_planned_production_plant_section",
+  "dnd_html_truck_ui",
+  "dnd_dozer_assigned",
+  "excavator_truck_assignments",
   "dozer_table",
-  "num_dozers",
-  "column_break_pbpd",
-  "prod_trucks",
-  "num_trucks",
   "month_production_days_tab",
   "shift_system",
   "populate_monthly_prod_days",
@@ -43,13 +40,13 @@
   "tot_shift_morning_hours",
   "tot_shift_afternoon_hours",
   "num_prod_days",
-  "total_month_prod_hours",
   "prod_days_completed",
   "month_prod_hours_completed",
   "month_remaining_production_days",
   "month_remaining_prod_hours",
+  "split_ratio",
+  "month_actual_coal",
   "column_break_jdas",
-  "monthly_target_bcm",
   "target_bcm_day",
   "target_bcm_hour",
   "month_act_ts_bcm_tallies",
@@ -59,7 +56,30 @@
   "mtd_bcm_day",
   "mtd_bcm_hour",
   "month_forecated_bcm",
-  "update_mtd_production"
+  "update_mtd_production",
+  "monthly_volume_planning_tab",
+  "truck_and_shovel_section",
+  "monthly_target_bcm",
+  "coal_tons_planned",
+  "coal_planned_bcm",
+  "waste_bcms_planned",
+  "planned_strip_ratio",
+  "num_dozers",
+  "num_excavators",
+  "num_trucks",
+  "total_month_prod_hours",
+  "column_break_boep",
+  "month_vol_planned",
+  "ts_tempo_link",
+  "ts_tempo",
+  "ts_tempo_uom",
+  "dozing_tempo_link",
+  "dozing_tempo",
+  "dozing_tempo_uom",
+  "planned_dozer_volumes",
+  "total_ts_planned_volumes",
+  "blasting_planning_section",
+  "blasting_plan"
  ],
  "fields": [
   {
@@ -85,22 +105,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "production_plant_planned_section",
-   "fieldtype": "Section Break",
-   "label": "Production Plant Allocated to Site"
-  },
-  {
-   "columns": 2,
-   "fieldname": "prod_excavators",
-   "fieldtype": "Table",
-   "label": "Excavators",
-   "options": "Excavators Planned"
-  },
-  {
-   "fieldname": "column_break_pbpd",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "month_production_days_tab",
    "fieldtype": "Tab Break",
    "label": "Month Production Days"
@@ -117,18 +121,11 @@
   },
   {
    "columns": 2,
-   "fieldname": "prod_trucks",
-   "fieldtype": "Table",
-   "label": "ADT's & Rigids",
-   "options": "Trucks Planned"
-  },
-  {
-   "columns": 2,
    "fieldname": "dozer_table",
    "fieldtype": "Table",
+   "hidden": 1,
    "label": "Dozers",
-   "options": "Dozers Planned",
-   "read_only": 1
+   "options": "Dozers Planned"
   },
   {
    "fieldname": "clear_production_days",
@@ -178,7 +175,8 @@
    "fieldname": "tot_shift_afternoon_hours",
    "fieldtype": "Float",
    "label": "Total Afternoon Shift Hours",
-   "precision": "1"
+   "precision": "1",
+   "read_only": 1
   },
   {
    "fieldname": "tot_shift_morning_hours",
@@ -191,7 +189,8 @@
    "fieldname": "monthly_target_bcm",
    "fieldtype": "Float",
    "label": "Monthly Target BCMs",
-   "precision": "0"
+   "precision": "0",
+   "read_only": 1
   },
   {
    "fieldname": "num_prod_days",
@@ -273,19 +272,19 @@
   {
    "fieldname": "num_excavators",
    "fieldtype": "Int",
-   "label": "Number of Excavators",
+   "label": "Number of Production Excavators",
    "read_only": 1
   },
   {
    "fieldname": "num_trucks",
    "fieldtype": "Int",
-   "label": "Number of Trucks",
+   "label": "Number of Production Trucks Assigned",
    "read_only": 1
   },
   {
    "fieldname": "num_dozers",
    "fieldtype": "Int",
-   "label": "Number of Dozers",
+   "label": "Number of Production Dozers",
    "read_only": 1
   },
   {
@@ -328,13 +327,15 @@
    "fieldname": "weekday_shift_hours",
    "fieldtype": "Float",
    "label": "Weekday Shift No. Working Hours",
-   "precision": "2"
+   "precision": "2",
+   "reqd": 1
   },
   {
    "fieldname": "saturday_shift_hours",
    "fieldtype": "Float",
    "label": "Saturday Shift No. Working Hours",
-   "precision": "2"
+   "precision": "2",
+   "reqd": 1
   },
   {
    "fieldname": "num_sat_shifts",
@@ -384,12 +385,158 @@
   {
    "fieldname": "section_break_zozx",
    "fieldtype": "Section Break"
+  },
+  {
+   "description": "This is only production teams and not spare equipment.",
+   "fieldname": "month_planned_production_plant_section",
+   "fieldtype": "Section Break",
+   "label": "Month Planned Production Plant"
+  },
+  {
+   "fieldname": "excavator_truck_assignments",
+   "fieldtype": "Table",
+   "hidden": 1,
+   "label": "Excavator Truck Assignments",
+   "options": "Excavator Truck Link"
+  },
+  {
+   "fieldname": "dnd_html_truck_ui",
+   "fieldtype": "HTML",
+   "label": "Truck Assignment UI"
+  },
+  {
+   "fieldname": "monthly_volume_planning_tab",
+   "fieldtype": "Tab Break",
+   "label": "Monthly Volume Planning"
+  },
+  {
+   "fieldname": "truck_and_shovel_section",
+   "fieldtype": "Section Break",
+   "label": "Truck and Shovel"
+  },
+  {
+   "fieldname": "dnd_dozer_assigned",
+   "fieldtype": "HTML",
+   "label": "Dozers Planned"
+  },
+  {
+   "fieldname": "column_break_boep",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "month_vol_planned",
+   "fieldtype": "HTML",
+   "label": "Monthly Volume Planned"
+  },
+  {
+   "default": "TS1",
+   "fieldname": "ts_tempo_link",
+   "fieldtype": "Link",
+   "label": "TS Tempo Link",
+   "options": "Planned Production Tempos"
+  },
+  {
+   "default": "D1",
+   "fieldname": "dozing_tempo_link",
+   "fieldtype": "Link",
+   "label": "Dozing Tempo Link",
+   "options": "Planned Production Tempos"
+  },
+  {
+   "fetch_from": "ts_tempo_link.prod_tempo",
+   "fieldname": "ts_tempo",
+   "fieldtype": "Int",
+   "label": "TS Tempo",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "ts_tempo_link.tempo_uom",
+   "fieldname": "ts_tempo_uom",
+   "fieldtype": "Data",
+   "label": "TS Tempo UoM",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "dozing_tempo_link.prod_tempo",
+   "fieldname": "dozing_tempo",
+   "fieldtype": "Int",
+   "label": "Dozing Tempo"
+  },
+  {
+   "fetch_from": "dozing_tempo_link.tempo_uom",
+   "fieldname": "dozing_tempo_uom",
+   "fieldtype": "Data",
+   "label": "Dozing Tempo UoM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "blasting_planning_section",
+   "fieldtype": "Section Break",
+   "label": "Blasting/Dozing Planning"
+  },
+  {
+   "fieldname": "blasting_plan",
+   "fieldtype": "Table",
+   "label": "Month Blasting Plan",
+   "options": "Blasting Blocks Planned"
+  },
+  {
+   "fieldname": "planned_dozer_volumes",
+   "fieldtype": "Float",
+   "label": "Total Planned Dozer Volumes",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_ts_planned_volumes",
+   "fieldtype": "Float",
+   "label": "Total Planned Truck and Shovel Volumes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "split_ratio",
+   "fieldtype": "Float",
+   "label": "Strip Ratio",
+   "read_only": 1
+  },
+  {
+   "fieldname": "month_actual_coal",
+   "fieldtype": "Float",
+   "label": "Monthly Actual Coal tons",
+   "read_only": 1
+  },
+  {
+   "fieldname": "coal_tons_planned",
+   "fieldtype": "Float",
+   "label": "Coal Tons Planned",
+   "precision": "0"
+  },
+  {
+   "fieldname": "coal_planned_bcm",
+   "fieldtype": "Float",
+   "label": "Coal Planned BCM",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "waste_bcms_planned",
+   "fieldtype": "Float",
+   "label": "Waste BCMs Planned",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "planned_strip_ratio",
+   "fieldtype": "Float",
+   "label": "Planned Strip Ratio",
+   "precision": "1",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-12 19:25:55.932568",
+ "modified": "2025-07-16 08:28:37.439612",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",

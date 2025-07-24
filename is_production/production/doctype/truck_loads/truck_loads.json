@@ -43,6 +43,7 @@
    "fieldtype": "Int",
    "in_list_view": 1,
    "label": "Loads",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -62,14 +63,14 @@
    "in_list_view": 1,
    "label": "Material Type",
    "options": "Softs\nHards\nCoal",
+   "read_only": 1,
    "reqd": 1
   },
   {
    "fieldname": "tub_factor_doc_link",
    "fieldtype": "Link",
    "label": "Tub Factor Doc Link",
-   "options": "Tub Factor",
-   "read_only": 1
+   "options": "Tub Factor"
   },
   {
    "columns": 1,
@@ -77,7 +78,8 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Excavator Plant No.",
-   "options": "Asset"
+   "options": "Asset",
+   "read_only": 1
   },
   {
    "columns": 1,
@@ -86,6 +88,7 @@
    "in_list_view": 1,
    "label": "Truck Plant No.",
    "options": "Asset",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -103,7 +106,8 @@
    "fieldname": "mining_areas_trucks",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Primary Working Mining Areas"
+   "label": "Primary Working Mining Areas",
+   "read_only": 1
   },
   {
    "allow_in_quick_entry": 1,
@@ -111,14 +115,15 @@
    "fieldname": "geo_mat_layer_truck",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Geo / Mat layer"
+   "label": "Geo / Mat layer",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-05-13 15:40:43.976720",
+ "modified": "2025-07-15 23:32:55.859776",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Truck Loads",

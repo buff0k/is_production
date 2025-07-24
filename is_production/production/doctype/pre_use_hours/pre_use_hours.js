@@ -26,7 +26,35 @@ frappe.ui.form.on('Pre-Use Hours', {
         set_avail_util_lookup(frm);
     },
     refresh: function (frm) {
-        fetch_pre_use_status(frm);
+        fetch_pre_use_status(frm);  // if you already had this call
+
+        // ✅ Visually decorate the HTML summary based on indicator
+        const indicator = frm.doc.data_integ_indicator;
+        const wrapper = frm.fields_dict.data_integrity_summary?.$wrapper;
+
+        if (wrapper) {
+            // Reset first
+            wrapper.css("border", "2px solid transparent");
+            wrapper.css("padding", "10px");
+            wrapper.css("border-radius", "6px");
+
+            if (indicator === "Red") {
+                wrapper.css("border", "2px solid red");
+                wrapper.css("background-color", "#ffe6e6");  // light red background
+            } else if (indicator === "Yellow") {
+                wrapper.css("border", "2px solid orange");
+                wrapper.css("background-color", "#fff8e1");  // light yellow background
+            } else if (indicator === "Green") {
+                wrapper.css("border", "2px solid green");
+                wrapper.css("background-color", "#e8f5e9");  // light green background
+            }
+        }
+        // 2. Decorate HTML summary background and border
+        decorate_integrity_band(frm);
+
+        // 3. Render HTML summary + navigation buttons + "Save to refresh" note
+        render_integrity_html_with_nav(frm);
+        console.log("🧪 Summary from server:", frm.doc.data_integrity_summary);
     }
 });
 
@@ -170,4 +198,107 @@ function generate_status_table(records) {
     });
     html += "</table>";
     return html;
+}
+
+function decorate_integrity_band(frm) {
+    const indicator = frm.doc.data_integ_indicator;
+    const wrapper = frm.fields_dict.data_integrity_summary?.$wrapper;
+
+    if (wrapper) {
+        wrapper.css({
+            "border": "2px solid transparent",
+            "padding": "10px",
+            "border-radius": "6px"
+        });
+
+        if (indicator === "Red") {
+            wrapper.css("border", "2px solid red");
+            wrapper.css("background-color", "#ffe6e6");
+        } else if (indicator === "Yellow") {
+            wrapper.css("border", "2px solid orange");
+            wrapper.css("background-color", "#fff8e1");
+        } else if (indicator === "Green") {
+            wrapper.css("border", "2px solid green");
+            wrapper.css("background-color", "#e8f5e9");
+        }
+    }
+}
+
+function render_integrity_html_with_nav(frm) {
+    const wrapper = frm.fields_dict.data_integrity_summary?.$wrapper;
+    if (!wrapper) return;
+
+    // Retrieve and sanitize summary
+    const raw_summary = frm.doc.data_integrity_summary || "";
+    const summary_html = raw_summary.trim() || "<p>No data to display.</p>";
+
+    // Buttons and message
+    const prev_btn = `<button class="btn btn-sm btn-secondary" id="prev_record">⬅️ Previous</button>`;
+    const next_btn = `<button class="btn btn-sm btn-secondary" id="next_record">Next ➡️</button>`;
+    const message = `<p style="margin-top:10px; font-size: 90%; color: gray;">🔁 Save to refresh summary and validation results.</p>`;
+
+    // Build full HTML block
+    const html = `
+        <div>
+            <div class="integrity-summary-content">
+                ${summary_html}
+            </div>
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                ${prev_btn}
+                ${next_btn}
+            </div>
+            ${message}
+        </div>
+    `;
+
+    // Inject into the wrapper
+    wrapper.html(html);
+
+    // ⏮ Previous record
+    wrapper.find("#prev_record").on("click", function () {
+        frappe.call({
+            method: "frappe.client.get_list",
+            args: {
+                doctype: "Pre-Use Hours",
+                filters: {
+                    location: frm.doc.location,
+                    creation: ["<", frm.doc.creation]
+                },
+                fields: ["name"],
+                order_by: "creation desc",
+                limit_page_length: 1
+            },
+            callback: function (r) {
+                if (r.message.length) {
+                    frappe.set_route("Form", "Pre-Use Hours", r.message[0].name);
+                } else {
+                    frappe.msgprint("No earlier record found.");
+                }
+            }
+        });
+    });
+
+    // ⏭ Next record
+    wrapper.find("#next_record").on("click", function () {
+        frappe.call({
+            method: "frappe.client.get_list",
+            args: {
+                doctype: "Pre-Use Hours",
+                filters: {
+                    location: frm.doc.location,
+                    creation: [">", frm.doc.creation]
+                },
+                fields: ["name"],
+                order_by: "creation asc",
+                limit_page_length: 1
+            },
+            callback: function (r) {
+                if (r.message.length) {
+                    frappe.set_route("Form", "Pre-Use Hours", r.message[0].name);
+                } else {
+                    frappe.msgprint("No newer record found.");
+                }
+            }
+        });
+    });
 }

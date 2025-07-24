@@ -7,37 +7,39 @@
  "field_order": [
   "asset_name",
   "item_name",
-  "default_excavator"
+  "parent_excavator"
  ],
  "fields": [
   {
    "columns": 2,
    "fieldname": "asset_name",
-   "fieldtype": "Read Only",
+   "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Plant No.",
    "options": "Asset"
   },
   {
    "columns": 2,
+   "fetch_from": "asset_name.item_name",
    "fieldname": "item_name",
    "fieldtype": "Read Only",
    "in_list_view": 1,
    "label": "Model"
   },
   {
-   "columns": 1,
-   "fieldname": "default_excavator",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Default Excavator"
+   "fieldname": "parent_excavator",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Parent Excavator",
+   "options": "Excavators Planned",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-05-09 14:44:18.347510",
+ "modified": "2025-05-27 11:30:19.194549",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Trucks Planned",

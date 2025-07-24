@@ -13,15 +13,17 @@
   "monthly_production_child_ref",
   "shift_system",
   "mining_areas_options",
-  "update_hourly_references",
   "column_break_utop",
   "shift",
   "shift_num_hour",
   "hour_slot",
   "day_number",
   "hour_sort_key",
-  "whatsapp_rec",
+  "whatsapp_recipient",
+  "whats_send",
   "section_break_fxug",
+  "dnd_html_excavator_ui",
+  "dnd_html_dozer_ui",
   "truck_loads",
   "dozer_production",
   "hour_production_summary_tab",
@@ -29,9 +31,11 @@
   "total_softs_bcm",
   "total_hards_bcm",
   "total_coal_bcm",
+  "coal_tons_total",
   "column_break_zlqh",
-  "total_ts_bcm",
   "num_prod_trucks",
+  "excavators_prod_num",
+  "total_ts_bcm",
   "ave_bcm_prod_truck",
   "hour_dozing_bcm_section",
   "total_dozing_bcm",
@@ -40,9 +44,13 @@
   "ave_bcm_dozer",
   "grand_total_section",
   "hour_total_bcm",
+  "day_total_bcm",
   "column_break_giwr",
   "ts_percent",
   "dozing_percent",
+  "section_break_fhge",
+  "ts_area_bcm_total",
+  "geo_mat_total_bcm",
   "mtd_summary_tab",
   "monthly_target_bcm",
   "target_bcm_day",
@@ -108,6 +116,12 @@
    "reqd": 1
   },
   {
+   "description": "Phone number for WhatsApp notifications",
+   "fieldname": "whatsapp_recipient",
+   "fieldtype": "Data",
+   "label": "WhatsApp Recipient"
+  },
+  {
    "fieldname": "section_break_fxug",
    "fieldtype": "Section Break"
   },
@@ -128,6 +142,18 @@
    "fieldtype": "Table",
    "label": "Dozer Production",
    "options": "Dozer Production"
+  },
+  {
+   "fieldname": "dnd_html_excavator_ui",
+   "fieldtype": "HTML",
+   "label": "Excavator Teams View",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dnd_html_dozer_ui",
+   "fieldtype": "HTML",
+   "label": "Dozer UI",
+   "read_only": 1
   },
   {
    "fieldname": "hour_production_summary_tab",
@@ -264,11 +290,6 @@
    "label": "Monthly Production Planning Child Reference"
   },
   {
-   "fieldname": "update_hourly_references",
-   "fieldtype": "Button",
-   "label": "Update Hourly Production References"
-  },
-  {
    "columns": 1,
    "fieldname": "hour_sort_key",
    "fieldtype": "Int",
@@ -362,15 +383,52 @@
    "read_only": 1
   },
   {
-   "fieldname": "whatsapp_rec",
-   "fieldtype": "Data",
-   "label": "WhatsApp Recipient"
+   "fieldname": "coal_tons_total",
+   "fieldtype": "Float",
+   "label": "Total Coal in tons",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_fhge",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "ts_area_bcm_total",
+   "fieldtype": "Table",
+   "label": "Area Total BCM",
+   "options": "ts_area_bcm_total"
+  },
+  {
+   "fieldname": "geo_mat_total_bcm",
+   "fieldtype": "Table",
+   "label": "Geo / Mat Layer Total BCM",
+   "options": "Geo_mat_total_bcm"
+  },
+  {
+   "description": "Make sure form is saved before sending Whatsapp",
+   "fieldname": "whats_send",
+   "fieldtype": "Button",
+   "label": "Send Whatsapp"
+  },
+  {
+   "fieldname": "day_total_bcm",
+   "fieldtype": "Float",
+   "label": "Day Total BCM",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "excavators_prod_num",
+   "fieldtype": "Float",
+   "label": "Number of Production Excavators",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-05-13 12:41:52.780868",
+ "modified": "2025-07-21 15:04:20.174863",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",

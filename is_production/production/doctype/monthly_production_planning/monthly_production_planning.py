@@ -9,6 +9,28 @@ import datetime
 from frappe.exceptions import TimestampMismatchError
 
 class MonthlyProductionPlanning(Document):
+    def validate(self):
+        """
+        Validate document before saving
+        """
+        self.validate_shift_hours()
+        
+    def validate_shift_hours(self):
+        """
+        Validate that shift hours don't exceed 12
+        """
+        if self.weekday_shift_hours and self.weekday_shift_hours > 12:
+            frappe.throw(
+                "Weekday Shift Hours cannot be more than 12",
+                title="Invalid Shift Hours"
+            )
+            
+        if self.saturday_shift_hours and self.saturday_shift_hours > 12:
+            frappe.throw(
+                "Saturday Shift Hours cannot be more than 12",
+                title="Invalid Shift Hours"
+            )
+    
     def update_mtd_production(self):
         """
         Server-side Month-to-Date update: aggregates Hourly Production and Survey data
@@ -35,6 +57,28 @@ class MonthlyProductionPlanning(Document):
             hp_map.setdefault(ref, {'ts': 0, 'dz': 0})
             hp_map[ref]['ts'] += ts
             hp_map[ref]['dz'] += dz
+
+        coal_records = frappe.get_all('Hourly Production',
+            filters=[
+                ['month_prod_planning', '=', self.name],
+                ['monthly_production_child_ref', 'in', refs]
+            ],
+            fields=['coal_tons_total']
+        )
+        total_coal = sum(rec.get('coal_tons_total') or 0 for rec in coal_records)
+
+        # Then later in the same method, where other totals are set (around line 100), add:
+        self.month_actual_coal = total_coal
+
+        
+        # Calculate split ratio
+        if self.month_actual_coal and (self.month_actual_bcm or self.month_actual_coal):
+            try:
+                self.split_ratio = (self.month_actual_bcm - (self.month_actual_coal/1.5 )) / self.month_actual_coal
+            except ZeroDivisionError:
+                self.split_ratio = 0
+        else:
+            self.split_ratio = 0
 
         # 3. Fetch Survey data
         srv_records = frappe.get_all('Survey',

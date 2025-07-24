@@ -21,6 +21,7 @@
    "in_list_view": 1,
    "label": "Dozer",
    "options": "Asset",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -29,7 +30,8 @@
    "fieldname": "item_name",
    "fieldtype": "Read Only",
    "in_list_view": 1,
-   "label": "Model"
+   "label": "Model",
+   "read_only": 1
   },
   {
    "columns": 1,
@@ -38,6 +40,7 @@
    "in_list_view": 1,
    "label": "Dozer Service",
    "options": "No Dozing\nTip Dozing\nProduction Dozing-50m\nProduction Dozing-100m\nLevelling",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -50,6 +53,7 @@
    "non_negative": 1,
    "options": "0\n100\n110\n120\n130\n140\n150\n180\n190\n200",
    "precision": "1",
+   "read_only": 1,
    "reqd": 1
   },
   {
@@ -58,7 +62,8 @@
    "fieldname": "mining_areas_dozer_child",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Primary Working Area"
+   "label": "Primary Working Area",
+   "read_only": 1
   },
   {
    "allow_in_quick_entry": 1,
@@ -66,14 +71,15 @@
    "fieldname": "dozer_geo_mat_layer",
    "fieldtype": "Select",
    "in_list_view": 1,
-   "label": "Geo / Mat Layer"
+   "label": "Geo / Mat Layer",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-05-13 15:40:13.715785",
+ "modified": "2025-07-16 00:08:50.841518",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Dozer Production",

@@ -5,5 +5,5 @@
 from frappe.tests.utils import FrappeTestCase
 
 
-class TestMPP2(FrappeTestCase):
+class TestJorrieTestNested(FrappeTestCase):
 	pass

@@ -7,7 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "geo_mat_type_description",
-  "geo_ref_description"
+  "geo_ref_description",
+  "custom_material_type"
  ],
  "fields": [
   {
@@ -24,13 +25,21 @@
    "in_list_view": 1,
    "label": "Geo Ref & Description",
    "read_only": 1
+  },
+  {
+   "fieldname": "custom_material_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Material Type",
+   "options": "Softs\nHards\nCoal",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-05-12 19:29:54.401155",
+ "modified": "2025-07-16 00:07:53.011375",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Geo_mat_layer",

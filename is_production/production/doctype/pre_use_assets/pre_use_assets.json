@@ -13,7 +13,8 @@
   "eng_hrs_start",
   "eng_hrs_end",
   "employee",
-  "employee_full_name"
+  "employee_full_name",
+  "working_hours"
  ],
  "fields": [
   {
@@ -54,43 +55,59 @@
    "fetch_from": "employee.employee_name",
    "fieldname": "employee_full_name",
    "fieldtype": "Read Only",
+   "in_list_view": 1,
    "label": "Operator Full Name"
   },
   {
    "allow_in_quick_entry": 1,
    "columns": 1,
    "default": "1",
-   "description": "hallo",
    "fieldname": "pre_use_avail_status",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Pre-use Availability Status",
    "options": "Pre-Use Status",
    "reqd": 1
   },
   {
+   "columns": 1,
    "fetch_from": "asset_name.asset_category",
    "fieldname": "asset_category",
    "fieldtype": "Read Only",
+   "in_list_view": 1,
    "label": "Plant Category",
    "options": "Asset"
   },
   {
+   "columns": 1,
    "fieldname": "eng_hrs_end",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Engine Hours/Km End of Shift",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "working_hours",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Working Hours",
    "precision": "1",
    "read_only": 1
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2024-11-15 09:29:15.123906",
+ "modified": "2025-07-22 18:48:05.123178",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pre-use Assets",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

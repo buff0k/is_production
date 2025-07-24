@@ -1,0 +1,98 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-06-17 12:01:53.215906",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "block_reference",
+  "geo_description",
+  "block_length",
+  "block_width",
+  "blasting_depth",
+  "block_bcm",
+  "dozing_percentage",
+  "block_dozing_bcms"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "block_reference",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Block Reference"
+  },
+  {
+   "columns": 1,
+   "fieldname": "block_width",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Block Width",
+   "precision": "1"
+  },
+  {
+   "columns": 1,
+   "fieldname": "blasting_depth",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Blasting/Block Depth",
+   "precision": "1"
+  },
+  {
+   "columns": 2,
+   "fieldname": "geo_description",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Geological Description"
+  },
+  {
+   "columns": 1,
+   "fieldname": "block_bcm",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Block BCM",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "dozing_percentage",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Dozing %",
+   "precision": "0"
+  },
+  {
+   "columns": 1,
+   "fieldname": "block_dozing_bcms",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Block Dozing BCMs",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "block_length",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Block Length",
+   "precision": "1"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-07-08 17:40:24.621173",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Blasting Blocks Planned",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

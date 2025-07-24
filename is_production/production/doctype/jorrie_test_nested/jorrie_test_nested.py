@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class MPP2(Document):
+class JorrieTestNested(Document):
 	pass

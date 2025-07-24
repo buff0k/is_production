@@ -1,0 +1,58 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-07-15 23:07:04.248974",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "ts_area_options",
+  "ts_area_bcm",
+  "dozer_area_bcm",
+  "bcm_total_area"
+ ],
+ "fields": [
+  {
+   "fieldname": "ts_area_options",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Area",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ts_area_bcm",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Total TS BCM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "dozer_area_bcm",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Total Dozer BCM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bcm_total_area",
+   "fieldtype": "Int",
+   "in_standard_filter": 1,
+   "label": "Total BCM/Area",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-07-16 09:56:40.582743",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "ts_area_bcm_total",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

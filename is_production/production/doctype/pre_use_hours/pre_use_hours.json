@@ -6,6 +6,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "shift_capturing_tab",
   "section_break_zu2j",
   "amended_from",
   "location",
@@ -16,7 +17,10 @@
   "avail_util_lookup",
   "pre_use_status_explain",
   "section_break_cean",
-  "pre_use_assets"
+  "pre_use_assets",
+  "tab_2_tab",
+  "data_integ_indicator",
+  "data_integrity_summary"
  ],
  "fields": [
   {
@@ -85,11 +89,34 @@
    "fieldtype": "Data",
    "label": "Availability and Utilisation Lookup",
    "read_only": 1
+  },
+  {
+   "fieldname": "shift_capturing_tab",
+   "fieldtype": "Tab Break",
+   "label": "Shift Capturing"
+  },
+  {
+   "fieldname": "tab_2_tab",
+   "fieldtype": "Tab Break",
+   "label": "Data Integrity Summary"
+  },
+  {
+   "fieldname": "data_integrity_summary",
+   "fieldtype": "Long Text",
+   "label": "Data Integrity Summary",
+   "read_only": 1
+  },
+  {
+   "fieldname": "data_integ_indicator",
+   "fieldtype": "Color",
+   "label": "Data Integrity Indicator",
+   "read_only": 1
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-12-06 09:03:22.961789",
+ "modified": "2025-07-23 20:32:04.193827",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pre-Use Hours",
@@ -133,6 +160,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
