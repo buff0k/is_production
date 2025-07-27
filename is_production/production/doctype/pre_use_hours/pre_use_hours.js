@@ -1,3 +1,13 @@
+// listen for server‑side “logs” and print them to the browser console
+frappe.realtime.on("preuse:update_log", (data) => {
+  console.log(
+    "%c[PreUseHours]",
+    "color:teal;font-weight:bold;",
+    data.msg
+  );
+});
+
+
 frappe.ui.form.on('Pre-Use Hours', {
     shift_system: function (frm) {
         update_shift_options(frm, frm.doc.shift_system);
@@ -225,80 +235,66 @@ function decorate_integrity_band(frm) {
 }
 
 function render_integrity_html_with_nav(frm) {
-    const wrapper = frm.fields_dict.data_integrity_summary?.$wrapper;
-    if (!wrapper) return;
+  const wrapper = frm.fields_dict.data_integrity_summary.$wrapper;
+  if (!wrapper) return;
 
-    // Retrieve and sanitize summary
-    const raw_summary = frm.doc.data_integrity_summary || "";
-    const summary_html = raw_summary.trim() || "<p>No data to display.</p>";
+  // 1) Grab the raw HTML string that Python put into the field
+  let raw = frm.doc.data_integrity_summary || '';
 
-    // Buttons and message
-    const prev_btn = `<button class="btn btn-sm btn-secondary" id="prev_record">⬅️ Previous</button>`;
-    const next_btn = `<button class="btn btn-sm btn-secondary" id="next_record">Next ➡️</button>`;
-    const message = `<p style="margin-top:10px; font-size: 90%; color: gray;">🔁 Save to refresh summary and validation results.</p>`;
+  // 2) Strip leading/trailing whitespace & remove indent-newlines
+  raw = raw.replace(/^\s+|\s+$/g, '')      // trim ends
+           .replace(/\n\s+/g, '\n');      // remove indent
 
-    // Build full HTML block
-    const html = `
-        <div>
-            <div class="integrity-summary-content">
-                ${summary_html}
-            </div>
-            <div style="margin-top: 20px; display: flex; gap: 10px;">
-                ${prev_btn}
-                ${next_btn}
-            </div>
-            ${message}
-        </div>
-    `;
+  // 3) Render it in one go
+  wrapper.empty().append(raw);
 
-    // Inject into the wrapper
-    wrapper.html(html);
+  // 4) Function to bind any nav button
+  function bindNav(selector, isPrev) {
+    wrapper.find(selector)
+      .off('click')
+      .on('click', () => {
+        const op    = isPrev ? '<' : '>';
+        const order = isPrev ? 'desc' : 'asc';
+        const msg   = isPrev ? 'No earlier record' : 'No newer record';
 
-    // ⏮ Previous record
-    wrapper.find("#prev_record").on("click", function () {
         frappe.call({
-            method: "frappe.client.get_list",
-            args: {
-                doctype: "Pre-Use Hours",
-                filters: {
-                    location: frm.doc.location,
-                    creation: ["<", frm.doc.creation]
-                },
-                fields: ["name"],
-                order_by: "creation desc",
-                limit_page_length: 1
+          method: 'frappe.client.get_list',
+          args: {
+            doctype: 'Pre-Use Hours',
+            filters: {
+              location: frm.doc.location,
+              creation: [op, frm.doc.creation]
             },
-            callback: function (r) {
-                if (r.message.length) {
-                    frappe.set_route("Form", "Pre-Use Hours", r.message[0].name);
-                } else {
-                    frappe.msgprint("No earlier record found.");
-                }
+            fields: ['name'],
+            order_by: `creation ${order}`,
+            limit_page_length: 1
+          },
+          callback: r => {
+            if (r.message && r.message.length) {
+              frappe.set_route('Form', 'Pre-Use Hours', r.message[0].name);
+            } else {
+              frappe.msgprint(msg);
             }
+          }
         });
-    });
+      });
+  }
 
-    // ⏭ Next record
-    wrapper.find("#next_record").on("click", function () {
-        frappe.call({
-            method: "frappe.client.get_list",
-            args: {
-                doctype: "Pre-Use Hours",
-                filters: {
-                    location: frm.doc.location,
-                    creation: [">", frm.doc.creation]
-                },
-                fields: ["name"],
-                order_by: "creation asc",
-                limit_page_length: 1
-            },
-            callback: function (r) {
-                if (r.message.length) {
-                    frappe.set_route("Form", "Pre-Use Hours", r.message[0].name);
-                } else {
-                    frappe.msgprint("No newer record found.");
-                }
-            }
-        });
-    });
+  // 5) Bind all four buttons (top & bottom)
+  bindNav('#prev_record_top', true);
+  bindNav('#prev_record',      true);
+  bindNav('#next_record_top', false);
+  bindNav('#next_record',     false);
 }
+
+
+// When the server tells us to reload a specific Pre-Use Hours form:
+frappe.realtime.on('preuse:reload_doc', function(data) {
+    // if this open form matches the doctype+name, reload it
+    if (cur_frm
+      && cur_frm.doc
+      && data.doctype === cur_frm.doctype
+      && data.name === cur_frm.doc.name) {
+        cur_frm.reload_doc();
+    }
+});
