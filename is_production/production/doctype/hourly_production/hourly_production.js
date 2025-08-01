@@ -722,6 +722,8 @@ frappe.ui.form.on('Hourly Production', {
         cleanupUIState(frm);
         }
         
+        frm.set_df_property('whats_send', 'label', 'Send WhatsApp');
+
         if (frm.doc.total_coal_bcm) {
             frm.set_value('coal_tons_total', frm.doc.total_coal_bcm * 1.5);
         } else if (frm.doc.total_coal_bcm === 0) {
@@ -777,7 +779,11 @@ frappe.ui.form.on('Hourly Production', {
     },
 
     whats_send: function(frm) {
-        // This will trigger when the whats_send button field is clicked
+        if (frm.is_new()) {
+            frappe.msgprint("Please save the document before sending WhatsApp.");
+            return;
+        }
+
         frappe.call({
             method: 'send_whatsapp_notification',
             doc: frm.doc,

@@ -18,7 +18,8 @@
   "enable_cwip_accounting": 0,
   "finance_books": [],
   "modified": "2024-04-02 14:39:56.528179",
-  "name": "Dozer"
+  "name": "Dozer",
+  "non_depreciable_category": 0
  },
  {
   "accounts": [
@@ -49,7 +50,8 @@
   "enable_cwip_accounting": 0,
   "finance_books": [],
   "modified": "2024-10-07 08:17:26.383803",
-  "name": "Excavator"
+  "name": "Excavator",
+  "non_depreciable_category": 0
  },
  {
   "accounts": [
@@ -70,6 +72,7 @@
   "enable_cwip_accounting": 0,
   "finance_books": [],
   "modified": "2024-04-02 14:39:20.472413",
-  "name": "ADT"
+  "name": "ADT",
+  "non_depreciable_category": 0
  }
 ]
