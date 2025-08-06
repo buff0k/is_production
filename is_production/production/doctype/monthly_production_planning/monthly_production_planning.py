@@ -1,6 +1,6 @@
 # apps/is_production/is_production/production/doctype/monthly_production_planning/monthly_production_planning.py
 
-# Copyright (c) 2024, Isambane Mining (Pty) Ltd and contributors
+# Copyright (c) 2025, Isambane Mining (Pty) Ltd and contributors
 # For license information, please see license.txt
 
 import frappe
