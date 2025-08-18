@@ -258,38 +258,46 @@ frappe.ui.form.on('Monthly Production Planning', {
   },
 
   // Section 6: recalculate_totals
-  monthly_target_bcm: frm => frm.trigger('recalculate_totals'),
+  //monthly_target_bcm: frm => frm.trigger('recalculate_totals'),
   recalculate_totals(frm) {
     try {
+      console.log('🔁 recalculate_totals() called');
+
       let sums = { day: 0, night: 0, morning: 0, afternoon: 0, days: 0 };
-      frm.doc.month_prod_days.forEach(r => {
-        const hrs = (r.shift_day_hours || 0)
-                  + (r.shift_night_hours || 0)
-                  + (r.shift_morning_hours || 0)
-                  + (r.shift_afternoon_hours || 0);
+      (frm.doc.month_prod_days || []).forEach(r => {
+        const d = +r.shift_day_hours      || 0;
+        const n = +r.shift_night_hours    || 0;
+        const m = +r.shift_morning_hours  || 0;
+        const a = +r.shift_afternoon_hours|| 0;
+        const hrs = d + n + m + a;
+
         if (hrs) sums.days++;
-        sums.day      += r.shift_day_hours    || 0;
-        sums.night    += r.shift_night_hours  || 0;
-        sums.morning  += r.shift_morning_hours|| 0;
-        sums.afternoon+= r.shift_afternoon_hours || 0;
+        sums.day       += d;
+        sums.night     += n;
+        sums.morning   += m;
+        sums.afternoon += a;
       });
+
       const totalHrs = sums.day + sums.night + sums.morning + sums.afternoon;
+
       frm.set_value({
         tot_shift_day_hours:       sums.day,
         tot_shift_night_hours:     sums.night,
         tot_shift_morning_hours:   sums.morning,
         tot_shift_afternoon_hours: sums.afternoon,
         total_month_prod_hours:    totalHrs,
-        num_prod_days:            sums.days
+        num_prod_days:             sums.days
       });
+
       if (frm.doc.monthly_target_bcm) {
-        frm.set_value('target_bcm_day',  frm.doc.monthly_target_bcm / sums.days);
-        frm.set_value('target_bcm_hour', frm.doc.monthly_target_bcm / totalHrs);
+        frm.set_value('target_bcm_day',  frm.doc.monthly_target_bcm / (sums.days || 1));
+        frm.set_value('target_bcm_hour', frm.doc.monthly_target_bcm / (totalHrs   || 1));
       }
     } catch (e) {
       logError('recalculate_totals', e);
     }
   },
+
 
   // Section 7: Update MTD Production
   update_mtd_production(frm) {
@@ -567,12 +575,12 @@ frappe.ui.form.on('Monthly Production Planning', {
   },
 
   // Section 8: Child Table Triggers
-  'Monthly Production Days': {
-    shift_day_hours:       frm => frm.trigger('recalculate_totals'),
-    shift_night_hours:     frm => frm.trigger('recalculate_totals'),
-    shift_morning_hours:   frm => frm.trigger('recalculate_totals'),
-    shift_afternoon_hours: frm => frm.trigger('recalculate_totals')
-  },
+  //'Monthly Production Days': {
+    //shift_day_hours:       frm => frm.trigger('recalculate_totals'),
+    //shift_night_hours:     frm => frm.trigger('recalculate_totals'),
+    //shift_morning_hours:   frm => frm.trigger('recalculate_totals'),
+    //shift_afternoon_hours: frm => frm.trigger('recalculate_totals')
+  //},
 
    // Section 9: Update Equipment Counts (with logging)
   update_equipment_counts(frm) {
@@ -697,12 +705,55 @@ frappe.ui.form.on('Monthly Production Planning', {
             frm.set_value('waste_bcms_planned', waste_bcms_planned);
             frm.set_value('planned_strip_ratio', planned_strip_ratio);
         }
+        // ALSO trigger totals
+        frm.trigger('recalculate_totals');
+        
+        console.log('📣 monthly_target_bcm changed — triggering recalc');
     }
 
 
 
 });
 
+//Child Table Triggers (diagnostic version)
+frappe.ui.form.on('Monthly Production Days', {
+  shift_day_hours: function (frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    console.log('🟨 shift_day_hours changed', {
+      cdn,
+      ref: row.hourly_production_reference,
+      newVal: row.shift_day_hours
+    });
+    frm.trigger('recalculate_totals');
+  },
+  shift_night_hours: function (frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    console.log('🟨 shift_night_hours changed', {
+      cdn,
+      ref: row.hourly_production_reference,
+      newVal: row.shift_night_hours
+    });
+    frm.trigger('recalculate_totals');
+  },
+  shift_morning_hours: function (frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    console.log('🟨 shift_morning_hours changed', {
+      cdn,
+      ref: row.hourly_production_reference,
+      newVal: row.shift_morning_hours
+    });
+    frm.trigger('recalculate_totals');
+  },
+  shift_afternoon_hours: function (frm, cdt, cdn) {
+    const row = locals[cdt][cdn];
+    console.log('🟨 shift_afternoon_hours changed', {
+      cdn,
+      ref: row.hourly_production_reference,
+      newVal: row.shift_afternoon_hours
+    });
+    frm.trigger('recalculate_totals');
+  }
+});
 
 // When either source field changes on a Geo_mat_layer row:
 frappe.ui.form.on('Geo_mat_layer', {

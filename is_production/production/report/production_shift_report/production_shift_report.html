@@ -1,0 +1,91 @@
+{%
+	// Retrieve primary columns and data using the standard API.
+	var columns = report.get_columns_for_print();
+	columns = columns.filter(col => !col.hidden);
+	var data = data;  // data is the second element of the tuple
+	if (columns.length > 8) {
+	    frappe.throw(__("Too many columns. Export the report and print it using a spreadsheet application."));
+	}
+%}
+
+<style>
+	.financial-statements-important td {
+		font-weight: bold;
+	}
+	.financial-statements-blank-row td {
+		height: 37px;
+	}
+	.chart-area {
+	    margin: 20px 0;
+	}
+</style>
+
+<h2 class="text-center">{%= __(report.report_name) %}</h2>
+<h3 class="text-center">{%= filters.company %}</h3>
+{% if (filters.site) { %}
+	<h3 class="text-center">{%= filters.site %}</h3>
+{% } %}
+<h3 class="text-center">{%= filters.fiscal_year %}</h3>
+<h5 class="text-center">
+	{%= __("Currency") %} : {%= filters.presentation_currency || erpnext.get_currency(filters.company) %} 
+</h5>
+{% if (filters.from_date) { %}
+	<h5 class="text-center">
+		{%= frappe.datetime.str_to_user(filters.from_date) %} - {%= frappe.datetime.str_to_user(filters.to_date) %} 
+	</h5>
+{% } %}
+<hr>
+
+<!-- Primary Table (Production Hierarchy without Day grouping) -->
+<h4 class="text-center">Primary Production Data (Total BCMs Hierarchy)</h4>
+<table class="table table-bordered">
+	<thead>
+		<tr>
+			<th style="width: {%= 100 - (columns.length - 1) * 13 %}%"></th>
+			{% for (let i = 1, l = columns.length; i < l; i++) { %}
+				<th class="text-right">{%= columns[i].label %}</th>
+			{% } %}
+		</tr>
+	</thead>
+	<tbody>
+		{% for (let j = 0, k = data.length; j < k; j++) { %}
+			{%
+				var row = data[j];
+				var row_class = row.is_group ? "financial-statements-important" : "";
+			%}
+			<tr class="{%= row_class %}">
+				<td>
+					<span style="padding-left: {%= cint(row.indent) * 2 %}em">{%= row.label %}</span>
+				</td>
+				{% for (let i = 1, l = columns.length; i < l; i++) { %}
+					<td class="text-right">
+						{% const fieldname = columns[i].fieldname; %}
+						{% if (!is_null(row[fieldname])) { %}
+							{%= frappe.format(row[fieldname], columns[i], {}, row) %} 
+						{% } %}
+					</td>
+				{% } %}
+			</tr>
+		{% } %}
+	</tbody>
+</table>
+
+<!-- Primary Chart -->
+{% if (chart && chart.primary) { %}
+    <h4 class="text-center">Primary Chart (Production Data)</h4>
+    <div class="chart-area">
+        {%= frappe.render_chart(chart.primary) %}
+    </div>
+{% } %}
+
+<!-- Secondary Chart (Fuel Cap) -->
+{% if (chart && chart.secondary) { %}
+    <h4 class="text-center">Secondary Chart (Fuel Cap)</h4>
+    <div class="chart-area">
+        {%= frappe.render_chart(chart.secondary) %}
+    </div>
+{% } %}
+
+<p class="text-right text-muted">
+	Printed On {%= frappe.datetime.str_to_user(frappe.datetime.get_datetime_as_string()) %}
+</p>

@@ -1,3 +1,57 @@
+/*
+ * Offline Sync Capabilities
+ * ------------------------
+ * This form supports full offline functionality:
+ * - Detects online/offline status automatically
+ * - Caches form changes when offline
+ * - Shows offline status indicator and controls
+ * - Syncs changes automatically when back online
+ * - Allows manual sync of cached changes
+ * - Preserves all form fields and child tables when offline
+ * - Provides UI feedback for offline state and sync operations
+ */
+
+// --- Offline status tag and sync popup ---
+function showOfflineStatus(frm) {
+    if (!frm) return;
+    let tagId = 'offline-status-tag';
+    let $tag = $('#' + tagId);
+    // Use form header or wrapper for robustness
+    let $header = frm.$wrapper.find('.form-title, .page-title') || frm.$wrapper;
+    if (!window.HourlyProductionOffline.isOnline()) {
+        if ($tag.length === 0) {
+            let $el = $('<span id="' + tagId + '" class="indicator orange" style="margin-left:10px;">Offline</span>');
+            if ($header.length) {
+                $header.append($el);
+            } else {
+                frm.$wrapper.prepend($el);
+            }
+        }
+    } else {
+        $tag.remove();
+    }
+}
+
+// Listen for online/offline events to update tag and show sync popup
+function setupOfflineStatusEvents(frm) {
+    window.addEventListener('offline', () => showOfflineStatus(frm));
+    window.addEventListener('online', () => {
+        showOfflineStatus(frm);
+        // Wait for sync, then show popup
+        window.HourlyProductionOffline.syncCachedDocs().then(() => {
+            if (frappe.show_alert) {
+                frappe.show_alert({
+                    message: __('Offline changes synced!'),
+                    indicator: 'green'
+                });
+            } else {
+                frappe.msgprint(__('Offline changes synced!'));
+            }
+        });
+    });
+}
+// Import offline sync utility
+frappe.require('/assets/is_production/js/offline_sync.js');
 //Complete table is working and no ui
 // apps/is_production/public/js/hourly_production.js
 // 
@@ -644,8 +698,10 @@ frappe.ui.form.on('Mining Areas Options', {
 
 frappe.ui.form.on('Hourly Production', {
     setup(frm) {
-
-         cleanupUIState(frm);
+        // Load offline sync utility
+        frappe.require('/assets/is_production/js/offline_sync.js');
+        
+        cleanupUIState(frm);
         // ——————————————————————————————
         // 1) Prime child‐table selects with a blank entry
         // ——————————————————————————————
@@ -707,6 +763,74 @@ frappe.ui.form.on('Hourly Production', {
         if (frm.is_new()) {
             cleanupUIState(frm);
         }
+        
+        frappe.require(['/assets/is_production/js/offline_sync.js'], function() {
+            // Ensure offline sync is ready
+            if (!window.HourlyProductionOffline) {
+                console.error('Offline sync utility not loaded');
+                return;
+            }
+            
+            // Restore cached doc if offline and cached
+            if (!window.HourlyProductionOffline.isOnline()) {
+                const cached = window.HourlyProductionOffline.getCachedDocs().find(d => d.name === frm.doc.name);
+                if (cached) {
+                    frappe.confirm(
+                        __('You have unsynced offline changes for this record. Restore them?'),
+                        () => {
+                            // Properly restore all doc fields and child tables
+                            frm.doc.truck_loads = cached.truck_loads || [];
+                            frm.doc.dozer_production = cached.dozer_production || [];
+                            frm.doc.mining_areas_options = cached.mining_areas_options || [];
+                            frm.doc.ts_area_bcm_total = cached.ts_area_bcm_total || [];
+                            frm.doc.geo_mat_total_bcm = cached.geo_mat_total_bcm || [];
+                            
+                            // Copy over all other fields
+                            Object.keys(cached).forEach(key => {
+                                if (!Array.isArray(cached[key]) && typeof cached[key] !== 'object') {
+                                    frm.doc[key] = cached[key];
+                                }
+                            });
+                            
+                            // Refresh all fields and child tables
+                            frm.refresh();
+                            ['truck_loads', 'dozer_production', 'mining_areas_options', 
+                             'ts_area_bcm_total', 'geo_mat_total_bcm'].forEach(table => {
+                                frm.refresh_field(table);
+                            });
+                            
+                            // Show confirmation
+                            frappe.show_alert({
+                                message: __('Offline changes restored'),
+                                indicator: 'green'
+                            });
+                        }
+                    );
+                }
+            }
+            
+            // Setup offline status tag and events (robust)
+            setTimeout(() => {
+                showOfflineStatus(frm);
+                setupOfflineStatusEvents(frm);
+            }, 300);
+            
+            // Add offline mode indicator and controls
+            if (!window.HourlyProductionOffline.isOnline()) {
+                frm.page.set_indicator('Offline Mode', 'orange');
+                
+                // Add offline controls if needed
+                if (!frm.custom_buttons['View Cached Changes']) {
+                    frm.add_custom_button(__('View Cached Changes'), function() {
+                        const docs = window.HourlyProductionOffline.getCachedDocs();
+                        const formattedDocs = docs.map(doc => {
+                            return `${doc.name} (${doc.doctype})`;
+                        }).join('\n');
+                        frappe.msgprint(formattedDocs || 'No cached changes');
+                    }, __('Offline'));
+                }
+            }
+        });
     },
      total_coal_bcm(frm) {
         if (frm.doc.total_coal_bcm) {
@@ -716,13 +840,51 @@ frappe.ui.form.on('Hourly Production', {
         }},
 
     refresh(frm) {
-         if (frm.is_saving) return;
+        if (frm.is_saving) return;
 
         if (frm.is_new() && uiInitialized) {
-        cleanupUIState(frm);
+            cleanupUIState(frm);
         }
         
         frm.set_df_property('whats_send', 'label', 'Send WhatsApp');
+        
+        // Ensure offline sync utility is loaded and check status
+        frappe.require('/assets/is_production/js/offline_sync.js').then(() => {
+            // Show offline status and handle cached changes
+            const cachedDocs = window.HourlyProductionOffline.getCachedDocs();
+            const hasCachedChanges = cachedDocs.some(doc => doc.name === frm.doc.name);
+            
+            if (!window.HourlyProductionOffline.isOnline()) {
+                frm.page.set_indicator('Offline Mode', 'orange');
+                
+                // Show view cached changes button
+                frm.add_custom_button(__('View Cached Changes'), function() {
+                    const formattedDocs = cachedDocs.map(doc => {
+                        return `${doc.name} (${doc.doctype})`;
+                    }).join('\n');
+                    frappe.msgprint(formattedDocs || 'No cached changes');
+                }, __('Offline'));
+                
+            } else if (hasCachedChanges) {
+                frm.page.set_indicator('Has offline changes', 'orange');
+                
+                // Show sync button
+                frm.add_custom_button(__('Sync Changes'), function() {
+                    window.HourlyProductionOffline.syncCachedDocs().then((results) => {
+                        if (results.success > 0) {
+                            frappe.show_alert({
+                                message: __('Changes synced successfully!'),
+                                indicator: 'green'
+                            });
+                            frm.reload_doc();
+                        }
+                    });
+                }, __('Offline'));
+            } else {
+                // Clear indicator if online and no cached changes
+                frm.page.clear_indicator();
+            }
+        });
 
         if (frm.doc.total_coal_bcm) {
             frm.set_value('coal_tons_total', frm.doc.total_coal_bcm * 1.5);
@@ -775,6 +937,18 @@ frappe.ui.form.on('Hourly Production', {
         if (!frm.is_new()) {
             calculate_excavators_count(frm);
         }
+
+    // Update offline status tag (robust)
+    setTimeout(() => showOfflineStatus(frm), 300);
+
+        // Add manual sync button if offline changes exist
+        if (window.HourlyProductionOffline.getCachedDocs().length > 0) {
+            frm.add_custom_button(__('Sync Offline Changes'), function() {
+                window.HourlyProductionOffline.syncCachedDocs().then(() => {
+                    frappe.show_alert('Offline changes synced!');
+                });
+            });
+        }
         
     },
 
@@ -822,6 +996,15 @@ frappe.ui.form.on('Hourly Production', {
     if (frm.is_new() || !frm.doc.dozer_production || frm.doc.dozer_production.length === 0) {
         populate_dozer_production_table(frm);
     }
+        // If offline, cache doc on location change
+        if (!window.HourlyProductionOffline.isOnline()) {
+            window.HourlyProductionOffline.cacheDoc(frm.doc);
+            frappe.show_alert({
+                message: __('Offline: changes cached and will sync when online.'),
+                indicator: 'orange'
+            });
+        }
+    setTimeout(() => showOfflineStatus(frm), 300);
     },
 
     prod_date(frm) {
@@ -859,68 +1042,102 @@ frappe.ui.form.on('Hourly Production', {
 
 after_save(frm) {
     console.log('After save triggered');
-    
     // Prevent multiple rapid saves
     if (frm.is_saving) {
         console.log('Save already in progress, skipping');
         return;
     }
     
-    if (frm.doc.total_coal_bcm) {
+    frappe.require(['/assets/is_production/js/offline_sync.js'], function() {
+        // Check if we're offline
+        if (window.HourlyProductionOffline && !window.HourlyProductionOffline.isOnline()) {
+            // Cache the full doc with all its fields and child tables
+            const docToCache = {
+                ...frm.doc,
+                doctype: frm.doctype,
+                truck_loads: frm.doc.truck_loads || [],
+                dozer_production: frm.doc.dozer_production || [],
+                mining_areas_options: frm.doc.mining_areas_options || [],
+                ts_area_bcm_total: frm.doc.ts_area_bcm_total || [],
+                geo_mat_total_bcm: frm.doc.geo_mat_total_bcm || []
+            };
+            
+            window.HourlyProductionOffline.cacheDoc(docToCache);
+            frm.page.set_indicator('Saved Offline', 'orange');
+            
+            frappe.show_alert({
+                message: __('You are offline. Changes are saved locally and will sync when online.'),
+                indicator: 'orange'
+            });
+            
+            // Add sync button if not already present
+            if (!frm.custom_buttons['Sync Changes']) {
+                frm.add_custom_button(__('Sync Changes'), function() {
+                    window.HourlyProductionOffline.syncCachedDocs().then((results) => {
+                        if (results.success > 0) {
+                            frappe.show_alert({
+                                message: __('Changes synced successfully!'),
+                                indicator: 'green'
+                            });
+                            frm.reload_doc();
+                        }
+                    });
+                }, __('Offline'));
+            }
+            
+            return false;
+        }
+        
+        // Handle online save operations
+        if (frm.doc.total_coal_bcm) {
             frm.set_value('coal_tons_total', frm.doc.total_coal_bcm * 1.5);
         } else if (frm.doc.total_coal_bcm === 0) {
             frm.set_value('coal_tons_total', 0);
         }
-    // Mark that we're doing a save operation
-    frm.is_saving = true;
-    
-    // Sync MTD data first - this is a server call that doesn't affect form state
-    sync_mtd_data_silent(frm);
-    
-    // Use setTimeout to allow the save to complete fully before doing UI updates
-    setTimeout(() => {
-        try {
-            // Update options without triggering form changes
-            update_mining_area_trucks_options(frm);
-            update_mining_area_dozer_options(frm);
-            
-            // Calculate totals without triggering dirty state
-            if (frm.doc.geo_mat_total_bcm && frm.doc.geo_mat_total_bcm.length > 0) {
-                calculate_geo_mat_bcm_totals_silent(frm);
-            }
-            
-            // Also calculate area totals
-            calculate_ts_area_bcm_totals_silent(frm);
-            calculate_day_total(frm);
-            // Ensure form is marked as clean first
-            frm.doc.__unsaved = 0;
-            frm.dirty = false;
-            
-            // Refresh the form toolbar to update save button state
-            if (frm.toolbar && frm.toolbar.refresh) {
-                frm.toolbar.refresh();
-            }
-            
-            // Only refresh UI if it exists and document has required data
-            // Use a longer timeout to ensure save is completely finished
-            setTimeout(() => {
-                if (frm.hourlyProductionUI && frm.doc.location && frm.doc.docstatus !== 2) {
-                    console.log('Reloading UI after save');
-                    frm.hourlyProductionUI.loadUI();
+        
+        // Mark that we're doing a save operation
+        frm.is_saving = true;
+        // Sync MTD data first - this is a server call that doesn't affect form state
+        sync_mtd_data_silent(frm);
+        // Use setTimeout to allow the save to complete fully before doing UI updates
+        setTimeout(() => {
+            try {
+                // Update options without triggering form changes
+                update_mining_area_trucks_options(frm);
+                update_mining_area_dozer_options(frm);
+                // Calculate totals without triggering dirty state
+                if (frm.doc.geo_mat_total_bcm && frm.doc.geo_mat_total_bcm.length > 0) {
+                    calculate_geo_mat_bcm_totals_silent(frm);
                 }
-            }, 100);
-            
-        } catch (error) {
-            console.error('Error in after_save cleanup:', error);
-        } finally {
-            // Always reset the saving flag
-            frm.is_saving = false;
-        }
-    }, 300);
-    
-    if (!frm.is_new()) {
+                // Also calculate area totals
+                calculate_ts_area_bcm_totals_silent(frm);
+                calculate_day_total(frm);
+                // Ensure form is marked as clean first
+                frm.doc.__unsaved = 0;
+                frm.dirty = false;
+                // Refresh the form toolbar to update save button state
+                if (frm.toolbar && frm.toolbar.refresh) {
+                    frm.toolbar.refresh();
+                }
+                // Only refresh UI if it exists and document has required data
+                // Use a longer timeout to ensure save is completely finished
+                setTimeout(() => {
+                    if (frm.hourlyProductionUI && frm.doc.location && frm.doc.docstatus !== 2) {
+                        console.log('Reloading UI after save');
+                        frm.hourlyProductionUI.loadUI();
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Error in after_save cleanup:', error);
+            } finally {
+                // Always reset the saving flag
+                frm.is_saving = false;
+            }
+        }, 300);
+        if (!frm.is_new()) {
             calculate_excavators_count(frm);
         }
+    });
 },
 
 
@@ -1010,7 +1227,8 @@ function populate_truck_loads_and_lookup(frm) {
                         ['asset_category', 'in', ['ADT','RIGID']],
                         ['docstatus', '=', 1]
                     ],
-                    order_by: 'asset_name asc'
+                    order_by: 'asset_name asc',
+                    limit_page_length: 500   // <- add this
                 },
                 callback: r => {
                     frm.clear_table('truck_loads');
