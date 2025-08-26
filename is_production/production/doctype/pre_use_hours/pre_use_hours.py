@@ -257,14 +257,15 @@ def get_monthly_production_plan(location, shift_date):
 
 def validate_shift_date(doc, monthly_plan):
     try:
-        normalized_date = normalize_to_ui_date(doc.shift_date)
-        if datetime.strptime(normalized_date, "%d-%m-%Y").weekday() == 6:
-            frappe.throw("Shift Date cannot be a Sunday.")
+        # Keep normalization to ensure date is valid, but no Sunday restriction
+        normalize_to_ui_date(doc.shift_date)
+
         if monthly_plan["site_status"] != "Producing":
             frappe.throw("Pre-Use Hours can only be saved if the site's status is 'Producing'.")
     except Exception:
         frappe.log_error(title="Shift Date Validation Error")
         raise
+
 
 
 def check_previous_record_sequence(doc, monthly_plan):
@@ -298,10 +299,9 @@ def validate_next_shift_and_sequence(doc, previous_doc, monthly_plan):
         curr_date = datetime.strptime(normalize_to_db_date(doc.shift_date), "%Y-%m-%d").date()
         if previous_shift == "Night" and required_shift in ("Day", "Morning"):
             expected = prev_date + timedelta(days=1)
-            if expected.weekday() == 6:
-                expected += timedelta(days=1)
             if curr_date != expected:
                 frappe.throw(f"{required_shift} shift must occur on {expected.strftime('%d-%m-%Y')}.")
+
         elif doc.shift in ("Afternoon", "Night") and curr_date != prev_date:
             frappe.throw(f"{doc.shift} shift must occur on the same date as the previous record.")
     except Exception:

@@ -45,7 +45,7 @@ frappe.query_reports["Production Shift Report"] = {
         if (!vals.from_date || !vals.to_date) return;
 
         frappe.call({
-            method: "is_production.production.report.production_report.production_report.get_monthly_planning_records",
+            method: "is_production.production.report.production_shift_report.production_shift_report.get_monthly_planning_records",
             args: {
                 from_date: vals.from_date,
                 to_date:   vals.to_date
