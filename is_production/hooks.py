@@ -57,3 +57,6 @@ app_include_css = [
     "/assets/is_production/css/hourly_production_ui.css"
 ]
 
+page_js = {
+    "production-dashboard": "public/js/production_dashboard.js",
+}
