@@ -1,0 +1,29 @@
+{
+ "content": null,
+ "creation": "2025-09-04 07:23:58.423096",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2025-09-04 08:23:43.588158",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "production-dashboard",
+ "owner": "Administrator",
+ "page_name": "production-dashboard",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Production Manager"
+  },
+  {
+   "role": "Production User"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Production Dashboard"
+}
