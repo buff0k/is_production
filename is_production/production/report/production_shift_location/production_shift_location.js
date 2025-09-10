@@ -2,11 +2,38 @@
 // For license information, please see license.txt
 
 frappe.query_reports["Production Shift Location"] = {
-    onload: function(report) {
-        const today = frappe.datetime.get_today();
-        report.set_filter_value('start_date', today);
-        report.set_filter_value('end_date', today);
-    }
+    "filters": [
+        {
+            "fieldname": "start_date",
+            "label": __("Start Date"),
+            "fieldtype": "Date",
+            "reqd": 1,
+            "default": frappe.datetime.get_today()
+        },
+        {
+            "fieldname": "end_date",
+            "label": __("End Date"),
+            "fieldtype": "Date",
+            "reqd": 1,
+            "default": frappe.datetime.get_today()
+        },
+        {
+            "fieldname": "site",
+            "label": __("Site"),
+            "fieldtype": "Link",
+            "options": "Location",
+            "reqd": 1
+        },
+        {
+            "fieldname": "shift",
+            "label": __("Shift"),
+            "fieldtype": "Select",
+            "options": "\nDay\nNight\nMorning\nAfternoon",  // ← first option empty (means 'all')
+            "reqd": 0
+        }
+    ]
 };
+
+
 
 

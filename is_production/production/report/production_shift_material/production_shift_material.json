@@ -28,13 +28,21 @@
    "mandatory": 1,
    "options": "Location",
    "wildcard_filter": 0
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "label": "Shift",
+   "mandatory": 0,
+   "options": "",
+   "wildcard_filter": 0
   }
  ],
  "idx": 0,
  "is_standard": "Yes",
  "letter_head": "Isambane Mining",
  "letterhead": null,
- "modified": "2025-08-26 16:12:56.916064",
+ "modified": "2025-09-08 12:23:35.576763",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Shift Material",

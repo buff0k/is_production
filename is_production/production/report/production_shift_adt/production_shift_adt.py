@@ -1,70 +1,146 @@
-# Copyright (c) 2025, Isambane Mining (Pty) Ltd and contributors
+# Copyright (c) 2025, Isambane Mining (Pty) Ltd
 # For license information, please see license.txt
 
-# import frappe
-# apps/is_production/is_production/production/report/production_shift_adt/production_shift_adt.py
-
 import frappe
+from frappe import _
 
 def execute(filters=None):
-    filters = frappe._dict(filters or {})
-    columns = get_columns()
-    data = get_data(filters)
-    return columns, data
+    if not filters.get("start_date") or not filters.get("end_date") or not filters.get("site"):
+        frappe.throw(_("Filters (Start Date, End Date, Site) are required"))
 
+    columns = get_columns()
+    data, grand_total_bcm, grand_total_tons = get_data(filters)
+    return columns, data, None, None, get_report_summary(grand_total_bcm, grand_total_tons)
 
 def get_columns():
     return [
-        {"label": "Shift", "fieldname": "shift", "fieldtype": "Data", "width": 100},
-        {"label": "ADT Truck", "fieldname": "truck", "fieldtype": "Data", "width": 180},
-        {"label": "Total BCM (Cumulative)", "fieldname": "cumulative_bcm", "fieldtype": "Float", "width": 150},
+        {"label": _("Material Category"), "fieldname": "mat_type", "fieldtype": "Data", "width": 180, "group": 1},
+        {"label": _("Geo / Material Layer"), "fieldname": "geo_ref_description", "fieldtype": "Data", "width": 250},
+        {"label": _("Total BCMs"), "fieldname": "total_bcm", "fieldtype": "Float", "width": 120},
+        {"label": _("Coal Tons"), "fieldname": "coal_tons", "fieldtype": "Float", "width": 120},
     ]
 
-
 def get_data(filters):
-    if not (filters.start_date and filters.end_date and filters.site):
-        return []
+    shift_condition = ""
+    if filters.get("shift"):
+        shift_condition = " AND hp.shift = %(shift)s"
 
-    # Fetch per-truck totals
-    rows = frappe.db.sql(
-        """
-        SELECT hp.prod_date, hp.shift, tl.asset_name_truck AS truck, SUM(tl.bcms) AS bcm_total
+    # --- Truck + Shovel ---
+    truck_totals = frappe.db.sql(f"""
+        SELECT
+            tl.mat_type,
+            tl.geo_mat_layer_truck AS geo_ref_description,
+            SUM(tl.bcms) AS total_bcm
         FROM `tabHourly Production` hp
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
-        WHERE hp.location = %(site)s
-          AND hp.prod_date BETWEEN %(start_date)s AND %(end_date)s
-          AND hp.docstatus < 2
-        GROUP BY hp.prod_date, hp.shift, tl.asset_name_truck
-        ORDER BY hp.prod_date, hp.shift, tl.asset_name_truck
-        """,
-        {
-            "site": filters.site,
-            "start_date": filters.start_date,
-            "end_date": filters.end_date,
-        },
-        as_dict=True,
-    )
+        WHERE hp.prod_date BETWEEN %(start_date)s AND %(end_date)s
+          AND hp.location = %(site)s
+          {shift_condition}
+        GROUP BY tl.mat_type, tl.geo_mat_layer_truck
+    """, filters, as_dict=True)
+
+    # --- Dozer ---
+    dozer_totals = frappe.db.sql(f"""
+        SELECT
+            dp.dozer_geo_mat_layer AS geo_ref_description,
+            dp.dozer_geo_mat_layer AS mat_type,
+            SUM(dp.bcm_hour) AS total_bcm
+        FROM `tabHourly Production` hp
+        JOIN `tabDozer Production` dp ON dp.parent = hp.name
+        WHERE hp.prod_date BETWEEN %(start_date)s AND %(end_date)s
+          AND hp.location = %(site)s
+          {shift_condition}
+        GROUP BY dp.dozer_geo_mat_layer
+    """, filters, as_dict=True)
+
+    combined = truck_totals + dozer_totals
+
+    # --- Normalize into categories (Coal, Hards, Softs) ---
+    def classify(mat_type):
+        if not mat_type:
+            return "Unassigned"
+        mt = mat_type.lower()
+        if "coal" in mt:
+            return "Coal"
+        elif "hard" in mt:
+            return "Hards"
+        elif "soft" in mt:
+            return "Softs"
+        return "Other"
+
+    grouped_results = {}
+    grand_total_bcm = 0
+    grand_total_tons = 0
+
+    for r in combined:
+        category = classify(r["mat_type"])
+        bcm_val = r["total_bcm"] or 0
+        geo_desc = r["geo_ref_description"] or "Unassigned"
+
+        coal_tons = bcm_val * 1.5 if category == "Coal" else None
+
+        if category not in grouped_results:
+            grouped_results[category] = {"total": 0, "total_tons": 0, "children": []}
+
+        grouped_results[category]["total"] += bcm_val
+        grouped_results[category]["total_tons"] += coal_tons or 0
+        grouped_results[category]["children"].append({
+            "mat_type": None,
+            "geo_ref_description": geo_desc,
+            "total_bcm": bcm_val,
+            "coal_tons": coal_tons,
+            "indent": 1
+        })
+
+        grand_total_bcm += bcm_val
+        grand_total_tons += coal_tons or 0
 
     results = []
-    shift_totals = {}
+    for category in ["Coal", "Hards", "Softs", "Other", "Unassigned"]:
+        if category in grouped_results:
+            results.append({
+                "mat_type": category,
+                "geo_ref_description": None,
+                "total_bcm": grouped_results[category]["total"],
+                "coal_tons": grouped_results[category]["total_tons"] if category == "Coal" else None,
+                "indent": 0
+            })
+            results.extend(sorted(
+                grouped_results[category]["children"],
+                key=lambda x: str(x.get("geo_ref_description") or "")
+            ))
 
-    # Build per-truck rows and accumulate per-shift totals
-    for r in rows:
-        results.append({
-            "shift": r.shift,
-            "truck": r.truck,
-            "cumulative_bcm": r.bcm_total or 0,
+    return results, grand_total_bcm, grand_total_tons
+
+def get_report_summary(grand_total_bcm, grand_total_tons):
+    summary = [
+        {
+            "label": _("Grand Total BCMs"),
+            "value": f"{grand_total_bcm:,.0f}",  # ✅ formatted with commas
+            "indicator": "Blue"
+        },
+    ]
+    if grand_total_tons:
+        summary.append({
+            "label": _("Grand Total Coal Tons"),
+            "value": f"{grand_total_tons:,.0f}",  # ✅ formatted with commas
+            "indicator": "Green"
         })
+    return summary
 
-        shift_totals.setdefault(r.shift, 0)
-        shift_totals[r.shift] += r.bcm_total or 0
 
-    # Add grand total rows per shift
-    for shift, total in shift_totals.items():
-        results.append({
-            "shift": shift,
-            "truck": "TOTAL",
-            "cumulative_bcm": total,
-        })
 
-    return results
+
+
+
+
+
+
+
+
+
+
+
+
+
+

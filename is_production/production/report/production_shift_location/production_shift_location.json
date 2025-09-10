@@ -28,13 +28,21 @@
    "mandatory": 1,
    "options": "Location",
    "wildcard_filter": 0
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "label": "Shift",
+   "mandatory": 0,
+   "options": "Day\nNight\nMorning\nAfternoon",
+   "wildcard_filter": 0
   }
  ],
  "idx": 0,
  "is_standard": "Yes",
  "letter_head": "",
  "letterhead": null,
- "modified": "2025-09-04 05:52:07.219037",
+ "modified": "2025-09-08 09:12:03.484218",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Shift Location",

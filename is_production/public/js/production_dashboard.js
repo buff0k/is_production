@@ -1,13 +1,5 @@
-// Copyright (c) 2025, BuFf0k and contributors
+// Copyright (c) 2025, Isambane Mining (Pty) Ltd
 // For license information, please see license.txt
-
-/* Production Dashboard
- * - Full-width chart: BCM by Plant No. (title shows Total BCM)
- * - Row 2: Material (L) • Location (R)
- * - Row 3: Excavators (L, +BCM/hr) • ADT (R, +BCM/hr)
- * - Row 4: Dozing (full width, +BCM/hr)
- * - Adds uniform vertical spacing between rows and auto-refreshes every 5 minutes
- */
 
 frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   const page = frappe.ui.make_app_page({
@@ -16,34 +8,35 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     single_column: true
   });
 
-  // -------- Normalize main element (handles jQuery-wrapped page.main) --------
-  const mainEl =
-    (page.main && page.main.jquery && page.main.get && page.main.get(0)) ||
-    (page.main && page.main.nodeType === 1 && page.main) ||
-    (page.body && page.body.jquery && page.body.get && page.body.get(0)) ||
-    (page.body && page.body.nodeType === 1 && page.body) ||
-    (wrapper && wrapper.$wrapper && wrapper.$wrapper.get && wrapper.$wrapper.get(0)) ||
-    wrapper;
+  const mainEl = page.main.get(0);
 
-  if (!mainEl) {
-    console.error('Production Dashboard: main container not found');
-    frappe.msgprint(__('Unable to render dashboard (container missing).'));
-    return;
-  }
+  // -------- Filters --------
+  const start = page.add_field({
+    fieldname: 'start_date', label: 'Start Date',
+    fieldtype: 'Date', reqd: 0
+  });
+  const end = page.add_field({
+    fieldname: 'end_date', label: 'End Date',
+    fieldtype: 'Date', reqd: 0
+  });
+  const site = page.add_field({
+    fieldname: 'site', label: 'Site',
+    fieldtype: 'Link', options: 'Location', reqd: 0
+  });
+  const shift = page.add_field({
+    fieldname: 'shift', label: 'Shift',
+    fieldtype: 'Select',
+    options: ["", "Day", "Night", "Morning", "Afternoon"], // blank = all
+    reqd: 0
+  });
 
-  // ------------- Shared Filters -------------
-  const start = page.add_field({ fieldname: 'start_date', label: 'Start Date', fieldtype: 'Date', reqd: 1 });
-  const end   = page.add_field({ fieldname: 'end_date',   label: 'End Date',   fieldtype: 'Date', reqd: 1 });
-  const site  = page.add_field({ fieldname: 'site',       label: 'Site',       fieldtype: 'Link', options: 'Location', reqd: 1 });
-
-  // Primary action to manually trigger
   page.set_primary_action(__('Run'), () => refresh_all(true));
 
-  // ------------- Helpers for building UI -------------
-  const makeCard = (title, padding = '12px') => {
+  // -------- Helpers --------
+  const makeCard = (title) => {
     const card = document.createElement('div');
     card.className = 'frappe-card';
-    card.style.padding = padding;
+    card.style.padding = '12px';
 
     const hWrap = document.createElement('div');
     hWrap.style.display = 'flex';
@@ -55,7 +48,7 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     h.style.marginBottom = '6px';
     h.textContent = title;
 
-    const hExtra = document.createElement('div'); // right-side inline metrics (Totals / BCM/hr)
+    const hExtra = document.createElement('div');
     hExtra.className = 'text-muted';
     hExtra.style.marginBottom = '6px';
     hExtra.style.marginLeft = '12px';
@@ -67,236 +60,191 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     return { card, titleEl: h, extraEl: hExtra };
   };
 
-  const stripTags = (s) => (s == null ? '' : String(s).replace(/<[^>]*>/g, ''));
   const setTitleExtra = (extraEl, parts) => {
-    if (!extraEl) return;
     while (extraEl.firstChild) extraEl.removeChild(extraEl.firstChild);
     (parts || [])
-      .filter(p => p && p.value !== undefined && p.value !== null && p.value !== '')
+      .filter(p => p.value !== undefined && p.value !== null && p.value !== '')
       .forEach(p => {
         const span = document.createElement('span');
         span.style.marginLeft = '12px';
-
         const b = document.createElement('b');
         b.textContent = (p.label || '') + ':';
         span.appendChild(b);
-
-        span.appendChild(document.createTextNode(' ' + stripTags(p.value)));
+        span.appendChild(document.createTextNode(' ' + p.value));
         extraEl.appendChild(span);
       });
   };
 
-  const addRowSpacing = (el) => {
-    el.classList.add('mb-4'); // uniform bottom margin between rows
-    return el;
-  };
-
-  // ------------- Layout -------------
-
-  // Row 1: Chart (full width)
-  const chartRow = addRowSpacing(document.createElement('div'));
-  const chartCardBits = makeCard('BCM by Plant No.', '16px');
-  const chartMount = document.createElement('div');
-  chartMount.id = 'chart-plant';
-  const chartEmpty = document.createElement('div');
-  chartEmpty.id = 'chart-plant-empty';
-  chartEmpty.className = 'text-muted';
-  chartEmpty.style.display = 'none';
-  chartEmpty.textContent = 'No data';
-  chartCardBits.card.appendChild(chartMount);
-  chartCardBits.card.appendChild(chartEmpty);
-  chartRow.appendChild(chartCardBits.card);
-  mainEl.appendChild(chartRow);
-
-  // Row 2: Material (L) • Location (R)
-  const row2 = addRowSpacing(document.createElement('div'));
-  row2.className = 'row g-3';
-  const matCol = document.createElement('div'); matCol.className = 'col-lg-6';
-  const locCol = document.createElement('div'); locCol.className = 'col-lg-6';
-
-  const matBits = makeCard('BCM by Material Type');
-  const matMount = document.createElement('div'); matMount.id = 'tbl-material';
-  const matEmpty = document.createElement('div'); matEmpty.id = 'tbl-material-empty'; matEmpty.className = 'text-muted'; matEmpty.style.display = 'none'; matEmpty.textContent = 'No data';
-  matBits.card.appendChild(matMount); matBits.card.appendChild(matEmpty); matCol.appendChild(matBits.card);
-
-  const locBits = makeCard('BCM by Mining Area (Truck + Dozer)');
-  const locMount = document.createElement('div'); locMount.id = 'tbl-location';
-  const locEmpty = document.createElement('div'); locEmpty.id = 'tbl-location-empty'; locEmpty.className = 'text-muted'; locEmpty.style.display = 'none'; locEmpty.textContent = 'No data';
-  locBits.card.appendChild(locMount); locBits.card.appendChild(locEmpty); locCol.appendChild(locBits.card);
-
-  row2.appendChild(matCol); row2.appendChild(locCol); mainEl.appendChild(row2);
-
-  // Row 3: Excavators (L) • ADT (R)
-  const row3 = addRowSpacing(document.createElement('div'));
-  row3.className = 'row g-3';
-  const excCol = document.createElement('div'); excCol.className = 'col-lg-6';
-  const adtCol = document.createElement('div'); adtCol.className = 'col-lg-6';
-
-  const excBits = makeCard('Excavators — per Date');
-  const excMount = document.createElement('div'); excMount.id = 'tbl-excavators';
-  const excEmpty = document.createElement('div'); excEmpty.id = 'tbl-excavators-empty'; excEmpty.className = 'text-muted'; excEmpty.style.display = 'none'; excEmpty.textContent = 'No data';
-  excBits.card.appendChild(excMount); excBits.card.appendChild(excEmpty); excCol.appendChild(excBits.card);
-
-  const adtBits = makeCard('ADT — BCM per Truck');
-  const adtMount = document.createElement('div'); adtMount.id = 'tbl-adt';
-  const adtEmpty = document.createElement('div'); adtEmpty.id = 'tbl-adt-empty'; adtEmpty.className = 'text-muted'; adtEmpty.style.display = 'none'; adtEmpty.textContent = 'No data';
-  adtBits.card.appendChild(adtMount); adtBits.card.appendChild(adtEmpty); adtCol.appendChild(adtBits.card);
-
-  row3.appendChild(excCol); row3.appendChild(adtCol); mainEl.appendChild(row3);
-
-  // Row 4: Dozing (full width)
-  const row4 = addRowSpacing(document.createElement('div'));
-  const dozBits = makeCard('Dozing — per Date/Shift', '12px');
-  const dozMount = document.createElement('div'); dozMount.id = 'tbl-dozing';
-  const dozEmpty = document.createElement('div'); dozEmpty.id = 'tbl-dozing-empty'; dozEmpty.className = 'text-muted'; dozEmpty.style.display = 'none'; dozEmpty.textContent = 'No data';
-  dozBits.card.appendChild(dozMount); dozBits.card.appendChild(dozEmpty);
-  row4.appendChild(dozBits.card);
-  mainEl.appendChild(row4);
-
-  // ------------- Data helpers -------------
-
+  // 🔑 Updated to include summary
   const run_report = (report_name, filters) =>
     frappe.call({
       method: 'frappe.desk.query_report.run',
       args: { report_name, filters, ignore_prepared_report: true }
-    }).then(r => r.message || { result: [], columns: [] })
-      .catch(err => {
-        console.error('Report error:', report_name, err);
-        const msg = (() => {
-          try {
-            if (err && err._server_messages) {
-              const arr = JSON.parse(err._server_messages);
-              if (arr && arr.length) return JSON.parse(arr[0]).message || String(arr[0]);
-            }
-          } catch (_) {}
-          return err?.message || __('Unknown error');
-        })();
-        frappe.msgprint({ title: __('Error running report'), message: __(report_name) + ': ' + msg, indicator: 'red' });
-        return { result: [], columns: [] };
-      });
-
-  const get_shift_hours = async (filters) => {
-    // Approximate: count of Hourly Production docs in range × 12 hours per shift
-    try {
-      const res = await frappe.call({
-        method: 'frappe.client.get_count',
-        args: {
-          doctype: 'Hourly Production',
-          filters: {
-            prod_date: ['between', [filters.start_date, filters.end_date]],
-            location: filters.site,
-            docstatus: ['<', 2]
-          }
-        }
-      });
-      const count = (res && res.message) || 0;
-      return count * 12; // 12h per shift
-    } catch (e) {
-      console.warn('get_shift_hours failed', e);
-      return 0;
-    }
-  };
-
-  function infer_cols_from_rows(rows) {
-    if (!rows.length) return [];
-    const sample = rows[0];
-    return Object.keys(sample).map(k => ({
-      label: frappe.model.unscrub(k),
-      fieldname: k,
-      fieldtype: typeof sample[k] === 'number' ? 'Float' : 'Data',
-      width: 150
-    }));
-  }
-
-  function setEmptyVisible(selector, show) {
-    const el = mainEl.querySelector(selector);
-    if (el) el.style.display = show ? '' : 'none';
-  }
-
-  // ------------- Rendering -------------
-
-  let plantChart;
-
-  async function render_chart_plant(filters) {
-    const res = await run_report('Production Shift Plant', filters);
-    const rows = res.result || [];
-
-    // Aggregate: sum total_bcm by asset (fallback to item_name)
-    const byAsset = {};
-    rows.forEach(r => {
-      const key = r.asset || r.item_name || 'Unknown';
-      byAsset[key] = (byAsset[key] || 0) + (r.total_bcm || 0);
+    }).then(r => {
+      const msg = r.message || {};
+      return {
+        result: msg.result || [],
+        columns: msg.columns || [],
+        summary: msg.report_summary || []
+      };
     });
 
-    const labels = Object.keys(byAsset);
-    const values = labels.map(k => byAsset[k]);
-    const plantTotal = values.reduce((a, b) => a + (Number(b) || 0), 0);
+  // -------- Layout --------
 
-    // Update title extras (Total BCM) — plain text
-    setTitleExtra(chartCardBits.extraEl, [
-      { label: 'Total BCM', value: frappe.format(plantTotal, { fieldtype: 'Float', precision: 2 }) }
-    ]);
+  // Row 1: Total BCM block
+  const totalRow = document.createElement('div');
+  const totalBits = makeCard('Total BCM');
+  const totalValue = document.createElement('div');
+  totalValue.style.fontSize = '22px';
+  totalValue.style.fontWeight = 'bold';
+  totalValue.id = 'total-bcm';
+  totalValue.textContent = '0';
+  totalBits.card.appendChild(totalValue);
+  totalRow.appendChild(totalBits.card);
+  mainEl.appendChild(totalRow);
 
-    const mount = chartMount || mainEl.querySelector('#chart-plant');
-    if (!mount) {
-      console.warn('Chart mount not found');
-      return;
+  // Row 2: Charts (Teams + Dozing)
+  const chartRow = document.createElement('div');
+  chartRow.className = 'row g-3';
+
+  const chartCol1 = document.createElement('div'); chartCol1.className = 'col-lg-6';
+  const chartCol2 = document.createElement('div'); chartCol2.className = 'col-lg-6';
+
+  const teamsBits = makeCard('Production Shift Teams');
+  const teamsMount = document.createElement('div'); teamsMount.id = 'chart-teams';
+  teamsBits.card.appendChild(teamsMount); chartCol1.appendChild(teamsBits.card);
+
+  const dozingBits = makeCard('Production Shift Dozing');
+  const dozingMount = document.createElement('div'); dozingMount.id = 'chart-dozing';
+  dozingBits.card.appendChild(dozingMount); chartCol2.appendChild(dozingBits.card);
+
+  chartRow.appendChild(chartCol1); chartRow.appendChild(chartCol2);
+  mainEl.appendChild(chartRow);
+
+  // Row 3: Material + Location
+  const row3 = document.createElement('div'); row3.className = 'row g-3';
+  const matCol = document.createElement('div'); matCol.className = 'col-lg-6';
+  const locCol = document.createElement('div'); locCol.className = 'col-lg-6';
+
+  const matBits = makeCard('Production Shift Material');
+  const matMount = document.createElement('div'); matMount.id = 'tbl-material';
+  matBits.card.appendChild(matMount); matCol.appendChild(matBits.card);
+
+  const locBits = makeCard('Production Shift Location');
+  const locMount = document.createElement('div'); locMount.id = 'tbl-location';
+  locBits.card.appendChild(locMount); locCol.appendChild(locBits.card);
+
+  row3.appendChild(matCol); row3.appendChild(locCol); mainEl.appendChild(row3);
+
+  // Row 4: Teams + Dozing tables
+  const row4 = document.createElement('div'); row4.className = 'row g-3';
+  const teamsCol = document.createElement('div'); teamsCol.className = 'col-lg-6';
+  const dozingCol = document.createElement('div'); dozingCol.className = 'col-lg-6';
+
+  const teamsTblBits = makeCard('Production Shift Teams (Table)');
+  const teamsTblMount = document.createElement('div'); teamsTblMount.id = 'tbl-teams';
+  teamsTblBits.card.appendChild(teamsTblMount); teamsCol.appendChild(teamsTblBits.card);
+
+  const dozingTblBits = makeCard('Production Shift Dozing (Table)');
+  const dozingTblMount = document.createElement('div'); dozingTblMount.id = 'tbl-dozing';
+  dozingTblBits.card.appendChild(dozingTblMount); dozingCol.appendChild(dozingTblBits.card);
+
+  row4.appendChild(teamsCol); row4.appendChild(dozingCol); mainEl.appendChild(row4);
+
+  // -------- Renderers --------
+  let teamsChart, dozingChart;
+
+  async function render_chart_teams(filters) {
+    const res = await run_report('Production Shift Teams', filters);
+    const parents = (res.result || []).filter(r => Number(r.indent || 0) === 0);
+    const labels = parents.map(r => r.excavator || 'Unknown');
+    const values = parents.map(r => Number(r.bcms) || 0);
+    const total = values.reduce((a,b) => a+b, 0);
+
+    // 🔑 Show report_summary if available, else fallback to manual total
+    if (res.summary && res.summary.length) {
+      setTitleExtra(teamsBits.extraEl, res.summary);
+    } else {
+      setTitleExtra(teamsBits.extraEl, [{ label: 'Total BCM', value: total }]);
     }
 
-    if (!labels.length) {
-      chartEmpty.style.display = '';
-      if (plantChart) {
-        plantChart.update({ labels: [], datasets: [{ name: 'BCM', values: [] }] });
-      }
-      return;
-    }
-    chartEmpty.style.display = 'none';
+    if (!labels.length) return 0;
 
-    const chartData = {
-      labels,
-      datasets: [{ name: 'BCM', values }]
-    };
-
-    if (!plantChart) {
-      plantChart = new frappe.Chart(mount, {
+    const chartData = { labels, datasets: [{ name: 'BCM', values }] };
+    if (!teamsChart) {
+      teamsChart = new frappe.Chart(teamsMount, {
         data: chartData,
         type: 'bar',
         height: 300,
-        barOptions: { spaceRatio: 0.3 }
+        barOptions: { spaceRatio: 0.3 },
+        valuesOverPoints: 1
       });
     } else {
-      plantChart.update(chartData);
+      teamsChart.update(chartData);
     }
+    return total;
   }
 
+  async function render_chart_dozing(filters) {
+    const res = await run_report('Production Shift Dozing', filters);
+    const parents = (res.result || []).filter(r => Number(r.indent || 0) === 0);
+    const labels = parents.map(r => r.label || 'Unknown');
+    const values = parents.map(r => Number(r.bcm_hour) || 0);
+    const total = values.reduce((a,b) => a+b, 0);
+
+    if (res.summary && res.summary.length) {
+      setTitleExtra(dozingBits.extraEl, res.summary);
+    } else {
+      setTitleExtra(dozingBits.extraEl, [{ label: 'Total BCM', value: total }]);
+    }
+
+    if (!labels.length) return 0;
+
+    const chartData = { labels, datasets: [{ name: 'BCM', values }] };
+    if (!dozingChart) {
+      dozingChart = new frappe.Chart(dozingMount, {
+        data: chartData,
+        type: 'bar',
+        height: 300,
+        barOptions: { spaceRatio: 0.3 },
+        valuesOverPoints: 1
+      });
+    } else {
+      dozingChart.update(chartData);
+    }
+    return total;
+  }
+
+  // -------- Collapsible Table Renderer --------
   async function render_table(report_name, filters, mountSelector) {
     const res = await run_report(report_name, filters);
     const rows = res.result || [];
-    const cols = (res.columns && res.columns.length) ? res.columns : infer_cols_from_rows(rows);
-
+    const cols = res.columns || [];
     const mount = mainEl.querySelector(mountSelector);
-    if (!mount) return;
 
     if (!rows.length) {
-      mount.innerHTML = '';
-      setEmptyVisible(mountSelector + '-empty', true);
-      return 0; // return sum
+      mount.innerHTML = '<div class="text-muted">No data</div>';
+      return;
     }
-    setEmptyVisible(mountSelector + '-empty', false);
 
-    const thead = cols.map(c => `<th>${frappe.utils.escape_html(c.label || c.fieldname || '')}</th>`).join('');
-    const tbody = rows.map(r => `
-      <tr>
-        ${cols.map(c => {
-          const v = r[c.fieldname] ?? '';
-          const formatted = (c.fieldtype === 'Float')
-            ? frappe.format(v || 0, { fieldtype: 'Float', precision: c.precision || 2 })
-            : frappe.utils.escape_html(String(v || ''));
-          return `<td style="${c.fieldtype === 'Float' ? 'text-align:right' : ''}">${formatted}</td>`;
-        }).join('')}
-      </tr>
-    `).join('');
+    const thead = cols.map(c => `<th>${c.label}</th>`).join('');
+    const tbody = rows.map(r => {
+      const indent = Number(r.indent || 0);
+      const isParent = indent === 0;
+      return `
+        <tr data-indent="${indent}" class="${isParent ? 'group-row' : 'child-row'}" style="${indent > 0 ? 'display:none;' : ''}">
+          ${cols.map((c, i) => {
+            const v = r[c.fieldname] ?? '';
+            const pad = (i === 0 ? `padding-left:${indent * 20}px;` : '');
+            const bold = (isParent ? 'font-weight:600;' : '');
+            const clickable = (i === 0 && isParent) ? 'class="toggle-cell"' : '';
+            return `<td style="${pad}${bold}" ${clickable}>${v}</td>`;
+          }).join('')}
+        </tr>
+      `;
+    }).join('');
 
+    // render table
     mount.innerHTML = `
       <table class="table table-bordered" style="width:100%">
         <thead><tr>${thead}</tr></thead>
@@ -304,92 +252,76 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
       </table>
     `;
 
-    // Return a total BCM if obvious field exists
-    const sumField = ['total_bcm', 'cumulative_bcm', 'bcm', 'bcm_total'].find(f => rows.length && (f in rows[0]));
-    const total = sumField ? rows.reduce((acc, r) => acc + (Number(r[sumField]) || 0), 0) : 0;
-    return total;
-  }
-
-  // ------------- Refresh flow -------------
-
-  let runningToast;
-
-  async function refresh_all(show_toast) {
-    const filters = {
-      start_date: start.get_value(),
-      end_date: end.get_value(),
-      site: site.get_value()
-    };
-    if (!filters.start_date || !filters.end_date || !filters.site) {
-      if (show_toast) {
-        frappe.show_alert({ message: __('Select Start, End and Site to run'), indicator: 'orange' });
-      }
-      return;
+    // append report summary under table
+    if (res.summary && res.summary.length) {
+      const summaryHtml = res.summary.map(s =>
+        `<div><b>${s.label}:</b> ${s.value}</div>`
+      ).join('');
+      mount.insertAdjacentHTML('beforeend', `<div class="mt-2">${summaryHtml}</div>`);
     }
 
-    if (show_toast) {
-      runningToast = frappe.show_alert({ message: __('Running reports...'), indicator: 'blue' }, 5);
-    }
+    // toggle expand/collapse
+    mount.querySelectorAll('.toggle-cell').forEach(cell => {
+      cell.style.cursor = 'pointer';
+      cell.addEventListener('click', () => {
+        const row = cell.parentElement;
+        const rowIndent = Number(row.dataset.indent);
+        let next = row.nextElementSibling;
+        let show = false;
 
-    // Compute hours once for BCM/hr
-    const hours = await get_shift_hours(filters);
+        while (next && Number(next.dataset.indent) > rowIndent) {
+          if (next.style.display === 'none') { show = true; break; }
+          next = next.nextElementSibling;
+        }
 
-    // Chart
-    await render_chart_plant(filters); // sets Total BCM in chart title
-
-    // Row 2
-    await render_table('Production Shift Material',   filters, '#tbl-material'); // no footer total
-    await render_table('Production Shift Location',   filters, '#tbl-location');
-
-    // Row 3 (with BCM/hr in titles)
-    const excTotal = await render_table('Production Shift Excavators', filters, '#tbl-excavators');
-    const adtTotal = await render_table('Production Shift ADT',        filters, '#tbl-adt');
-
-    // Row 4 (full width, with BCM/hr)
-    const dozTotal = await render_table('Production Shift Dozing',     filters, '#tbl-dozing');
-
-    // Update inline metrics (right side of headings) — plain text values
-    const fmt = (v) => stripTags(frappe.format(v || 0, { fieldtype: 'Float', precision: 2 }));
-    const perHr = (tot) => (hours ? fmt(tot / hours) : '—');
-
-    setTitleExtra(adtBits.extraEl, [{ label: 'BCM per Hour', value: perHr(adtTotal) }]);
-    setTitleExtra(dozBits.extraEl, [{ label: 'BCM per Hour', value: perHr(dozTotal) }]);
-    setTitleExtra(excBits.extraEl, [{ label: 'BCM per Hour', value: perHr(excTotal) }]);
-
-    if (runningToast && runningToast.hide) runningToast.hide();
-    frappe.show_alert({ message: __('Done'), indicator: 'green' });
+        next = row.nextElementSibling;
+        while (next && Number(next.dataset.indent) > rowIndent) {
+          next.style.display = show ? '' : 'none';
+          next = next.nextElementSibling;
+        }
+      });
+    });
   }
 
-  // ------------- Defaults & Event Wiring -------------
+  // -------- Refresh Flow --------
+  async function refresh_all() {
+    const start_v = start.get_value();
+    const end_v = end.get_value();
+    const site_v = site.get_value();
+    const shift_v = shift.get_value();
 
+    if (!start_v || !end_v || !site_v) return;
+
+    const filters = {};
+    if (start_v) filters.start_date = start_v;
+    if (end_v) filters.end_date = end_v;
+    if (site_v) filters.site = site_v;
+    if (shift_v) filters.shift = shift_v;
+
+    const teamsTotal = await render_chart_teams(filters) || 0;
+    const dozingTotal = await render_chart_dozing(filters) || 0;
+
+    // ✅ Format grand total with thousand separator
+    document.getElementById('total-bcm').textContent =
+      (teamsTotal + dozingTotal).toLocaleString();
+
+    await render_table('Production Shift Material', filters, '#tbl-material');
+    await render_table('Production Shift Location', filters, '#tbl-location');
+    await render_table('Production Shift Teams', filters, '#tbl-teams');
+    await render_table('Production Shift Dozing', filters, '#tbl-dozing');
+  }
+
+  // -------- Defaults --------
   const today = frappe.datetime.get_today();
   const week_ago = frappe.datetime.add_days(today, -6);
   start.set_value(week_ago);
   end.set_value(today);
 
-  const wire = (ctrl) => {
-    if (!ctrl || !ctrl.$input) return;
-    ctrl.$input.on('change', () => refresh_all(false));
-    ctrl.$input.on('awesomplete-selectcomplete', () => refresh_all(false));
-    ctrl.$input.on('blur', () => refresh_all(false));
-  };
-  [start, end, site].forEach(wire);
+  // Run immediately on load
+  refresh_all();
 
-  // Optional: role guard (server already restricts via Page roles)
-  try {
-    const allowed = ['System User', 'Production User', 'Production Manager'].some(r => frappe.user.has_role(r));
-    if (!allowed) {
-      frappe.msgprint(__('You do not have access to this dashboard.'));
-      return;
-    }
-  } catch (e) { /* ignore */ }
-
-  // Auto-refresh every 5 minutes (uses current filters; safe no-op if filters missing)
+  // Auto-refresh every 5 minutes
   setInterval(() => {
-    refresh_all(false);
-  }, 5 * 60 * 1000);
-
-  // Optionally set a default site and auto-run:
-  // site.set_value('YOUR_DEFAULT_LOCATION_NAME');
-  // refresh_all(true);
+    refresh_all();
+  }, 300000);
 };

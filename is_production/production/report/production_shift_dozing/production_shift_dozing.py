@@ -1,94 +1,89 @@
-# Copyright (c) 2025, Isambane Mining (Pty) Ltd and contributors
-# For license information, please see license.txt
-
-# import frappe
-# apps/is_production/is_production/production/report/production_shift_dozing/production_shift_dozing.py
-
 import frappe
 
 def execute(filters=None):
     filters = frappe._dict(filters or {})
-    columns = get_columns()
-    data = get_data(filters)
-    return columns, data
-
+    data, grand_total = get_data(filters)
+    return get_columns(), data, None, None, get_report_summary(grand_total)
 
 def get_columns():
     return [
-        {"label": "Date", "fieldname": "prod_date", "fieldtype": "Date", "width": 100},
-        {"label": "Shift", "fieldname": "shift", "fieldtype": "Data", "width": 100},
-        {"label": "Dozer", "fieldname": "dozer", "fieldtype": "Data", "width": 180},
-        {"label": "Cumulative BCM", "fieldname": "cumulative_bcm", "fieldtype": "Float", "width": 150},
+        {"label": "Dozer / Details", "fieldname": "label", "fieldtype": "Data", "width": 250},
+        {"label": "BCM", "fieldname": "bcm_hour", "fieldtype": "Float", "width": 100},
+        {"label": "Material Type", "fieldname": "mat_type", "fieldtype": "Data", "width": 150},
+        {"label": "Mining Area", "fieldname": "mining_area", "fieldtype": "Data", "width": 150},
     ]
-
 
 def get_data(filters):
     if not (filters.start_date and filters.end_date and filters.site):
-        return []
+        return [], 0
 
-    # --- Query all dozer production grouped by date, shift, dozer ---
-    rows = frappe.db.sql(
-        """
-        SELECT hp.prod_date, hp.shift,
-               dp.asset_name AS dozer,
-               SUM(dp.bcm_hour) AS bcm_total
+    shift_condition = ""
+    if filters.shift:
+        shift_condition = " AND hp.shift = %(shift)s"
+
+    rows = frappe.db.sql(f"""
+        SELECT dp.asset_name AS dozer,
+               dp.dozer_geo_mat_layer AS mat_type,
+               dp.mining_areas_dozer_child AS mining_area,
+               SUM(dp.bcm_hour) AS bcm_hour
         FROM `tabHourly Production` hp
         JOIN `tabDozer Production` dp ON dp.parent = hp.name
         WHERE hp.location = %(site)s
           AND hp.prod_date BETWEEN %(start_date)s AND %(end_date)s
           AND hp.docstatus < 2
-        GROUP BY hp.prod_date, hp.shift, dp.asset_name
-        ORDER BY hp.prod_date, hp.shift, dp.asset_name
-        """,
-        {
-            "site": filters.site,
-            "start_date": filters.start_date,
-            "end_date": filters.end_date,
-        },
-        as_dict=True,
-    )
+          {shift_condition}
+        GROUP BY dp.asset_name, dp.dozer_geo_mat_layer, dp.mining_areas_dozer_child
+        ORDER BY dp.asset_name
+    """, filters, as_dict=True)
+
+    grouped, grand_total = {}, 0
+    for r in rows:
+        dozer = r.dozer or "Unassigned"
+        grouped.setdefault(dozer, {"total": 0, "rows": []})
+        grouped[dozer]["total"] += r.bcm_hour or 0
+        grouped[dozer]["rows"].append(r)
+        grand_total += r.bcm_hour or 0
 
     results = []
-    shift_totals = {}
-    day_night_totals = {"Day": 0, "Night": 0}
-
-    # Per-dozer rows
-    for r in rows:
+    for dozer in sorted(grouped.keys()):
         results.append({
-            "prod_date": r.prod_date,
-            "shift": r.shift,
-            "dozer": r.dozer,
-            "cumulative_bcm": r.bcm_total or 0,
+            "label": dozer,
+            "bcm_hour": grouped[dozer]["total"],
+            "mat_type": None,
+            "mining_area": None,
+            "indent": 0
         })
-
-        # Per-shift totals
-        shift_totals.setdefault((r.prod_date, r.shift), 0)
-        shift_totals[(r.prod_date, r.shift)] += r.bcm_total or 0
-
-        # Global Day/Night totals
-        if r.shift in day_night_totals:
-            day_night_totals[r.shift] += r.bcm_total or 0
-
-    # Add total rows per shift/date
-    for (prod_date, shift), total in shift_totals.items():
-        results.append({
-            "prod_date": prod_date,
-            "shift": shift,
-            "dozer": "TOTAL",
-            "cumulative_bcm": total,
-        })
-
-    # Add final Day and Night totals (spanning all dates in range)
-    for shift in ["Day", "Night"]:
-        if day_night_totals[shift] > 0:
+        for d in grouped[dozer]["rows"]:
             results.append({
-                "prod_date": None,
-                "shift": f"TOTAL {shift.upper()}",
-                "dozer": "",
-                "cumulative_bcm": day_night_totals[shift],
+                "label": "",
+                "bcm_hour": d.bcm_hour,
+                "mat_type": d.mat_type,
+                "mining_area": d.mining_area,
+                "indent": 1
             })
+    return results, grand_total
 
-    return results
+def get_report_summary(grand_total):
+    # ✅ Grand total with comma as thousands separator
+    formatted_total = f"{grand_total:,.0f}"
+    return [{
+        "label": "Grand Total BCMs",
+        "value": formatted_total,
+        "indicator": "Blue"
+    }]
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
