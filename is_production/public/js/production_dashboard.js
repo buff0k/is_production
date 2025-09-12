@@ -60,21 +60,6 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     return { card, titleEl: h, extraEl: hExtra };
   };
 
-  const setTitleExtra = (extraEl, parts) => {
-    while (extraEl.firstChild) extraEl.removeChild(extraEl.firstChild);
-    (parts || [])
-      .filter(p => p.value !== undefined && p.value !== null && p.value !== '')
-      .forEach(p => {
-        const span = document.createElement('span');
-        span.style.marginLeft = '12px';
-        const b = document.createElement('b');
-        b.textContent = (p.label || '') + ':';
-        span.appendChild(b);
-        span.appendChild(document.createTextNode(' ' + p.value));
-        extraEl.appendChild(span);
-      });
-  };
-
   const run_report = (report_name, filters) =>
     frappe.call({
       method: 'frappe.desk.query_report.run',
@@ -133,11 +118,11 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   const chartCol2 = document.createElement('div'); chartCol2.className = 'col-lg-6';
 
   const teamsBits = makeCard('Production Shift Teams');
-  const teamsMount = document.createElement('div'); teamsMount.id = 'chart-teams';
+  const teamsMount = document.createElement('canvas'); teamsMount.id = 'chart-teams';
   teamsBits.card.appendChild(teamsMount); chartCol1.appendChild(teamsBits.card);
 
   const dozingBits = makeCard('Production Shift Dozing');
-  const dozingMount = document.createElement('div'); dozingMount.id = 'chart-dozing';
+  const dozingMount = document.createElement('canvas'); dozingMount.id = 'chart-dozing';
   dozingBits.card.appendChild(dozingMount); chartCol2.appendChild(dozingBits.card);
 
   chartRow.appendChild(chartCol1); chartRow.appendChild(chartCol2);
@@ -180,7 +165,7 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   prodBits.card.appendChild(prodMount); row5.appendChild(prodBits.card);
   mainEl.appendChild(row5);
 
-  // -------- Renderers --------
+  // -------- Chart.js Setup --------
   let teamsChart, dozingChart;
 
   async function render_chart_teams(filters) {
@@ -199,35 +184,27 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     const productivityVals = labels.map(l => prodMap[l] || 0);
     const thresholdVals = Array(labels.length).fill(220);
 
-    const chartData = {
-      labels,
-      datasets: [
-        { name: 'BCM', chartType: 'bar', values, axis: 'left' },
-        { name: 'Productivity/HR', chartType: 'line', values: productivityVals, axis: 'right' },
-        { name: 'Threshold 220', chartType: 'line', values: thresholdVals, axis: 'right', color: 'red' }
-      ]
-    };
-
-    if (!teamsChart) {
-      teamsChart = new frappe.Chart(teamsMount, {
-        data: chartData,
-        type: 'axis-mixed',
-        height: 300,
-        barOptions: { spaceRatio: 0.3 },
-        valuesOverPoints: 1,
-        lineOptions: { dotSize: 4, regionFill: 1, hideLine: 0, hideDots: 0 },
-        axisOptions: {
-          xAxisMode: 'tick',
-          xIsSeries: true,
-          yAxis: [
-            { title: "BCM", position: 'left', show: true },
-            { title: "Output/Hr", position: 'right', show: true }
-          ]
+    const ctx = document.getElementById('chart-teams').getContext('2d');
+    if (teamsChart) teamsChart.destroy();
+    teamsChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'BCM', data: values, backgroundColor: 'rgba(54,162,235,0.6)', yAxisID: 'y-left' },
+          { label: 'Productivity/HR', data: productivityVals, type: 'line', borderColor: 'red', yAxisID: 'y-right' },
+          { label: 'Threshold 220', data: thresholdVals, type: 'line', borderColor: 'green', borderDash: [5,5], yAxisID: 'y-right' }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          'y-left': { type: 'linear', position: 'left', title: { display: true, text: 'BCM' } },
+          'y-right': { type: 'linear', position: 'right', title: { display: true, text: 'Productivity/HR' }, grid: { drawOnChartArea: false } }
         }
-      });
-    } else {
-      teamsChart.update(chartData);
-    }
+      }
+    });
     return total;
   }
 
@@ -246,38 +223,30 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     });
     const productivityVals = labels.map(l => prodMap[l] || 0);
 
-    const chartData = {
-      labels,
-      datasets: [
-        { name: 'BCM', chartType: 'bar', values, axis: 'left' },
-        { name: 'Productivity/HR', chartType: 'line', values: productivityVals, axis: 'right' }
-      ]
-    };
-
-    if (!dozingChart) {
-      dozingChart = new frappe.Chart(dozingMount, {
-        data: chartData,
-        type: 'axis-mixed',
-        height: 300,
-        barOptions: { spaceRatio: 0.3 },
-        valuesOverPoints: 1,
-        lineOptions: { dotSize: 4, regionFill: 1, hideLine: 0, hideDots: 0 },
-        axisOptions: {
-          xAxisMode: 'tick',
-          xIsSeries: true,
-          yAxis: [
-            { title: "BCM", position: 'left', show: true },
-            { title: "Output/Hr", position: 'right', show: true }
-          ]
+    const ctx = document.getElementById('chart-dozing').getContext('2d');
+    if (dozingChart) dozingChart.destroy();
+    dozingChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'BCM', data: values, backgroundColor: 'rgba(54,162,235,0.6)', yAxisID: 'y-left' },
+          { label: 'Productivity/HR', data: productivityVals, type: 'line', borderColor: 'red', yAxisID: 'y-right' }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          'y-left': { type: 'linear', position: 'left', title: { display: true, text: 'BCM' } },
+          'y-right': { type: 'linear', position: 'right', title: { display: true, text: 'Productivity/HR' }, grid: { drawOnChartArea: false } }
         }
-      });
-    } else {
-      dozingChart.update(chartData);
-    }
+      }
+    });
     return total;
   }
 
-  // -------- Collapsible Table Renderer --------
+  // -------- Collapsible Table Renderer (with grand totals) --------
   async function render_table(report_name, filters, mountSelector) {
     const res = await run_report(report_name, filters);
     const rows = res.result || [];
@@ -312,6 +281,19 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
         <tbody>${tbody}</tbody>
       </table>
     `;
+
+    // ✅ append grand totals under table
+    if (res.summary && res.summary.length) {
+      const totalsDiv = document.createElement('div');
+      totalsDiv.style.marginTop = "8px";
+      totalsDiv.style.fontWeight = "bold";
+      totalsDiv.innerHTML = res.summary.map(s => `
+        <span style="margin-right:20px; color:${s.indicator || 'black'};">
+          ${s.label}: ${s.value}
+        </span>
+      `).join('');
+      mount.appendChild(totalsDiv);
+    }
 
     // restore expand/collapse
     mount.querySelectorAll('.toggle-cell').forEach(cell => {
@@ -385,8 +367,13 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   start.set_value(week_ago);
   end.set_value(today);
 
-  refresh_all();
-  setInterval(() => refresh_all(), 300000);
+  // Load Chart.js library
+  const script = document.createElement("script");
+  script.src = "https://cdn.jsdelivr.net/npm/chart.js";
+  document.head.appendChild(script);
+
+  script.onload = () => {
+    refresh_all();
+    setInterval(() => refresh_all(), 300000);
+  };
 };
-
-

@@ -30,8 +30,8 @@ def get_data(filters):
 
     rows = frappe.db.sql(f"""
         SELECT dp.asset_name AS dozer,
-               dp.dozer_geo_mat_layer AS mat_type,
-               dp.mining_areas_dozer_child AS mining_area,
+               NULLIF(dp.dozer_geo_mat_layer, '') AS mat_type,
+               NULLIF(dp.mining_areas_dozer_child, '') AS mining_area,
                SUM(dp.bcm_hour) AS bcm_hour
         FROM `tabHourly Production` hp
         JOIN `tabDozer Production` dp ON dp.parent = hp.name
@@ -44,14 +44,26 @@ def get_data(filters):
     """, filters, as_dict=True)
 
     grouped, grand_total = {}, 0
+    unassigned_rows, unassigned_total = [], 0
+
     for r in rows:
+        grand_total += r.bcm_hour or 0
+
+        # ✅ If missing either mining_area OR material type → go to Unassigned
+        if not r.mining_area or not r.mat_type:
+            unassigned_total += r.bcm_hour or 0
+            r.mining_area = r.mining_area or "Unassigned"
+            r.mat_type = r.mat_type or "Unassigned"
+            unassigned_rows.append(r)
+            continue
+
         dozer = r.dozer or "Unassigned"
         grouped.setdefault(dozer, {"total": 0, "rows": []})
         grouped[dozer]["total"] += r.bcm_hour or 0
         grouped[dozer]["rows"].append(r)
-        grand_total += r.bcm_hour or 0
 
     results = []
+    # Regular dozers first
     for dozer in sorted(grouped.keys()):
         results.append({
             "label": dozer,
@@ -68,6 +80,25 @@ def get_data(filters):
                 "mining_area": d.mining_area,
                 "indent": 1
             })
+
+    # Add dedicated Unassigned section at the bottom
+    if unassigned_rows:
+        results.append({
+            "label": "Unassigned",
+            "bcm_hour": unassigned_total,
+            "mat_type": None,
+            "mining_area": None,
+            "indent": 0
+        })
+        for d in unassigned_rows:
+            results.append({
+                "label": "",
+                "bcm_hour": d.bcm_hour,
+                "mat_type": d.mat_type,
+                "mining_area": d.mining_area,
+                "indent": 1
+            })
+
     return results, grand_total
 
 def get_report_summary(grand_total):
@@ -77,6 +108,9 @@ def get_report_summary(grand_total):
         "value": formatted_total,
         "indicator": "Blue"
     }]
+
+
+
 
 
 
