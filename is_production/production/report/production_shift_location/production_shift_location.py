@@ -14,38 +14,43 @@ def get_columns():
         {"label": "Total BCM", "fieldname": "total_bcm", "fieldtype": "Float", "width": 150},
     ]
 
+def get_shift_field(table_name: str):
+    cols = frappe.db.get_table_columns(table_name)
+    if "shift" in cols:
+        return "shift"
+    if "shift_type" in cols:
+        return "shift_type"
+    return None
+
 def get_data(filters):
     if not (filters.start_date and filters.end_date and filters.site):
         return [], 0
 
-    shift_condition = ""
-    if filters.shift:
-        shift_condition = " AND hp.shift = %(shift)s"
+    hp_shift_col = get_shift_field("Hourly Production")
+    shift_condition = f" AND hp.{hp_shift_col} = %(shift)s" if filters.get("shift") and hp_shift_col else ""
 
     truck_rows = frappe.db.sql(f"""
-        SELECT tl.mining_areas_trucks AS mining_area,
+        SELECT COALESCE(NULLIF(tl.mining_areas_trucks, ''), 'Unassigned') AS mining_area,
                SUM(tl.bcms) AS ts_bcm
         FROM `tabHourly Production` hp
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.location = %(site)s
           AND hp.prod_date BETWEEN %(start_date)s AND %(end_date)s
           AND hp.docstatus < 2
-          AND tl.mining_areas_trucks IS NOT NULL
           {shift_condition}
-        GROUP BY tl.mining_areas_trucks
+        GROUP BY COALESCE(NULLIF(tl.mining_areas_trucks, ''), 'Unassigned')
     """, filters, as_dict=True)
 
     dozer_rows = frappe.db.sql(f"""
-        SELECT dp.mining_areas_dozer_child AS mining_area,
+        SELECT COALESCE(NULLIF(dp.mining_areas_dozer_child, ''), 'Unassigned') AS mining_area,
                SUM(dp.bcm_hour) AS dozer_bcm
         FROM `tabHourly Production` hp
         JOIN `tabDozer Production` dp ON dp.parent = hp.name
         WHERE hp.location = %(site)s
           AND hp.prod_date BETWEEN %(start_date)s AND %(end_date)s
           AND hp.docstatus < 2
-          AND dp.mining_areas_dozer_child IS NOT NULL
           {shift_condition}
-        GROUP BY dp.mining_areas_dozer_child
+        GROUP BY COALESCE(NULLIF(dp.mining_areas_dozer_child, ''), 'Unassigned')
     """, filters, as_dict=True)
 
     combined, grand_total = {}, 0
@@ -77,13 +82,15 @@ def get_data(filters):
     return results, grand_total
 
 def get_report_summary(grand_total):
-    # ✅ Add comma as thousand separator for display
     formatted_total = f"{grand_total:,.0f}"
     return [{
         "label": "Grand Total BCMs",
         "value": formatted_total,
         "indicator": "Blue"
     }]
+
+
+
 
 
 

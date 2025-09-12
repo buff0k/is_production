@@ -1,4 +1,4 @@
-// Copyright (c) 2025, Isambane Mining (Pty) Ltd
+// Copyright (c) 2025, Isambane Mining (Pty) Ltd 
 // For license information, please see license.txt
 
 frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
@@ -75,7 +75,6 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
       });
   };
 
-  // 🔑 Updated to include summary
   const run_report = (report_name, filters) =>
     frappe.call({
       method: 'frappe.desk.query_report.run',
@@ -91,8 +90,11 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
 
   // -------- Layout --------
 
-  // Row 1: Total BCM block
+  // Row 1: Total BCM + Productivity KPIs
   const totalRow = document.createElement('div');
+  totalRow.style.display = 'flex';
+  totalRow.style.gap = '20px';
+
   const totalBits = makeCard('Total BCM');
   const totalValue = document.createElement('div');
   totalValue.style.fontSize = '22px';
@@ -100,10 +102,30 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   totalValue.id = 'total-bcm';
   totalValue.textContent = '0';
   totalBits.card.appendChild(totalValue);
+
+  const excavatorBits = makeCard('Overall Team Productivity per Hour');
+  const excavatorValue = document.createElement('div');
+  excavatorValue.style.fontSize = '18px';
+  excavatorValue.style.fontWeight = 'bold';
+  excavatorValue.id = 'excavator-prod';
+  excavatorValue.textContent = '0 BCM/hr';
+  excavatorBits.card.appendChild(excavatorValue);
+
+  const dozerBits = makeCard('Overall Dozing Productivity per Hour');
+  const dozerValue = document.createElement('div');
+  dozerValue.style.fontSize = '18px';
+  dozerValue.style.fontWeight = 'bold';
+  dozerValue.id = 'dozer-prod';
+  dozerValue.textContent = '0 BCM/hr';
+  dozerBits.card.appendChild(dozerValue);
+
   totalRow.appendChild(totalBits.card);
+  totalRow.appendChild(excavatorBits.card);
+  totalRow.appendChild(dozerBits.card);
+
   mainEl.appendChild(totalRow);
 
-  // Row 2: Charts (Teams + Dozing)
+  // Row 2: Charts
   const chartRow = document.createElement('div');
   chartRow.className = 'row g-3';
 
@@ -151,33 +173,57 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
 
   row4.appendChild(teamsCol); row4.appendChild(dozingCol); mainEl.appendChild(row4);
 
+  // Row 5: Productivity table
+  const row5 = document.createElement('div');
+  const prodBits = makeCard('Productivity Report');
+  const prodMount = document.createElement('div'); prodMount.id = 'tbl-productivity';
+  prodBits.card.appendChild(prodMount); row5.appendChild(prodBits.card);
+  mainEl.appendChild(row5);
+
   // -------- Renderers --------
   let teamsChart, dozingChart;
 
   async function render_chart_teams(filters) {
     const res = await run_report('Production Shift Teams', filters);
+    const prodRes = await run_report('Productivity', filters);
+
     const parents = (res.result || []).filter(r => Number(r.indent || 0) === 0);
     const labels = parents.map(r => r.excavator || 'Unknown');
     const values = parents.map(r => Number(r.bcms) || 0);
-    const total = values.reduce((a,b) => a+b, 0);
+    const total = values.reduce((a, b) => a + b, 0);
 
-    // 🔑 Show report_summary if available, else fallback to manual total
-    if (res.summary && res.summary.length) {
-      setTitleExtra(teamsBits.extraEl, res.summary);
-    } else {
-      setTitleExtra(teamsBits.extraEl, [{ label: 'Total BCM', value: total }]);
-    }
+    const prodMap = {};
+    (prodRes.result || []).forEach(r => {
+      if (r.indent === 1) prodMap[r.label] = Number(r.productivity) || 0;
+    });
+    const productivityVals = labels.map(l => prodMap[l] || 0);
+    const thresholdVals = Array(labels.length).fill(220);
 
-    if (!labels.length) return 0;
+    const chartData = {
+      labels,
+      datasets: [
+        { name: 'BCM', chartType: 'bar', values, axis: 'left' },
+        { name: 'Productivity/HR', chartType: 'line', values: productivityVals, axis: 'right' },
+        { name: 'Threshold 220', chartType: 'line', values: thresholdVals, axis: 'right', color: 'red' }
+      ]
+    };
 
-    const chartData = { labels, datasets: [{ name: 'BCM', values }] };
     if (!teamsChart) {
       teamsChart = new frappe.Chart(teamsMount, {
         data: chartData,
-        type: 'bar',
+        type: 'axis-mixed',
         height: 300,
         barOptions: { spaceRatio: 0.3 },
-        valuesOverPoints: 1
+        valuesOverPoints: 1,
+        lineOptions: { dotSize: 4, regionFill: 1, hideLine: 0, hideDots: 0 },
+        axisOptions: {
+          xAxisMode: 'tick',
+          xIsSeries: true,
+          yAxis: [
+            { title: "BCM", position: 'left', show: true },
+            { title: "Output/Hr", position: 'right', show: true }
+          ]
+        }
       });
     } else {
       teamsChart.update(chartData);
@@ -187,27 +233,43 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
 
   async function render_chart_dozing(filters) {
     const res = await run_report('Production Shift Dozing', filters);
+    const prodRes = await run_report('Productivity', filters);
+
     const parents = (res.result || []).filter(r => Number(r.indent || 0) === 0);
     const labels = parents.map(r => r.label || 'Unknown');
     const values = parents.map(r => Number(r.bcm_hour) || 0);
-    const total = values.reduce((a,b) => a+b, 0);
+    const total = values.reduce((a, b) => a + b, 0);
 
-    if (res.summary && res.summary.length) {
-      setTitleExtra(dozingBits.extraEl, res.summary);
-    } else {
-      setTitleExtra(dozingBits.extraEl, [{ label: 'Total BCM', value: total }]);
-    }
+    const prodMap = {};
+    (prodRes.result || []).forEach(r => {
+      if (r.indent === 1) prodMap[r.label] = Number(r.productivity) || 0;
+    });
+    const productivityVals = labels.map(l => prodMap[l] || 0);
 
-    if (!labels.length) return 0;
+    const chartData = {
+      labels,
+      datasets: [
+        { name: 'BCM', chartType: 'bar', values, axis: 'left' },
+        { name: 'Productivity/HR', chartType: 'line', values: productivityVals, axis: 'right' }
+      ]
+    };
 
-    const chartData = { labels, datasets: [{ name: 'BCM', values }] };
     if (!dozingChart) {
       dozingChart = new frappe.Chart(dozingMount, {
         data: chartData,
-        type: 'bar',
+        type: 'axis-mixed',
         height: 300,
         barOptions: { spaceRatio: 0.3 },
-        valuesOverPoints: 1
+        valuesOverPoints: 1,
+        lineOptions: { dotSize: 4, regionFill: 1, hideLine: 0, hideDots: 0 },
+        axisOptions: {
+          xAxisMode: 'tick',
+          xIsSeries: true,
+          yAxis: [
+            { title: "BCM", position: 'left', show: true },
+            { title: "Output/Hr", position: 'right', show: true }
+          ]
+        }
       });
     } else {
       dozingChart.update(chartData);
@@ -244,7 +306,6 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
       `;
     }).join('');
 
-    // render table
     mount.innerHTML = `
       <table class="table table-bordered" style="width:100%">
         <thead><tr>${thead}</tr></thead>
@@ -252,15 +313,7 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
       </table>
     `;
 
-    // append report summary under table
-    if (res.summary && res.summary.length) {
-      const summaryHtml = res.summary.map(s =>
-        `<div><b>${s.label}:</b> ${s.value}</div>`
-      ).join('');
-      mount.insertAdjacentHTML('beforeend', `<div class="mt-2">${summaryHtml}</div>`);
-    }
-
-    // toggle expand/collapse
+    // restore expand/collapse
     mount.querySelectorAll('.toggle-cell').forEach(cell => {
       cell.style.cursor = 'pointer';
       cell.addEventListener('click', () => {
@@ -292,23 +345,38 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
 
     if (!start_v || !end_v || !site_v) return;
 
-    const filters = {};
-    if (start_v) filters.start_date = start_v;
-    if (end_v) filters.end_date = end_v;
-    if (site_v) filters.site = site_v;
+    const filters = { start_date: start_v, end_date: end_v, site: site_v };
     if (shift_v) filters.shift = shift_v;
 
     const teamsTotal = await render_chart_teams(filters) || 0;
     const dozingTotal = await render_chart_dozing(filters) || 0;
 
-    // ✅ Format grand total with thousand separator
     document.getElementById('total-bcm').textContent =
       (teamsTotal + dozingTotal).toLocaleString();
+
+    // ✅ Get productivity totals from Productivity report
+    const prodRes = await run_report('Productivity', filters);
+    const prodParents = (prodRes.result || []).filter(r => Number(r.indent || 0) === 0);
+
+    let excavatorRow = prodParents.find(r => r.label === "Excavator");
+    let dozerRow = prodParents.find(r => r.label === "Dozer");
+
+    let excavatorProd = (excavatorRow && excavatorRow.working_hours > 0)
+      ? (Number(excavatorRow.output.replace(/,/g,'')) / excavatorRow.working_hours).toFixed(2)
+      : 0;
+
+    let dozerProd = (dozerRow && dozerRow.working_hours > 0)
+      ? (Number(dozerRow.output.replace(/,/g,'')) / dozerRow.working_hours).toFixed(2)
+      : 0;
+
+    document.getElementById('excavator-prod').textContent = excavatorProd + " BCM/hr";
+    document.getElementById('dozer-prod').textContent = dozerProd + " BCM/hr";
 
     await render_table('Production Shift Material', filters, '#tbl-material');
     await render_table('Production Shift Location', filters, '#tbl-location');
     await render_table('Production Shift Teams', filters, '#tbl-teams');
     await render_table('Production Shift Dozing', filters, '#tbl-dozing');
+    await render_table('Productivity', filters, '#tbl-productivity');
   }
 
   // -------- Defaults --------
@@ -317,11 +385,8 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   start.set_value(week_ago);
   end.set_value(today);
 
-  // Run immediately on load
   refresh_all();
-
-  // Auto-refresh every 5 minutes
-  setInterval(() => {
-    refresh_all();
-  }, 300000);
+  setInterval(() => refresh_all(), 300000);
 };
+
+

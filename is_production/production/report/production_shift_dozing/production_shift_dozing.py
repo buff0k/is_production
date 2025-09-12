@@ -13,13 +13,20 @@ def get_columns():
         {"label": "Mining Area", "fieldname": "mining_area", "fieldtype": "Data", "width": 150},
     ]
 
+def get_shift_field(table_name: str):
+    cols = frappe.db.get_table_columns(table_name)
+    if "shift" in cols:
+        return "shift"
+    if "shift_type" in cols:
+        return "shift_type"
+    return None
+
 def get_data(filters):
     if not (filters.start_date and filters.end_date and filters.site):
         return [], 0
 
-    shift_condition = ""
-    if filters.shift:
-        shift_condition = " AND hp.shift = %(shift)s"
+    hp_shift_col = get_shift_field("Hourly Production")
+    shift_condition = f" AND hp.{hp_shift_col} = %(shift)s" if filters.get("shift") and hp_shift_col else ""
 
     rows = frappe.db.sql(f"""
         SELECT dp.asset_name AS dozer,
@@ -64,13 +71,14 @@ def get_data(filters):
     return results, grand_total
 
 def get_report_summary(grand_total):
-    # ✅ Grand total with comma as thousands separator
     formatted_total = f"{grand_total:,.0f}"
     return [{
         "label": "Grand Total BCMs",
         "value": formatted_total,
         "indicator": "Blue"
     }]
+
+
 
 
 

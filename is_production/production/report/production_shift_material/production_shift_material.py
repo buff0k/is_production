@@ -1,6 +1,3 @@
-# Copyright (c) 2025, Isambane Mining (Pty) Ltd
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 
@@ -20,12 +17,18 @@ def get_columns():
         {"label": _("Coal Tons"), "fieldname": "coal_tons", "fieldtype": "Float", "width": 120},
     ]
 
-def get_data(filters):
-    shift_condition = ""
-    if filters.get("shift"):
-        shift_condition = " AND hp.shift = %(shift)s"
+def get_shift_field(table_name: str):
+    cols = frappe.db.get_table_columns(table_name)
+    if "shift" in cols:
+        return "shift"
+    if "shift_type" in cols:
+        return "shift_type"
+    return None
 
-    # --- Truck + Shovel ---
+def get_data(filters):
+    hp_shift_col = get_shift_field("Hourly Production")
+    shift_condition = f" AND hp.{hp_shift_col} = %(shift)s" if filters.get("shift") and hp_shift_col else ""
+
     truck_totals = frappe.db.sql(f"""
         SELECT
             tl.mat_type,
@@ -39,7 +42,6 @@ def get_data(filters):
         GROUP BY tl.mat_type, tl.geo_mat_layer_truck
     """, filters, as_dict=True)
 
-    # --- Dozer ---
     dozer_totals = frappe.db.sql(f"""
         SELECT
             dp.dozer_geo_mat_layer AS geo_ref_description,
@@ -55,7 +57,6 @@ def get_data(filters):
 
     combined = truck_totals + dozer_totals
 
-    # --- Normalize into categories (Coal, Hards, Softs) ---
     def classify(mat_type):
         if not mat_type:
             return "Unassigned"
@@ -116,17 +117,19 @@ def get_report_summary(grand_total_bcm, grand_total_tons):
     summary = [
         {
             "label": _("Grand Total BCMs"),
-            "value": f"{grand_total_bcm:,.0f}",  # ✅ formatted with commas
+            "value": f"{grand_total_bcm:,.0f}",
             "indicator": "Blue"
         },
     ]
     if grand_total_tons:
         summary.append({
             "label": _("Grand Total Coal Tons"),
-            "value": f"{grand_total_tons:,.0f}",  # ✅ formatted with commas
+            "value": f"{grand_total_tons:,.0f}",
             "indicator": "Green"
         })
     return summary
+
+
 
 
 

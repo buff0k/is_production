@@ -15,9 +15,20 @@ def get_columns():
         {"label": _("BCMs"), "fieldname": "bcms", "fieldtype": "Float", "width": 100},
     ]
 
+def get_shift_field(table_name: str):
+    cols = frappe.db.get_table_columns(table_name)
+    if "shift" in cols:
+        return "shift"
+    if "shift_type" in cols:
+        return "shift_type"
+    return None
+
 def get_data(filters):
     if not (filters.start_date and filters.end_date and filters.site):
         return [], 0
+
+    hp_shift_col = get_shift_field("Hourly Production")
+    shift_condition = f" AND hp.{hp_shift_col} = %(shift)s" if filters.get("shift") and hp_shift_col else ""
 
     values = {
         "start_date": filters["start_date"],
@@ -25,10 +36,6 @@ def get_data(filters):
         "site": filters["site"],
         "shift": filters.get("shift"),
     }
-
-    shift_condition = ""
-    if filters.get("shift"):
-        shift_condition = " AND hp.shift = %(shift)s"
 
     rows = frappe.db.sql(f"""
         SELECT
@@ -46,8 +53,7 @@ def get_data(filters):
         ORDER BY tl.asset_name_shoval, tl.asset_name_truck
     """, values, as_dict=True)
 
-    grouped = {}
-    grand_total = 0
+    grouped, grand_total = {}, 0
     for r in rows:
         excavator = r["excavator"] or "Unassigned"
         truck = r["truck"] or "Unassigned"
@@ -91,13 +97,15 @@ def get_data(filters):
     return results, grand_total
 
 def get_report_summary(grand_total):
-    # ✅ Display grand total with comma as thousands separator
     formatted_total = f"{grand_total:,.0f}"
     return [{
         "label": _("Grand Total BCMs"),
         "value": formatted_total,
         "indicator": "Blue"
     }]
+
+
+
 
 
 
