@@ -377,3 +377,13 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     setInterval(() => refresh_all(), 300000);
   };
 };
+
+
+
+
+
+
+
+
+
+
