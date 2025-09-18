@@ -19,6 +19,7 @@
   "total_dozing_bcm",
   "total_ts_bcm",
   "total_surveyed_bcm",
+  "total_surveyed_coal_tons",
   "section_break_iaqd",
   "surveyed_values"
  ],
@@ -116,13 +117,20 @@
    "fieldtype": "Data",
    "label": "Hourly Production Reference",
    "read_only": 1
+  },
+  {
+   "fetch_if_empty": 1,
+   "fieldname": "total_surveyed_coal_tons",
+   "fieldtype": "Float",
+   "label": "Total Surveyed coal tons",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-05-06 17:19:50.614657",
+ "modified": "2025-09-18 06:21:49.026184",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Survey",

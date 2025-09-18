@@ -22,12 +22,15 @@
   "tot_cumulative_dozing_bcms",
   "cum_ts_bcms",
   "tot_cum_dozing_survey",
+  "total_coal_tons_survey",
   "tot_cum_ts_survey",
   "cum_dozing_variance",
   "cum_ts_variance",
+  "cumulative_coal_tons_variance",
   "month_survey_totals",
   "cum_survey_variance",
-  "hourly_production_reference"
+  "hourly_production_reference",
+  "total_coal_tons_tallies"
  ],
  "fields": [
   {
@@ -191,13 +194,35 @@
    "fieldname": "hourly_production_reference",
    "fieldtype": "Data",
    "label": "Hourly Production Reference"
+  },
+  {
+   "columns": 1,
+   "fieldname": "total_coal_tons_survey",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Total Cumulative Coal Tons Survey",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cumulative_coal_tons_variance",
+   "fieldtype": "Float",
+   "label": "Cumulative Coal Tons  Variance",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_coal_tons_tallies",
+   "fieldtype": "Float",
+   "label": "Total Coal Tons",
+   "precision": "1"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-04-22 06:35:06.120486",
+ "modified": "2025-09-18 06:10:48.160179",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Days",

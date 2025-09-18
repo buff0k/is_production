@@ -1,19 +1,23 @@
-// monthly_production_performance.js
-
-frappe.query_reports["Monthly Production Performance"] = {
+frappe.query_reports["Production Performance"] = {
     "filters": [
         {
-            fieldname: "month",
-            label: __("Production Month"),
+            fieldname: "start_date",
+            label: __("Start Date"),
             fieldtype: "Date",
-            reqd: 1   // ✅ mandatory
+            reqd: 1
         },
         {
-            fieldname: "location",
-            label: __("Location"),
+            fieldname: "end_date",
+            label: __("End Date"),
+            fieldtype: "Date",
+            reqd: 1
+        },
+        {
+            fieldname: "site",
+            label: __("Site"),
             fieldtype: "Link",
             options: "Location",
-            reqd: 1   // ✅ mandatory
+            reqd: 1
         }
     ]
 };

@@ -6,13 +6,23 @@
 frappe.ui.form.on('Surveyed Values', {
   bcm: function(frm, cdt, cdn) {
       update_metric_tonnes(cdt, cdn);
-      calculate_total_bcm(frm);
+      calculate_totals(frm);
   },
   rd: function(frm, cdt, cdn) {
       update_metric_tonnes(cdt, cdn);
+      calculate_totals(frm);
+  },
+  mat_type: function(frm) {   // use mat_type here
+      calculate_totals(frm);
+  },
+  metric_tonnes: function(frm) {
+      calculate_totals(frm);
+  },
+  handling_method: function(frm) {
+      calculate_totals(frm);
   },
   after_delete: function(frm) {
-      calculate_total_bcm(frm);
+      calculate_totals(frm);
   }
 });
 
@@ -23,24 +33,34 @@ function update_metric_tonnes(cdt, cdn) {
   frappe.model.set_value(cdt, cdn, 'metric_tonnes', bcm * rd);
 }
 
-function calculate_total_bcm(frm) {
+function calculate_totals(frm) {
   let total_surveyed = 0,
       total_ts       = 0,
-      total_dozing   = 0;
+      total_dozing   = 0,
+      total_coal     = 0;
 
   (frm.doc.surveyed_values || []).forEach(r => {
       let bcm = flt(r.bcm);
+      let mt  = flt(r.metric_tonnes);
+
       total_surveyed += bcm;
+
       if (r.handling_method === 'Truck and Shovel') {
           total_ts += bcm;
       } else if (r.handling_method === 'Dozing') {
           total_dozing += bcm;
       }
+
+      // Coal → metric tonnes (using fieldname mat_type)
+      if (r.mat_type === "Coal") {
+          total_coal += mt;
+      }
   });
 
   frm.set_value('total_surveyed_bcm', total_surveyed);
-  frm.set_value('total_ts_bcm',         total_ts);
-  frm.set_value('total_dozing_bcm',     total_dozing);
+  frm.set_value('total_ts_bcm',       total_ts);
+  frm.set_value('total_dozing_bcm',   total_dozing);
+  frm.set_value('total_surveyed_coal_tons', total_coal);
 }
 
 // ——————————————————————
@@ -48,7 +68,7 @@ function calculate_total_bcm(frm) {
 // ——————————————————————
 frappe.ui.form.on('Survey', {
   refresh: function(frm) {
-      calculate_total_bcm(frm);
+      calculate_totals(frm);
   },
   last_production_shift_start_date: function(frm) {
       fetch_survey_monthly_plan(frm);
@@ -156,3 +176,7 @@ function fetch_survey_monthly_plan(frm) {
       }
   });
 }
+
+
+
+

@@ -50,6 +50,7 @@
   "target_bcm_day",
   "target_bcm_hour",
   "month_act_ts_bcm_tallies",
+  "month_coal_tons_variance",
   "month_act_dozing_bcm_tallies",
   "monthly_act_tally_survey_variance",
   "month_actual_bcm",
@@ -531,12 +532,19 @@
    "label": "Planned Strip Ratio",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "month_coal_tons_variance",
+   "fieldtype": "Float",
+   "label": "Month Coal Tons Variance",
+   "precision": "1",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-16 08:28:37.439612",
+ "modified": "2025-09-18 06:13:57.554074",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",
