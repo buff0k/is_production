@@ -1,4 +1,4 @@
-import frappe
+import frappe 
 
 def execute(filters=None):
     filters = filters or {}
@@ -21,44 +21,41 @@ def execute(filters=None):
             "name", "location",
             "monthly_target_bcm", "coal_tons_planned", "coal_planned_bcm", "waste_bcms_planned",
             "total_ts_planned_volumes", "planned_dozer_volumes",
-            "month_actual_coal", "month_actual_bcm", "monthly_act_tally_survey_variance",
+            "num_prod_days", "total_month_prod_hours",
             "month_forecated_bcm",
-            "num_prod_days", "prod_days_completed", "month_remaining_production_days",
-            "total_month_prod_hours", "month_prod_hours_completed", "month_remaining_prod_hours"
+            "month_actual_coal"   # ✅ coal actual only at parent level
         ],
         order_by="creation desc",
         limit_page_length=1
     )
     if not plans:
-        return get_columns(), [["No data found", "", "", ""]]
+        return get_columns(), [{"metric": "No data found", "value": ""}]
+
     d = plans[0]
 
     # --- Helper formatter ---
     def fmt_int(val):
         return f"{int(val or 0):,}"
 
-    # --- TS Tallies BCMs (Production Shift Teams logic) ---
+    # --- Tallies (unchanged) ---
     ts_tallies = frappe.db.sql("""
-        SELECT COALESCE(SUM(tl.bcms),0) AS val
+        SELECT COALESCE(SUM(tl.bcms),0)
         FROM `tabHourly Production` hp
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.prod_date BETWEEN %s AND %s
           AND hp.location = %s
     """, (start_date, end_date, site))[0][0]
 
-    # --- Dozing Tallies BCMs (Production Shift Dozing logic) ---
     dozing_tallies = frappe.db.sql("""
-        SELECT COALESCE(SUM(dp.bcm_hour),0) AS val
+        SELECT COALESCE(SUM(dp.bcm_hour),0)
         FROM `tabHourly Production` hp
         JOIN `tabDozer Production` dp ON dp.parent = hp.name
         WHERE hp.prod_date BETWEEN %s AND %s
           AND hp.location = %s
     """, (start_date, end_date, site))[0][0]
 
-    # --- MTD Tallies Total ---
     tallies_total = (ts_tallies or 0) + (dozing_tallies or 0)
 
-    # --- Coal BCMs and Tons (from Truck Loads) ---
     coal_bcm_rows = frappe.db.sql("""
         SELECT SUM(tl.bcms) AS coal_bcm
         FROM `tabHourly Production` hp
@@ -70,116 +67,112 @@ def execute(filters=None):
 
     coal_bcm = coal_bcm_rows[0]["coal_bcm"] or 0
     coal_tons_hp = coal_bcm * 1.5
-
     coal_bcm_tallies = coal_bcm
     waste_bcm_tallies = tallies_total - coal_bcm_tallies
 
-    # --- Survey refs ---
-    survey_refs = frappe.get_all(
-        "Survey",
-        filters={"monthly_production_plan_ref": d.name, "docstatus": 1},
-        fields=["hourly_prod_ref", "total_ts_bcm", "total_dozing_bcm"]
+    # --- Actuals ---
+    # BCMs directly from child table
+    child_rows = frappe.get_all(
+        "Monthly Production Days",
+        filters={
+            "parent": d.name,
+            "shift_start_date": ["between", [start_date, end_date]]
+        },
+        fields=[
+            "shift_start_date",
+            "total_ts_bcms", "total_dozing_bcms",
+            "shift_day_hours", "shift_night_hours", "shift_morning_hours", "shift_afternoon_hours"
+        ]
     )
-    survey_map = {s["hourly_prod_ref"]: s for s in survey_refs}
 
-    # --- TS & Dozing Actual BCMs (same as Monthly Actual BCMs logic) ---
-    ts_actual_bcm = 0
-    dozing_actual_bcm = 0
+    ts_actual_bcm = sum(r.get("total_ts_bcms") or 0 for r in child_rows)
+    dozing_actual_bcm = sum(r.get("total_dozing_bcms") or 0 for r in child_rows)
+    actual_bcm = ts_actual_bcm + dozing_actual_bcm
 
-    if survey_map:
-        child_rows = frappe.get_all(
-            "Monthly Production Days",
-            filters={"parent": d.name, "hourly_production_reference": ["in", list(survey_map.keys())]},
-            fields=["hourly_production_reference", "shift_start_date"],
-        )
-        if child_rows:
-            latest_row = max(child_rows, key=lambda r: r["shift_start_date"])
-            latest_survey_ref = latest_row["hourly_production_reference"]
-            latest_survey_date = latest_row["shift_start_date"]
-
-            # Survey base values
-            ts_actual_bcm = survey_map[latest_survey_ref]["total_ts_bcm"] or 0
-            dozing_actual_bcm = survey_map[latest_survey_ref]["total_dozing_bcm"] or 0
-
-            # Add Hourly Production after survey
-            ts_after = frappe.db.sql("""
-                SELECT COALESCE(SUM(total_ts_bcm),0)
-                FROM `tabHourly Production`
-                WHERE month_prod_planning = %s
-                  AND prod_date > %s
-            """, (d.name, latest_survey_date))[0][0]
-
-            dz_after = frappe.db.sql("""
-                SELECT COALESCE(SUM(total_dozing_bcm),0)
-                FROM `tabHourly Production`
-                WHERE month_prod_planning = %s
-                  AND prod_date > %s
-            """, (d.name, latest_survey_date))[0][0]
-
-            ts_actual_bcm += ts_after or 0
-            dozing_actual_bcm += dz_after or 0
-    else:
-        # No survey → take all Hourly Production
-        ts_actual_bcm = frappe.db.sql("""
-            SELECT COALESCE(SUM(total_ts_bcm),0)
-            FROM `tabHourly Production`
-            WHERE month_prod_planning = %s
-              AND prod_date BETWEEN %s AND %s
-        """, (d.name, start_date, end_date))[0][0]
-
-        dozing_actual_bcm = frappe.db.sql("""
-            SELECT COALESCE(SUM(total_dozing_bcm),0)
-            FROM `tabHourly Production`
-            WHERE month_prod_planning = %s
-              AND prod_date BETWEEN %s AND %s
-        """, (d.name, start_date, end_date))[0][0]
-
-    # --- Actual BCMs (from MPP) ---
-    actual_bcm = d.month_actual_bcm or 0
+    # Coal tons from parent (set by update_mtd_production)
     coal_tons_actual = d.month_actual_coal or 0
     coal_bcm_actual = coal_tons_actual / 1.5 if coal_tons_actual else 0
     waste_bcm_actual = actual_bcm - coal_bcm_actual
 
+    # --- Calendar days/hours ---
+    from datetime import datetime
+
+    total_days = d.num_prod_days or 0
+    total_hours = d.total_month_prod_hours or 0
+
+    completed_days = 0
+    completed_hours = 0
+    for r in child_rows:
+        dt = r.get("shift_start_date")
+        if isinstance(dt, str):
+            dt = datetime.strptime(dt, "%Y-%m-%d").date()
+        if dt and dt.weekday() != 6:  # exclude Sundays
+            hrs = (r.get("shift_day_hours") or 0) + (r.get("shift_night_hours") or 0) \
+                  + (r.get("shift_morning_hours") or 0) + (r.get("shift_afternoon_hours") or 0)
+            if hrs:
+                completed_days += 1
+                completed_hours += hrs
+
+    remaining_days = total_days - completed_days
+    remaining_hours = total_hours - completed_hours
+
     # --- Build data matrix ---
-    data = [
-        ["--- Planning Targets ---", "--- MTD Tallies ---", "--- MTD Actuals ---", ""],
+    data = []
 
-        [f"Target BCM Total: {fmt_int(d.monthly_target_bcm)}",
-         f"Total Tallies BCMs: {fmt_int(tallies_total)}",
-         f"Actual BCMs: {fmt_int(actual_bcm)}", ""],
+    def add_section(title):
+        data.append({"metric": f"<b>{title}</b>", "value": ""})
 
-        [f"Target Truck & Shovel BCM: {fmt_int(d.total_ts_planned_volumes)}",
-         f"TS Tallies BCMs: {fmt_int(ts_tallies)}",
-         f"TS Actual BCMs: {fmt_int(ts_actual_bcm)}", ""],
+    # Planning
+    add_section("Planning Targets")
+    data += [
+        {"metric": "Target BCM Total", "value": fmt_int(d.monthly_target_bcm)},
+        {"metric": "Target Truck & Shovel BCM", "value": fmt_int(d.total_ts_planned_volumes)},
+        {"metric": "Target Dozing BCM", "value": fmt_int(d.planned_dozer_volumes)},
+        {"metric": "Waste Planned BCM", "value": fmt_int(d.waste_bcms_planned)},
+        {"metric": "Coal Planned BCM", "value": fmt_int(d.coal_planned_bcm)},
+        {"metric": "Coal Tons Planned", "value": fmt_int(d.coal_tons_planned)},
+    ]
 
-        [f"Target Dozing BCM: {fmt_int(d.planned_dozer_volumes)}",
-         f"Dozing Tallies BCMs: {fmt_int(dozing_tallies)}",
-         f"Dozing Actual BCMs: {fmt_int(dozing_actual_bcm)}", ""],
+    # Tallies
+    add_section("MTD Tallies")
+    data += [
+        {"metric": "Total Tallies BCMs", "value": fmt_int(tallies_total)},
+        {"metric": "TS Tallies BCMs", "value": fmt_int(ts_tallies)},
+        {"metric": "Dozing Tallies BCMs", "value": fmt_int(dozing_tallies)},
+        {"metric": "Waste Tallies BCMs", "value": fmt_int(waste_bcm_tallies)},
+        {"metric": "Coal Tallies BCMs", "value": fmt_int(coal_bcm_tallies)},
+        {"metric": "Coal Tallies Tons", "value": fmt_int(coal_tons_hp)},
+    ]
 
-        [f"Waste Planned BCM: {fmt_int(d.waste_bcms_planned)}",
-         f"Waste Tallies BCMs: {fmt_int(waste_bcm_tallies)}",
-         f"Actual Waste BCMs: {fmt_int(waste_bcm_actual)}", ""],
+    # Actuals (corrected)
+    add_section("MTD Actuals")
+    data += [
+        {"metric": "Actual BCMs", "value": fmt_int(actual_bcm)},
+        {"metric": "TS Actual BCMs", "value": fmt_int(ts_actual_bcm)},
+        {"metric": "Dozing Actual BCMs", "value": fmt_int(dozing_actual_bcm)},
+        {"metric": "Actual Waste BCMs", "value": fmt_int(waste_bcm_actual)},
+        {"metric": "Actual Coal BCMs", "value": fmt_int(coal_bcm_actual)},
+        {"metric": "Actual Coal Tons", "value": fmt_int(coal_tons_actual)},
+    ]
 
-        [f"Coal Planned BCM: {fmt_int(d.coal_planned_bcm)}",
-         f"Coal Tallies BCMs: {fmt_int(coal_bcm_tallies)}",
-         f"Actual Coal BCMs: {fmt_int(coal_bcm_actual)}", ""],
+    # Forecast
+    add_section("Forecast")
+    data.append({"metric": "Forecast BCM", "value": fmt_int(d.month_forecated_bcm)})
 
-        [f"Coal Tons Planned: {fmt_int(d.coal_tons_planned)}",
-         f"Coal Tallies Tons: {fmt_int(coal_tons_hp)}",
-         f"Actual Coal Tons: {fmt_int(coal_tons_actual)}", ""],
+    # Calendar Days
+    add_section("Calendar (Days)")
+    data += [
+        {"metric": "Available Days", "value": fmt_int(total_days)},
+        {"metric": "Worked Days", "value": fmt_int(completed_days)},
+        {"metric": "Remaining Days", "value": fmt_int(remaining_days)},
+    ]
 
-        ["", "", "", ""],  # spacer row
-
-        ["--- Forecast ---", "--- Calendar (Days) ---", "--- Calendar (Hours) ---", ""],
-        [f"Forecast BCM: {fmt_int(d.month_forecated_bcm)}",
-         f"Available: {fmt_int(d.num_prod_days)}",
-         f"Available: {fmt_int(d.total_month_prod_hours)}", ""],
-        ["",
-         f"Worked: {fmt_int(d.prod_days_completed)}",
-         f"Worked: {fmt_int(d.month_prod_hours_completed)}", ""],
-        ["",
-         f"Remaining: {fmt_int(d.month_remaining_production_days)}",
-         f"Remaining: {fmt_int(d.month_remaining_prod_hours)}", ""],
+    # Calendar Hours
+    add_section("Calendar (Hours)")
+    data += [
+        {"metric": "Available Hours", "value": fmt_int(total_hours)},
+        {"metric": "Worked Hours", "value": fmt_int(completed_hours)},
+        {"metric": "Remaining Hours", "value": fmt_int(remaining_hours)},
     ]
 
     # --- Top header message ---
@@ -192,8 +185,8 @@ def execute(filters=None):
 
 def get_columns():
     return [
-        {"label": "Planning Targets", "fieldname": "col1", "fieldtype": "Data", "width": 250},
-        {"label": "MTD Tallies", "fieldname": "col2", "fieldtype": "Data", "width": 250},
-        {"label": "MTD Actuals", "fieldname": "col3", "fieldtype": "Data", "width": 250},
-        {"label": "", "fieldname": "col4", "fieldtype": "Data", "width": 50},
+        {"label": "Metric", "fieldname": "metric", "fieldtype": "HTML", "width": 300},
+        {"label": "Value", "fieldname": "value", "fieldtype": "Data", "width": 200},
     ]
+
+
