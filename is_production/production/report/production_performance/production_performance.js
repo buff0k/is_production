@@ -37,5 +37,3 @@ frappe.query_reports["Production Performance"] = {
         return value;
     }
 };
-
-

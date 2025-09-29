@@ -10,6 +10,40 @@ from frappe.utils import getdate, add_to_date, nowdate
 
 
 class HourlyProduction(Document):  # ✅ Removed @frappe.whitelist() from class
+
+    def validate(self):
+        """General validation before save"""
+        self.validate_truck_loads()
+        self.validate_dozer_production()
+
+    def validate_truck_loads(self):
+        for row in getattr(self, "truck_loads", []):
+            if (row.loads or 0) > 0:
+                if not row.geo_mat_layer_truck:
+                    frappe.throw(
+                        _("Row {0}: Please select a Geo Material Layer for truck {1}")
+                        .format(row.idx, row.asset_name_truck or "")
+                    )
+                if not row.mining_areas_trucks:
+                    frappe.throw(
+                        _("Row {0}: Please select a Mining Area for truck {1}")
+                        .format(row.idx, row.asset_name_truck or "")
+                    )
+
+    def validate_dozer_production(self):
+        for row in getattr(self, "dozer_production", []):
+            if (row.bcm_hour or 0) > 0:
+                if not row.dozer_geo_mat_layer:
+                    frappe.throw(
+                        _("Row {0}: Please select a Geo Material Layer for dozer {1}")
+                        .format(row.idx, row.asset_name or "")
+                    )
+                if not row.mining_areas_dozer_child:
+                    frappe.throw(
+                        _("Row {0}: Please select a Mining Area for dozer {1}")
+                        .format(row.idx, row.asset_name or "")
+                    )
+
     @frappe.whitelist()
     def before_save(self):
         """

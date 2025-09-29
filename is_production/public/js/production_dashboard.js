@@ -1,4 +1,6 @@
-// Copyright (c) 2025, Isambane Mining (Pty) Ltd // For license information, please see license.txt 
+// Copyright (c) 2025, Isambane Mining (Pty) Ltd 
+// For license information, please see license.txt 
+
 frappe.pages['production-dashboard'].on_page_load = function (wrapper) { 
   const page = frappe.ui.make_app_page({ 
     parent: wrapper, 
@@ -22,13 +24,11 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     fieldtype: 'Link', options: 'Location', reqd: 0 
   }); 
 
-  // NEW FILTER: Monthly Production Planning 
   const monthly_production = page.add_field({ 
     fieldname: 'monthly_production', label: 'Monthly Production', 
     fieldtype: 'Link', options: 'Monthly Production Planning', reqd: 1 
   }); 
 
-  // Dynamically filter monthly_production by selected site, sorted Descending 
   monthly_production.get_query = () => { 
     const site_val = site.get_value(); 
     if (!site_val) { 
@@ -44,13 +44,13 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   const shift = page.add_field({ 
     fieldname: 'shift', label: 'Shift', 
     fieldtype: 'Select', 
-    options: ["", "Day", "Night", "Morning", "Afternoon"], // blank = all 
+    options: ["", "Day", "Night", "Morning", "Afternoon"], 
     reqd: 0 
   }); 
 
   page.set_primary_action(__('Run'), () => refresh_all(true)); 
 
-  // -------- Tabs (manual toggle) -------- 
+  // -------- Tabs -------- 
   const tabNav = document.createElement('div'); 
   tabNav.className = 'mb-3'; 
 
@@ -67,14 +67,13 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   mainEl.appendChild(tabNav); 
 
   const tab1Pane = document.createElement('div'); 
-  tab1Pane.style.display = 'block'; // default visible 
+  tab1Pane.style.display = 'block'; 
   mainEl.appendChild(tab1Pane); 
 
   const tab2Pane = document.createElement('div'); 
-  tab2Pane.style.display = 'none'; // hidden initially 
+  tab2Pane.style.display = 'none'; 
   mainEl.appendChild(tab2Pane); 
 
-  // Toggle logic 
   tab1Btn.onclick = () => { 
     tab1Pane.style.display = 'block'; 
     tab2Pane.style.display = 'none'; 
@@ -91,15 +90,15 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   // -------- Helpers -------- 
   const makeCard = (title) => { 
     const card = document.createElement('div'); 
-    card.className = 'frappe-card'; 
-    card.style.padding = '12px'; 
+    card.className = 'frappe-card compact-card'; 
+    card.style.padding = '8px'; 
     const hWrap = document.createElement('div'); 
     hWrap.style.display = 'flex'; 
     hWrap.style.alignItems = 'center'; 
     hWrap.style.justifyContent = 'space-between'; 
     const h = document.createElement('div'); 
     h.className = 'text-muted'; 
-    h.style.marginBottom = '6px'; 
+    h.style.marginBottom = '4px'; 
     h.textContent = title; 
     hWrap.appendChild(h); 
     card.appendChild(hWrap); 
@@ -120,17 +119,15 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     }); 
 
   // ============================================================== 
-  // TAB 1: Original Dashboard (unchanged + collapse restored) 
+  // TAB 1: Original Dashboard 
   // ============================================================== 
-
-  // Row 1: Total BCM + Productivity KPIs 
   const totalRow = document.createElement('div'); 
   totalRow.style.display = 'flex'; 
   totalRow.style.gap = '20px'; 
 
   const totalBits = makeCard('Total BCM Tallies'); 
   const totalValue = document.createElement('div'); 
-  totalValue.style.fontSize = '22px'; 
+  totalValue.style.fontSize = '20px'; 
   totalValue.style.fontWeight = 'bold'; 
   totalValue.id = 'total-bcm'; 
   totalValue.textContent = '0'; 
@@ -138,7 +135,7 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
 
   const excavatorBits = makeCard('Overall Team Productivity per Hour'); 
   const excavatorValue = document.createElement('div'); 
-  excavatorValue.style.fontSize = '18px'; 
+  excavatorValue.style.fontSize = '14px'; 
   excavatorValue.style.fontWeight = 'bold'; 
   excavatorValue.id = 'excavator-prod'; 
   excavatorValue.textContent = '0 BCM/hr'; 
@@ -146,7 +143,7 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
 
   const dozerBits = makeCard('Overall Dozing Productivity per Hour'); 
   const dozerValue = document.createElement('div'); 
-  dozerValue.style.fontSize = '18px'; 
+  dozerValue.style.fontSize = '14px'; 
   dozerValue.style.fontWeight = 'bold'; 
   dozerValue.id = 'dozer-prod'; 
   dozerValue.textContent = '0 BCM/hr'; 
@@ -158,9 +155,8 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
 
   tab1Pane.appendChild(totalRow); 
 
-  // Row 2: Charts 
   const chartRow = document.createElement('div'); 
-  chartRow.className = 'row g-3'; 
+  chartRow.className = 'row g-2'; 
   const chartCol1 = document.createElement('div'); chartCol1.className = 'col-lg-6'; 
   const chartCol2 = document.createElement('div'); chartCol2.className = 'col-lg-6'; 
   const teamsBits = makeCard('Production Shift Teams'); 
@@ -172,8 +168,7 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   chartRow.appendChild(chartCol1); chartRow.appendChild(chartCol2); 
   tab1Pane.appendChild(chartRow); 
 
-  // Row 3: Material + Location 
-  const row3 = document.createElement('div'); row3.className = 'row g-3'; 
+  const row3 = document.createElement('div'); row3.className = 'row g-2'; 
   const matCol = document.createElement('div'); matCol.className = 'col-lg-6'; 
   const locCol = document.createElement('div'); locCol.className = 'col-lg-6'; 
   const matBits = makeCard('Production Shift Material'); 
@@ -184,8 +179,7 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   locBits.card.appendChild(locMount); locCol.appendChild(locBits.card); 
   row3.appendChild(matCol); row3.appendChild(locCol); tab1Pane.appendChild(row3); 
 
-  // Row 4: Teams + Dozing tables 
-  const row4 = document.createElement('div'); row4.className = 'row g-3'; 
+  const row4 = document.createElement('div'); row4.className = 'row g-2'; 
   const teamsCol = document.createElement('div'); teamsCol.className = 'col-lg-6'; 
   const dozingCol = document.createElement('div'); dozingCol.className = 'col-lg-6'; 
   const teamsTblBits = makeCard('Production Shift Teams (Table)'); 
@@ -196,7 +190,6 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   dozingTblBits.card.appendChild(dozingTblMount); dozingCol.appendChild(dozingTblBits.card); 
   row4.appendChild(teamsCol); row4.appendChild(dozingCol); tab1Pane.appendChild(row4); 
 
-  // Row 5: Productivity table 
   const row5 = document.createElement('div'); 
   const prodBits = makeCard('Productivity Report'); 
   const prodMount = document.createElement('div'); prodMount.id = 'tbl-productivity'; 
@@ -204,12 +197,36 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   tab1Pane.appendChild(row5); 
 
   // ============================================================== 
-  // TAB 2: Production Performance Table 
+  // TAB 2: Compact Grid Layout 
   // ============================================================== 
+  const tab2Row = document.createElement('div');
+  tab2Row.className = 'row g-2';
+
+  const perfCol = document.createElement('div');
+  perfCol.className = 'col-12';
   const perfTblBits = makeCard('Production Performance Report'); 
   const perfTblMount = document.createElement('div'); perfTblMount.id = 'tbl-performance'; 
   perfTblBits.card.appendChild(perfTblMount); 
-  tab2Pane.appendChild(perfTblBits.card); 
+  perfCol.appendChild(perfTblBits.card);
+  tab2Row.appendChild(perfCol);
+
+  const excavCol = document.createElement('div');
+  excavCol.className = 'col-lg-6 col-sm-12';
+  const excavTblBits = makeCard('Excavator Productivity (Machines)'); 
+  const excavTblMount = document.createElement('div'); excavTblMount.id = 'tbl-excavators'; 
+  excavTblBits.card.appendChild(excavTblMount); 
+  excavCol.appendChild(excavTblBits.card);
+  tab2Row.appendChild(excavCol);
+
+  const dozerCol = document.createElement('div');
+  dozerCol.className = 'col-lg-6 col-sm-12';
+  const dozerTblBits = makeCard('Dozer Productivity (Machines)'); 
+  const dozerTblMount = document.createElement('div'); dozerTblMount.id = 'tbl-dozers'; 
+  dozerTblBits.card.appendChild(dozerTblMount); 
+  dozerCol.appendChild(dozerTblBits.card);
+  tab2Row.appendChild(dozerCol);
+
+  tab2Pane.appendChild(tab2Row);
 
   // -------- Chart.js Setup -------- 
   let teamsChart, dozingChart; 
@@ -344,6 +361,37 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     } 
   } 
 
+  function render_child_table(rows, cols, parentLabel, mountSelector, parentEl) {
+    const parentIndex = rows.findIndex(r =>
+      r.label && r.label.toLowerCase().includes(parentLabel.toLowerCase()) && Number(r.indent || 0) === 0
+    );
+
+    let childRows = [];
+    if (parentIndex !== -1) {
+      for (let i = parentIndex + 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (Number(r.indent || 0) === 0) break;
+        childRows.push(r);
+      }
+    }
+
+    const mount = parentEl.querySelector(mountSelector);
+    if (childRows.length) {
+      const thead = cols.map(c => `<th>${c.label}</th>`).join('');
+      const tbody = childRows.map(r =>
+        `<tr>${cols.map(c => `<td>${r[c.fieldname] ?? ''}</td>`).join('')}</tr>`
+      ).join('');
+      mount.innerHTML = `
+        <table class="table table-bordered" style="width:100%">
+          <thead><tr>${thead}</tr></thead>
+          <tbody>${tbody}</tbody>
+        </table>
+      `;
+    } else {
+      mount.innerHTML = `<div class="text-muted">No ${parentLabel} data</div>`;
+    }
+  }
+
   // -------- Refresh Flow -------- 
   async function refresh_all() { 
     const start_v = start.get_value(); 
@@ -357,12 +405,36 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     const teamsTotal = await render_chart_teams(filters) || 0; 
     const dozingTotal = await render_chart_dozing(filters) || 0; 
     document.getElementById('total-bcm').textContent = (teamsTotal + dozingTotal).toLocaleString(); 
+
+    const prodRes = await run_report('Productivity', filters); 
+    if (prodRes.result && prodRes.result.length) { 
+      let excavatorProd = 0; 
+      let dozerProd = 0; 
+      prodRes.result.forEach(r => { 
+        if (r.label && r.label.toLowerCase().includes("excavator")) { 
+          excavatorProd += Number(r.productivity) || 0; 
+        } 
+        if (r.label && r.label.toLowerCase().includes("dozer")) { 
+          dozerProd += Number(r.productivity) || 0; 
+        } 
+      }); 
+      document.getElementById('excavator-prod').textContent = excavatorProd.toFixed(2) + " BCM/hr"; 
+      document.getElementById('dozer-prod').textContent = dozerProd.toFixed(2) + " BCM/hr"; 
+    } 
+
     await render_table('Production Shift Material', filters, '#tbl-material', tab1Pane, true); 
     await render_table('Production Shift Location', filters, '#tbl-location', tab1Pane, true); 
     await render_table('Production Shift Teams', filters, '#tbl-teams', tab1Pane, true); 
     await render_table('Production Shift Dozing', filters, '#tbl-dozing', tab1Pane, true); 
     await render_table('Productivity', filters, '#tbl-productivity', tab1Pane, true); 
     await render_table('Production Performance', filters, '#tbl-performance', tab2Pane, false); 
+
+    if (prodRes.result && prodRes.result.length) {
+      const rows = prodRes.result;
+      const cols = prodRes.columns || [];
+      render_child_table(rows, cols, "excavator", "#tbl-excavators", tab2Pane);
+      render_child_table(rows, cols, "dozer", "#tbl-dozers", tab2Pane);
+    }
   } 
 
   // -------- Defaults -------- 
@@ -377,5 +449,19 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     refresh_all(); 
     setInterval(() => refresh_all(), 300000); 
   }; 
+
+  // -------- Compact CSS -------- 
+  const style = document.createElement('style');
+  style.innerHTML = `
+    .compact-card { padding: 6px !important; }
+    .compact-card table { font-size: 11px; }
+    .compact-card th, .compact-card td { padding: 2px 4px !important; }
+    #production-dashboard .form-control {
+      padding: 2px 4px !important;
+      font-size: 12px;
+      height: auto;
+    }
+  `;
+  document.head.appendChild(style);
 }; 
 
