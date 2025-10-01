@@ -6,6 +6,9 @@
 import frappe
 
 def execute(filters=None):
+    if not filters:
+        filters = {}
+
     columns, data = get_columns(), get_data(filters)
 
     # Add total row for each group
@@ -20,24 +23,16 @@ def execute(filters=None):
 
     # Check if the filter is set to show only totals
     if filters.get("view_mode") == "Only Totals":
-        data = []
-        for group_value, total in grouped_totals.items():
-            data.append({
+        data = [
+            {
                 "day": "Total",
                 "group_value": group_value,
                 "litres_issued": total,
                 "asset_category": None,
-                "docstatus": None
-            })
-
-        # Append grand total row
-        data.append({
-            "day": "Grand Total",
-            "group_value": None,
-            "litres_issued": grand_total,
-            "asset_category": None,
-            "docstatus": None
-        })
+                "docstatus": "Draft + Submitted"
+            }
+            for group_value, total in grouped_totals.items()
+        ]
     else:
         # Append total rows to the data for detailed view
         for group_value, total in grouped_totals.items():
@@ -46,22 +41,30 @@ def execute(filters=None):
                 "group_value": group_value,
                 "litres_issued": total,
                 "asset_category": None,
-                "docstatus": None
+                "docstatus": "Draft + Submitted"
             })
 
-        # Append grand total row
-        data.append({
-            "day": "Grand Total",
-            "group_value": None,
-            "litres_issued": grand_total,
-            "asset_category": None,
-            "docstatus": None
-        })
+    # Append grand total row always
+    data.append({
+        "day": "Grand Total",
+        "group_value": None,
+        "litres_issued": grand_total,
+        "asset_category": None,
+        "docstatus": "Draft + Submitted"
+    })
 
-    # Sort to ensure totals appear at the end of each group
-    data.sort(key=lambda x: (x["group_value"] if x["group_value"] else "", x["day"] != "Total"))
+    # Sort so that Grand Total always last
+    def sort_key(x):
+        if x["day"] == "Grand Total":
+            return ("ZZZZ", 2)  # Always last
+        elif x["day"] == "Total":
+            return (str(x["group_value"]), 1)
+        else:
+            return (str(x["group_value"]), 0)
 
+    data.sort(key=sort_key)
     return columns, data
+
 
 def get_columns():
     return [
@@ -71,6 +74,7 @@ def get_columns():
         {"fieldname": "asset_category", "label": "Asset Category", "fieldtype": "Data", "width": 150},
         {"fieldname": "docstatus", "label": "Docstatus", "fieldtype": "Data", "width": 100}
     ]
+
 
 def get_data(filters):
     # Determine group by field based on the filter
@@ -102,6 +106,7 @@ def get_data(filters):
         `tabAsset` AS a ON dde.asset_name = a.name
     WHERE
         dds.daily_sheet_date IS NOT NULL
+        AND dds.docstatus IN (0, 1)  -- ✅ Draft (0) + Submitted (1) only
     """
 
     # Apply filters dynamically
@@ -115,35 +120,38 @@ def get_data(filters):
             conditions.append("dds.location = %(site)s")
         if filters.get("asset_name"):
             conditions.append("dde.asset_name = %(asset_name)s")
-        if filters.get("docstatus") is not None:
-            conditions.append("dds.docstatus = %(docstatus)s")
         if filters.get("asset_category"):
             conditions.append("a.asset_category = %(asset_category)s")
 
-    # Add conditions to the query
     if conditions:
         query += " AND " + " AND ".join(conditions)
-    
+
     # Add GROUP BY and ORDER BY clauses
     if group_by_field:
-        query += f" GROUP BY day, {group_by_field}"
+        query += f" GROUP BY day, {group_by_field}, dds.docstatus"
         if filters.get("group_by") == "Asset Name":
             query += ", a.asset_category"
+    else:
+        query += " GROUP BY day, dds.docstatus"
+
     query += f" ORDER BY day, {group_by_field}"
 
     # Execute the query with filters
     data = frappe.db.sql(query, filters, as_dict=True)
 
-    # Format the data for the report
+    # Map docstatus numbers to readable labels
+    status_map = {0: "Draft", 1: "Submitted"}
+
     formatted_data = [
         {
             "day": row["day"],
             "group_value": row["group_value"],
             "litres_issued": row["litres_issued"],
             "asset_category": row.get("asset_category") if filters.get("group_by") in ["Asset Name", "Asset Category"] else None,
-            "docstatus": "Draft" if row["docstatus"] == 0 else "Submitted"
+            "docstatus": status_map.get(row["docstatus"], "Unknown")
         }
         for row in data
     ]
 
     return formatted_data
+

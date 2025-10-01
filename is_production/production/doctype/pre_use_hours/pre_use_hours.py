@@ -7,7 +7,7 @@ class PreUseHours(Document):
     def before_save(self):
         """
         Called before saving the 'Pre-Use Hours' document.
-        Performs integrity checks on the current and updates the previous record.
+        Performs integrity checks on the current and validates the previous record.
         """
         try:
             monthly_plan = get_monthly_production_plan(self.location, self.shift_date)
@@ -19,6 +19,9 @@ class PreUseHours(Document):
             validate_shift_date(self, monthly_plan)
             check_previous_record_sequence(self, monthly_plan)
 
+            # ✅ Run validation against previous shift hours before saving
+            self.validate_previous_shift_hours()
+
             # Run integrity on current
             self.evaluate_data_integrity()
             # Then update previous and merge summaries
@@ -28,12 +31,64 @@ class PreUseHours(Document):
             frappe.log_error(title="Pre-Use Hours Validation Error")
             raise
 
+    def validate_previous_shift_hours(self):
+        """
+        Ensures that when opening a new shift, the calculated working hours for
+        the previous shift (using new eng_hrs_start values) are not negative
+        or greater than 12. If invalid, throw error with asset details.
+        """
+        prev_doc = get_previous_document(self.location, self.creation)
+        if not prev_doc:
+            return  # nothing to validate if first shift
+
+        bad_assets = []
+        current_assets_map = {r.asset_name: r for r in self.pre_use_assets if r.asset_name}
+
+        for pr in prev_doc.pre_use_assets:
+            cr = current_assets_map.get(pr.asset_name)
+            if cr and cr.eng_hrs_start is not None and pr.eng_hrs_start is not None:
+                eng_hrs_end = cr.eng_hrs_start
+                working_hours = round(eng_hrs_end - pr.eng_hrs_start, 1)
+
+                if working_hours < 0 or working_hours > 12:
+                    bad_assets.append({
+                        "asset": pr.asset_name,
+                        "prev_start": pr.eng_hrs_start,
+                        "new_start": cr.eng_hrs_start,
+                        "wh": working_hours
+                    })
+
+        if bad_assets:
+            rows_html = "".join(
+                f"<tr><td>{b['asset']}</td><td>{b['prev_start']}</td>"
+                f"<td>{b['new_start']}</td><td>{b['wh']}</td></tr>"
+                for b in bad_assets
+            )
+            table_html = f"""
+                <h4>❌ Cannot save this shift</h4>
+                <p>The following assets would create invalid working hours in the previous shift:</p>
+                <table class="table table-bordered" style="width:100%; border-collapse: collapse;">
+                    <tr>
+                        <th>Asset</th>
+                        <th>Previous Start</th>
+                        <th>Current Start</th>
+                        <th>Calculated Hours</th>
+                    </tr>
+                    {rows_html}
+                </table>
+                <p style="color:gray; margin-top:10px;">
+                    Please adjust the <b>engine start hours</b> in the current shift so that the
+                    previous shift's working hours are valid (0–12).
+                </p>
+            """
+            frappe.throw(table_html)
+
     def update_previous_eng_hrs_end(self):
         """
         1) Copy eng_hrs_end/working_hours into the previous record via db.set_value
-        2) Re-run its integrity check in‑memory
+        2) Re-run its integrity check in-memory
         3) Persist its child & parent changes, reload previous doc in any open form
-        4) Render a two‑column Current vs Previous summary with nav buttons at top
+        4) Render a two-column Current vs Previous summary with nav buttons at top
            and a legend at the bottom.
         """
         try:
@@ -49,9 +104,12 @@ class PreUseHours(Document):
 
             prev = frappe.get_doc("Pre-Use Hours", prev_name)
 
-            # 2) copy engine‑end into its child rows & persist
+            # Build map for efficiency
+            current_assets_map = {r.asset_name: r for r in self.pre_use_assets if r.asset_name}
+
+            # 2) copy engine-end into its child rows & persist
             for pr in prev.pre_use_assets:
-                cr = next((r for r in self.pre_use_assets if r.asset_name == pr.asset_name), None)
+                cr = current_assets_map.get(pr.asset_name)
                 if cr and cr.eng_hrs_start is not None:
                     pr.eng_hrs_end = cr.eng_hrs_start
                     if pr.eng_hrs_start is not None:
@@ -65,7 +123,7 @@ class PreUseHours(Document):
                         update_modified=False
                     )
 
-            # 3) re‑evaluate previous’s integrity, persist its summary & indicator
+            # 3) re-evaluate previous’s integrity, persist its summary & indicator
             prev.evaluate_data_integrity()
             frappe.db.set_value(
                 "Pre-Use Hours", prev.name,
@@ -76,13 +134,12 @@ class PreUseHours(Document):
                 update_modified=False
             )
 
-            # 4) commit and trigger any open form of that record to reload
-            frappe.db.commit()
+            # 4) trigger any open form of that record to reload
             frappe.publish_realtime("preuse:reload_doc", {
                 "doctype": "Pre-Use Hours", "name": prev.name
             })
 
-            # 5) build nav buttons, two‑column summaries and legend
+            # 5) build nav buttons, two-column summaries and legend
             nav_buttons = """
                 <div style="margin-bottom:10px;">
                   <button class="btn btn-sm btn-secondary" id="prev_record_top">⬅️ Previous</button>
@@ -90,7 +147,6 @@ class PreUseHours(Document):
                 </div>
             """
 
-            # use whatever evaluate_data_integrity already set on this doc
             current_html = self.data_integrity_summary or "<p><b>No issues in current shift.</b></p>"
             previous_html = prev.data_integrity_summary or "<p><b>No issues in previous shift.</b></p>"
 
@@ -122,13 +178,11 @@ class PreUseHours(Document):
 
             # 6) overwrite this doc’s summary field & mark dirty
             self.set("data_integrity_summary", merged)
-            # leave data_integ_indicator alone (it still reflects current-shift status)
             self.flags.dirty = True
 
         except Exception as e:
             frappe.log_error(title="Engine Hours Update Error", message=str(e))
             frappe.throw(_("Error updating previous engine hours: {0}").format(e))
-
 
     def evaluate_data_integrity(self):
         errors = []
@@ -157,7 +211,9 @@ class PreUseHours(Document):
                     row_issues.append("⚠️ <span style='color:orange;'>Zero Working Hours</span>")
                     warning_count += 1
                 elif working_hours > 12:
-                    row_issues.append(f"❌ <span style='color:red;'>Unusually High Working Hours ({working_hours})</span>")
+                    row_issues.append(
+                        f"❌ <span style='color:red;'>Unusually High Working Hours ({working_hours})</span>"
+                    )
                     error_count += 1
 
             if not row.pre_use_avail_status:
@@ -267,7 +323,6 @@ def validate_shift_date(doc, monthly_plan):
         raise
 
 
-
 def check_previous_record_sequence(doc, monthly_plan):
     try:
         previous_doc = get_previous_document(doc.location, doc.creation)
@@ -301,7 +356,6 @@ def validate_next_shift_and_sequence(doc, previous_doc, monthly_plan):
             expected = prev_date + timedelta(days=1)
             if curr_date != expected:
                 frappe.throw(f"{required_shift} shift must occur on {expected.strftime('%d-%m-%Y')}.")
-
         elif doc.shift in ("Afternoon", "Night") and curr_date != prev_date:
             frappe.throw(f"{doc.shift} shift must occur on the same date as the previous record.")
     except Exception:
@@ -322,3 +376,4 @@ def get_previous_document(location, current_creation):
     except Exception:
         frappe.log_error(title="Previous Document Fetch Error")
         return None
+

@@ -59,7 +59,7 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   tab1Btn.className = 'btn btn-primary me-2'; 
 
   const tab2Btn = document.createElement('button'); 
-  tab2Btn.textContent = 'Production Dashboard Weekly'; 
+  tab2Btn.textContent = 'Production Dashboard Update'; 
   tab2Btn.className = 'btn btn-secondary'; 
 
   tabNav.appendChild(tab1Btn); 
@@ -464,4 +464,6 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   `;
   document.head.appendChild(style);
 }; 
+
+
 

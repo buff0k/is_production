@@ -1,2035 +1,331 @@
-// Copyright (c) 2025, Isambane Mining (Pty) Ltd 
-// For license information, please see license.txt 
+// listen for server-side “logs” and print them to the browser console
+frappe.realtime.on("preuse:update_log", (data) => {
+  console.log(
+    "%c[PreUseHours]",
+    "color:teal;font-weight:bold;",
+    data.msg
+  );
+});
 
-frappe.pages['production-dashboard'].on_page_load = function (wrapper) { 
-  const page = frappe.ui.make_app_page({ 
-    parent: wrapper, 
-    title: 'Production Dashboard', 
-    single_column: true 
-  }); 
+// ✅ Category order definition
+const CATEGORY_ORDER = [
+  "Excavator",
+  "ADT",
+  "Dozer",
+  "Water Bowser",
+  "Diesel Bowsers",
+  "Service Truck",
+  "Grader",
+  "TLB",
+  "Drills"
+];
 
-  const mainEl = page.main.get(0); 
+// ✅ Utility sorter
+function sort_assets(assets) {
+  return assets.sort((a, b) => {
+    const orderA = CATEGORY_ORDER.indexOf(a.asset_category);
+    const orderB = CATEGORY_ORDER.indexOf(b.asset_category);
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.asset_name || a.name).localeCompare(b.asset_name || b.name);
+  });
+}
 
-  // -------- Filters -------- 
-  const start = page.add_field({ 
-    fieldname: 'start_date', label: 'Start Date', 
-    fieldtype: 'Date', reqd: 0 
-  }); 
-  const end = page.add_field({ 
-    fieldname: 'end_date', label: 'End Date', 
-    fieldtype: 'Date', reqd: 0 
-  }); 
-  const site = page.add_field({ 
-    fieldname: 'site', label: 'Site', 
-    fieldtype: 'Link', options: 'Location', reqd: 0 
-  }); 
+frappe.ui.form.on('Pre-Use Hours', {
+  shift_system: function (frm) {
+    update_shift_options(frm, frm.doc.shift_system);
+  },
 
-  // NEW FILTER: Monthly Production Planning 
-  const monthly_production = page.add_field({ 
-    fieldname: 'monthly_production', label: 'Monthly Production', 
-    fieldtype: 'Link', options: 'Monthly Production Planning', reqd: 1 
-  }); 
+  location: function (frm) {
+    if (frm.doc.location) {
+      frm.clear_table('pre_use_assets');
+      fetch_assets(frm);
 
-  // Dynamically filter monthly_production by selected site, sorted Descending 
-  monthly_production.get_query = () => { 
-    const site_val = site.get_value(); 
-    if (!site_val) { 
-      frappe.msgprint(__('Please select a Site first.')); 
-      return { filters: [] }; 
-    } 
-    return { 
-      filters: { location: site_val }, 
-      order_by: 'creation desc' 
-    }; 
-  }; 
+      if (frm.doc.shift_date) {
+        fetch_shift_system(frm);
+      }
+      set_avail_util_lookup(frm);
+    }
+  },
 
-  const shift = page.add_field({ 
-    fieldname: 'shift', label: 'Shift', 
-    fieldtype: 'Select', 
-    options: ["", "Day", "Night", "Morning", "Afternoon"], // blank = all 
-    reqd: 0 
-  }); 
+  shift_date: function (frm) {
+    if (frm.doc.location) {
+      fetch_shift_system(frm);
+    }
+    set_avail_util_lookup(frm);
+  },
 
-  page.set_primary_action(__('Run'), () => refresh_all(true)); 
+  shift: function (frm) {
+    set_avail_util_lookup(frm);
+  },
 
-  // -------- Tabs (manual toggle) -------- 
-  const tabNav = document.createElement('div'); 
-  tabNav.className = 'mb-3'; 
+  refresh: function (frm) {
+    fetch_pre_use_status(frm);
 
-  const tab1Btn = document.createElement('button'); 
-  tab1Btn.textContent = 'Production Dashboard'; 
-  tab1Btn.className = 'btn btn-primary me-2'; 
+    decorate_integrity_band(frm);
+    render_integrity_html_with_nav(frm);
 
-  const tab2Btn = document.createElement('button'); 
-  tab2Btn.textContent = 'Production Dashboard Weekly'; 
-  tab2Btn.className = 'btn btn-secondary'; 
+    console.log("🧪 Summary from server:", frm.doc.data_integrity_summary);
 
-  tabNav.appendChild(tab1Btn); 
-  tabNav.appendChild(tab2Btn); 
-  mainEl.appendChild(tabNav); 
-
-  const tab1Pane = document.createElement('div'); 
-  tab1Pane.style.display = 'block'; // default visible 
-  mainEl.appendChild(tab1Pane); 
-
-  const tab2Pane = document.createElement('div'); 
-  tab2Pane.style.display = 'none'; // hidden initially 
-  mainEl.appendChild(tab2Pane); 
-
-  // Toggle logic 
-  tab1Btn.onclick = () => { 
-    tab1Pane.style.display = 'block'; 
-    tab2Pane.style.display = 'none'; 
-    tab1Btn.className = 'btn btn-primary me-2'; 
-    tab2Btn.className = 'btn btn-secondary'; 
-  }; 
-  tab2Btn.onclick = () => { 
-    tab1Pane.style.display = 'none'; 
-    tab2Pane.style.display = 'block'; 
-    tab1Btn.className = 'btn btn-secondary me-2'; 
-    tab2Btn.className = 'btn btn-primary'; 
-  }; 
-
-  // -------- Helpers -------- 
-  const makeCard = (title) => { 
-    const card = document.createElement('div'); 
-    card.className = 'frappe-card'; 
-    card.style.padding = '12px'; 
-    const hWrap = document.createElement('div'); 
-    hWrap.style.display = 'flex'; 
-    hWrap.style.alignItems = 'center'; 
-    hWrap.style.justifyContent = 'space-between'; 
-    const h = document.createElement('div'); 
-    h.className = 'text-muted'; 
-    h.style.marginBottom = '6px'; 
-    h.textContent = title; 
-    hWrap.appendChild(h); 
-    card.appendChild(hWrap); 
-    return { card }; 
-  }; 
-
-  const run_report = (report_name, filters) => 
-    frappe.call({ 
-      method: 'frappe.desk.query_report.run', 
-      args: { report_name, filters, ignore_prepared_report: true } 
-    }).then(r => { 
-      const msg = r.message || {}; 
-      return { 
-        result: msg.result || [], 
-        columns: msg.columns || [], 
-        summary: msg.report_summary || [] 
-      }; 
-    }); 
-
-  // ============================================================== 
-  // TAB 1: Original Dashboard 
-  // ============================================================== 
-
-  // Row 1: Total BCM + Productivity KPIs 
-  const totalRow = document.createElement('div'); 
-  totalRow.style.display = 'flex'; 
-  totalRow.style.gap = '20px'; 
-
-  const totalBits = makeCard('Total BCM Tallies'); 
-  const totalValue = document.createElement('div'); 
-  totalValue.style.fontSize = '22px'; 
-  totalValue.style.fontWeight = 'bold'; 
-  totalValue.id = 'total-bcm'; 
-  totalValue.textContent = '0'; 
-  totalBits.card.appendChild(totalValue); 
-
-  const excavatorBits = makeCard('Overall Team Productivity per Hour'); 
-  const excavatorValue = document.createElement('div'); 
-  excavatorValue.style.fontSize = '18px'; 
-  excavatorValue.style.fontWeight = 'bold'; 
-  excavatorValue.id = 'excavator-prod'; 
-  excavatorValue.textContent = '0 BCM/hr'; 
-  excavatorBits.card.appendChild(excavatorValue); 
-
-  const dozerBits = makeCard('Overall Dozing Productivity per Hour'); 
-  const dozerValue = document.createElement('div'); 
-  dozerValue.style.fontSize = '18px'; 
-  dozerValue.style.fontWeight = 'bold'; 
-  dozerValue.id = 'dozer-prod'; 
-  dozerValue.textContent = '0 BCM/hr'; 
-  dozerBits.card.appendChild(dozerValue); 
-
-  totalRow.appendChild(totalBits.card); 
-  totalRow.appendChild(excavatorBits.card); 
-  totalRow.appendChild(dozerBits.card); 
-
-  tab1Pane.appendChild(totalRow); 
-
-  // Row 2: Charts 
-  const chartRow = document.createElement('div'); 
-  chartRow.className = 'row g-3'; 
-  const chartCol1 = document.createElement('div'); chartCol1.className = 'col-lg-6'; 
-  const chartCol2 = document.createElement('div'); chartCol2.className = 'col-lg-6'; 
-  const teamsBits = makeCard('Production Shift Teams'); 
-  const teamsMount = document.createElement('canvas'); teamsMount.id = 'chart-teams'; 
-  teamsBits.card.appendChild(teamsMount); chartCol1.appendChild(teamsBits.card); 
-  const dozingBits = makeCard('Production Shift Dozing'); 
-  const dozingMount = document.createElement('canvas'); dozingMount.id = 'chart-dozing'; 
-  dozingBits.card.appendChild(dozingMount); chartCol2.appendChild(dozingBits.card); 
-  chartRow.appendChild(chartCol1); chartRow.appendChild(chartCol2); 
-  tab1Pane.appendChild(chartRow); 
-
-  // Row 3: Material + Location 
-  const row3 = document.createElement('div'); row3.className = 'row g-3'; 
-  const matCol = document.createElement('div'); matCol.className = 'col-lg-6'; 
-  const locCol = document.createElement('div'); locCol.className = 'col-lg-6'; 
-  const matBits = makeCard('Production Shift Material'); 
-  const matMount = document.createElement('div'); matMount.id = 'tbl-material'; 
-  matBits.card.appendChild(matMount); matCol.appendChild(matBits.card); 
-  const locBits = makeCard('Production Shift Location'); 
-  const locMount = document.createElement('div'); locMount.id = 'tbl-location'; 
-  locBits.card.appendChild(locMount); locCol.appendChild(locBits.card); 
-  row3.appendChild(matCol); row3.appendChild(locCol); tab1Pane.appendChild(row3); 
-
-  // Row 4: Teams + Dozing tables 
-  const row4 = document.createElement('div'); row4.className = 'row g-3'; 
-  const teamsCol = document.createElement('div'); teamsCol.className = 'col-lg-6'; 
-  const dozingCol = document.createElement('div'); dozingCol.className = 'col-lg-6'; 
-  const teamsTblBits = makeCard('Production Shift Teams (Table)'); 
-  const teamsTblMount = document.createElement('div'); teamsTblMount.id = 'tbl-teams'; 
-  teamsTblBits.card.appendChild(teamsTblMount); teamsCol.appendChild(teamsTblBits.card); 
-  const dozingTblBits = makeCard('Production Shift Dozing (Table)'); 
-  const dozingTblMount = document.createElement('div'); dozingTblMount.id = 'tbl-dozing'; 
-  dozingTblBits.card.appendChild(dozingTblMount); dozingCol.appendChild(dozingTblBits.card); 
-  row4.appendChild(teamsCol); row4.appendChild(dozingCol); tab1Pane.appendChild(row4); 
-
-  // Row 5: Productivity table 
-  const row5 = document.createElement('div'); 
-  const prodBits = makeCard('Productivity Report'); 
-  const prodMount = document.createElement('div'); prodMount.id = 'tbl-productivity'; 
-  prodBits.card.appendChild(prodMount); row5.appendChild(prodBits.card); 
-  tab1Pane.appendChild(row5); 
-
-  // ============================================================== 
-  // TAB 2: Production Performance + Machine Productivity 
-  // ============================================================== 
-  const perfTblBits = makeCard('Production Performance Report'); 
-  const perfTblMount = document.createElement('div'); perfTblMount.id = 'tbl-performance'; 
-  perfTblBits.card.appendChild(perfTblMount); 
-  tab2Pane.appendChild(perfTblBits.card); 
-
-  // Excavator Productivity table 
-  const excavTblBits = makeCard('Excavator Productivity (Machines)'); 
-  const excavTblMount = document.createElement('div'); excavTblMount.id = 'tbl-excavators'; 
-  excavTblBits.card.appendChild(excavTblMount); 
-  tab2Pane.appendChild(excavTblBits.card); 
-
-  // Dozer Productivity table 
-  const dozerTblBits = makeCard('Dozer Productivity (Machines)'); 
-  const dozerTblMount = document.createElement('div'); dozerTblMount.id = 'tbl-dozers'; 
-  dozerTblBits.card.appendChild(dozerTblMount); 
-  tab2Pane.appendChild(dozerTblBits.card); 
-
-  // -------- Chart.js Setup -------- 
-  let teamsChart, dozingChart; 
-
-  async function render_chart_teams(filters) { 
-    const res = await run_report('Production Shift Teams', filters); 
-    const prodRes = await run_report('Productivity', filters); 
-    const parents = (res.result || []).filter(r => Number(r.indent || 0) === 0); 
-    const labels = parents.map(r => r.excavator || 'Unknown'); 
-    const values = parents.map(r => Number(r.bcms) || 0); 
-    const total = values.reduce((a, b) => a + b, 0); 
-    const prodMap = {}; 
-    (prodRes.result || []).forEach(r => { 
-      if (r.indent === 1) prodMap[r.label] = Number(r.productivity) || 0; 
-    }); 
-    const productivityVals = labels.map(l => prodMap[l] || 0); 
-    const thresholdVals = Array(labels.length).fill(220); 
-    const ctx = document.getElementById('chart-teams').getContext('2d'); 
-    if (teamsChart) teamsChart.destroy(); 
-    teamsChart = new Chart(ctx, { 
-      type: 'bar', 
-      data: { 
-        labels, 
-        datasets: [ 
-          { label: 'BCM', data: values, backgroundColor: 'rgba(54,162,235,0.6)', yAxisID: 'y-left' }, 
-          { label: 'Productivity/HR', data: productivityVals, type: 'line', borderColor: 'red', yAxisID: 'y-right' }, 
-          { label: 'Threshold 220', data: thresholdVals, type: 'line', borderColor: 'green', borderDash: [5,5], yAxisID: 'y-right' } 
-        ] 
-      }, 
-      options: { 
-        responsive: true, 
-        interaction: { mode: 'index', intersect: false }, 
-        scales: { 
-          'y-left': { type: 'linear', position: 'left', title: { display: true, text: 'BCM' } }, 
-          'y-right': { type: 'linear', position: 'right', title: { display: true, text: 'Productivity/HR' }, grid: { drawOnChartArea: false } } 
-        } 
-      } 
-    }); 
-    return total; 
-  } 
-
-  async function render_chart_dozing(filters) { 
-    const res = await run_report('Production Shift Dozing', filters); 
-    const prodRes = await run_report('Productivity', filters); 
-    const parents = (res.result || []).filter(r => Number(r.indent || 0) === 0); 
-    const labels = parents.map(r => r.label || 'Unknown'); 
-    const values = parents.map(r => Number(r.bcm_hour) || 0); 
-    const total = values.reduce((a, b) => a + b, 0); 
-    const prodMap = {}; 
-    (prodRes.result || []).forEach(r => { 
-      if (r.indent === 1) prodMap[r.label] = Number(r.productivity) || 0; 
-    }); 
-    const productivityVals = labels.map(l => prodMap[l] || 0); 
-    const ctx = document.getElementById('chart-dozing').getContext('2d'); 
-    if (dozingChart) dozingChart.destroy(); 
-    dozingChart = new Chart(ctx, { 
-      type: 'bar', 
-      data: { 
-        labels, 
-        datasets: [ 
-          { label: 'BCM', data: values, backgroundColor: 'rgba(54,162,235,0.6)', yAxisID: 'y-left' }, 
-          { label: 'Productivity/HR', data: productivityVals, type: 'line', borderColor: 'red', yAxisID: 'y-right' } 
-        ] 
-      }, 
-      options: { 
-        responsive: true, 
-        interaction: { mode: 'index', intersect: false }, 
-        scales: { 
-          'y-left': { type: 'linear', position: 'left', title: { display: true, text: 'BCM' } }, 
-          'y-right': { type: 'linear', position: 'right', title: { display: true, text: 'Productivity/HR' }, grid: { drawOnChartArea: false } } 
-        } 
-      } 
-    }); 
-    return total; 
-  } 
-
-  // -------- Table Renderer -------- 
-  async function render_table(report_name, filters, mountSelector, parentEl, collapsible = false) { 
-    const res = await run_report(report_name, filters); 
-    const rows = res.result || []; 
-    const cols = res.columns || []; 
-    const mount = parentEl.querySelector(mountSelector); 
-    if (!rows.length) { 
-      mount.innerHTML = '<div class="text-muted">No data</div>'; 
-      return; 
-    } 
-    const thead = cols.map(c => `<th>${c.label}</th>`).join(''); 
-    const tbody = rows.map(r => { 
-      if (collapsible) { 
-        const indent = Number(r.indent || 0); 
-        const isParent = indent === 0; 
-        return ` 
-          <tr data-indent="${indent}" class="${isParent ? 'group-row' : 'child-row'}" style="${indent > 0 ? 'display:none;' : ''}"> 
-            ${cols.map((c, i) => { 
-              const v = r[c.fieldname] ?? ''; 
-              const pad = (i === 0 ? `padding-left:${indent * 20}px;` : ''); 
-              const bold = (isParent ? 'font-weight:600;' : ''); 
-              const clickable = (i === 0 && isParent) ? 'class="toggle-cell"' : ''; 
-              return `<td style="${pad}${bold}" ${clickable}>${v}</td>`; 
-            }).join('')} 
-          </tr> 
-        `; 
-      } else { 
-        return `<tr>${cols.map(c => `<td>${r[c.fieldname] ?? ''}</td>`).join('')}</tr>`; 
-      } 
-    }).join(''); 
-    mount.innerHTML = ` 
-      <table class="table table-bordered" style="width:100%"> 
-        <thead><tr>${thead}</tr></thead> 
-        <tbody>${tbody}</tbody> 
-      </table> 
-    `; 
-    if (collapsible) { 
-      mount.querySelectorAll('.toggle-cell').forEach(cell => { 
-        cell.style.cursor = 'pointer'; 
-        cell.addEventListener('click', () => { 
-          const row = cell.parentElement; 
-          const rowIndent = Number(row.dataset.indent); 
-          let next = row.nextElementSibling; 
-          let show = false; 
-          while (next && Number(next.dataset.indent) > rowIndent) { 
-            if (next.style.display === 'none') { show = true; break; } 
-            next = next.nextElementSibling; 
-          } 
-          next = row.nextElementSibling; 
-          while (next && Number(next.dataset.indent) > rowIndent) { 
-            next.style.display = show ? '' : 'none'; 
-            next = next.nextElementSibling; 
-          } 
-        }); 
-      }); 
-    } 
-  } 
-
-  // -------- Child-only table renderer (Excavator, Dozer, etc.) --------
-  function render_child_table(rows, cols, parentLabel, mountSelector, parentEl) {
-    const parentIndex = rows.findIndex(r =>
-      r.label && r.label.toLowerCase().includes(parentLabel.toLowerCase()) && Number(r.indent || 0) === 0
+    // ✅ Add refresh machines button
+    frm.add_custom_button(
+      __('🔄 Refresh Machines'),
+      () => frm.trigger('refresh_machines_from_assets'),
+      __('Actions')
     );
+  },
 
-    let childRows = [];
-    if (parentIndex !== -1) {
-      for (let i = parentIndex + 1; i < rows.length; i++) {
-        const r = rows[i];
-        if (Number(r.indent || 0) === 0) break;
-        childRows.push(r);
+  // ✅ Handler for the refresh machines button
+  refresh_machines_from_assets: function(frm) {
+    if (!frm.doc.location) {
+      frappe.msgprint(__('Please select a location first.'));
+      return;
+    }
+
+    frappe.call({
+      method: "frappe.client.get_list",
+      args: {
+        doctype: "Asset",
+        filters: {
+          location: frm.doc.location,
+          asset_category: ["in", CATEGORY_ORDER],
+          docstatus: 1
+        },
+        fields: ["name", "item_name", "asset_category", "asset_name"],
+        limit_page_length: 500
+      },
+      callback: function(r) {
+        let assets = r.message || [];
+        assets = sort_assets(assets);
+
+        frm.clear_table("pre_use_assets");
+        assets.forEach(asset => {
+          const row = frm.add_child("pre_use_assets");
+          row.asset_name = asset.asset_name || asset.name;
+          row.item_name = asset.item_name;
+          row.asset_category = asset.asset_category;
+        });
+
+        frm.refresh_field("pre_use_assets");
+        frappe.msgprint(__("✅ Machines updated from Asset list (sorted by category)."));
+      }
+    });
+  }
+});
+
+/**
+ * Dynamically set Shift options based on the shift system
+ */
+function update_shift_options(frm, shift_system) {
+  const shift_options = {
+    '3x8Hour': ['Morning', 'Afternoon', 'Night'],
+    '2x12Hour': ['Day', 'Night']
+  };
+  frm.set_df_property('shift', 'options', shift_options[shift_system] || []);
+}
+
+/**
+ * Fetch relevant assets for the selected location
+ */
+function fetch_assets(frm) {
+  frappe.call({
+    method: 'frappe.client.get_list',
+    args: {
+      doctype: 'Asset',
+      filters: {
+        location: frm.doc.location,
+        asset_category: ['in', CATEGORY_ORDER],
+        docstatus: 1
+      },
+      fields: ['name', 'asset_name', 'item_name', 'asset_category'],
+      limit_page_length: 1000
+    },
+    callback: function (response) {
+      if (response.message) {
+        const assets = sort_assets(response.message);
+
+        frm.clear_table('pre_use_assets');
+        assets.forEach(asset => {
+          const row = frm.add_child('pre_use_assets');
+          row.asset_name = asset.asset_name || asset.name;
+          row.item_name = asset.item_name;
+          row.asset_category = asset.asset_category;
+        });
+        frm.refresh_field('pre_use_assets');
       }
     }
+  });
+}
 
-    const mount = parentEl.querySelector(mountSelector);
-    if (childRows.length) {
-      const thead = cols.map(c => `<th>${c.label}</th>`).join('');
-      const tbody = childRows.map(r =>
-        `<tr>${cols.map(c => `<td>${r[c.fieldname] ?? ''}</td>`).join('')}</tr>`
-      ).join('');
-      mount.innerHTML = `
-        <table class="table table-bordered" style="width:100%">
-          <thead><tr>${thead}</tr></thead>
-          <tbody>${tbody}</tbody>
-        </table>
-      `;
-    } else {
-      mount.innerHTML = `<div class="text-muted">No ${parentLabel} data</div>`;
+/**
+ * Fetch the shift system from Monthly Production Planning
+ */
+function fetch_shift_system(frm) {
+  if (!frm.doc.location || !frm.doc.shift_date) return;
+
+  frappe.call({
+    method: 'frappe.client.get_list',
+    args: {
+      doctype: 'Monthly Production Planning',
+      filters: {
+        location: frm.doc.location,
+        prod_month_start_date: ["<=", frm.doc.shift_date],
+        prod_month_end_date: [">=", frm.doc.shift_date],
+        site_status: "Producing"
+      },
+      fields: ['name', 'prod_month_start_date', 'prod_month_end_date', 'shift_system'],
+      limit_page_length: 1
+    },
+    callback: function (response) {
+      if (response.message && response.message.length) {
+        const record = response.message[0];
+
+        const shift_date_obj = frappe.datetime.str_to_obj(frm.doc.shift_date);
+        const month_start_obj = frappe.datetime.str_to_obj(record.prod_month_start_date);
+        const month_end_obj = frappe.datetime.str_to_obj(record.prod_month_end_date);
+
+        if (shift_date_obj < month_start_obj || shift_date_obj > month_end_obj) {
+          frappe.throw(
+            __("Shift Date must be between {0} and {1} (inclusive).", [
+              frappe.datetime.obj_to_user(month_start_obj),
+              frappe.datetime.obj_to_user(month_end_obj)
+            ])
+          );
+        }
+
+        frm.set_value('shift_system', record.shift_system);
+        update_shift_options(frm, record.shift_system);
+      }
+    }
+  });
+}
+
+/**
+ * Build "Availability and Utilisation Lookup"
+ */
+function set_avail_util_lookup(frm) {
+  if (frm.doc.location && frm.doc.shift_date && frm.doc.shift) {
+    const shift_date_formatted = frappe.datetime.str_to_user(frm.doc.shift_date);
+    const avail_util_lookup_value = `${frm.doc.location}-${shift_date_formatted}-${frm.doc.shift}`;
+    frm.set_value('avail_util_lookup', avail_util_lookup_value);
+  }
+}
+
+/**
+ * Fetch and display a table of Pre-Use Status records
+ */
+function fetch_pre_use_status(frm) {
+  frappe.call({
+    method: 'frappe.client.get_list',
+    args: {
+      doctype: 'Pre-Use Status',
+      fields: ['name', 'pre_use_avail_status'],
+      order_by: 'name asc'
+    },
+    callback: function (response) {
+      const records = response.message;
+      let html = records && records.length
+        ? generate_status_table(records)
+        : "<p>No records found in 'Pre-Use Status'.</p>";
+
+      html += "<br><b>Please ensure correct status is indicated for each Plant. "
+           + "For example, if Plant is not working at shift start due to Breakdown, "
+           + "status of 2 must be selected. Or if machine is spare, select status 3.</b>";
+
+      $(frm.fields_dict.pre_use_status_explain.wrapper).html(html);
+    }
+  });
+}
+
+/**
+ * Generate an HTML table with status records
+ */
+function generate_status_table(records) {
+  let html = "<table style='width:100%; border-collapse: collapse;'>";
+  html += "<tr><th>Status</th><th>Pre-Use Availability Status</th></tr>";
+  records.forEach(record => {
+    html += `<tr><td>${record.name}</td><td>${record.pre_use_avail_status}</td></tr>`;
+  });
+  html += "</table>";
+  return html;
+}
+
+function decorate_integrity_band(frm) {
+  const indicator = frm.doc.data_integ_indicator;
+  const wrapper = frm.fields_dict.data_integrity_summary?.$wrapper;
+
+  if (wrapper) {
+    wrapper.css({
+      "border": "2px solid transparent",
+      "padding": "10px",
+      "border-radius": "6px"
+    });
+
+    if (indicator === "Red") {
+      wrapper.css("border", "2px solid red");
+      wrapper.css("background-color", "#ffe6e6");
+    } else if (indicator === "Yellow") {
+      wrapper.css("border", "2px solid orange");
+      wrapper.css("background-color", "#fff8e1");
+    } else if (indicator === "Green") {
+      wrapper.css("border", "2px solid green");
+      wrapper.css("background-color", "#e8f5e9");
     }
   }
-
-  // -------- Refresh Flow -------- 
-  async function refresh_all() { 
-    const start_v = start.get_value(); 
-    const end_v = end.get_value(); 
-    const site_v = site.get_value(); 
-    const monthly_v = monthly_production.get_value(); 
-    const shift_v = shift.get_value(); 
-    if (!start_v || !end_v || !site_v || !monthly_v) return; 
-    const filters = { start_date: start_v, end_date: end_v, site: site_v, monthly_production: monthly_v }; 
-    if (shift_v) filters.shift = shift_v; 
-    const teamsTotal = await render_chart_teams(filters) || 0; 
-    const dozingTotal = await render_chart_dozing(filters) || 0; 
-    document.getElementById('total-bcm').textContent = (teamsTotal + dozingTotal).toLocaleString(); 
-
-    // Update excavator & dozer productivity per hour
-    const prodRes = await run_report('Productivity', filters); 
-    if (prodRes.result && prodRes.result.length) { 
-      let excavatorProd = 0; 
-      let dozerProd = 0; 
-      prodRes.result.forEach(r => { 
-        if (r.label && r.label.toLowerCase().includes("excavator")) { 
-          excavatorProd += Number(r.productivity) || 0; 
-        } 
-        if (r.label && r.label.toLowerCase().includes("dozer")) { 
-          dozerProd += Number(r.productivity) || 0; 
-        } 
-      }); 
-      document.getElementById('excavator-prod').textContent = excavatorProd.toFixed(2) + " BCM/hr"; 
-      document.getElementById('dozer-prod').textContent = dozerProd.toFixed(2) + " BCM/hr"; 
-    } 
-
-    await render_table('Production Shift Material', filters, '#tbl-material', tab1Pane, true); 
-    await render_table('Production Shift Location', filters, '#tbl-location', tab1Pane, true); 
-    await render_table('Production Shift Teams', filters, '#tbl-teams', tab1Pane, true); 
-    await render_table('Production Shift Dozing', filters, '#tbl-dozing', tab1Pane, true); 
-    await render_table('Productivity', filters, '#tbl-productivity', tab1Pane, true); 
-    await render_table('Production Performance', filters, '#tbl-performance', tab2Pane, false); 
-
-    // NEW: Excavator & Dozer child-only tables
-    if (prodRes.result && prodRes.result.length) {
-      const rows = prodRes.result;
-      const cols = prodRes.columns || [];
-
-      render_child_table(rows, cols, "excavator", "#tbl-excavators", tab2Pane);
-      render_child_table(rows, cols, "dozer", "#tbl-dozers", tab2Pane);
-    }
-  } 
-
-  // -------- Defaults -------- 
-  const today = frappe.datetime.get_today(); 
-  const week_ago = frappe.datetime.add_days(today, -6); 
-  start.set_value(week_ago); 
-  end.set_value(today); 
-  const script = document.createElement("script"); 
-  script.src = "https://cdn.jsdelivr.net/npm/chart.js"; 
-  document.head.appendChild(script); 
-  script.onload = () => { 
-    refresh_all(); 
-    setInterval(() => refresh_all(), 300000); 
-  }; 
-}; 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+}
+
+function render_integrity_html_with_nav(frm) {
+  const wrapper = frm.fields_dict.data_integrity_summary.$wrapper;
+  if (!wrapper) return;
+
+  let raw = frm.doc.data_integrity_summary || '';
+  raw = raw.replace(/^\s+|\s+$/g, '').replace(/\n\s+/g, '\n');
+  wrapper.empty().append(raw);
+
+  function bindNav(selector, isPrev) {
+    wrapper.find(selector)
+      .off('click')
+      .on('click', () => {
+        const op    = isPrev ? '<' : '>';
+        const order = isPrev ? 'desc' : 'asc';
+        const msg   = isPrev ? 'No earlier record' : 'No newer record';
+
+        frappe.call({
+          method: 'frappe.client.get_list',
+          args: {
+            doctype: 'Pre-Use Hours',
+            filters: {
+              location: frm.doc.location,
+              creation: [op, frm.doc.creation]
+            },
+            fields: ['name'],
+            order_by: `creation ${order}`,
+            limit_page_length: 1
+          },
+          callback: r => {
+            if (r.message && r.message.length) {
+              frappe.set_route('Form', 'Pre-Use Hours', r.message[0].name);
+            } else {
+              frappe.msgprint(msg);
+            }
+          }
+        });
+      });
+  }
+
+  bindNav('#prev_record_top', true);
+  bindNav('#prev_record',      true);
+  bindNav('#next_record_top', false);
+  bindNav('#next_record',     false);
+}
+
+// ✅ Reload previous doc in open form when server asks
+frappe.realtime.on('preuse:reload_doc', function(data) {
+  if (cur_frm
+    && cur_frm.doc
+    && data.doctype === cur_frm.doctype
+    && data.name === cur_frm.doc.name) {
+      cur_frm.reload_doc();
+  }
+});
 
 

@@ -1,4 +1,4 @@
-// listen for server‑side “logs” and print them to the browser console
+// listen for server-side “logs” and print them to the browser console
 frappe.realtime.on("preuse:update_log", (data) => {
   console.log(
     "%c[PreUseHours]",
@@ -7,248 +7,280 @@ frappe.realtime.on("preuse:update_log", (data) => {
   );
 });
 
+// ✅ Category order definition
+const CATEGORY_ORDER = [
+  "Excavator",
+  "ADT",
+  "Dozer",
+  "Water Bowser",
+  "Diesel Bowsers",
+  "Service Truck",
+  "Grader",
+  "TLB",
+  "Drills"
+];
+
+// ✅ Utility sorter
+function sort_assets(assets) {
+  return assets.sort((a, b) => {
+    const orderA = CATEGORY_ORDER.indexOf(a.asset_category);
+    const orderB = CATEGORY_ORDER.indexOf(b.asset_category);
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.asset_name || a.name).localeCompare(b.asset_name || b.name);
+  });
+}
 
 frappe.ui.form.on('Pre-Use Hours', {
-    shift_system: function (frm) {
-        update_shift_options(frm, frm.doc.shift_system);
-    },
-    location: function (frm) {
-        if (frm.doc.location) {
-            // Clear any existing assets in the child table
-            frm.clear_table('pre_use_assets');
-            fetch_assets(frm);
+  shift_system: function (frm) {
+    update_shift_options(frm, frm.doc.shift_system);
+  },
 
-            // Trigger shift system fetch if shift_date is populated
-            if (frm.doc.shift_date) {
-                fetch_shift_system(frm);
-            }
+  location: function (frm) {
+    if (frm.doc.location) {
+      frm.clear_table('pre_use_assets');
+      fetch_assets(frm);
 
-            set_avail_util_lookup(frm);
-        }
-    },
-    shift_date: function (frm) {
-        if (frm.doc.location) {
-            fetch_shift_system(frm);
-        }
-        set_avail_util_lookup(frm);
-    },
-    shift: function (frm) {
-        set_avail_util_lookup(frm);
-    },
-    refresh: function (frm) {
-        fetch_pre_use_status(frm);  // if you already had this call
-
-        // ✅ Visually decorate the HTML summary based on indicator
-        const indicator = frm.doc.data_integ_indicator;
-        const wrapper = frm.fields_dict.data_integrity_summary?.$wrapper;
-
-        if (wrapper) {
-            // Reset first
-            wrapper.css("border", "2px solid transparent");
-            wrapper.css("padding", "10px");
-            wrapper.css("border-radius", "6px");
-
-            if (indicator === "Red") {
-                wrapper.css("border", "2px solid red");
-                wrapper.css("background-color", "#ffe6e6");  // light red background
-            } else if (indicator === "Yellow") {
-                wrapper.css("border", "2px solid orange");
-                wrapper.css("background-color", "#fff8e1");  // light yellow background
-            } else if (indicator === "Green") {
-                wrapper.css("border", "2px solid green");
-                wrapper.css("background-color", "#e8f5e9");  // light green background
-            }
-        }
-        // 2. Decorate HTML summary background and border
-        decorate_integrity_band(frm);
-
-        // 3. Render HTML summary + navigation buttons + "Save to refresh" note
-        render_integrity_html_with_nav(frm);
-        console.log("🧪 Summary from server:", frm.doc.data_integrity_summary);
+      if (frm.doc.shift_date) {
+        fetch_shift_system(frm);
+      }
+      set_avail_util_lookup(frm);
     }
+  },
+
+  shift_date: function (frm) {
+    if (frm.doc.location) {
+      fetch_shift_system(frm);
+    }
+    set_avail_util_lookup(frm);
+  },
+
+  shift: function (frm) {
+    set_avail_util_lookup(frm);
+  },
+
+  refresh: function (frm) {
+    fetch_pre_use_status(frm);
+
+    decorate_integrity_band(frm);
+    render_integrity_html_with_nav(frm);
+
+    console.log("🧪 Summary from server:", frm.doc.data_integrity_summary);
+
+    // ✅ Add refresh machines button
+    frm.add_custom_button(
+      __('🔄 Refresh Machines'),
+      () => frm.trigger('refresh_machines_from_assets'),
+      __('Actions')
+    );
+  },
+
+  // ✅ Handler for the refresh machines button
+  refresh_machines_from_assets: function(frm) {
+    if (!frm.doc.location) {
+      frappe.msgprint(__('Please select a location first.'));
+      return;
+    }
+
+    frappe.call({
+      method: "frappe.client.get_list",
+      args: {
+        doctype: "Asset",
+        filters: {
+          location: frm.doc.location,
+          asset_category: ["in", CATEGORY_ORDER],
+          docstatus: 1
+        },
+        fields: ["name", "item_name", "asset_category", "asset_name"],
+        limit_page_length: 500
+      },
+      callback: function(r) {
+        let assets = r.message || [];
+        assets = sort_assets(assets);
+
+        frm.clear_table("pre_use_assets");
+        assets.forEach(asset => {
+          const row = frm.add_child("pre_use_assets");
+          row.asset_name = asset.asset_name || asset.name;
+          row.item_name = asset.item_name;
+          row.asset_category = asset.asset_category;
+        });
+
+        frm.refresh_field("pre_use_assets");
+        frappe.msgprint(__("✅ Machines updated from Asset list (sorted by category)."));
+      }
+    });
+  }
 });
 
 /**
  * Dynamically set Shift options based on the shift system
  */
 function update_shift_options(frm, shift_system) {
-    const shift_options = {
-        '3x8Hour': ['Morning', 'Afternoon', 'Night'],
-        '2x12Hour': ['Day', 'Night']
-    };
-    frm.set_df_property('shift', 'options', shift_options[shift_system] || []);
+  const shift_options = {
+    '3x8Hour': ['Morning', 'Afternoon', 'Night'],
+    '2x12Hour': ['Day', 'Night']
+  };
+  frm.set_df_property('shift', 'options', shift_options[shift_system] || []);
 }
 
 /**
- * Fetch relevant assets (Excavator, ADT, Dozer) for the selected location
+ * Fetch relevant assets for the selected location
  */
 function fetch_assets(frm) {
-    frappe.call({
-        method: 'frappe.client.get_list',
-        args: {
-            doctype: 'Asset',
-            filters: {
-                location: frm.doc.location,
-                asset_category: ['in', ['Excavator', 'ADT', 'Dozer']],
-                status: 'Submitted'
-            },
-            fields: ['name', 'asset_name', 'item_name', 'asset_category'],
-            limit_page_length: 1000
-        },
-        callback: function (response) {
-            if (response.message) {
-                response.message.forEach(asset => {
-                    const row = frm.add_child('pre_use_assets');
-                    row.asset_name = asset.asset_name;
-                    row.item_name = asset.item_name;
-                    row.asset_category = asset.asset_category;
-                });
-                frm.refresh_field('pre_use_assets');
-            }
-        }
-    });
+  frappe.call({
+    method: 'frappe.client.get_list',
+    args: {
+      doctype: 'Asset',
+      filters: {
+        location: frm.doc.location,
+        asset_category: ['in', CATEGORY_ORDER],
+        docstatus: 1
+      },
+      fields: ['name', 'asset_name', 'item_name', 'asset_category'],
+      limit_page_length: 1000
+    },
+    callback: function (response) {
+      if (response.message) {
+        const assets = sort_assets(response.message);
+
+        frm.clear_table('pre_use_assets');
+        assets.forEach(asset => {
+          const row = frm.add_child('pre_use_assets');
+          row.asset_name = asset.asset_name || asset.name;
+          row.item_name = asset.item_name;
+          row.asset_category = asset.asset_category;
+        });
+        frm.refresh_field('pre_use_assets');
+      }
+    }
+  });
 }
 
 /**
- * Fetch the shift system from Monthly Production Planning, ensuring
- * shift_date is within prod_month_start_date and prod_month_end_date
+ * Fetch the shift system from Monthly Production Planning
  */
 function fetch_shift_system(frm) {
-    if (!frm.doc.location || !frm.doc.shift_date) return;
+  if (!frm.doc.location || !frm.doc.shift_date) return;
 
-    frappe.call({
-        method: 'frappe.client.get_list',
-        args: {
-            doctype: 'Monthly Production Planning',
-            filters: {
-                location: frm.doc.location,
-                // New logic: shift_date must be between (inclusive) prod_month_start_date & prod_month_end_date
-                prod_month_start_date: ["<=", frm.doc.shift_date],
-                prod_month_end_date: [">=", frm.doc.shift_date],
-                site_status: "Producing"
-            },
-            fields: ['name', 'prod_month_start_date', 'prod_month_end_date', 'shift_system'],
-            limit_page_length: 1
-        },
-        callback: function (response) {
-            if (response.message && response.message.length) {
-                const record = response.message[0];
-                
-                // Optional extra check on client side:
-                const shift_date_obj = frappe.datetime.str_to_obj(frm.doc.shift_date);
-                const month_start_obj = frappe.datetime.str_to_obj(record.prod_month_start_date);
-                const month_end_obj = frappe.datetime.str_to_obj(record.prod_month_end_date);
+  frappe.call({
+    method: 'frappe.client.get_list',
+    args: {
+      doctype: 'Monthly Production Planning',
+      filters: {
+        location: frm.doc.location,
+        prod_month_start_date: ["<=", frm.doc.shift_date],
+        prod_month_end_date: [">=", frm.doc.shift_date],
+        site_status: "Producing"
+      },
+      fields: ['name', 'prod_month_start_date', 'prod_month_end_date', 'shift_system'],
+      limit_page_length: 1
+    },
+    callback: function (response) {
+      if (response.message && response.message.length) {
+        const record = response.message[0];
 
-                if (shift_date_obj < month_start_obj || shift_date_obj > month_end_obj) {
-                    frappe.throw(
-                        __("Shift Date must be between {0} and {1} (inclusive).", [
-                            frappe.datetime.obj_to_user(month_start_obj),
-                            frappe.datetime.obj_to_user(month_end_obj)
-                        ])
-                    );
-                }
+        const shift_date_obj = frappe.datetime.str_to_obj(frm.doc.shift_date);
+        const month_start_obj = frappe.datetime.str_to_obj(record.prod_month_start_date);
+        const month_end_obj = frappe.datetime.str_to_obj(record.prod_month_end_date);
 
-                // Set the shift_system field and update the shift options
-                frm.set_value('shift_system', record.shift_system);
-                update_shift_options(frm, record.shift_system);
-            } else {
-                // If no record is found, you can optionally show a message
-                // e.g. frappe.msgprint("No valid Monthly Production Planning found for this date.");
-            }
+        if (shift_date_obj < month_start_obj || shift_date_obj > month_end_obj) {
+          frappe.throw(
+            __("Shift Date must be between {0} and {1} (inclusive).", [
+              frappe.datetime.obj_to_user(month_start_obj),
+              frappe.datetime.obj_to_user(month_end_obj)
+            ])
+          );
         }
-    });
+
+        frm.set_value('shift_system', record.shift_system);
+        update_shift_options(frm, record.shift_system);
+      }
+    }
+  });
 }
 
 /**
- * Build a combined field for "Availability and Utilisation Lookup"
+ * Build "Availability and Utilisation Lookup"
  */
 function set_avail_util_lookup(frm) {
-    if (frm.doc.location && frm.doc.shift_date && frm.doc.shift) {
-        const shift_date_formatted = frappe.datetime.str_to_user(frm.doc.shift_date);
-        const avail_util_lookup_value = `${frm.doc.location}-${shift_date_formatted}-${frm.doc.shift}`;
-        frm.set_value('avail_util_lookup', avail_util_lookup_value);
-    }
+  if (frm.doc.location && frm.doc.shift_date && frm.doc.shift) {
+    const shift_date_formatted = frappe.datetime.str_to_user(frm.doc.shift_date);
+    const avail_util_lookup_value = `${frm.doc.location}-${shift_date_formatted}-${frm.doc.shift}`;
+    frm.set_value('avail_util_lookup', avail_util_lookup_value);
+  }
 }
 
 /**
- * Fetch and display a table of Pre-Use Status records in the 'pre_use_status_explain' HTML field
+ * Fetch and display a table of Pre-Use Status records
  */
 function fetch_pre_use_status(frm) {
-    frappe.call({
-        method: 'frappe.client.get_list',
-        args: {
-            doctype: 'Pre-Use Status',
-            fields: ['name', 'pre_use_avail_status'],
-            order_by: 'name asc'
-        },
-        callback: function (response) {
-            const records = response.message;
-            let html = records && records.length
-                ? generate_status_table(records)
-                : "<p>No records found in 'Pre-Use Status'.</p>";
+  frappe.call({
+    method: 'frappe.client.get_list',
+    args: {
+      doctype: 'Pre-Use Status',
+      fields: ['name', 'pre_use_avail_status'],
+      order_by: 'name asc'
+    },
+    callback: function (response) {
+      const records = response.message;
+      let html = records && records.length
+        ? generate_status_table(records)
+        : "<p>No records found in 'Pre-Use Status'.</p>";
 
-            // Add extra instruction text at the bottom
-            html += "<br><b>Please ensure correct status is indicated for each Plant. "
-                 + "For example, if Plant is not working at shift start due to Breakdown, "
-                 + "status of 2 must be selected. Or if machine is spare, select status 3.</b>";
+      html += "<br><b>Please ensure correct status is indicated for each Plant. "
+           + "For example, if Plant is not working at shift start due to Breakdown, "
+           + "status of 2 must be selected. Or if machine is spare, select status 3.</b>";
 
-            $(frm.fields_dict.pre_use_status_explain.wrapper).html(html);
-        }
-    });
+      $(frm.fields_dict.pre_use_status_explain.wrapper).html(html);
+    }
+  });
 }
 
 /**
  * Generate an HTML table with status records
  */
 function generate_status_table(records) {
-    let html = "<table style='width:100%; border-collapse: collapse;'>";
-    html += "<tr><th>Status</th><th>Pre-Use Availability Status</th></tr>";
-    records.forEach(record => {
-        html += `<tr><td>${record.name}</td><td>${record.pre_use_avail_status}</td></tr>`;
-    });
-    html += "</table>";
-    return html;
+  let html = "<table style='width:100%; border-collapse: collapse;'>";
+  html += "<tr><th>Status</th><th>Pre-Use Availability Status</th></tr>";
+  records.forEach(record => {
+    html += `<tr><td>${record.name}</td><td>${record.pre_use_avail_status}</td></tr>`;
+  });
+  html += "</table>";
+  return html;
 }
 
 function decorate_integrity_band(frm) {
-    const indicator = frm.doc.data_integ_indicator;
-    const wrapper = frm.fields_dict.data_integrity_summary?.$wrapper;
+  const indicator = frm.doc.data_integ_indicator;
+  const wrapper = frm.fields_dict.data_integrity_summary?.$wrapper;
 
-    if (wrapper) {
-        wrapper.css({
-            "border": "2px solid transparent",
-            "padding": "10px",
-            "border-radius": "6px"
-        });
+  if (wrapper) {
+    wrapper.css({
+      "border": "2px solid transparent",
+      "padding": "10px",
+      "border-radius": "6px"
+    });
 
-        if (indicator === "Red") {
-            wrapper.css("border", "2px solid red");
-            wrapper.css("background-color", "#ffe6e6");
-        } else if (indicator === "Yellow") {
-            wrapper.css("border", "2px solid orange");
-            wrapper.css("background-color", "#fff8e1");
-        } else if (indicator === "Green") {
-            wrapper.css("border", "2px solid green");
-            wrapper.css("background-color", "#e8f5e9");
-        }
+    if (indicator === "Red") {
+      wrapper.css("border", "2px solid red");
+      wrapper.css("background-color", "#ffe6e6");
+    } else if (indicator === "Yellow") {
+      wrapper.css("border", "2px solid orange");
+      wrapper.css("background-color", "#fff8e1");
+    } else if (indicator === "Green") {
+      wrapper.css("border", "2px solid green");
+      wrapper.css("background-color", "#e8f5e9");
     }
+  }
 }
 
 function render_integrity_html_with_nav(frm) {
   const wrapper = frm.fields_dict.data_integrity_summary.$wrapper;
   if (!wrapper) return;
 
-  // 1) Grab the raw HTML string that Python put into the field
   let raw = frm.doc.data_integrity_summary || '';
-
-  // 2) Strip leading/trailing whitespace & remove indent-newlines
-  raw = raw.replace(/^\s+|\s+$/g, '')      // trim ends
-           .replace(/\n\s+/g, '\n');      // remove indent
-
-  // 3) Render it in one go
+  raw = raw.replace(/^\s+|\s+$/g, '').replace(/\n\s+/g, '\n');
   wrapper.empty().append(raw);
 
-  // 4) Function to bind any nav button
   function bindNav(selector, isPrev) {
     wrapper.find(selector)
       .off('click')
@@ -280,21 +312,20 @@ function render_integrity_html_with_nav(frm) {
       });
   }
 
-  // 5) Bind all four buttons (top & bottom)
   bindNav('#prev_record_top', true);
   bindNav('#prev_record',      true);
   bindNav('#next_record_top', false);
   bindNav('#next_record',     false);
 }
 
-
-// When the server tells us to reload a specific Pre-Use Hours form:
+// ✅ Reload previous doc in open form when server asks
 frappe.realtime.on('preuse:reload_doc', function(data) {
-    // if this open form matches the doctype+name, reload it
-    if (cur_frm
-      && cur_frm.doc
-      && data.doctype === cur_frm.doctype
-      && data.name === cur_frm.doc.name) {
-        cur_frm.reload_doc();
-    }
+  if (cur_frm
+    && cur_frm.doc
+    && data.doctype === cur_frm.doctype
+    && data.name === cur_frm.doc.name) {
+      cur_frm.reload_doc();
+  }
 });
+
+

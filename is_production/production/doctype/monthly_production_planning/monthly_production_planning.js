@@ -99,6 +99,12 @@ frappe.ui.form.on('Monthly Production Planning', {
       () => frm.trigger('clear_production_days'),
       __('Actions')
     );
+    // Add refresh machines button (will appear in form header under "Site Details and Plant")
+    frm.add_custom_button(
+      __('🔄 Refresh Machines'),
+      () => frm.trigger('refresh_machines_from_assets'),
+      __('Site Details and Plant')
+    );
 
     // Calculate geo layer descriptions
     (frm.doc.geo_mat_layer || []).forEach(row => {
@@ -151,6 +157,57 @@ frappe.ui.form.on('Monthly Production Planning', {
       frm.refresh();
     }
   },
+ // Section: Refresh Machines from Assets
+refresh_machines_from_assets(frm) {
+  if (!frm.doc.location) {
+    frappe.msgprint(__('Please select a location first.'));
+    return;
+  }
+
+  frappe.call({
+    method: "frappe.client.get_list",
+    args: {
+      doctype: "Asset",
+      filters: {
+        location: frm.doc.location,
+        docstatus: 1   // ✅ Only Submitted assets
+      },
+      fields: ["name", "item_name", "asset_category"],
+      limit_page_length: 500
+    },
+    callback: function(r) {
+      const assets = r.message || [];
+
+      // Clear existing tables before repopulating
+      frm.clear_table("excavator_truck_assignments");
+      frm.clear_table("dozer_table");
+
+      // Re-populate based on asset category
+      assets.forEach(asset => {
+        if (asset.asset_category === "Excavator") {
+          const row = frm.add_child("excavator_truck_assignments");
+          row.excavator = asset.name;
+          row.excavator_model = asset.item_name;
+        }
+        if (asset.asset_category === "ADT") {
+          const row = frm.add_child("excavator_truck_assignments");
+          row.truck = asset.name;
+          row.truck_model = asset.item_name;
+        }
+        if (asset.asset_category === "Dozer") {
+          const row = frm.add_child("dozer_table");
+          row.asset_name = asset.name;
+          row.item_name = asset.item_name;
+        }
+      });
+
+      frm.refresh_field("excavator_truck_assignments");
+      frm.refresh_field("dozer_table");
+      frappe.msgprint(__("✅ Machines updated from Asset list (Submitted only)."));
+    }
+  });
+},
+
   // Section 2: Populate Monthly Production Days
   populate_monthly_prod_days(frm) {
     try {
@@ -871,7 +928,7 @@ function addExcavatorsOnce(frm) {
   console.log("🔄 Attempting to add unassigned Excavators...");
 
   frappe.db.get_list('Asset', {
-    filters: { asset_category: 'Excavator', location: frm.doc.location },
+    filters: { asset_category: 'Excavator', location: frm.doc.location, docstatus: 1 },
     fields: ['name', 'item_name'],
     limit: 100
   }).then(excavators => {
@@ -902,7 +959,7 @@ function addExcavatorsOnce(frm) {
 function addTrucksOnce(frm) {
   console.log("🔄 Attempting to add unassigned Trucks...");
   frappe.db.get_list('Asset', {
-    filters: { asset_category: 'ADT', location: frm.doc.location },
+    filters: { asset_category: 'ADT', location: frm.doc.location, docstatus: 1 },
     fields: ['name', 'item_name'],
     limit: 100
   }).then(trucks => {
@@ -931,7 +988,7 @@ function addTrucksOnce(frm) {
 function addDozersOnce(frm) {
   console.log("🔄 Attempting to add unassigned Dozers...");
   frappe.db.get_list('Asset', {
-    filters: { asset_category: 'Dozer', location: frm.doc.location },
+    filters: { asset_category: 'Dozer', location: frm.doc.location, docstatus: 1 },
     fields: ['name', 'item_name'],
     limit: 100
   }).then(dozers => {
