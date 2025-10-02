@@ -40,7 +40,7 @@ def get_shift_field(table_name: str):
 
 def get_data(filters):
     if not (filters.start_date and filters.end_date and filters.site):
-        return [], {"hours": 0, "output": 0}
+        return [], {"excavator_prods": [], "dozer_prods": []}
 
     values = {
         "start_date": filters["start_date"],
@@ -146,50 +146,70 @@ def get_data(filters):
 
     # 📊 Build results
     results = []
-    ts_hours = ts_output = 0
-    dozer_hours = dozer_output = 0
+    excavator_prods = []
+    dozer_prods = []
 
     for cat in ["Excavator", "ADT", "Dozer"]:
         total_hours = sum(m["hours"] for m in grouped[cat].values())
         total_output = sum(m["output"] for m in grouped[cat].values())
-        if cat == "Excavator":
-            ts_hours += total_hours
-            ts_output += total_output
-        elif cat == "Dozer":
-            dozer_hours += total_hours
-            dozer_output += total_output
 
-        results.append({
-            "label": cat,
-            "working_hours": total_hours,
-            "output": f"{total_output:,.0f}",
-            "productivity": round(total_output / total_hours, 2) if total_hours else 0,
-            "indent": 0
-        })
+        # Machine rows
+        machine_valid_prods = []
         for machine, info in grouped[cat].items():
+            productivity = round(info["output"] / info["hours"], 2) if info["hours"] > 0 and info["output"] > 0 else 0
+            if productivity > 0:
+                machine_valid_prods.append(productivity)
+                if cat == "Excavator":
+                    excavator_prods.append(productivity)
+                elif cat == "Dozer":
+                    dozer_prods.append(productivity)
+
             results.append({
                 "label": machine,
                 "working_hours": info["hours"],
                 "output": f"{info['output']:,.0f}",
-                "productivity": round(info["output"] / info["hours"], 2) if info["hours"] else 0,
-                "indent": 1
+                "productivity": productivity,
+                "indent": 1,
+                # 🔴 Highlight row if invalid
+                "style": "background-color:#f8d7da;" if info["hours"] <= 0 or info["output"] == 0 else ""
             })
 
+        # Category row productivity = average of valid machine productivity
+        cat_prod = round(sum(machine_valid_prods) / len(machine_valid_prods), 2) if machine_valid_prods else 0
+
+        results.insert(len(results) - len(grouped[cat]), {
+            "label": cat,
+            "working_hours": total_hours,
+            "output": f"{total_output:,.0f}",
+            "productivity": cat_prod,
+            "indent": 0,
+            # 🔴 Highlight if category has 0 hrs or 0 output
+            "style": "background-color:#f8d7da;" if total_hours <= 0 or total_output == 0 else ""
+        })
+
     grand_total = {
-        "ts_hours": ts_hours,
-        "ts_output": ts_output,
-        "dozer_hours": dozer_hours,
-        "dozer_output": dozer_output,
+        "excavator_prods": excavator_prods,
+        "dozer_prods": dozer_prods
     }
     return results, grand_total
 
 def get_report_summary(grand_total):
-    ts_prod = round(grand_total["ts_output"] / grand_total["ts_hours"], 2) if grand_total["ts_hours"] else 0
-    dozer_prod = round(grand_total["dozer_output"] / grand_total["dozer_hours"], 2) if grand_total["dozer_hours"] else 0
+    # Truck + Shovel Productivity (Excavator only)
+    excavator_prods = grand_total.get("excavator_prods", [])
+    ts_prod = round(sum(excavator_prods) / len(excavator_prods), 2) if excavator_prods else 0
+
+    # Dozing Productivity (Dozer only)
+    dozer_prods = grand_total.get("dozer_prods", [])
+    dozer_prod = round(sum(dozer_prods) / len(dozer_prods), 2) if dozer_prods else 0
+
     return [
         {"label": _("Truck + Shovel Productivity"), "value": f"{ts_prod}", "indicator": "Blue"},
         {"label": _("Dozing Productivity"), "value": f"{dozer_prod}", "indicator": "Green"},
     ]
+
+
+
+
 
 
 

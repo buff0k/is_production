@@ -31,7 +31,17 @@ frappe.query_reports["Productivity"] = {
             "fieldtype": "Select",
             "options": "\nExcavator\nDozer\nADT"
         }
-    ]
-};
+    ],
 
+    // 🔴 Formatter to highlight invalid rows
+    formatter: function (value, row, column, data, default_formatter) {
+        value = default_formatter(value, row, column, data);
+
+        if (data && (data.working_hours <= 0 || parseFloat(data.output.replace(/,/g, "")) === 0)) {
+            value = `<span style="background-color:#f8d7da; display:block; width:100%;">${value}</span>`;
+        }
+
+        return value;
+    }
+};
 
