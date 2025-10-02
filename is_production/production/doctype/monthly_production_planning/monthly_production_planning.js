@@ -157,7 +157,7 @@ frappe.ui.form.on('Monthly Production Planning', {
       frm.refresh();
     }
   },
- // Section: Refresh Machines from Assets
+ // Section: Refresh Machines from Assets (non-destructive)
 refresh_machines_from_assets(frm) {
   if (!frm.doc.location) {
     frappe.msgprint(__('Please select a location first.'));
@@ -178,35 +178,50 @@ refresh_machines_from_assets(frm) {
     callback: function(r) {
       const assets = r.message || [];
 
-      // Clear existing tables before repopulating
-      frm.clear_table("excavator_truck_assignments");
-      frm.clear_table("dozer_table");
+      const excavators = assets.filter(a => a.asset_category === "Excavator");
+      const trucks     = assets.filter(a => a.asset_category === "ADT");
+      const dozers     = assets.filter(a => a.asset_category === "Dozer");
 
-      // Re-populate based on asset category
-      assets.forEach(asset => {
-        if (asset.asset_category === "Excavator") {
-          const row = frm.add_child("excavator_truck_assignments");
-          row.excavator = asset.name;
-          row.excavator_model = asset.item_name;
-        }
-        if (asset.asset_category === "ADT") {
-          const row = frm.add_child("excavator_truck_assignments");
-          row.truck = asset.name;
-          row.truck_model = asset.item_name;
-        }
-        if (asset.asset_category === "Dozer") {
-          const row = frm.add_child("dozer_table");
-          row.asset_name = asset.name;
-          row.item_name = asset.item_name;
-        }
-      });
+      // helper: sync without wiping table
+      function syncTable(tableName, keyField, assetList, assignFields = {}) {
+        let table = frm.doc[tableName] || [];
 
-      frm.refresh_field("excavator_truck_assignments");
-      frm.refresh_field("dozer_table");
-      frappe.msgprint(__("✅ Machines updated from Asset list (Submitted only)."));
+        // keep only valid rows
+        table = table.filter(row =>
+          assetList.some(asset => asset.name === row[keyField])
+        );
+
+        // add missing rows
+        assetList.forEach(asset => {
+          if (!table.some(row => row[keyField] === asset.name)) {
+            const row = frm.add_child(tableName);
+            row[keyField] = asset.name;
+            Object.assign(row, assignFields(asset));
+          }
+        });
+
+        frm.doc[tableName] = table;
+        frm.refresh_field(tableName);
+      }
+
+      // 🔄 Sync each table
+      syncTable("excavator_truck_assignments", "excavator", excavators, a => ({
+        excavator_model: a.item_name
+      }));
+
+      syncTable("excavator_truck_assignments", "truck", trucks, a => ({
+        truck_model: a.item_name
+      }));
+
+      syncTable("dozer_table", "asset_name", dozers, a => ({
+        item_name: a.item_name
+      }));
+
+      frappe.msgprint(__("✅ Machines refreshed — only adds/removes applied, existing assignments kept."));
     }
   });
 },
+
 
   // Section 2: Populate Monthly Production Days
   populate_monthly_prod_days(frm) {
