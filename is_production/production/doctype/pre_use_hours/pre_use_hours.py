@@ -2,6 +2,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from datetime import datetime, timedelta, date
+from frappe.utils import flt
 
 class PreUseHours(Document):
     def before_save(self):
@@ -18,17 +19,12 @@ class PreUseHours(Document):
 
             validate_shift_date(self, monthly_plan)
             check_previous_record_sequence(self, monthly_plan)
-
-            # ✅ Run validation against previous shift hours before saving
             self.validate_previous_shift_hours()
-
-            # Run integrity on current
             self.evaluate_data_integrity()
-            # Then update previous and merge summaries
             self.update_previous_eng_hrs_end()
 
-        except Exception:
-            frappe.log_error(title="Pre-Use Hours Validation Error")
+        except Exception as e:
+            frappe.log_error(message=frappe.get_traceback(), title="Pre-Use Hours Validation Error")
             raise
 
     def validate_previous_shift_hours(self):
@@ -39,7 +35,7 @@ class PreUseHours(Document):
         """
         prev_doc = get_previous_document(self.location, self.creation)
         if not prev_doc:
-            return  # nothing to validate if first shift
+            return
 
         bad_assets = []
         current_assets_map = {r.asset_name: r for r in self.pre_use_assets if r.asset_name}
@@ -48,7 +44,7 @@ class PreUseHours(Document):
             cr = current_assets_map.get(pr.asset_name)
             if cr and cr.eng_hrs_start is not None and pr.eng_hrs_start is not None:
                 eng_hrs_end = cr.eng_hrs_start
-                working_hours = round(eng_hrs_end - pr.eng_hrs_start, 1)
+                working_hours = round(flt(eng_hrs_end) - flt(pr.eng_hrs_start), 1)
 
                 if working_hours < 0 or working_hours > 12:
                     bad_assets.append({
@@ -85,14 +81,9 @@ class PreUseHours(Document):
 
     def update_previous_eng_hrs_end(self):
         """
-        1) Copy eng_hrs_end/working_hours into the previous record via db.set_value
-        2) Re-run its integrity check in-memory
-        3) Persist its child & parent changes, reload previous doc in any open form
-        4) Render a two-column Current vs Previous summary with nav buttons at top
-           and a legend at the bottom.
+        Copy eng_hrs_end/working_hours into the previous record and re-run its integrity.
         """
         try:
-            # 1) find previous record
             prev_name = frappe.db.get_value(
                 "Pre-Use Hours",
                 {"location": self.location, "creation": ["<", self.creation]},
@@ -103,17 +94,14 @@ class PreUseHours(Document):
                 return
 
             prev = frappe.get_doc("Pre-Use Hours", prev_name)
-
-            # Build map for efficiency
             current_assets_map = {r.asset_name: r for r in self.pre_use_assets if r.asset_name}
 
-            # 2) copy engine-end into its child rows & persist
             for pr in prev.pre_use_assets:
                 cr = current_assets_map.get(pr.asset_name)
                 if cr and cr.eng_hrs_start is not None:
                     pr.eng_hrs_end = cr.eng_hrs_start
                     if pr.eng_hrs_start is not None:
-                        pr.working_hours = round(pr.eng_hrs_end - pr.eng_hrs_start, 1)
+                        pr.working_hours = round(flt(pr.eng_hrs_end) - flt(pr.eng_hrs_start), 1)
                     frappe.db.set_value(
                         "Pre-use Assets", pr.name,
                         {
@@ -123,7 +111,6 @@ class PreUseHours(Document):
                         update_modified=False
                     )
 
-            # 3) re-evaluate previous’s integrity, persist its summary & indicator
             prev.evaluate_data_integrity()
             frappe.db.set_value(
                 "Pre-Use Hours", prev.name,
@@ -134,12 +121,11 @@ class PreUseHours(Document):
                 update_modified=False
             )
 
-            # 4) trigger any open form of that record to reload
             frappe.publish_realtime("preuse:reload_doc", {
                 "doctype": "Pre-Use Hours", "name": prev.name
             })
 
-            # 5) build nav buttons, two-column summaries and legend
+            # Merge summaries
             nav_buttons = """
                 <div style="margin-bottom:10px;">
                   <button class="btn btn-sm btn-secondary" id="prev_record_top">⬅️ Previous</button>
@@ -176,12 +162,11 @@ class PreUseHours(Document):
                 {legend}
             """
 
-            # 6) overwrite this doc’s summary field & mark dirty
             self.set("data_integrity_summary", merged)
             self.flags.dirty = True
 
         except Exception as e:
-            frappe.log_error(title="Engine Hours Update Error", message=str(e))
+            frappe.log_error(message=frappe.get_traceback(), title="Engine Hours Update Error")
             frappe.throw(_("Error updating previous engine hours: {0}").format(e))
 
     def evaluate_data_integrity(self):
@@ -201,7 +186,7 @@ class PreUseHours(Document):
                 row_issues.append("❗ <span style='color:orange;'>Missing Engine Hours End</span>")
 
             if eng_hrs_start is not None and eng_hrs_end is not None:
-                working_hours = round(eng_hrs_end - eng_hrs_start, 1)
+                working_hours = round(flt(eng_hrs_end) - flt(eng_hrs_start), 1)
                 row.working_hours = working_hours
 
                 if working_hours < 0:
@@ -259,7 +244,6 @@ class PreUseHours(Document):
 
 
 # Utility functions
-
 def normalize_to_db_date(date_input):
     if isinstance(date_input, str):
         for fmt in ("%d-%m-%Y", "%Y-%m-%d"):
@@ -273,7 +257,6 @@ def normalize_to_db_date(date_input):
     else:
         frappe.throw("Invalid date format type.")
 
-
 def normalize_to_ui_date(date_input):
     if isinstance(date_input, str):
         for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
@@ -286,7 +269,6 @@ def normalize_to_ui_date(date_input):
         return date_input.strftime("%d-%m-%Y")
     else:
         frappe.throw("Invalid date format type.")
-
 
 def get_monthly_production_plan(location, shift_date):
     try:
@@ -307,21 +289,17 @@ def get_monthly_production_plan(location, shift_date):
         )
         return query_result[0] if query_result else None
     except Exception:
-        frappe.log_error(title="SQL Execution Error")
+        frappe.log_error(message=frappe.get_traceback(), title="SQL Execution Error")
         return None
-
 
 def validate_shift_date(doc, monthly_plan):
     try:
-        # Keep normalization to ensure date is valid, but no Sunday restriction
         normalize_to_ui_date(doc.shift_date)
-
         if monthly_plan["site_status"] != "Producing":
             frappe.throw("Pre-Use Hours can only be saved if the site's status is 'Producing'.")
     except Exception:
-        frappe.log_error(title="Shift Date Validation Error")
+        frappe.log_error(message=frappe.get_traceback(), title="Shift Date Validation Error")
         raise
-
 
 def check_previous_record_sequence(doc, monthly_plan):
     try:
@@ -329,9 +307,8 @@ def check_previous_record_sequence(doc, monthly_plan):
         if previous_doc:
             validate_next_shift_and_sequence(doc, previous_doc, monthly_plan)
     except Exception:
-        frappe.log_error(title="Shift Sequence Validation Error")
+        frappe.log_error(message=frappe.get_traceback(), title="Shift Sequence Validation Error")
         raise
-
 
 def validate_next_shift_and_sequence(doc, previous_doc, monthly_plan):
     try:
@@ -359,9 +336,8 @@ def validate_next_shift_and_sequence(doc, previous_doc, monthly_plan):
         elif doc.shift in ("Afternoon", "Night") and curr_date != prev_date:
             frappe.throw(f"{doc.shift} shift must occur on the same date as the previous record.")
     except Exception:
-        frappe.log_error(title="Shift System Validation Error")
+        frappe.log_error(message=frappe.get_traceback(), title="Shift System Validation Error")
         raise
-
 
 @frappe.whitelist()
 def get_previous_document(location, current_creation):
@@ -374,6 +350,5 @@ def get_previous_document(location, current_creation):
         )
         return frappe.get_doc("Pre-Use Hours", name) if name else None
     except Exception:
-        frappe.log_error(title="Previous Document Fetch Error")
+        frappe.log_error(message=frappe.get_traceback(), title="Previous Document Fetch Error")
         return None
-

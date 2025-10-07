@@ -224,8 +224,14 @@ def execute(filters=None):
         ("Actual Coal Tons (Survey + HP after survey)", fmt_int(coal_tons_actual)),
     ])
 
+    # --- New Forecast Calculation ---
+    if completed_days > 0:
+        forecast_bcm = ((actual_bcm / completed_days) * remaining_days) + actual_bcm
+    else:
+        forecast_bcm = actual_bcm
+
     forecast = make_block("Forecast", [
-        ("Forecast BCM", fmt_int(d.month_forecated_bcm)),
+        ("Forecast BCM", fmt_int(forecast_bcm)),
     ])
 
     cal_days = make_block("Calendar (Days)", [

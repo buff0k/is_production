@@ -25,7 +25,10 @@ function sort_assets(assets) {
   return assets.sort((a, b) => {
     const orderA = CATEGORY_ORDER.indexOf(a.asset_category);
     const orderB = CATEGORY_ORDER.indexOf(b.asset_category);
-    if (orderA !== orderB) return orderA - orderB;
+    const safeA = orderA === -1 ? 999 : orderA;
+    const safeB = orderB === -1 ? 999 : orderB;
+
+    if (safeA !== safeB) return safeA - safeB;
     return (a.asset_name || a.name).localeCompare(b.asset_name || b.name);
   });
 }
@@ -74,7 +77,7 @@ frappe.ui.form.on('Pre-Use Hours', {
     );
   },
 
-  // ✅ Handler for the refresh machines button
+  // ✅ Handler for the refresh machines button (syncs instead of wiping)
   refresh_machines_from_assets: function(frm) {
     if (!frm.doc.location) {
       frappe.msgprint(__('Please select a location first.'));
@@ -88,25 +91,50 @@ frappe.ui.form.on('Pre-Use Hours', {
         filters: {
           location: frm.doc.location,
           asset_category: ["in", CATEGORY_ORDER],
-          docstatus: 1
+          docstatus: 1   // ✅ only submitted Assets
         },
         fields: ["name", "item_name", "asset_category", "asset_name"],
         limit_page_length: 500
       },
       callback: function(r) {
-        let assets = r.message || [];
-        assets = sort_assets(assets);
-
-        frm.clear_table("pre_use_assets");
-        assets.forEach(asset => {
-          const row = frm.add_child("pre_use_assets");
-          row.asset_name = asset.asset_name || asset.name;
-          row.item_name = asset.item_name;
-          row.asset_category = asset.asset_category;
+        const assets = sort_assets(r.message || []);
+        const assetMap = {};
+        assets.forEach(a => {
+          const key = a.asset_name || a.name;
+          assetMap[key] = a;
         });
 
+        // Track kept rows
+        const keepRows = [];
+
+        // 1️⃣ Check existing rows → keep if still valid, update info
+        (frm.doc.pre_use_assets || []).forEach(row => {
+          const key = row.asset_name;
+          if (assetMap[key]) {
+            row.item_name = assetMap[key].item_name;
+            row.asset_category = assetMap[key].asset_category;
+            keepRows.push(key);
+          }
+        });
+
+        // 2️⃣ Add missing new assets
+        assets.forEach(asset => {
+          const key = asset.asset_name || asset.name;
+          if (!keepRows.includes(key)) {
+            const row = frm.add_child("pre_use_assets");
+            row.asset_name = asset.asset_name || asset.name;
+            row.item_name = asset.item_name;
+            row.asset_category = asset.asset_category;
+          }
+        });
+
+        // 3️⃣ Remove rows not in Asset list anymore
+        frm.doc.pre_use_assets = (frm.doc.pre_use_assets || []).filter(
+          row => assetMap[row.asset_name]
+        );
+
         frm.refresh_field("pre_use_assets");
-        frappe.msgprint(__("✅ Machines updated from Asset list (sorted by category)."));
+        frappe.msgprint(__("✅ Machines list synchronized with Asset list (added/removed only)."));
       }
     });
   }
