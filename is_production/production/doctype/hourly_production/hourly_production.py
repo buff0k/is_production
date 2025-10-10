@@ -9,7 +9,7 @@ from frappe import _
 from frappe.utils import getdate, add_to_date, nowdate
 
 
-class HourlyProduction(Document):  # ✅ Removed @frappe.whitelist() from class
+class HourlyProduction(Document):
 
     def validate(self):
         """General validation before save"""
@@ -55,7 +55,7 @@ class HourlyProduction(Document):  # ✅ Removed @frappe.whitelist() from class
             self.coal_tons_total = self.total_coal_bcm * 1.5
         else:
             self.coal_tons_total = 0
-        
+
         # --- Truck Loads Calculations ---
         total_softs_bcm = total_hards_bcm = total_coal_bcm = total_ts_bcm = 0.0
         num_prod_trucks = 0
@@ -140,6 +140,7 @@ class HourlyProduction(Document):  # ✅ Removed @frappe.whitelist() from class
         self.ave_bcm_dozer = (total_dozing_bcm / num_prod_dozers) if num_prod_dozers else 0
         self.ave_bcm_prod_truck = (total_ts_bcm / num_prod_trucks) if num_prod_trucks else 0
         self.calculate_day_total_bcm()
+
         # --- Recompute hour_sort_key & hour_slot from shift_num_hour ---
         if self.shift_num_hour:
             try:
@@ -164,24 +165,22 @@ class HourlyProduction(Document):  # ✅ Removed @frappe.whitelist() from class
         """Calculate and set the day_total_bcm from all hourly entries for this location and date"""
         if not self.prod_date or not self.location:
             return
-            
+
         day_total = frappe.db.sql("""
-            SELECT SUM(hour_total_bcm) 
+            SELECT SUM(hour_total_bcm)
             FROM `tabHourly Production`
-            WHERE location = %s 
-            AND prod_date = %s 
+            WHERE location = %s
+            AND prod_date = %s
             AND docstatus < 2
             AND name != %s
         """, (self.location, self.prod_date, self.name), as_list=True)
-        
-        # Add current hour's total (which might not be saved yet)
+
         current_hour_total = self.hour_total_bcm or 0
         self.day_total_bcm = (day_total[0][0] or 0) + current_hour_total
 
-    
     def before_print(self, print_settings):
         """
-        Hook to sync MtD values just before printing (preview or PDF).
+        Hook to sync MTD values just before printing (preview or PDF).
         """
         if getattr(self, 'month_prod_planning', None):
             frappe.get_attr(
@@ -202,20 +201,41 @@ class HourlyProduction(Document):  # ✅ Removed @frappe.whitelist() from class
     def send_whatsapp_notification(self):
         """Send WhatsApp notification when button is clicked"""
         try:
-            # Get the WhatsApp notification document
             notification = frappe.get_doc("WhatsApp Notification", "Hourly Production Indiv.")
-            
-            # Check if notification is disabled
             if notification.disabled:
                 frappe.msgprint("WhatsApp notification is disabled", indicator="orange")
                 return
-            
-            # Send the template message
             notification.send_template_message(self)
-            
         except Exception as e:
             frappe.log_error(frappe.get_traceback(), "WhatsApp Notification Error")
             frappe.msgprint(f"Failed to send WhatsApp notification: {str(e)}", indicator="red")
+
+    # ✅ NEW SECTION: automatic MTD update
+    def on_update(self):
+        """
+        Automatically update Month-to-Date (MTD) Production whenever this record is saved.
+        """
+        if not self.month_prod_planning:
+            return
+
+        try:
+            # Run the MTD update immediately after save
+            frappe.get_attr(
+                "is_production.production.doctype.monthly_production_planning."
+                "monthly_production_planning.update_mtd_production"
+            )(name=self.month_prod_planning)
+
+            frappe.msgprint(
+                _("Month-to-Date Production updated automatically."),
+                alert=True,
+                indicator="green"
+            )
+
+        except Exception as e:
+            frappe.log_error(
+                message=f"Auto MTD update failed for Hourly Production {self.name}: {e}",
+                title="Hourly Production Auto MTD Update"
+            )
 
 
 @frappe.whitelist()
@@ -228,8 +248,9 @@ def get_user_whatsapp_number(user):
         return user_doc.get("whatsapp_number") or user_doc.get("mobile_no")
     except frappe.DoesNotExistError:
         return None
-    
-@frappe.whitelist()   
+
+
+@frappe.whitelist()
 def update_hourly_references():
     """
     Sync Hourly Production references from Monthly Production Planning and update slot keys.

@@ -4,6 +4,7 @@
 import frappe
 from frappe.model.document import Document
 
+
 class Survey(Document):
     def validate(self):
         """Aggregate surveyed values into parent fields (BCM + Coal)."""
@@ -35,4 +36,3 @@ class Survey(Document):
         self.total_ts_bcm = total_ts
         self.total_dozing_bcm = total_dozing
         self.total_surveyed_coal_tons = total_coal
-

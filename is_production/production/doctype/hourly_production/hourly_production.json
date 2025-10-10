@@ -61,7 +61,9 @@
   "month_actual_bcm",
   "mtd_bcm_day",
   "mtd_bcm_hour",
-  "month_forecated_bcm"
+  "month_forecated_bcm",
+  "tab_4_tab",
+  "hp_report"
  ],
  "fields": [
   {
@@ -423,12 +425,22 @@
    "fieldtype": "Float",
    "label": "Number of Production Excavators",
    "read_only": 1
+  },
+  {
+   "fieldname": "tab_4_tab",
+   "fieldtype": "Tab Break",
+   "label": "Hourly Production Report"
+  },
+  {
+   "fieldname": "hp_report",
+   "fieldtype": "HTML",
+   "label": "HP Report"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-07-21 15:04:20.174863",
+ "modified": "2025-10-08 19:33:06.783050",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
