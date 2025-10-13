@@ -21,19 +21,21 @@ frappe.query_reports["Production Performance"] = {
         }
     ],
 
-    "formatter": function (value, row, column, data, default_formatter) {
-        value = default_formatter(value, row, column, data);
+    onload: function (report) {
+        const today = frappe.datetime.get_today();
+        const monthStart = frappe.datetime.month_start(today);
+        frappe.query_report.set_filter_value("start_date", monthStart);
+        frappe.query_report.set_filter_value("end_date", today);
 
-        // Section headers
-        if (data && data.metric && data.metric.startsWith("<b>") && column.fieldname === "metric") {
-            return `<div style="font-weight:bold; background:#f4f6f7; padding:6px; border-radius:4px;">${value}</div>`;
-        }
-
-        // Values styling
-        if (column.fieldname === "value" && value) {
-            return `<div style="text-align:right; font-weight:600; color:#2c3e50;">${value}</div>`;
-        }
-
-        return value;
+        // Allow HTML content in cells to display properly
+        setTimeout(() => {
+            const htmlCells = $('div.report-wrapper').find('td[data-fieldtype="HTML"]');
+            htmlCells.css({
+                'overflow': 'visible',
+                'white-space': 'normal',
+                'vertical-align': 'top',
+                'padding': '4px'
+            });
+        }, 800);
     }
 };

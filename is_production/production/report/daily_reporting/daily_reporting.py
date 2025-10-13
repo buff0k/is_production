@@ -3,6 +3,7 @@
 
 import frappe
 from frappe.utils import format_date, getdate
+from datetime import datetime
 
 
 def execute(filters=None):
@@ -20,10 +21,10 @@ def execute(filters=None):
     mpp = get_monthly_plan(site, end_date)
     month_start = getdate(mpp.prod_month_start_date) if mpp else None
 
-    # ✅ MTD Actual BCMs
+    # ✅ MTD Actual BCMs (Survey + HP after Survey)
     mtd_actual_bcms = get_actual_bcms_for_date(site, getdate(end_date), month_start, shift) if mpp else 0
 
-    # ✅ MTD Coal
+    # ✅ MTD Coal (Survey + HP after Survey)
     mtd_coal = get_mtd_coal_dynamic(site, getdate(end_date), month_start, shift)
 
     # ✅ Actual TS & Dozing for the Day
@@ -57,6 +58,7 @@ def execute(filters=None):
         dz["comment"] = ""
 
     # ===== Metrics =====
+    # ✅ Waste calculated using new actual & coal logic
     mtd_waste = mtd_actual_bcms - (mtd_coal / 1.5)
 
     # ===== Daily Productivity =====
@@ -161,47 +163,142 @@ def get_mtd_hours(site, asset_name, month_start, end_date, category):
 
 
 # ---------------------------------------------------------
-# ✅ MTD Actual BCMs
+# ✅ MTD Actual BCMs (Survey + HP after Survey)
 # ---------------------------------------------------------
 def get_actual_bcms_for_date(site, end_date, month_start, shift=None):
     if not site or not end_date:
         return 0
 
-    ts_actual_bcm = frappe.db.sql("""
+    survey_doc = frappe.get_all(
+        "Survey",
+        filters={
+            "location": site,
+            "last_production_shift_start_date": ["<=", f"{end_date} 23:59:59"],
+        },
+        fields=["last_production_shift_start_date", "total_ts_bcm", "total_dozing_bcm"],
+        order_by="last_production_shift_start_date desc",
+        limit_page_length=1
+    )
+
+    ts_actual_bcm = 0
+    dozing_actual_bcm = 0
+    end_dt = getdate(end_date)
+    start_dt = getdate(month_start)
+
+    if survey_doc:
+        survey = survey_doc[0]
+        survey_date = survey.get("last_production_shift_start_date")
+        if isinstance(survey_date, datetime):
+            survey_date = survey_date.date()
+
+        if survey_date and start_dt <= survey_date <= end_dt:
+            ts_actual_bcm = survey.get("total_ts_bcm") or 0
+            dozing_actual_bcm = survey.get("total_dozing_bcm") or 0
+
+            ts_after = frappe.db.sql("""
+                SELECT COALESCE(SUM(tl.bcms),0)
+                FROM `tabHourly Production` hp
+                JOIN `tabTruck Loads` tl ON tl.parent = hp.name
+                WHERE hp.prod_date > %s AND hp.prod_date <= %s
+                  AND hp.location = %s
+            """, (survey_date, end_date, site))[0][0]
+
+            dozing_after = frappe.db.sql("""
+                SELECT COALESCE(SUM(dp.bcm_hour),0)
+                FROM `tabHourly Production` hp
+                JOIN `tabDozer Production` dp ON dp.parent = hp.name
+                WHERE hp.prod_date > %s AND hp.prod_date <= %s
+                  AND hp.location = %s
+            """, (survey_date, end_date, site))[0][0]
+
+            ts_actual_bcm += ts_after or 0
+            dozing_actual_bcm += dozing_after or 0
+        else:
+            ts_actual_bcm, dozing_actual_bcm = get_hourly_bcms(month_start, end_date, site)
+    else:
+        ts_actual_bcm, dozing_actual_bcm = get_hourly_bcms(month_start, end_date, site)
+
+    return (ts_actual_bcm or 0) + (dozing_actual_bcm or 0)
+
+
+def get_hourly_bcms(start_date, end_date, site):
+    ts = frappe.db.sql("""
         SELECT COALESCE(SUM(tl.bcms),0)
         FROM `tabHourly Production` hp
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.prod_date BETWEEN %s AND %s
           AND hp.location = %s
-    """, (month_start, end_date, site))[0][0]
+    """, (start_date, end_date, site))[0][0]
 
-    dozing_actual_bcm = frappe.db.sql("""
+    dozing = frappe.db.sql("""
         SELECT COALESCE(SUM(dp.bcm_hour),0)
         FROM `tabHourly Production` hp
         JOIN `tabDozer Production` dp ON dp.parent = hp.name
         WHERE hp.prod_date BETWEEN %s AND %s
           AND hp.location = %s
-    """, (month_start, end_date, site))[0][0]
+    """, (start_date, end_date, site))[0][0]
 
-    return (ts_actual_bcm or 0) + (dozing_actual_bcm or 0)
+    return ts or 0, dozing or 0
 
 
 # ---------------------------------------------------------
-# ✅ MTD Coal
+# ✅ MTD Coal (Survey + HP after Survey)
 # ---------------------------------------------------------
 def get_mtd_coal_dynamic(site, end_date, month_start, shift=None):
     if not site or not end_date:
         return 0
     COAL_CONVERSION = 1.5
-    coal_after = frappe.db.sql("""
+
+    survey_doc = frappe.get_all(
+        "Survey",
+        filters={
+            "location": site,
+            "last_production_shift_start_date": ["<=", f"{end_date} 23:59:59"],
+        },
+        fields=["last_production_shift_start_date", "total_surveyed_coal_tons"],
+        order_by="last_production_shift_start_date desc",
+        limit_page_length=1
+    )
+
+    coal_tons_actual = 0
+    end_dt = getdate(end_date)
+    start_dt = getdate(month_start)
+
+    if survey_doc:
+        survey = survey_doc[0]
+        survey_date = survey.get("last_production_shift_start_date")
+        if isinstance(survey_date, datetime):
+            survey_date = survey_date.date()
+
+        if survey_date and start_dt <= survey_date <= end_dt:
+            coal_tons_actual = survey.get("total_surveyed_coal_tons") or 0
+            coal_after = frappe.db.sql("""
+                SELECT COALESCE(SUM(tl.bcms),0)
+                FROM `tabHourly Production` hp
+                JOIN `tabTruck Loads` tl ON tl.parent = hp.name
+                WHERE hp.prod_date > %s AND hp.prod_date <= %s
+                  AND hp.location = %s
+                  AND LOWER(tl.mat_type) LIKE '%%coal%%'
+            """, (survey_date, end_date, site))[0][0]
+            coal_tons_actual += (coal_after or 0) * COAL_CONVERSION
+        else:
+            coal_tons_actual = get_coal_from_hourly(month_start, end_date, site, COAL_CONVERSION)
+    else:
+        coal_tons_actual = get_coal_from_hourly(month_start, end_date, site, COAL_CONVERSION)
+
+    return coal_tons_actual
+
+
+def get_coal_from_hourly(start_date, end_date, site, COAL_CONVERSION):
+    coal_bcm = frappe.db.sql("""
         SELECT COALESCE(SUM(tl.bcms),0)
         FROM `tabHourly Production` hp
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.prod_date BETWEEN %s AND %s
           AND hp.location = %s
           AND LOWER(tl.mat_type) LIKE '%%coal%%'
-    """, (month_start, end_date, site))[0][0]
-    return (coal_after or 0) * COAL_CONVERSION
+    """, (start_date, end_date, site))[0][0]
+    return (coal_bcm or 0) * COAL_CONVERSION
 
 
 # ---------------------------------------------------------
