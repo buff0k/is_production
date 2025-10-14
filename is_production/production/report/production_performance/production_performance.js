@@ -27,7 +27,7 @@ frappe.query_reports["Production Performance"] = {
         frappe.query_report.set_filter_value("start_date", monthStart);
         frappe.query_report.set_filter_value("end_date", today);
 
-        // Allow HTML content in cells to display properly
+        // Wait for report table to render, then slightly adjust styling
         setTimeout(() => {
             const htmlCells = $('div.report-wrapper').find('td[data-fieldtype="HTML"]');
             htmlCells.css({

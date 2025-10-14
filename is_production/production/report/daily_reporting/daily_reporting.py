@@ -21,11 +21,11 @@ def execute(filters=None):
     mpp = get_monthly_plan(site, end_date)
     month_start = getdate(mpp.prod_month_start_date) if mpp else None
 
-    # ✅ MTD Actual BCMs (Survey + HP after Survey)
-    mtd_actual_bcms = get_actual_bcms_for_date(site, getdate(end_date), month_start, shift) if mpp else 0
+    # ✅ MTD Actual BCMs (using Production Summary logic)
+    mtd_actual_bcms = get_actual_bcms_for_date(site, getdate(end_date), month_start) if mpp else 0
 
-    # ✅ MTD Coal (Survey + HP after Survey)
-    mtd_coal = get_mtd_coal_dynamic(site, getdate(end_date), month_start, shift)
+    # ✅ MTD Coal (using Production Summary logic)
+    mtd_coal = get_mtd_coal_dynamic(site, getdate(end_date), month_start)
 
     # ✅ Actual TS & Dozing for the Day
     actual_ts_day = get_actual_ts_for_day(site, end_date, shift)
@@ -58,7 +58,6 @@ def execute(filters=None):
         dz["comment"] = ""
 
     # ===== Metrics =====
-    # ✅ Waste calculated using new actual & coal logic
     mtd_waste = mtd_actual_bcms - (mtd_coal / 1.5)
 
     # ===== Daily Productivity =====
@@ -163,9 +162,9 @@ def get_mtd_hours(site, asset_name, month_start, end_date, category):
 
 
 # ---------------------------------------------------------
-# ✅ MTD Actual BCMs (Survey + HP after Survey)
+# ✅ MTD Prog Actual BCMs (full logic from Production Summary)
 # ---------------------------------------------------------
-def get_actual_bcms_for_date(site, end_date, month_start, shift=None):
+def get_actual_bcms_for_date(site, end_date, month_start):
     if not site or not end_date:
         return 0
 
@@ -242,9 +241,9 @@ def get_hourly_bcms(start_date, end_date, site):
 
 
 # ---------------------------------------------------------
-# ✅ MTD Coal (Survey + HP after Survey)
+# ✅ MTD Prog Actual COAL (full logic from Production Summary)
 # ---------------------------------------------------------
-def get_mtd_coal_dynamic(site, end_date, month_start, shift=None):
+def get_mtd_coal_dynamic(site, end_date, month_start):
     if not site or not end_date:
         return 0
     COAL_CONVERSION = 1.5
@@ -524,7 +523,7 @@ def build_machine_tables(excavators, dozers, fmt, td, th, section, table):
             f"<td style='{td}'>{fmt(d['target'])}</td>"
             f"<td style='{td}'>{fmt(d['actual'])}</td>"
             f"<td style='{td}'>{fmt(d['mtd_hours'])}</td>"
-            f"<td style='{td}' contenteditable='true'></td></tr>"
+            f"<td style='{td}' contenteditable='true' class='comment-cell'></td></tr>"
             for d in data
         )
 

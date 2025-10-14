@@ -108,14 +108,11 @@ def execute(filters=None):
 
         data["days_left"] = remaining_days
 
-        # ---- Forecast & SHORT/OVER ----
         data["forecast"] = (
             (data["mtd_actual_bcms"] / worked_days) * remaining_days + data["mtd_actual_bcms"]
             if worked_days else 0
         )
-
-        # ✅ Changed: SHORT/OVER = Monthly Target - Forecast on Current Rate
-        data["short_over_forecast"] = data["monthly_target"] - data["forecast"]
+        data["short_over_forecast"] = data["monthly_target"] - data["mtd_actual_bcms"]
 
         data["strip_ratio"] = round(
             (data["mtd_prog_actual_waste"] / data["mtd_prog_actual_coal"])

@@ -62,9 +62,21 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   tab2Btn.textContent = 'Production Dashboard Update'; 
   tab2Btn.className = 'btn btn-secondary'; 
 
+  const tab3Btn = document.createElement('button');
+  tab3Btn.textContent = 'Weekly Report';
+  tab3Btn.className = 'btn btn-secondary';
+
+  // --- Fourth tab button ---
+  const tab4Btn = document.createElement('button');
+  tab4Btn.textContent = 'Daily & Shift Report';
+  tab4Btn.className = 'btn btn-secondary';
+
   tabNav.appendChild(tab1Btn); 
   tabNav.appendChild(tab2Btn); 
+  tabNav.appendChild(tab3Btn); 
+  tabNav.appendChild(tab4Btn);
   mainEl.appendChild(tabNav); 
+
 
   const tab1Pane = document.createElement('div'); 
   tab1Pane.style.display = 'block'; 
@@ -74,18 +86,62 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   tab2Pane.style.display = 'none'; 
   mainEl.appendChild(tab2Pane); 
 
-  tab1Btn.onclick = () => { 
-    tab1Pane.style.display = 'block'; 
-    tab2Pane.style.display = 'none'; 
-    tab1Btn.className = 'btn btn-primary me-2'; 
-    tab2Btn.className = 'btn btn-secondary'; 
-  }; 
-  tab2Btn.onclick = () => { 
-    tab1Pane.style.display = 'none'; 
-    tab2Pane.style.display = 'block'; 
-    tab1Btn.className = 'btn btn-secondary me-2'; 
-    tab2Btn.className = 'btn btn-primary'; 
-  }; 
+  // --- Third tab container ---
+  const tab3Pane = document.createElement('div');
+  tab3Pane.style.display = 'none';
+  mainEl.appendChild(tab3Pane);
+
+  // --- Fourth tab container ---
+  const tab4Pane = document.createElement('div');
+  tab4Pane.style.display = 'none';
+  mainEl.appendChild(tab4Pane);
+
+
+  tab1Btn.onclick = () => {
+  tab1Pane.style.display = 'block';
+  tab2Pane.style.display = 'none';
+  tab3Pane.style.display = 'none';
+  tab4Pane.style.display = 'none';
+  tab1Btn.className = 'btn btn-primary me-2';
+  tab2Btn.className = 'btn btn-secondary me-2';
+  tab3Btn.className = 'btn btn-secondary me-2';
+  tab4Btn.className = 'btn btn-secondary';
+};
+
+tab2Btn.onclick = () => {
+  tab1Pane.style.display = 'none';
+  tab2Pane.style.display = 'block';
+  tab3Pane.style.display = 'none';
+  tab4Pane.style.display = 'none';
+  tab1Btn.className = 'btn btn-secondary me-2';
+  tab2Btn.className = 'btn btn-primary me-2';
+  tab3Btn.className = 'btn btn-secondary me-2';
+  tab4Btn.className = 'btn btn-secondary';
+};
+
+tab3Btn.onclick = () => {
+  tab1Pane.style.display = 'none';
+  tab2Pane.style.display = 'none';
+  tab3Pane.style.display = 'block';
+  tab4Pane.style.display = 'none';
+  tab1Btn.className = 'btn btn-secondary me-2';
+  tab2Btn.className = 'btn btn-secondary me-2';
+  tab3Btn.className = 'btn btn-primary me-2';
+  tab4Btn.className = 'btn btn-secondary';
+};
+
+tab4Btn.onclick = () => {
+  tab1Pane.style.display = 'none';
+  tab2Pane.style.display = 'none';
+  tab3Pane.style.display = 'none';
+  tab4Pane.style.display = 'block';
+  tab1Btn.className = 'btn btn-secondary me-2';
+  tab2Btn.className = 'btn btn-secondary me-2';
+  tab3Btn.className = 'btn btn-secondary me-2';
+  tab4Btn.className = 'btn btn-primary';
+};
+
+
 
   // -------- Helpers -------- 
   const makeCard = (title) => { 
@@ -126,6 +182,26 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   totalRow.style.gap = '20px'; 
 
   const totalBits = makeCard('Total BCM Tallies'); 
+// --- Actual BCM (Survey + HP) card ---
+const actualBcmBits = makeCard('Actual BCM (Survey + HP)');
+const actualBcmValue = document.createElement('div');
+actualBcmValue.style.fontSize = '20px';
+actualBcmValue.style.fontWeight = 'bold';
+actualBcmValue.style.color = '#0047ab'; // Deep blue
+actualBcmValue.id = 'actual-bcm-survey';
+actualBcmValue.textContent = '0';
+actualBcmBits.card.appendChild(actualBcmValue);
+
+// --- Survey Variance card ---
+const varianceBits = makeCard('Survey Variance');
+const varianceValue = document.createElement('div');
+varianceValue.style.fontSize = '20px';
+varianceValue.style.fontWeight = 'bold';
+varianceValue.style.color = '#cc0000'; // Red for variance
+varianceValue.id = 'survey-variance';
+varianceValue.textContent = '0';
+varianceBits.card.appendChild(varianceValue);
+
   const totalValue = document.createElement('div'); 
   totalValue.style.fontSize = '20px'; 
   totalValue.style.fontWeight = 'bold'; 
@@ -149,11 +225,13 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   dozerValue.textContent = '0 BCM/hr'; 
   dozerBits.card.appendChild(dozerValue); 
 
-  totalRow.appendChild(totalBits.card); 
-  totalRow.appendChild(excavatorBits.card); 
-  totalRow.appendChild(dozerBits.card); 
-
-  tab1Pane.appendChild(totalRow); 
+// --- Append all cards in desired order ---
+totalRow.appendChild(totalBits.card);
+totalRow.appendChild(actualBcmBits.card);
+totalRow.appendChild(varianceBits.card);
+totalRow.appendChild(excavatorBits.card);
+totalRow.appendChild(dozerBits.card);
+tab1Pane.appendChild(totalRow);
 
   const chartRow = document.createElement('div'); 
   chartRow.className = 'row g-2'; 
@@ -228,15 +306,63 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
 
   tab2Pane.appendChild(tab2Row);
 
+  // ============================================================== 
+// TAB 3: Weekly Report 
+// ============================================================== 
+const weeklyRow = document.createElement('div');
+weeklyRow.className = 'row g-2';
+
+const weeklyCol = document.createElement('div');
+weeklyCol.className = 'col-12';
+const weeklyBits = makeCard('Weekly Report'); 
+const weeklyMount = document.createElement('div'); 
+weeklyMount.id = 'tbl-weekly'; 
+weeklyBits.card.appendChild(weeklyMount); 
+weeklyCol.appendChild(weeklyBits.card);
+weeklyRow.appendChild(weeklyCol);
+
+tab3Pane.appendChild(weeklyRow);
+
+// ============================================================== 
+// TAB 4: Daily & Shift Report 
+// ============================================================== 
+const dailyRow = document.createElement('div');
+dailyRow.className = 'row g-2';
+
+const dailyCol = document.createElement('div');
+dailyCol.className = 'col-12';
+const dailyBits = makeCard('Daily & Shift Report'); 
+const dailyMount = document.createElement('div'); 
+dailyMount.id = 'tbl-daily'; 
+dailyBits.card.appendChild(dailyMount); 
+dailyCol.appendChild(dailyBits.card);
+dailyRow.appendChild(dailyCol);
+
+tab4Pane.appendChild(dailyRow);
+
+
   // -------- Chart.js Setup -------- 
   let teamsChart, dozingChart; 
 
-  async function render_chart_teams(filters) { 
-    const res = await run_report('Production Shift Teams', filters); 
-    const prodRes = await run_report('Productivity', filters); 
-    const parents = (res.result || []).filter(r => Number(r.indent || 0) === 0); 
-    const labels = parents.map(r => r.excavator || 'Unknown'); 
-    const values = parents.map(r => Number(r.bcms) || 0); 
+  async function render_chart_teams(filters) {
+  const res = await run_report('Production Shift Teams', filters);
+  const prodRes = await run_report('Productivity', filters);
+
+  // --- Filter only actual excavators (exclude summary or MTD rows) ---
+  const parents = (res.result || []).filter(r => {
+    const name = (r.excavator || '').toString().toLowerCase().trim();
+    // Exclude blank, null, or MTD Actual BCM rows
+    return (
+      Number(r.indent || 0) === 0 &&
+      name !== '' &&
+      !name.includes('mtd actual bcm')
+    );
+  });
+
+  const labels = parents.map(r => r.excavator || 'Unknown');
+  const values = parents.map(r => Number(r.bcms) || 0);
+
+
     const total = values.reduce((a, b) => a + b, 0); 
     const prodMap = {}; 
     (prodRes.result || []).forEach(r => { 
@@ -361,6 +487,86 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     } 
   } 
 
+  // -------- Weekly Report Renderer -------- 
+async function render_weekly_report(filters, mountSelector, parentEl) {
+  try {
+    const res = await frappe.call({
+      method: 'frappe.desk.query_report.run',
+      args: {
+        report_name: 'Weekly Report',
+        filters,
+        ignore_prepared_report: true
+      }
+    });
+
+    const msg = res.message || {};
+    const html_output = msg.report_html || msg.message || '';
+
+    const mount = parentEl.querySelector(mountSelector);
+    if (html_output) {
+      mount.innerHTML = html_output;
+    } else if (msg.result && msg.result.length) {
+      // fallback to simple table
+      const cols = msg.columns || [];
+      const rows = msg.result;
+      const thead = cols.map(c => `<th>${c.label}</th>`).join('');
+      const tbody = rows.map(r =>
+        `<tr>${cols.map(c => `<td>${r[c.fieldname] || ''}</td>`).join('')}</tr>`
+      ).join('');
+      mount.innerHTML = `
+        <table class="table table-bordered">
+          <thead><tr>${thead}</tr></thead>
+          <tbody>${tbody}</tbody>
+        </table>`;
+    } else {
+      mount.innerHTML = '<div class="text-muted">No Weekly Report data found.</div>';
+    }
+  } catch (e) {
+    console.error(e);
+    frappe.msgprint(__('Failed to load Weekly Report.'));
+  }
+}
+
+// -------- Daily & Shift Report Renderer -------- 
+async function render_daily_report(filters, mountSelector, parentEl) {
+  try {
+    const res = await frappe.call({
+      method: 'frappe.desk.query_report.run',
+      args: {
+        report_name: 'Daily Reporting',
+        filters,
+        ignore_prepared_report: true
+      }
+    });
+
+    const msg = res.message || {};
+    const html_output = msg.report_html || msg.message || '';
+
+    const mount = parentEl.querySelector(mountSelector);
+    if (html_output) {
+      mount.innerHTML = html_output;
+    } else if (msg.result && msg.result.length) {
+      const cols = msg.columns || [];
+      const rows = msg.result;
+      const thead = cols.map(c => `<th>${c.label}</th>`).join('');
+      const tbody = rows.map(r =>
+        `<tr>${cols.map(c => `<td>${r[c.fieldname] || ''}</td>`).join('')}</tr>`
+      ).join('');
+      mount.innerHTML = `
+        <table class="table table-bordered">
+          <thead><tr>${thead}</tr></thead>
+          <tbody>${tbody}</tbody>
+        </table>`;
+    } else {
+      mount.innerHTML = '<div class="text-muted">No Daily Report data found.</div>';
+    }
+  } catch (e) {
+    console.error(e);
+    frappe.msgprint(__('Failed to load Daily Report.'));
+  }
+}
+
+
   function render_child_table(rows, cols, parentLabel, mountSelector, parentEl) {
     const parentIndex = rows.findIndex(r =>
       r.label && r.label.toLowerCase().includes(parentLabel.toLowerCase()) && Number(r.indent || 0) === 0
@@ -402,9 +608,26 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     if (!start_v || !end_v || !site_v || !monthly_v) return; 
     const filters = { start_date: start_v, end_date: end_v, site: site_v, monthly_production: monthly_v }; 
     if (shift_v) filters.shift = shift_v; 
-    const teamsTotal = await render_chart_teams(filters) || 0; 
-    const dozingTotal = await render_chart_dozing(filters) || 0; 
-    document.getElementById('total-bcm').textContent = (teamsTotal + dozingTotal).toLocaleString(); 
+    // --- Render charts as before ---
+const teamsTotal = await render_chart_teams(filters) || 0;
+const dozingTotal = await render_chart_dozing(filters) || 0;
+
+// --- Fetch Total BCM Tallies directly from Production Shift Material (MTD Tallies BCM row) ---
+const matRes = await run_report('Production Shift Material', filters);
+let mtdTallies = 0;
+
+if (matRes.result && matRes.result.length) {
+  const talliesRow = matRes.result.find(r =>
+    (r.mat_type && r.mat_type.toString().toLowerCase().includes('mtd tallies bcm'))
+  );
+  if (talliesRow) {
+    mtdTallies = Number(talliesRow.total_bcm) || 0;
+  }
+}
+
+// --- Update the top "Total BCM Tallies" block ---
+document.getElementById('total-bcm').textContent = mtdTallies.toLocaleString();
+
 
     const prodRes = await run_report('Productivity', filters); 
     if (prodRes.result && prodRes.result.length) { 
@@ -425,6 +648,30 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     await render_table('Production Shift Material', filters, '#tbl-material', tab1Pane, true); 
     await render_table('Production Shift Location', filters, '#tbl-location', tab1Pane, true); 
     await render_table('Production Shift Teams', filters, '#tbl-teams', tab1Pane, true); 
+    // --- Update Actual BCM (Survey + HP) and Survey Variance ---
+const mtdRes = await run_report('Production Shift Teams', filters);
+let actualBcm = 0;
+if (mtdRes.summary && mtdRes.summary.length) {
+  const bcmRow = mtdRes.summary.find(s =>
+    s.label && s.label.toLowerCase().includes('mtd actual bcm')
+  );
+  if (bcmRow) {
+    actualBcm = Number(bcmRow.value.replace(/,/g, '')) || 0;
+    document.getElementById('actual-bcm-survey').textContent = actualBcm.toLocaleString();
+  }
+}
+// --- Calculate Survey Variance (Actual BCM - Total BCM Tallies) ---
+const totalBcmText = document.getElementById('total-bcm')?.textContent || '0';
+const totalBcmValue = Number(totalBcmText.replace(/,/g, '')) || 0;
+
+const variance = actualBcm - totalBcmValue;
+const varianceEl = document.getElementById('survey-variance');
+if (varianceEl) {
+  varianceEl.textContent = variance.toLocaleString();
+  varianceEl.style.color = variance >= 0 ? '#006600' : '#cc0000';
+}
+
+
     await render_table('Production Shift Dozing', filters, '#tbl-dozing', tab1Pane, true); 
     await render_table('Productivity', filters, '#tbl-productivity', tab1Pane, true); 
     await render_table('Production Performance', filters, '#tbl-performance', tab2Pane, false); 
@@ -435,6 +682,10 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
       render_child_table(rows, cols, "excavator", "#tbl-excavators", tab2Pane);
       render_child_table(rows, cols, "dozer", "#tbl-dozers", tab2Pane);
     }
+      // --- Weekly Report ---
+  await render_weekly_report(filters, '#tbl-weekly', tab3Pane);
+  await render_daily_report(filters, '#tbl-daily', tab4Pane);
+
   } 
 
   // -------- Defaults -------- 
@@ -464,6 +715,3 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   `;
   document.head.appendChild(style);
 }; 
-
-
-

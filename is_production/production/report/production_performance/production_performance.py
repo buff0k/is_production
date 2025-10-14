@@ -1,5 +1,10 @@
+# Copyright (c) 2025, Isambane Mining (Pty) Ltd
+# For license information, please see license.txt
+
 import frappe
 from datetime import datetime
+from frappe.utils import strip_html_tags
+
 
 def execute(filters=None):
     filters = filters or {}
@@ -74,7 +79,7 @@ def execute(filters=None):
     coal_bcm_tallies = coal_bcm
     waste_bcm_tallies = tallies_total - coal_bcm_tallies
 
-    # --- Survey Fetch (latest before or equal to end_date) ---
+    # --- Survey Fetch ---
     survey_doc = frappe.get_all(
         "Survey",
         filters={
@@ -183,19 +188,18 @@ def execute(filters=None):
     remaining_days = total_days - completed_days
     remaining_hours = total_hours - completed_hours
 
-    # --- HTML Block builder ---
     def make_block(title, rows):
-        html = f"<div style='font-weight:bold; margin-bottom:6px; text-align:center; background:#f4f6f7; padding:4px; border-radius:4px;'>{title}</div>"
+        html = f"<div style='font-weight:bold; margin-bottom:4px; text-align:center;'>{title}</div>"
         html += "<table style='width:100%; border-collapse:collapse; font-size:12px;'>"
         for metric, val in rows:
             html += (
                 f"<tr>"
-                f"<td style='padding:3px 5px; border-bottom:1px solid #ddd;'>{metric}</td>"
-                f"<td style='padding:3px 5px; text-align:right; border-bottom:1px solid #ddd; font-weight:500;'>{val}</td>"
+                f"<td style='padding:2px 4px; border-bottom:1px solid #eee;'>{metric}</td>"
+                f"<td style='padding:2px 4px; text-align:right; border-bottom:1px solid #eee;'>{val}</td>"
                 f"</tr>"
             )
         html += "</table>"
-        return f"<div style='border:1px solid #ccc; border-radius:6px; padding:6px; margin-bottom:8px;'>{html}</div>"
+        return html
 
     # --- Build blocks ---
     planning = make_block("Planning Targets", [
@@ -241,12 +245,12 @@ def execute(filters=None):
         ("Remaining Hours", fmt_int(remaining_hours)),
     ])
 
-    # --- Summary calculations ---
     actual_bcms_mtd = actual_bcm
     mtd_target = ((d.monthly_target_bcm or 0) / total_days * completed_days) if total_days else 0
     variance_mtd = actual_bcms_mtd - mtd_target
     actual_daily_bcma = (actual_bcm / completed_days) if completed_days else 0
     daily_target_bcma = ((d.monthly_target_bcm or 0) / total_days) if total_days else 0
+
     variance_daily = actual_daily_bcma - daily_target_bcma
 
     overall_bcma = actual_bcm
@@ -255,7 +259,6 @@ def execute(filters=None):
     current_strip_ratio = (waste_bcm_actual / coal_tons_actual) if coal_tons_actual else 0
     planned_strip_ratio = (d.waste_bcms_planned / d.coal_tons_planned) if d.coal_tons_planned else 0
 
-    # Coal-specific calculations
     mtd_coal_target_tons = ((d.coal_tons_planned or 0) / total_days * completed_days) if total_days else 0
     coal_variance = coal_tons_actual - mtd_coal_target_tons
 
@@ -263,12 +266,15 @@ def execute(filters=None):
         ("MTD Actual BCM (waste & coal)", fmt_int(actual_bcms_mtd)),
         ("MTD Actual BCM Target (waste & coal)", f"{mtd_target:,.0f}"),
         ("Variance", f"{variance_mtd:,.0f}"),
+
         ("Actual Daily BCM (waste & coal)", f"{actual_daily_bcma:,.0f}"),
         ("Daily Target BCM (waste & coal)", f"{daily_target_bcma:,.0f}"),
         ("Variance", f"{variance_daily:,.0f}"),
+
         ("Overall Actual BCM (waste & coal)", fmt_int(overall_bcma)),
         ("Overall Target BCM (waste & coal)", fmt_int(overall_target)),
         ("Remaining BCM (waste & coal)", fmt_int(remaining_volume_month)),
+
         ("Current Strip Ratio", f"{current_strip_ratio:.2f}"),
         ("Planned Strip Ratio", f"{planned_strip_ratio:.2f}"),
     ]
@@ -283,7 +289,6 @@ def execute(filters=None):
         ("Variance", f"{coal_variance:,.0f}"),
     ])
 
-    # --- Final dataset ---
     data = [
         {"block1": planning, "block2": tallies, "block3": actuals},
         {"block1": forecast, "block2": cal_days, "block3": cal_hours},
@@ -291,12 +296,24 @@ def execute(filters=None):
         {"block1": summary4, "block2": summary5, "block3": ""},
     ]
 
+    # detect dashboard vs report view
+    is_dashboard = bool(frappe.form_dict.get("ignore_prepared_report"))
+    if not is_dashboard:
+        data = [
+            {
+                "block1": strip_html_tags(row.get("block1", "")),
+                "block2": strip_html_tags(row.get("block2", "")),
+                "block3": strip_html_tags(row.get("block3", "")),
+            }
+            for row in data
+        ]
+
     return get_columns(), data
 
 
 def get_columns():
     return [
-        {"label": "Block 1", "fieldname": "block1", "fieldtype": "HTML", "width": 350, "escape_html": False},
-        {"label": "Block 2", "fieldname": "block2", "fieldtype": "HTML", "width": 350, "escape_html": False},
-        {"label": "Block 3", "fieldname": "block3", "fieldtype": "HTML", "width": 350, "escape_html": False},
+        {"label": "Block 1", "fieldname": "block1", "fieldtype": "HTML", "width": 350},
+        {"label": "Block 2", "fieldname": "block2", "fieldtype": "HTML", "width": 350},
+        {"label": "Block 3", "fieldname": "block3", "fieldtype": "HTML", "width": 350},
     ]

@@ -28,21 +28,8 @@ frappe.query_reports["Production Shift Teams"] = {
             "fieldname": "shift",
             "label": __("Shift"),
             "fieldtype": "Select",
-            "options": ["", "Day", "Night", "Morning", "Afternoon"],  // 👈 FIXED
+            "options": ["", "Day", "Night", "Morning", "Afternoon"],
             "reqd": 0
         }
     ]
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
