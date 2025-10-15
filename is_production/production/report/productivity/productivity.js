@@ -33,15 +33,12 @@ frappe.query_reports["Productivity"] = {
         }
     ],
 
-    // 🔴 Formatter to highlight invalid rows
+    // 🔴 Highlight invalid rows (0 hours or output)
     formatter: function (value, row, column, data, default_formatter) {
         value = default_formatter(value, row, column, data);
-
-        if (data && (data.working_hours <= 0 || parseFloat(data.output.replace(/,/g, "")) === 0)) {
+        if (data && (data.working_hours <= 0 || parseFloat((data.output || '0').replace(/,/g, "")) === 0)) {
             value = `<span style="background-color:#f8d7da; display:block; width:100%;">${value}</span>`;
         }
-
         return value;
     }
 };
-

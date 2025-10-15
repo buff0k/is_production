@@ -246,7 +246,7 @@ def get_hourly_bcms(start_date, end_date, site):
 def get_mtd_coal_dynamic(site, end_date, month_start):
     if not site or not end_date:
         return 0
-    COAL_CONVERSION = 1.5
+    
 
     survey_doc = frappe.get_all(
         "Survey",
@@ -279,16 +279,17 @@ def get_mtd_coal_dynamic(site, end_date, month_start):
                   AND hp.location = %s
                   AND LOWER(tl.mat_type) LIKE '%%coal%%'
             """, (survey_date, end_date, site))[0][0]
-            coal_tons_actual += (coal_after or 0) * COAL_CONVERSION
+            coal_tons_actual += (coal_after or 0)
+
         else:
-            coal_tons_actual = get_coal_from_hourly(month_start, end_date, site, COAL_CONVERSION)
+            coal_tons_actual = get_coal_from_hourly(month_start, end_date, site)
     else:
-        coal_tons_actual = get_coal_from_hourly(month_start, end_date, site, COAL_CONVERSION)
+        coal_tons_actual = get_coal_from_hourly(month_start, end_date, site)
 
     return coal_tons_actual
 
 
-def get_coal_from_hourly(start_date, end_date, site, COAL_CONVERSION):
+def get_coal_from_hourly(start_date, end_date, site):
     coal_bcm = frappe.db.sql("""
         SELECT COALESCE(SUM(tl.bcms),0)
         FROM `tabHourly Production` hp
@@ -297,8 +298,7 @@ def get_coal_from_hourly(start_date, end_date, site, COAL_CONVERSION):
           AND hp.location = %s
           AND LOWER(tl.mat_type) LIKE '%%coal%%'
     """, (start_date, end_date, site))[0][0]
-    return (coal_bcm or 0) * COAL_CONVERSION
-
+    return (coal_bcm or 0)
 
 # ---------------------------------------------------------
 # ✅ Actual TS and Dozing for the Day
@@ -344,7 +344,6 @@ def get_daily_productivity(site, date, shift=None):
     if not (site and date):
         return [], []
 
-    COAL_CONVERSION = 1.5
     values = {"date": date, "site": site, "shift": shift}
 
     shift_condition_hp = "AND hp.shift = %(shift)s" if shift else ""
@@ -395,8 +394,7 @@ def get_daily_productivity(site, date, shift=None):
         if not name:
             continue
         output = r.bcm_output or 0
-        if r.mat_types and "coal" in r.mat_types.lower():
-            output *= COAL_CONVERSION
+        
         hours = hours_map.get(name, 0)
         prod = round(output / hours, 2) if hours > 0 else 0
         excavator_data.append({"asset_name": name, "hours": hours, "output": output, "productivity": prod})
@@ -406,8 +404,7 @@ def get_daily_productivity(site, date, shift=None):
         if not name:
             continue
         output = r.bcm_output or 0
-        if r.mat_types and "coal" in r.mat_types.lower():
-            output *= COAL_CONVERSION
+    
         hours = hours_map.get(name, 0)
         prod = round(output / hours, 2) if hours > 0 else 0
         dozer_data.append({"asset_name": name, "hours": hours, "output": output, "productivity": prod})
@@ -469,7 +466,7 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
         <table style="{table}">
             <tr><td style="{td}">Monthly Target</td><td style="{td}">{fmt(mpp.monthly_target_bcm if mpp else 0)}</td></tr>
             <tr><td style="{td}">Monthly Coal Target</td><td style="{td}">{fmt(mpp.coal_tons_planned if mpp else 0)}</td></tr>
-            <tr><td style="{td}">MTD Coal (tons)</td><td style="{td}">{fmt(mtd_coal)}</td></tr>
+            <tr><td style="{td}">MTD Coal (BCM)</td><td style="{td}">{fmt(mtd_coal)}</td></tr>
             <tr><td style="{td}">MTD Waste</td><td style="{td}">{fmt(mtd_waste)}</td></tr>
             <tr><td style="{td}">MTD Actual BCM's</td><td style="{td}">{fmt(mtd_actual_bcms)}</td></tr>
             <tr><td style="{td}">Remaining Volumes</td><td style="{td}">{fmt((mpp.monthly_target_bcm if mpp else 0) - mtd_actual_bcms)}</td></tr>

@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"olCtlaV4d5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Dashboard\",\"col\":12}},{\"id\":\"sldrR38SDM\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Reporting\",\"col\":3}},{\"id\":\"Ls_0D3fXdB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Weekly Reporting\",\"col\":3}},{\"id\":\"b8ARXFS6g1\",\"type\":\"card\",\"data\":{\"card_name\":\"Contract Terms\",\"col\":4}},{\"id\":\"kNk6XoNWfM\",\"type\":\"card\",\"data\":{\"card_name\":\"Diesel\",\"col\":4}},{\"id\":\"dyKdlUV23b\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Monitoring\",\"col\":4}}]",
+ "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"olCtlaV4d5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Dashboard\",\"col\":12}},{\"id\":\"b8ARXFS6g1\",\"type\":\"card\",\"data\":{\"card_name\":\"Contract Terms\",\"col\":4}},{\"id\":\"kNk6XoNWfM\",\"type\":\"card\",\"data\":{\"card_name\":\"Diesel\",\"col\":4}},{\"id\":\"dyKdlUV23b\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Monitoring\",\"col\":4}}]",
  "creation": "2024-07-29 15:25:05.760313",
  "custom_blocks": [],
  "docstatus": 0,
@@ -201,7 +201,7 @@
    "type": "Link"
   }
  ],
- "modified": "2025-10-10 10:46:48.376247",
+ "modified": "2025-10-15 08:32:20.667830",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
@@ -219,22 +219,6 @@
    "label": "Production Dashboard",
    "link_to": "production-dashboard",
    "type": "Page"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Daily Reporting",
-   "link_to": "Daily Reporting",
-   "report_ref_doctype": "Hourly Production",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Weekly Reporting",
-   "link_to": "Weekly Report",
-   "report_ref_doctype": "Hourly Production",
-   "type": "Report"
   }
  ],
  "title": "Production"

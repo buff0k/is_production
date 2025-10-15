@@ -275,6 +275,24 @@ tab1Pane.appendChild(totalRow);
   tab1Pane.appendChild(row5); 
 
   // ============================================================== 
+  // Monthly Production Report (bottom of Tab 1)
+  // ============================================================== 
+  const row6 = document.createElement('div');
+  row6.className = 'row g-2';
+
+  const monthlyCol = document.createElement('div');
+  monthlyCol.className = 'col-12';
+  const monthlyBits = makeCard('Monthly Production Report');
+  const monthlyMount = document.createElement('div');
+  monthlyMount.id = 'tbl-monthly-production';
+  monthlyBits.card.appendChild(monthlyMount);
+  monthlyCol.appendChild(monthlyBits.card);
+  row6.appendChild(monthlyCol);
+
+  tab1Pane.appendChild(row6);
+
+
+  // ============================================================== 
   // TAB 2: Compact Grid Layout 
   // ============================================================== 
   const tab2Row = document.createElement('div');
@@ -487,6 +505,45 @@ tab4Pane.appendChild(dailyRow);
     } 
   } 
 
+  // -------- Monthly Production Report Renderer --------
+async function render_monthly_production(filters, mountSelector, parentEl) {
+  try {
+    const res = await frappe.call({
+      method: 'frappe.desk.query_report.run',
+      args: {
+        report_name: 'Monthly Production',  // must match your Report Name
+        filters,
+        ignore_prepared_report: true
+      }
+    });
+
+    const msg = res.message || {};
+    const html_output = msg.report_html || msg.message || '';
+
+    const mount = parentEl.querySelector(mountSelector);
+    if (html_output) {
+      mount.innerHTML = html_output;
+    } else if (msg.result && msg.result.length) {
+      const cols = msg.columns || [];
+      const rows = msg.result;
+      const thead = cols.map(c => `<th>${c.label}</th>`).join('');
+      const tbody = rows.map(r =>
+        `<tr>${cols.map(c => `<td>${r[c.fieldname] || ''}</td>`).join('')}</tr>`
+      ).join('');
+      mount.innerHTML = `
+        <table class="table table-bordered table-sm">
+          <thead><tr>${thead}</tr></thead>
+          <tbody>${tbody}</tbody>
+        </table>`;
+    } else {
+      mount.innerHTML = '<div class="text-muted">No Monthly Production data found.</div>';
+    }
+  } catch (e) {
+    console.error(e);
+    frappe.msgprint(__('Failed to load Monthly Production Report.'));
+  }
+}
+
   // -------- Weekly Report Renderer -------- 
 async function render_weekly_report(filters, mountSelector, parentEl) {
   try {
@@ -673,6 +730,8 @@ if (varianceEl) {
 
 
     await render_table('Production Shift Dozing', filters, '#tbl-dozing', tab1Pane, true); 
+    // --- Monthly Production Report ---
+    await render_monthly_production(filters, '#tbl-monthly-production', tab1Pane);
     await render_table('Productivity', filters, '#tbl-productivity', tab1Pane, true); 
     await render_table('Production Performance', filters, '#tbl-performance', tab2Pane, false); 
 

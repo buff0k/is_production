@@ -9,13 +9,15 @@ def execute(filters=None):
     columns, data, grand_totals = get_columns(), *get_data(filters)
     return columns, data, None, None, get_report_summary(grand_totals)
 
+
 def get_columns():
     return [
         {"label": _("Label"), "fieldname": "label", "fieldtype": "Data", "width": 220, "group": 1},
         {"label": _("Working Hours"), "fieldname": "working_hours", "fieldtype": "Float", "width": 120},
-        {"label": _("Output"), "fieldname": "output", "fieldtype": "Data", "width": 150},
-        {"label": _("Productivity (Output/Hr)"), "fieldname": "productivity", "fieldtype": "Float", "width": 160},
+        {"label": _("Output (BCM)"), "fieldname": "output", "fieldtype": "Data", "width": 150},
+        {"label": _("Productivity (BCM/Hr)"), "fieldname": "productivity", "fieldtype": "Float", "width": 160},
     ]
+
 
 def normalize_category(cat: str) -> str:
     if not cat:
@@ -29,6 +31,7 @@ def normalize_category(cat: str) -> str:
         return "ADT"
     return cat.title()
 
+
 def get_shift_field(table_name: str):
     """Check if shift column exists in a table"""
     cols = frappe.db.get_table_columns(table_name)
@@ -37,6 +40,7 @@ def get_shift_field(table_name: str):
     if "shift_type" in cols:
         return "shift_type"
     return None
+
 
 def get_data(filters):
     if not (filters.start_date and filters.end_date and filters.site):
@@ -110,11 +114,10 @@ def get_data(filters):
 
     grouped = {"Excavator": {}, "Dozer": {}, "ADT": {}}
 
-    # ➕ Process Trucks
+    # ➕ Process Trucks (Excavator + ADT)
     for r in truck_rows:
         output_val = r.bcm_output or 0
-        if r.mat_type and "coal" in (r.mat_type or "").lower():
-            output_val *= 1.5
+        # ❌ No coal ton conversion anymore — keep as BCMs only
         if r.adt:
             adt_name = r.adt.strip()
             grouped["ADT"].setdefault(adt_name, {"hours": 0, "output": 0})
@@ -129,8 +132,7 @@ def get_data(filters):
     # ➕ Process Dozers
     for r in dozer_rows:
         output_val = r.bcm_output or 0
-        if r.mat_type and "coal" in (r.mat_type or "").lower():
-            output_val *= 1.5
+        # ❌ No ton-to-BCM conversion for coal
         if r.dozer:
             dz_name = r.dozer.strip()
             grouped["Dozer"].setdefault(dz_name, {"hours": 0, "output": 0})
@@ -153,7 +155,6 @@ def get_data(filters):
         total_hours = sum(m["hours"] for m in grouped[cat].values())
         total_output = sum(m["output"] for m in grouped[cat].values())
 
-        # Machine rows
         machine_valid_prods = []
         for machine, info in grouped[cat].items():
             productivity = round(info["output"] / info["hours"], 2) if info["hours"] > 0 and info["output"] > 0 else 0
@@ -170,11 +171,9 @@ def get_data(filters):
                 "output": f"{info['output']:,.0f}",
                 "productivity": productivity,
                 "indent": 1,
-                # 🔴 Highlight row if invalid
                 "style": "background-color:#f8d7da;" if info["hours"] <= 0 or info["output"] == 0 else ""
             })
 
-        # Category row productivity = average of valid machine productivity
         cat_prod = round(sum(machine_valid_prods) / len(machine_valid_prods), 2) if machine_valid_prods else 0
 
         results.insert(len(results) - len(grouped[cat]), {
@@ -183,7 +182,6 @@ def get_data(filters):
             "output": f"{total_output:,.0f}",
             "productivity": cat_prod,
             "indent": 0,
-            # 🔴 Highlight if category has 0 hrs or 0 output
             "style": "background-color:#f8d7da;" if total_hours <= 0 or total_output == 0 else ""
         })
 
@@ -193,23 +191,15 @@ def get_data(filters):
     }
     return results, grand_total
 
+
 def get_report_summary(grand_total):
-    # Truck + Shovel Productivity (Excavator only)
     excavator_prods = grand_total.get("excavator_prods", [])
     ts_prod = round(sum(excavator_prods) / len(excavator_prods), 2) if excavator_prods else 0
 
-    # Dozing Productivity (Dozer only)
     dozer_prods = grand_total.get("dozer_prods", [])
     dozer_prod = round(sum(dozer_prods) / len(dozer_prods), 2) if dozer_prods else 0
 
     return [
-        {"label": _("Truck + Shovel Productivity"), "value": f"{ts_prod}", "indicator": "Blue"},
-        {"label": _("Dozing Productivity"), "value": f"{dozer_prod}", "indicator": "Green"},
+        {"label": _("Truck + Shovel Productivity (BCM/hr)"), "value": f"{ts_prod}", "indicator": "Blue"},
+        {"label": _("Dozing Productivity (BCM/hr)"), "value": f"{dozer_prod}", "indicator": "Green"},
     ]
-
-
-
-
-
-
-
