@@ -61,7 +61,7 @@
    "fieldtype": "Percent",
    "in_list_view": 1,
    "label": "Dozing %",
-   "precision": "0"
+   "precision": "2"
   },
   {
    "columns": 1,

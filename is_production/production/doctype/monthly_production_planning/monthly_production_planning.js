@@ -843,11 +843,38 @@ frappe.ui.form.on('Geo_mat_layer', {
 //                    Blasting Plan child‐table event handlers
 // ──────────────────────────────────────────────────────────────────────────────
 frappe.ui.form.on('Blasting Blocks Planned', {
-  block_length:       (frm, cdt, cdn) => { recompute(frm,cdt,cdn); frm.trigger('update_planned_dozer_volumes'); },
-  block_width:        (frm, cdt, cdn) => { recompute(frm,cdt,cdn); frm.trigger('update_planned_dozer_volumes'); },
-  blasting_depth:     (frm, cdt, cdn) => { recompute(frm,cdt,cdn); frm.trigger('update_planned_dozer_volumes'); },
-  dozing_percentage:  (frm, cdt, cdn) => { recompute(frm,cdt,cdn); frm.trigger('update_planned_dozer_volumes'); }
+  block_length: (frm, cdt, cdn) => { 
+    recompute(frm, cdt, cdn); 
+    frm.trigger('update_planned_dozer_volumes'); 
+  },
+  block_width: (frm, cdt, cdn) => { 
+    recompute(frm, cdt, cdn); 
+    frm.trigger('update_planned_dozer_volumes'); 
+  },
+  blasting_depth: (frm, cdt, cdn) => { 
+    recompute(frm, cdt, cdn); 
+    frm.trigger('update_planned_dozer_volumes'); 
+  },
+  dozing_percentage: (frm, cdt, cdn) => {
+    const row = locals[cdt][cdn];
+
+    // ✅ Round value to 2 decimals
+    if (row.dozing_percentage != null && row.dozing_percentage !== "") {
+      const rounded = parseFloat(row.dozing_percentage).toFixed(2);
+      frappe.model.set_value(cdt, cdn, 'dozing_percentage', rounded);
+    }
+
+    // ✅ Recalculate dozing + volumes
+    recompute(frm, cdt, cdn);
+    frm.trigger('update_planned_dozer_volumes');
+
+    // ✅ Make the input accept decimals in steps of 0.01
+    setTimeout(() => {
+      $(`[data-fieldname="dozing_percentage"] input`).attr('step', '0.01');
+    }, 300);
+  }
 });
+
 
 // Hook equipment-count update on child-table changes
 frappe.ui.form.on('Excavator Truck Link', {
