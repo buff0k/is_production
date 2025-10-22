@@ -29,7 +29,7 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Block Width",
-   "precision": "1"
+   "precision": "2"
   },
   {
    "columns": 1,
@@ -37,7 +37,7 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Blasting/Block Depth",
-   "precision": "1"
+   "precision": "2"
   },
   {
    "columns": 2,
@@ -78,14 +78,14 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Block Length",
-   "precision": "1"
+   "precision": "2"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-08 17:40:24.621173",
+ "modified": "2025-10-22 15:45:39.507967",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Blasting Blocks Planned",

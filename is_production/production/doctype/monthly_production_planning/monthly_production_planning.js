@@ -840,38 +840,34 @@ frappe.ui.form.on('Geo_mat_layer', {
 // after the Monthly Production Planning block, add:
 
 // ──────────────────────────────────────────────────────────────────────────────
-//                    Blasting Plan child‐table event handlers
+//                    Blasting Plan child‐table event handlers (2-decimal precision)
 // ──────────────────────────────────────────────────────────────────────────────
 frappe.ui.form.on('Blasting Blocks Planned', {
-  block_length: (frm, cdt, cdn) => { 
-    recompute(frm, cdt, cdn); 
-    frm.trigger('update_planned_dozer_volumes'); 
+  block_length: (frm, cdt, cdn) => {
+    const row = locals[cdt][cdn];
+    // 🔹 Force 2 decimal places immediately on entry
+    frappe.model.set_value(cdt, cdn, 'block_length', flt(row.block_length, 2));
+    recompute(frm, cdt, cdn);
+    frm.trigger('update_planned_dozer_volumes');
   },
-  block_width: (frm, cdt, cdn) => { 
-    recompute(frm, cdt, cdn); 
-    frm.trigger('update_planned_dozer_volumes'); 
+  block_width: (frm, cdt, cdn) => {
+    const row = locals[cdt][cdn];
+    frappe.model.set_value(cdt, cdn, 'block_width', flt(row.block_width, 2));
+    recompute(frm, cdt, cdn);
+    frm.trigger('update_planned_dozer_volumes');
   },
-  blasting_depth: (frm, cdt, cdn) => { 
-    recompute(frm, cdt, cdn); 
-    frm.trigger('update_planned_dozer_volumes'); 
+  blasting_depth: (frm, cdt, cdn) => {
+    const row = locals[cdt][cdn];
+    frappe.model.set_value(cdt, cdn, 'blasting_depth', flt(row.blasting_depth, 2));
+    recompute(frm, cdt, cdn);
+    frm.trigger('update_planned_dozer_volumes');
   },
   dozing_percentage: (frm, cdt, cdn) => {
     const row = locals[cdt][cdn];
-
-    // ✅ Round value to 2 decimals
-    if (row.dozing_percentage != null && row.dozing_percentage !== "") {
-      const rounded = parseFloat(row.dozing_percentage).toFixed(2);
-      frappe.model.set_value(cdt, cdn, 'dozing_percentage', rounded);
-    }
-
-    // ✅ Recalculate dozing + volumes
+    // Dozing % already uses precision 2, but we ensure consistency here too
+    frappe.model.set_value(cdt, cdn, 'dozing_percentage', flt(row.dozing_percentage, 2));
     recompute(frm, cdt, cdn);
     frm.trigger('update_planned_dozer_volumes');
-
-    // ✅ Make the input accept decimals in steps of 0.01
-    setTimeout(() => {
-      $(`[data-fieldname="dozing_percentage"] input`).attr('step', '0.01');
-    }, 300);
   }
 });
 
@@ -889,10 +885,14 @@ frappe.ui.form.on('Dozers Planned', {
 function recompute(frm, cdt, cdn) {
   const row = locals[cdt][cdn];
   console.log('Recompute called', row.block_length, row.block_width, row.blasting_depth);
+
+  // 🔹 Round inputs to 2 decimals before computing
+  const length = flt(row.block_length || 0, 2);
+  const width  = flt(row.block_width  || 0, 2);
+  const depth  = flt(row.blasting_depth || 0, 2);
+
   // Requirement 2: block_bcm = length × width × depth
-  const bcm = (row.block_length   || 0)
-            * (row.block_width    || 0)
-            * (row.blasting_depth || 0);
+  const bcm = flt(length * width * depth, 2);
 
   frappe.model.set_value(cdt, cdn, 'block_bcm', bcm);
 
@@ -900,14 +900,15 @@ function recompute(frm, cdt, cdn) {
   recompute_dozing(frm, cdt, cdn);
 }
 
+
 function recompute_dozing(frm, cdt, cdn) {
   const row = locals[cdt][cdn];
   console.log('Recompute dozing', row.block_bcm, row.dozing_percentage);
   // Requirement 3: block_dozing_bcms = block_bcm × dozing_percentage
-  const dz = (row.block_bcm || 0)
-           * ((row.dozing_percentage || 0) / 100);
+const dz = flt((row.block_bcm || 0) * ((row.dozing_percentage || 0) / 100), 2);
 
-  frappe.model.set_value(cdt, cdn, 'block_dozing_bcms', dz);
+frappe.model.set_value(cdt, cdn, 'block_dozing_bcms', dz);
+
 }
 
 
