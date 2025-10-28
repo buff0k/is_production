@@ -53,7 +53,7 @@ def auto_fill_all_diesel_data(site, start_date, end_date):
             FROM `tabDiesel Receipt`
             WHERE asset_name = %s
               AND date_time_diesel_receipt BETWEEN %s AND %s
-              AND docstatus = 1
+              AND docstatus < 2   -- ✅ CHANGED (was = 1)
             """,
             (asset, start_date, end_date)
         )
@@ -64,7 +64,7 @@ def auto_fill_all_diesel_data(site, start_date, end_date):
             FROM `tabDaily Diesel Sheet`
             WHERE asset_name = %s
               AND daily_sheet_date BETWEEN %s AND %s
-              AND docstatus = 1
+              AND docstatus < 2   -- ✅ CHANGED (was = 1)
             """,
             (asset, start_date, end_date)
         )
@@ -91,7 +91,7 @@ def auto_fill_all_diesel_data(site, start_date, end_date):
             FROM `tabDiesel Receipt`
             WHERE asset_name = %s
               AND date_time_diesel_receipt BETWEEN %s AND %s
-              AND docstatus = 1
+              AND docstatus < 2   -- ✅ CHANGED (was = 1)
             """,
             (asset, start_date, end_date)
         )
@@ -102,7 +102,7 @@ def auto_fill_all_diesel_data(site, start_date, end_date):
             FROM `tabDaily Diesel Sheet`
             WHERE asset_name = %s
               AND daily_sheet_date BETWEEN %s AND %s
-              AND docstatus = 1
+              AND docstatus < 2   -- ✅ CHANGED (was = 1)
             """,
             (asset, start_date, end_date)
         )
@@ -134,7 +134,7 @@ def get_machine_diesel_totals(site, start_date, end_date, asset_name):
         FROM `tabDaily Diesel Sheet`
         WHERE asset_name = %s
           AND daily_sheet_date BETWEEN %s AND %s
-          AND docstatus = 1
+          AND docstatus < 2   -- ✅ CHANGED (was = 1)
         """,
         (asset_name, start_date, end_date)
     )
@@ -145,7 +145,7 @@ def get_machine_diesel_totals(site, start_date, end_date, asset_name):
         FROM `tabDiesel Receipt`
         WHERE asset_name = %s
           AND date_time_diesel_receipt BETWEEN %s AND %s
-          AND docstatus = 1
+          AND docstatus < 2   -- ✅ CHANGED (was = 1)
         """,
         (asset_name, start_date, end_date)
     )
@@ -167,9 +167,9 @@ def calculate_equipment_totals_by_site(site, start_date, end_date):
     across the selected date range.
     """
     tracked_categories = [
-    "ADT", "Dozer", "Excavator", "Service Truck", "Grader", "TLB",
-    "Diesel Bowsers", "Water Bowser", "Drills", "Lightning Plant",
-    "LDV", "Generator", "Water pump", "All items group"
+        "ADT", "Dozer", "Excavator", "Service Truck", "Grader", "TLB",
+        "Diesel Bowsers", "Water Bowser", "Drills", "Lightning Plant",
+        "LDV", "Generator", "Water pump", "All items group"
     ]
 
     totals_by_category = {cat: 0 for cat in tracked_categories}
@@ -181,7 +181,7 @@ def calculate_equipment_totals_by_site(site, start_date, end_date):
         JOIN `tabDaily Diesel Sheet` s ON e.parent = s.name
         WHERE s.location = %s
           AND s.daily_sheet_date BETWEEN %s AND %s
-          AND s.docstatus = 1
+          AND s.docstatus < 2   -- ✅ CHANGED (was = 1)
           AND e.asset_name IS NOT NULL
     """, (site, start_date, end_date), as_dict=True)
 

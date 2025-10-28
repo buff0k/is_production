@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "field:monthly_production_plan",
  "creation": "2025-10-27 05:23:51.768235",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -68,7 +69,8 @@
    "in_list_view": 1,
    "label": "Monthly Production Planning",
    "options": "Monthly Production Planning",
-   "reqd": 1
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "section_break_mvwu",
@@ -195,10 +197,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-28 11:50:21.489939",
+ "modified": "2025-10-28 13:54:59.623547",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Diesel Reconciliation",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {

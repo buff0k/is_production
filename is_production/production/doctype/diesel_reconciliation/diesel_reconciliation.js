@@ -130,14 +130,15 @@ function set_bowser_query(frm) {
     frm.fields_dict.diesel_bowser_readings.grid.get_field("plant_no").get_query =
       function () {
         return {
-          filters: {
-            asset_category: "Diesel Bowsers",
-            location: frm.doc.site || "",
-          },
+          filters: [
+            ["asset_category", "in", ["Diesel Bowsers", "Diesel Bulk"]],
+            ["location", "=", frm.doc.site || ""],
+          ],
         };
       };
   }
 }
+
 
 // Main Tank Readings – filter Tank No dropdown
 function set_tank_query(frm) {
@@ -145,10 +146,10 @@ function set_tank_query(frm) {
     frm.fields_dict.main_tank_readings.grid.get_field("tank_no").get_query =
       function () {
         return {
-          filters: {
-            asset_category: "Diesel Bulk",
-            location: frm.doc.site || "",
-          },
+          filters: [
+            ["asset_category", "in", ["Diesel Bowsers", "Diesel Bulk"]],
+            ["location", "=", frm.doc.site || ""],
+          ],
         };
       };
   }
