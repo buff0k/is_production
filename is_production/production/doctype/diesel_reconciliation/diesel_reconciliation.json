@@ -1,0 +1,222 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-10-27 05:23:51.768235",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site_information_section",
+  "site",
+  "monthly_production_plan",
+  "start_date",
+  "end_date",
+  "column_break_bsbi",
+  "section_break_mvwu",
+  "diesel_bowser_readings",
+  "diesel_issued_per_asset_category_section",
+  "adt",
+  "dozers",
+  "excavators",
+  "column_break_mtdr",
+  "service_trucks",
+  "grader",
+  "tlb",
+  "diesel_bowser",
+  "water_bowser",
+  "column_break_abwj",
+  "drills",
+  "lightning_plant",
+  "ldv",
+  "generator",
+  "water_pump",
+  "all_items_group",
+  "column_break_gbhm",
+  "total"
+ ],
+ "fields": [
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Site",
+   "options": "Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Start Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "End Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "diesel_bowser_readings",
+   "fieldtype": "Table",
+   "label": "Diesel Bowser Readings",
+   "options": "Diesel Bowser Readings"
+  },
+  {
+   "fieldname": "monthly_production_plan",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Monthly Production Planning",
+   "options": "Monthly Production Planning",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_mvwu",
+   "fieldtype": "Section Break",
+   "label": "Diesel Information"
+  },
+  {
+   "fieldname": "column_break_bsbi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "site_information_section",
+   "fieldtype": "Section Break",
+   "label": "Site Information"
+  },
+  {
+   "fieldname": "diesel_issued_per_asset_category_section",
+   "fieldtype": "Section Break",
+   "label": "Diesel Issued per Asset Category"
+  },
+  {
+   "fieldname": "adt",
+   "fieldtype": "Float",
+   "label": "ADT",
+   "precision": "1"
+  },
+  {
+   "fieldname": "dozers",
+   "fieldtype": "Float",
+   "label": "Dozers",
+   "precision": "1"
+  },
+  {
+   "fieldname": "excavators",
+   "fieldtype": "Float",
+   "label": "Excavators",
+   "precision": "1"
+  },
+  {
+   "fieldname": "column_break_mtdr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "service_trucks",
+   "fieldtype": "Float",
+   "label": "Service Trucks",
+   "precision": "1"
+  },
+  {
+   "fieldname": "grader",
+   "fieldtype": "Float",
+   "label": "Grader",
+   "precision": "1"
+  },
+  {
+   "fieldname": "tlb",
+   "fieldtype": "Float",
+   "label": "TLB",
+   "precision": "1"
+  },
+  {
+   "fieldname": "diesel_bowser",
+   "fieldtype": "Float",
+   "label": "Diesel Bowser",
+   "precision": "1"
+  },
+  {
+   "fieldname": "water_bowser",
+   "fieldtype": "Float",
+   "label": "Water Bowser",
+   "precision": "1"
+  },
+  {
+   "fieldname": "column_break_abwj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "drills",
+   "fieldtype": "Float",
+   "label": "Drills",
+   "precision": "1"
+  },
+  {
+   "fieldname": "lightning_plant",
+   "fieldtype": "Float",
+   "label": "Lightning Plant",
+   "precision": "1"
+  },
+  {
+   "fieldname": "ldv",
+   "fieldtype": "Float",
+   "label": "LDV",
+   "precision": "1"
+  },
+  {
+   "fieldname": "generator",
+   "fieldtype": "Float",
+   "label": "Generator",
+   "precision": "1"
+  },
+  {
+   "fieldname": "water_pump",
+   "fieldtype": "Float",
+   "label": "Water Pump",
+   "precision": "1"
+  },
+  {
+   "fieldname": "column_break_gbhm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total",
+   "fieldtype": "Float",
+   "label": "Total",
+   "precision": "1"
+  },
+  {
+   "fieldname": "all_items_group",
+   "fieldtype": "Float",
+   "label": "All items group",
+   "precision": "1"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-10-28 11:50:21.489939",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Diesel Reconciliation",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
