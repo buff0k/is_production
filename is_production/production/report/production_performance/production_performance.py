@@ -255,7 +255,7 @@ def execute(filters=None):
 
     overall_bcma = actual_bcm
     overall_target = d.monthly_target_bcm or 0
-    remaining_volume_month = overall_target - overall_bcma
+    remaining_volume_month = overall_bcma - overall_target
     current_strip_ratio = (waste_bcm_actual / coal_tons_actual) if coal_tons_actual else 0
     planned_strip_ratio = (d.waste_bcms_planned / d.coal_tons_planned) if d.coal_tons_planned else 0
 
@@ -281,7 +281,12 @@ def execute(filters=None):
 
     summary1 = make_block("Summary (Part 1)", summary_rows[0:3])
     summary2 = make_block("Summary (Part 2)", summary_rows[3:6])
-    summary3 = make_block("Summary (Part 3)", summary_rows[6:9])
+    summary3 = make_block("Summary (Part 3)", [
+    ("Overall Actual BCM (waste & coal)", fmt_int(overall_bcma)),
+    ("Overall Target BCM (waste & coal)", fmt_int(overall_target)),
+    ("Remaining BCM (waste & coal)", fmt_int(remaining_volume_month)),
+])
+
     summary4 = make_block("Summary (Part 4)", summary_rows[9:11])
     summary5 = make_block("Summary (Part 5 - Coal)", [
         ("MTD Actual Coal (tons)", fmt_int(coal_tons_actual)),

@@ -244,9 +244,12 @@ def get_hourly_bcms(start_date, end_date, site):
 # ✅ MTD Prog Actual COAL (full logic from Production Summary)
 # ---------------------------------------------------------
 def get_mtd_coal_dynamic(site, end_date, month_start):
+    """Calculate MTD Programmed Actual Coal (in Tons)
+    Matching Production Summary logic exactly."""
     if not site or not end_date:
         return 0
-    
+
+    COAL_CONVERSION = 1.5  # ✅ convert BCM to tons
 
     survey_doc = frappe.get_all(
         "Survey",
@@ -279,17 +282,17 @@ def get_mtd_coal_dynamic(site, end_date, month_start):
                   AND hp.location = %s
                   AND LOWER(tl.mat_type) LIKE '%%coal%%'
             """, (survey_date, end_date, site))[0][0]
-            coal_tons_actual += (coal_after or 0)
-
+            coal_tons_actual += (coal_after or 0) * COAL_CONVERSION
         else:
-            coal_tons_actual = get_coal_from_hourly(month_start, end_date, site)
+            coal_tons_actual = get_coal_from_hourly(month_start, end_date, site, COAL_CONVERSION)
     else:
-        coal_tons_actual = get_coal_from_hourly(month_start, end_date, site)
+        coal_tons_actual = get_coal_from_hourly(month_start, end_date, site, COAL_CONVERSION)
 
     return coal_tons_actual
 
 
-def get_coal_from_hourly(start_date, end_date, site):
+def get_coal_from_hourly(start_date, end_date, site, COAL_CONVERSION):
+    """Fetch total Coal BCMs from Hourly Production and convert to Tons."""
     coal_bcm = frappe.db.sql("""
         SELECT COALESCE(SUM(tl.bcms),0)
         FROM `tabHourly Production` hp
@@ -298,7 +301,8 @@ def get_coal_from_hourly(start_date, end_date, site):
           AND hp.location = %s
           AND LOWER(tl.mat_type) LIKE '%%coal%%'
     """, (start_date, end_date, site))[0][0]
-    return (coal_bcm or 0)
+    return (coal_bcm or 0) * COAL_CONVERSION
+
 
 # ---------------------------------------------------------
 # ✅ Actual TS and Dozing for the Day
@@ -466,7 +470,7 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
         <table style="{table}">
             <tr><td style="{td}">Monthly Target</td><td style="{td}">{fmt(mpp.monthly_target_bcm if mpp else 0)}</td></tr>
             <tr><td style="{td}">Monthly Coal Target</td><td style="{td}">{fmt(mpp.coal_tons_planned if mpp else 0)}</td></tr>
-            <tr><td style="{td}">MTD Coal (BCM)</td><td style="{td}">{fmt(mtd_coal)}</td></tr>
+            <tr><td style="{td}">MTD Coal (TONS)</td><td style="{td}">{fmt(mtd_coal)}</td></tr>
             <tr><td style="{td}">MTD Waste</td><td style="{td}">{fmt(mtd_waste)}</td></tr>
             <tr><td style="{td}">MTD Actual BCM's</td><td style="{td}">{fmt(mtd_actual_bcms)}</td></tr>
             <tr><td style="{td}">Remaining Volumes</td><td style="{td}">{fmt((mpp.monthly_target_bcm if mpp else 0) - mtd_actual_bcms)}</td></tr>
