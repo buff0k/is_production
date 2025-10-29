@@ -698,8 +698,30 @@ frappe.ui.form.on('Mining Areas Options', {
 
 frappe.ui.form.on('Hourly Production', {
     setup(frm) {
-        // Load offline sync utility
+            // 🕐 Enable full 24-hour time picker including midnight
+        const timeFields = [
+            'day_shift_start',
+            'day_shift_end',
+            'night_shift_start',
+            'night_shift_end'
+        ];
+
+        timeFields.forEach(field => {
+            if (frm.fields_dict[field] && frm.fields_dict[field].$input) {
+                frm.fields_dict[field].$input.flatpickr({
+                    enableTime: true,
+                    noCalendar: true,
+                    time_24hr: true,
+                    enableSeconds: false,
+                    allowInput: true,
+                    minuteIncrement: 1
+                });
+            }
+        });
+
+        // Load offline sync utility (keep this line after picker setup)
         frappe.require('/assets/is_production/js/offline_sync.js');
+ 
         
         cleanupUIState(frm);
         // ——————————————————————————————
@@ -758,80 +780,81 @@ frappe.ui.form.on('Hourly Production', {
         updateTruckGeoMaterialOptions(frm);
         
     },
+    
     onload_post_render(frm) {
-        // This will trigger for both new and existing docs
-        if (frm.is_new()) {
-            cleanupUIState(frm);
+    // This will trigger for both new and existing docs
+    if (frm.is_new()) {
+        cleanupUIState(frm);
+    }
+
+    // ✅ Restore locked hour_slot if it exists (prevents recalculation)
+    if (frm.doc.locked_hour_slot && frm.doc.hour_slot !== frm.doc.locked_hour_slot) {
+        frm.set_value('hour_slot', frm.doc.locked_hour_slot);
+        frm.refresh_field('hour_slot');
+        console.log('Restored locked hour slot:', frm.doc.locked_hour_slot);
+    }
+
+    frappe.require(['/assets/is_production/js/offline_sync.js'], function() {
+        // Ensure offline sync is ready
+        if (!window.HourlyProductionOffline) {
+            console.error('Offline sync utility not loaded');
+            return;
         }
-        
-        frappe.require(['/assets/is_production/js/offline_sync.js'], function() {
-            // Ensure offline sync is ready
-            if (!window.HourlyProductionOffline) {
-                console.error('Offline sync utility not loaded');
-                return;
+
+        // Restore cached doc if offline and cached
+        if (!window.HourlyProductionOffline.isOnline()) {
+            const cached = window.HourlyProductionOffline.getCachedDocs().find(d => d.name === frm.doc.name);
+            if (cached) {
+                frappe.confirm(
+                    __('You have unsynced offline changes for this record. Restore them?'),
+                    () => {
+                        frm.doc.truck_loads = cached.truck_loads || [];
+                        frm.doc.dozer_production = cached.dozer_production || [];
+                        frm.doc.mining_areas_options = cached.mining_areas_options || [];
+                        frm.doc.ts_area_bcm_total = cached.ts_area_bcm_total || [];
+                        frm.doc.geo_mat_total_bcm = cached.geo_mat_total_bcm || [];
+                        
+                        Object.keys(cached).forEach(key => {
+                            if (!Array.isArray(cached[key]) && typeof cached[key] !== 'object') {
+                                frm.doc[key] = cached[key];
+                            }
+                        });
+                        
+                        frm.refresh();
+                        ['truck_loads', 'dozer_production', 'mining_areas_options', 
+                         'ts_area_bcm_total', 'geo_mat_total_bcm'].forEach(table => {
+                            frm.refresh_field(table);
+                        });
+                        
+                        frappe.show_alert({
+                            message: __('Offline changes restored'),
+                            indicator: 'green'
+                        });
+                    }
+                );
             }
+        }
+
+        setTimeout(() => {
+            showOfflineStatus(frm);
+            setupOfflineStatusEvents(frm);
+        }, 300);
+
+        if (!window.HourlyProductionOffline.isOnline()) {
+            frm.page.set_indicator('Offline Mode', 'orange');
             
-            // Restore cached doc if offline and cached
-            if (!window.HourlyProductionOffline.isOnline()) {
-                const cached = window.HourlyProductionOffline.getCachedDocs().find(d => d.name === frm.doc.name);
-                if (cached) {
-                    frappe.confirm(
-                        __('You have unsynced offline changes for this record. Restore them?'),
-                        () => {
-                            // Properly restore all doc fields and child tables
-                            frm.doc.truck_loads = cached.truck_loads || [];
-                            frm.doc.dozer_production = cached.dozer_production || [];
-                            frm.doc.mining_areas_options = cached.mining_areas_options || [];
-                            frm.doc.ts_area_bcm_total = cached.ts_area_bcm_total || [];
-                            frm.doc.geo_mat_total_bcm = cached.geo_mat_total_bcm || [];
-                            
-                            // Copy over all other fields
-                            Object.keys(cached).forEach(key => {
-                                if (!Array.isArray(cached[key]) && typeof cached[key] !== 'object') {
-                                    frm.doc[key] = cached[key];
-                                }
-                            });
-                            
-                            // Refresh all fields and child tables
-                            frm.refresh();
-                            ['truck_loads', 'dozer_production', 'mining_areas_options', 
-                             'ts_area_bcm_total', 'geo_mat_total_bcm'].forEach(table => {
-                                frm.refresh_field(table);
-                            });
-                            
-                            // Show confirmation
-                            frappe.show_alert({
-                                message: __('Offline changes restored'),
-                                indicator: 'green'
-                            });
-                        }
-                    );
-                }
+            if (!frm.custom_buttons['View Cached Changes']) {
+                frm.add_custom_button(__('View Cached Changes'), function() {
+                    const docs = window.HourlyProductionOffline.getCachedDocs();
+                    const formattedDocs = docs.map(doc => `${doc.name} (${doc.doctype})`).join('\n');
+                    frappe.msgprint(formattedDocs || 'No cached changes');
+                }, __('Offline'));
             }
-            
-            // Setup offline status tag and events (robust)
-            setTimeout(() => {
-                showOfflineStatus(frm);
-                setupOfflineStatusEvents(frm);
-            }, 300);
-            
-            // Add offline mode indicator and controls
-            if (!window.HourlyProductionOffline.isOnline()) {
-                frm.page.set_indicator('Offline Mode', 'orange');
-                
-                // Add offline controls if needed
-                if (!frm.custom_buttons['View Cached Changes']) {
-                    frm.add_custom_button(__('View Cached Changes'), function() {
-                        const docs = window.HourlyProductionOffline.getCachedDocs();
-                        const formattedDocs = docs.map(doc => {
-                            return `${doc.name} (${doc.doctype})`;
-                        }).join('\n');
-                        frappe.msgprint(formattedDocs || 'No cached changes');
-                    }, __('Offline'));
-                }
-            }
-        });
-    },
+        }
+    });
+},
+
+
      total_coal_bcm(frm) {
         if (frm.doc.total_coal_bcm) {
             frm.set_value('coal_tons_total', frm.doc.total_coal_bcm * 1.5);
@@ -1008,9 +1031,67 @@ frappe.ui.form.on('Hourly Production', {
     },
 
     prod_date(frm) {
+    // --- Keep existing logic first ---
     set_day_number(frm);
     fetch_monthly_production_plan(frm);
+
+    // --- New Weekend Defaults for Shifts ---
+    if (!frm.doc.prod_date) return;
+
+    try {
+        // Support both DD-MM-YYYY and YYYY-MM-DD formats
+        const parts = frm.doc.prod_date.split('-');
+        let dateObj;
+        if (parts[0].length === 4) {
+            dateObj = new Date(frm.doc.prod_date); // YYYY-MM-DD
+        } else {
+            const [d, m, y] = parts;
+            dateObj = new Date(`${y}-${m}-${d}`); // DD-MM-YYYY
+        }
+
+        if (isNaN(dateObj)) return;
+        const day = dateObj.getDay(); // Sunday=0, Saturday=6
+
+        // ✅ If Saturday or Sunday → default shift times
+        if (day === 0 || day === 6) {
+            frm.set_value('day_shift_start', '06:00:00');
+            frm.set_value('day_shift_end', '18:00:00');
+            frm.set_value('night_shift_start', '18:00:00');
+            frm.set_value('night_shift_end', '06:00:00');
+
+            // Calculate working hours automatically
+            calculate_shift_hours(frm, 'day_shift_start', 'day_shift_end', 'total_working_hours');
+            calculate_shift_hours(frm, 'night_shift_start', 'night_shift_end', 'total_working_hour');
+        }
+    } catch (e) {
+        console.warn('Weekend default logic failed:', e);
+    }
+},
+    // --- Auto-calculate totals when start/end times change ---
+    day_shift_start(frm) {
+        if (frm.doc.day_shift_start && frm.doc.day_shift_end) {
+            calculate_shift_hours(frm, 'day_shift_start', 'day_shift_end', 'total_working_hours');
+        }
     },
+
+    day_shift_end(frm) {
+        if (frm.doc.day_shift_start && frm.doc.day_shift_end) {
+            calculate_shift_hours(frm, 'day_shift_start', 'day_shift_end', 'total_working_hours');
+        }
+    },
+
+    night_shift_start(frm) {
+        if (frm.doc.night_shift_start && frm.doc.night_shift_end) {
+            calculate_shift_hours(frm, 'night_shift_start', 'night_shift_end', 'total_working_hour');
+        }
+    },
+
+    night_shift_end(frm) {
+        if (frm.doc.night_shift_start && frm.doc.night_shift_end) {
+            calculate_shift_hours(frm, 'night_shift_start', 'night_shift_end', 'total_working_hour');
+        }
+    },
+
 
     shift_system(frm) {
         update_shift_options(frm);
@@ -1038,15 +1119,45 @@ frappe.ui.form.on('Hourly Production', {
         }
     }
     },
+// ====================================================
+// PRE-SAVE HOOK — ensure hour_slot is locked before saving
+// ====================================================
+before_save(frm) {
+    // ✅ Only apply on Saturday or Sunday
+    if (is_weekend(frm)) {
+        // Force recalculation of hour slot before the save
+        update_hour_slot(frm);
+        console.log('Pre-save hour slot ensured:', frm.doc.hour_slot);
+    }
+},
 
 
 after_save(frm) {
     console.log('After save triggered');
+
+    // ====================================================
+    // POST-SAVE HOOK — reapply and lock the correct hour_slot
+    // ====================================================
+    if (is_weekend(frm)) {
+        const oldSlot = frm.doc.hour_slot;
+        update_hour_slot(frm);
+        const newSlot = frm.doc.hour_slot;
+
+        // If slot changed during save, correct and persist it again
+        if (oldSlot !== newSlot) {
+            frappe.model.set_value(frm.doctype, frm.doc.name, 'hour_slot', newSlot);
+            frm.set_value('hour_slot', newSlot);
+            frm.refresh_field('hour_slot');
+            console.log('Hour slot locked to:', newSlot);
+        }
+    }
+
     // Prevent multiple rapid saves
     if (frm.is_saving) {
         console.log('Save already in progress, skipping');
         return;
     }
+
     
     frappe.require(['/assets/is_production/js/offline_sync.js'], function() {
         // Check if we're offline
@@ -1713,55 +1824,132 @@ function update_shift_num_hour_options(frm) {
     const s   = frm.doc.shift;
     const sys = frm.doc.shift_system;
     let count;
+
+    // Use the total working hours for each shift to determine number of slots
     if (s === 'Day') {
-        count = 12;
+        count = parseInt(frm.doc.total_working_hours || 12);
     } else if (s === 'Night') {
-        count = (sys === '2x12Hour') ? 12 : 8;
+        count = parseInt(frm.doc.total_working_hour || (sys === '2x12Hour' ? 12 : 8));
     } else {
         count = 8;
     }
+
+    // Determine base hour dynamically from shift start fields
+    let baseHour;
+    if (s === 'Day' && frm.doc.day_shift_start) {
+        baseHour = parseInt(frm.doc.day_shift_start.split(':')[0]);
+    } else if (s === 'Night' && frm.doc.night_shift_start) {
+        baseHour = parseInt(frm.doc.night_shift_start.split(':')[0]);
+    } else if (s === 'Day' || s === 'Morning') {
+        baseHour = 6;
+    } else if (s === 'Afternoon') {
+        baseHour = 14;
+    } else {
+        baseHour = 18;
+    }
+
+    // ✅ Build dropdown options like “Night-1”, “Night-2”, etc. (no time shown)
     const opts = Array.from({ length: count }, (_, i) => `${s}-${i + 1}`);
+
+    // Store the base hour temporarily for hour_slot logic
+    frm.base_shift_hour = baseHour;
+
     _set_options(frm, 'shift_num_hour', opts);
     frm.set_value('shift_num_hour', null);
 }
 
-function update_hour_slot(frm) {
-    const [s, i] = (frm.doc.shift_num_hour || '').split('-');
-    const idx = parseInt(i, 10);
-    if (!s || isNaN(idx)) return;
-    frm.set_value('hour_sort_key', idx);
 
-    let baseHour;
-    if (s === 'Day' || s === 'Morning') {
-        baseHour = 6;
-    } else if (s === 'Afternoon') {
-        baseHour = 14;
-    } else if (s === 'Night' && frm.doc.shift_system === '2x12Hour') {
-        baseHour = 18;
-    } else {
-        baseHour = 22;
+function update_hour_slot(frm) {
+    const [shiftName, hourIndexStr] = (frm.doc.shift_num_hour || '').split('-');
+    const hourIndex = parseInt(hourIndexStr, 10);
+    if (!shiftName || isNaN(hourIndex)) return;
+
+    frm.set_value('hour_sort_key', hourIndex);
+
+    // --- Determine the correct start time string ---
+    let shiftStart = null;
+    if (shiftName === 'Night' && frm.doc.night_shift_start) {
+        shiftStart = frm.doc.night_shift_start;
+    } else if (shiftName === 'Day' && frm.doc.day_shift_start) {
+        shiftStart = frm.doc.day_shift_start;
     }
 
-    const start = (baseHour + (idx - 1)) % 24;
-    const end   = (start + 1) % 24;
-    frm.set_value('hour_slot', `${start}:00-${end}:00`);
+    // --- Parse hour and minute from start time ---
+    let baseHour = 6;
+    let baseMinute = 0;
+    if (shiftStart) {
+        const [h, m] = shiftStart.split(':').map(Number);
+        baseHour = h;
+        baseMinute = m || 0;
+    }
 
+    // --- Calculate hour slot manually (no Date object!) ---
+    const startHour = (baseHour + (hourIndex - 1)) % 24;
+    const endHour = (startHour + 1) % 24;
+
+    const formatHour = h => (h === 0 ? '00:00' : `${String(h).padStart(2, '0')}:00`);
+    const startLabel = formatHour(startHour);
+    const endLabel = formatHour(endHour === 0 ? 0 : endHour);
+
+    const hourSlot = `${startLabel}-${endLabel}`;
+    frm.set_value('hour_slot', hourSlot);
+
+    // ✅ Store a locked version so it doesn’t get recalculated later
+    frm.set_value('locked_hour_slot', hourSlot);
+    console.log('Locked hour slot saved:', hourSlot);
+
+    // --- Optional UI refresh ---
     if (frm.doc.location && frm.doc.prod_date && frm.doc.shift && frm.doc.shift_num_hour) {
         populate_truck_loads_and_lookup(frm).then(() => {
-            // Always refresh UI after table is repopulated, regardless of initialization state
             if (uiInitialized && frm.hourlyProductionUI) {
-                // UI is already initialized, just refresh it with new data
                 frm.hourlyProductionUI.loadUI();
             } else {
-                // UI not initialized yet, initialize it
                 initializeOrRefreshUI(frm);
             }
         });
     }
 }
 
+
 function _set_options(frm, field, opts) {
     if (frm.fields_dict[field]) {
         frm.set_df_property(field, 'options', opts.join('\n'));
+    }
+}
+// ====================================================
+// Shift working hours calculator
+// ====================================================
+function calculate_shift_hours(frm, startField, endField, totalField) {
+    const start = frm.doc[startField];
+    const end = frm.doc[endField];
+    if (!start || !end) return;
+
+    const [sh, sm = 0] = start.split(':').map(Number);
+    const [eh, em = 0] = end.split(':').map(Number);
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff < 0) diff += 24 * 60; // Handle past midnight
+    const hours = (diff / 60).toFixed(2);
+    frm.set_value(totalField, hours);
+}
+// ====================================================
+// Helper: Check if production date is weekend (Saturday or Sunday)
+// ====================================================
+function is_weekend(frm) {
+    if (!frm.doc.prod_date) return false;
+    try {
+        const parts = frm.doc.prod_date.split('-');
+        let dateObj;
+        if (parts[0].length === 4) {
+            // Format: YYYY-MM-DD
+            dateObj = new Date(frm.doc.prod_date);
+        } else {
+            // Format: DD-MM-YYYY
+            const [d, m, y] = parts;
+            dateObj = new Date(`${y}-${m}-${d}`);
+        }
+        const day = dateObj.getDay();
+        return day === 0 || day === 6; // Sunday = 0, Saturday = 6
+    } catch {
+        return false;
     }
 }

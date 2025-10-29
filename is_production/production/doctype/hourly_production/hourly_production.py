@@ -141,25 +141,42 @@ class HourlyProduction(Document):
         self.ave_bcm_prod_truck = (total_ts_bcm / num_prod_trucks) if num_prod_trucks else 0
         self.calculate_day_total_bcm()
 
-        # --- Recompute hour_sort_key & hour_slot from shift_num_hour ---
+                # --- Recompute hour_sort_key & hour_slot using actual shift start times ---
         if self.shift_num_hour:
             try:
                 shift_label, idx_str = self.shift_num_hour.split("-", 1)
                 idx = int(idx_str)
-
                 self.hour_sort_key = idx
-                base = (
-                    6 if self.shift in ("Day", "Morning") else
-                    14 if self.shift == "Afternoon" else
-                    18 if self.shift == "Night" and self.shift_system == "2x12Hour" else
-                    22
-                )
-                start = (base + (idx - 1)) % 24
+
+                # ✅ Determine base start hour dynamically from the real shift fields
+                base_hour = 6  # default fallback
+                if self.shift in ("Day", "Morning") and getattr(self, "day_shift_start", None):
+                    base_hour = int(str(self.day_shift_start).split(":")[0])
+                elif self.shift == "Afternoon" and hasattr(self, "afternoon_shift_start"):
+                    base_hour = int(str(self.afternoon_shift_start).split(":")[0])
+                elif self.shift == "Night" and getattr(self, "night_shift_start", None):
+                    base_hour = int(str(self.night_shift_start).split(":")[0])
+
+                # ✅ Calculate start and end hours for this hourly slot
+                start = (base_hour + (idx - 1)) % 24
                 end = (start + 1) % 24
-                self.hour_slot = f"{start}:00-{end}:00"
-            except (ValueError, IndexError):
+
+                # ✅ Format as 24-hour with leading zeros
+                start_label = f"{start:02d}:00"
+                end_label = f"{end:02d}:00"
+
+                # ✅ Only overwrite if slot is blank or incorrect
+                if not self.hour_slot or len(self.hour_slot.strip()) < 5:
+                    self.hour_slot = f"{start_label}-{end_label}"
+
+            except Exception as e:
+                frappe.log_error(
+                    f"Hour slot computation failed for {self.name}: {e}",
+                    "Hourly Production before_save hour_slot"
+                )
                 self.hour_sort_key = None
-                self.hour_slot = None
+     
+
 
     def calculate_day_total_bcm(self):
         """Calculate and set the day_total_bcm from all hourly entries for this location and date"""
@@ -249,11 +266,11 @@ def get_user_whatsapp_number(user):
     except frappe.DoesNotExistError:
         return None
 
-
 @frappe.whitelist()
 def update_hourly_references():
     """
     Sync Hourly Production references from Monthly Production Planning and update slot keys.
+    Only fills missing hour_slot values — never overwrites existing ones.
     """
     threshold = add_to_date(nowdate(), days=-30)
     recs = frappe.get_all(
@@ -263,6 +280,7 @@ def update_hourly_references():
     )
 
     updated_entries = []
+
     for r in recs:
         pd = getdate(r.prod_date)
         plans = frappe.get_all(
@@ -279,6 +297,7 @@ def update_hourly_references():
         if not plans:
             continue
 
+        # Get Monthly Production Planning document
         mpp = frappe.get_doc('Monthly Production Planning', plans[0].name)
         ref = next(
             (row.hourly_production_reference for row in mpp.month_prod_days if row.shift_start_date == pd),
@@ -288,11 +307,13 @@ def update_hourly_references():
         values = {}
         if ref:
             values['monthly_production_child_ref'] = ref
+
         try:
+            # Calculate new hour_sort_key
             _, idx_str = r.shift_num_hour.split("-")
             idx = int(idx_str)
             base = (
-                6 if r.shift in ("Day","Morning") else
+                6 if r.shift in ("Day", "Morning") else
                 14 if r.shift == "Afternoon" else
                 18 if r.shift == "Night" and r.shift_system == "2x12Hour" else
                 22
@@ -300,21 +321,31 @@ def update_hourly_references():
             start = (base + (idx - 1)) % 24
             end = (start + 1) % 24
             values['hour_sort_key'] = idx
-            values['hour_slot'] = f"{start}:00-{end}:00"
-        except Exception:
-            pass
 
+            # ✅ Only fill hour_slot if it's missing in the DB
+            existing_slot = frappe.db.get_value('Hourly Production', r.name, 'hour_slot')
+            if not existing_slot or existing_slot.strip() == "":
+                values['hour_slot'] = f"{start:02d}:00-{end:02d}:00"
+
+        except Exception as e:
+            frappe.log_error(f"update_hourly_references error on {r.name}: {e}")
+
+        # Update only if there’s something to change
         if values:
             frappe.db.set_value('Hourly Production', r.name, values)
             updated_entries.append(f"{r.name} → {values}")
 
     frappe.db.commit()
+
     if updated_entries:
         frappe.log_error(
             message=(
-                f"update_hourly_references synced the following Hourly Production records\n"
+                f"update_hourly_references updated these Hourly Production records "
                 f"(prod_date ≥ {threshold}):\n\n" + "\n".join(updated_entries)
             ),
             title="update_hourly_references"
         )
+
     return {'updated': len(updated_entries)}
+
+

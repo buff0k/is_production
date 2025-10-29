@@ -11,7 +11,10 @@
   "prod_date",
   "month_prod_planning",
   "monthly_production_child_ref",
+  "day_shift_start",
   "shift_system",
+  "day_shift_end",
+  "total_working_hours",
   "mining_areas_options",
   "column_break_utop",
   "shift",
@@ -20,7 +23,11 @@
   "day_number",
   "hour_sort_key",
   "whatsapp_recipient",
+  "night_shift_start",
+  "night_shift_end",
+  "total_working_hour",
   "whats_send",
+  "locked_hour_slot",
   "section_break_fxug",
   "dnd_html_excavator_ui",
   "dnd_html_dozer_ui",
@@ -435,12 +442,48 @@
    "fieldname": "hp_report",
    "fieldtype": "HTML",
    "label": "HP Report"
+  },
+  {
+   "fieldname": "day_shift_start",
+   "fieldtype": "Time",
+   "label": "Day Shift Start"
+  },
+  {
+   "fieldname": "day_shift_end",
+   "fieldtype": "Time",
+   "label": "Day Shift End"
+  },
+  {
+   "fieldname": "total_working_hours",
+   "fieldtype": "Float",
+   "label": "Total shift hours"
+  },
+  {
+   "fieldname": "night_shift_start",
+   "fieldtype": "Time",
+   "label": "Night Shift Start"
+  },
+  {
+   "fieldname": "night_shift_end",
+   "fieldtype": "Time",
+   "label": "Night Shift End"
+  },
+  {
+   "fieldname": "total_working_hour",
+   "fieldtype": "Float",
+   "label": "Total shift hours"
+  },
+  {
+   "fieldname": "locked_hour_slot",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Locked Hour Slot"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-08 19:33:06.783050",
+ "modified": "2025-10-29 11:05:12.267640",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
