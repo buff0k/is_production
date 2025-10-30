@@ -1858,7 +1858,6 @@ function update_shift_num_hour_options(frm) {
     frm.set_value('shift_num_hour', null);
 }
 
-
 function update_hour_slot(frm) {
     const [shiftName, hourIndexStr] = (frm.doc.shift_num_hour || '').split('-');
     const hourIndex = parseInt(hourIndexStr, 10);
@@ -1866,39 +1865,73 @@ function update_hour_slot(frm) {
 
     frm.set_value('hour_sort_key', hourIndex);
 
-    // --- Determine the correct start time string ---
-    let shiftStart = null;
-    if (shiftName === 'Night' && frm.doc.night_shift_start) {
-        shiftStart = frm.doc.night_shift_start;
-    } else if (shiftName === 'Day' && frm.doc.day_shift_start) {
-        shiftStart = frm.doc.day_shift_start;
-    }
-
-    // --- Parse hour and minute from start time ---
+    // --- Default base hour ---
     let baseHour = 6;
-    let baseMinute = 0;
-    if (shiftStart) {
-        const [h, m] = shiftStart.split(':').map(Number);
-        baseHour = h;
-        baseMinute = m || 0;
+    let day = null;
+
+    // --- Get production date safely (handles all formats) ---
+    if (frm.doc.prod_date) {
+        try {
+            let prodDateObj = null;
+
+            if (frappe.datetime && frappe.datetime.str_to_obj) {
+                prodDateObj = frappe.datetime.str_to_obj(frm.doc.prod_date);
+            }
+
+            if (!prodDateObj || isNaN(prodDateObj.getTime())) {
+                // Manual fallback (handles DD-MM-YYYY or YYYY-MM-DD)
+                const parts = frm.doc.prod_date.split('-');
+                if (parts[0].length === 4) {
+                    prodDateObj = new Date(frm.doc.prod_date);
+                } else {
+                    const [d, m, y] = parts;
+                    prodDateObj = new Date(`${y}-${m}-${d}`);
+                }
+            }
+
+            if (prodDateObj && !isNaN(prodDateObj.getTime())) {
+                day = prodDateObj.getDay(); // Sunday=0, Saturday=6
+            }
+        } catch (e) {
+            console.warn('Could not parse prod_date:', frm.doc.prod_date);
+        }
     }
 
-    // --- Calculate hour slot manually (no Date object!) ---
+    // --- Determine base hour based on shift ---
+    if (shiftName === 'Day' && frm.doc.day_shift_start) {
+        baseHour = parseInt(frm.doc.day_shift_start.split(':')[0]);
+    } 
+    else if (shiftName === 'Afternoon' && frm.doc.afternoon_shift_start) {
+        baseHour = parseInt(frm.doc.afternoon_shift_start.split(':')[0]);
+    } 
+    else if (shiftName === 'Night') {
+        if (day === 0 || day === 6) {
+            // Weekend (Saturday or Sunday)
+            if (frm.doc.night_shift_start) {
+                baseHour = parseInt(frm.doc.night_shift_start.split(':')[0]);
+            } else {
+                baseHour = 18; // fallback
+            }
+        } else {
+            // Weekdays — always 18:00 start
+            baseHour = 18;
+        }
+    }
+
+    // --- Compute slot ---
     const startHour = (baseHour + (hourIndex - 1)) % 24;
     const endHour = (startHour + 1) % 24;
+    const fmt = (h) => `${String(h).padStart(2, '0')}:00`;
 
-    const formatHour = h => (h === 0 ? '00:00' : `${String(h).padStart(2, '0')}:00`);
-    const startLabel = formatHour(startHour);
-    const endLabel = formatHour(endHour === 0 ? 0 : endHour);
-
-    const hourSlot = `${startLabel}-${endLabel}`;
+    const hourSlot = `${fmt(startHour)}-${fmt(endHour)}`;
     frm.set_value('hour_slot', hourSlot);
-
-    // ✅ Store a locked version so it doesn’t get recalculated later
     frm.set_value('locked_hour_slot', hourSlot);
-    console.log('Locked hour slot saved:', hourSlot);
 
-    // --- Optional UI refresh ---
+    console.log(
+        `🕓 Hour slot recalculated: ${hourSlot} | Base: ${baseHour} | Shift: ${shiftName} | Day: ${day}`
+    );
+
+    // --- Refresh UI if needed ---
     if (frm.doc.location && frm.doc.prod_date && frm.doc.shift && frm.doc.shift_num_hour) {
         populate_truck_loads_and_lookup(frm).then(() => {
             if (uiInitialized && frm.hourlyProductionUI) {

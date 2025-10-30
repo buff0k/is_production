@@ -148,14 +148,32 @@ class HourlyProduction(Document):
                 idx = int(idx_str)
                 self.hour_sort_key = idx
 
-                # ✅ Determine base start hour dynamically from the real shift fields
+                             # --- Determine base start hour (weekend-aware) ---
                 base_hour = 6  # default fallback
+
+                try:
+                    day_of_week = getdate(self.prod_date).weekday()  # 0=Mon, 6=Sun
+                except Exception:
+                    day_of_week = None
+
                 if self.shift in ("Day", "Morning") and getattr(self, "day_shift_start", None):
                     base_hour = int(str(self.day_shift_start).split(":")[0])
-                elif self.shift == "Afternoon" and hasattr(self, "afternoon_shift_start"):
+
+                elif self.shift == "Afternoon" and getattr(self, "afternoon_shift_start", None):
                     base_hour = int(str(self.afternoon_shift_start).split(":")[0])
-                elif self.shift == "Night" and getattr(self, "night_shift_start", None):
-                    base_hour = int(str(self.night_shift_start).split(":")[0])
+
+                elif self.shift == "Night":
+                    if day_of_week in (5, 6):  # Saturday or Sunday
+                        # Weekend → use actual field if present
+                        if getattr(self, "night_shift_start", None):
+                            base_hour = int(str(self.night_shift_start).split(":")[0])
+                        else:
+                            base_hour = 18  # fallback if empty
+                    else:
+                        # Weekdays → fixed start at 18:00 (6 PM)
+                        base_hour = 18
+
+
 
                 # ✅ Calculate start and end hours for this hourly slot
                 start = (base_hour + (idx - 1)) % 24
