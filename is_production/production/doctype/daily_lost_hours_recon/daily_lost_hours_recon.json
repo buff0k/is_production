@@ -24,6 +24,7 @@
   "dust_water_bowser_issues_hours",
   "diesel_or_diesel_bowser_hours",
   "total_general_lost_hours",
+  "blasting",
   "column_break_nuby",
   "gen_lost_hours_comments",
   "section_break_klmu",
@@ -192,12 +193,21 @@
    "non_negative": 1,
    "precision": "1",
    "reqd": 1
+  },
+  {
+   "fieldname": "blasting",
+   "fieldtype": "Float",
+   "label": "Blasting",
+   "non_negative": 1,
+   "precision": "1",
+   "reqd": 1
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-03-17 11:24:40.658754",
+ "modified": "2025-11-03 15:18:40.361561",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Lost Hours Recon",
@@ -243,6 +253,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

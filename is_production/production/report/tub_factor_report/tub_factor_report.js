@@ -1,8 +1,18 @@
-// Copyright (c) 2025, Isambane Mining (Pty) Ltd and contributors
-// For license information, please see license.txt
-
 frappe.query_reports["Tub Factor Report"] = {
-	"filters": [
-
-	]
+    "filters": [
+        {
+            "fieldname": "item_name",
+            "label": __("Item Name"),
+            "fieldtype": "Link",
+            "options": "Item",
+            "reqd": 0
+        },
+        {
+            "fieldname": "mat_type",
+            "label": __("Material Type"),
+            "fieldtype": "Link",
+            "options": "Material Type",
+            "reqd": 0
+        }
+    ]
 };
