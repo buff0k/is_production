@@ -22,7 +22,7 @@
    "wildcard_filter": 0
   },
   {
-   "fieldname": "site",
+   "fieldname": "location",
    "fieldtype": "Link",
    "label": "Site",
    "mandatory": 0,

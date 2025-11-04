@@ -1,15 +1,36 @@
 import frappe
+from frappe.utils import flt
 
 def execute(filters=None):
+    """
+    Generate the Availability and Utilisation summary report,
+    grouped by Asset Category and Site, with per-category bar charts.
+    """
     columns = get_columns()
     data = get_collapsed_summary(filters)
+
     if not data:
         frappe.msgprint("⚠️ No records found for the selected filters or date range.")
-    return columns, data
+        return columns, []
+
+    charts = build_charts(data)
+
+    # HTML for multiple charts below the table
+    message_html = ""
+    for ch in charts:
+        message_html += f"""
+        <div style='margin-bottom:40px'>
+            <h4 style='margin-bottom:10px'>{ch['title']}</h4>
+            <div class='frappe-chart' data-chart='{frappe.as_json(ch)}'></div>
+        </div>
+        """
+
+    # Return the first chart for top display, and embed the rest as HTML
+    return columns, data, message_html, charts[0] if charts else None
 
 
 # -------------------------------------------------------
-# Columns — compact, fits entire report on one screen
+# Columns
 # -------------------------------------------------------
 def get_columns():
     return [
@@ -22,20 +43,16 @@ def get_columns():
         {"label": "Avail Hrs", "fieldname": "shift_available_hours", "fieldtype": "Float", "width": 70, "precision": 1},
         {"label": "Lost Hrs", "fieldname": "shift_other_lost_hours", "fieldtype": "Float", "width": 65, "precision": 1},
         {"label": "Avail %", "fieldname": "plant_shift_availability", "fieldtype": "Percent", "width": 65, "precision": 1},
-        {"label": "Util %", "fieldname": "plant_shift_utilisation", "fieldtype": "Percent", "width": 65, "precision": 1},
-        {"label": "Breakdown Reason", "fieldname": "breakdown_reason", "fieldtype": "Data", "width": 100},
-        {"label": "Delay Reason", "fieldname": "delay_reason", "fieldtype": "Data", "width": 100},
-        {"label": "Planned Maint. Reason", "fieldname": "planned_maintenance_reason", "fieldtype": "Data", "width": 110}
+        {"label": "Util %", "fieldname": "plant_shift_utilisation", "fieldtype": "Percent", "width": 65, "precision": 1}
     ]
 
 
 # -------------------------------------------------------
-# Data Logic — grouped and collapsible by Asset Category
+# Data Logic — grouped by Asset Category
 # -------------------------------------------------------
 def get_collapsed_summary(filters):
     conditions = build_conditions(filters)
 
-    # Fetch grouped numeric data (no reason fields yet)
     records = frappe.db.sql(f"""
         SELECT
             COALESCE(asset_category, 'Uncategorised') AS asset_category,
@@ -65,39 +82,19 @@ def get_collapsed_summary(filters):
     data = []
 
     for category, rows in grouped.items():
-        # Category header (collapsible)
         cat_row = summary_row(rows, asset_category=category)
-        cat_row.update({
-            "asset_name": "",
-            "location": "",
-            "breakdown_reason": "",
-            "delay_reason": "",
-            "planned_maintenance_reason": "",
-            "indent": 0
-        })
+        cat_row.update({"asset_name": "", "location": "", "indent": 0})
         data.append(cat_row)
 
-        # Asset-level rows
         for r in rows:
             round_row(r)
             r["asset_category"] = ""
             r["indent"] = 1
-            # Placeholder empty values for now
-            r["breakdown_reason"] = ""
-            r["delay_reason"] = ""
-            r["planned_maintenance_reason"] = ""
             data.append(r)
 
-    # Add grand total
+    # Grand total
     total_row = summary_row(records, asset_category="GRAND TOTAL")
-    total_row.update({
-        "asset_name": "",
-        "location": "",
-        "breakdown_reason": "",
-        "delay_reason": "",
-        "planned_maintenance_reason": "",
-        "indent": 0
-    })
+    total_row.update({"asset_name": "", "location": "", "indent": 0})
     data.append(total_row)
 
     return data
@@ -107,11 +104,10 @@ def get_collapsed_summary(filters):
 # Helpers
 # -------------------------------------------------------
 def summary_row(rows, **extra_fields):
-    """Compute subtotal/average for a group of rows"""
     def r1(v): return round(v or 0, 1)
     count = len(rows)
-    def avg(field): return sum((r.get(field) or 0) for r in rows) / count if count else 0
-    def total(field): return sum((r.get(field) or 0) for r in rows)
+    def avg(f): return sum((r.get(f) or 0) for r in rows) / count if count else 0
+    def total(f): return sum((r.get(f) or 0) for r in rows)
 
     return {
         **extra_fields,
@@ -126,7 +122,6 @@ def summary_row(rows, **extra_fields):
 
 
 def round_row(row):
-    """Round numeric fields"""
     for f in [
         "shift_required_hours", "shift_working_hours", "shift_breakdown_hours",
         "shift_available_hours", "shift_other_lost_hours",
@@ -136,7 +131,6 @@ def round_row(row):
 
 
 def build_conditions(filters):
-    """Flexible WHERE clause for any date range + optional site"""
     conditions = []
     if filters.get("start_date") and filters.get("end_date"):
         conditions.append(f"shift_date BETWEEN '{filters.get('start_date')}' AND '{filters.get('end_date')}'")
@@ -145,7 +139,42 @@ def build_conditions(filters):
     elif filters.get("end_date"):
         conditions.append(f"shift_date <= '{filters.get('end_date')}'")
 
-    if filters.get("site"):
-        conditions.append(f"location = '{filters.get('site')}'")
+    if filters.get("location") or filters.get("site"):
+        loc = filters.get("location") or filters.get("site")
+        conditions.append(f"location = '{loc}'")
 
     return "WHERE " + " AND ".join(conditions) if conditions else ""
+
+
+# -------------------------------------------------------
+# Chart Builder — one chart per category
+# -------------------------------------------------------
+def build_charts(data):
+    cat_map = {}
+    for row in data:
+        cat = row.get("asset_category") or "Uncategorised"
+        if not row.get("asset_name"):
+            continue
+        cat_map.setdefault(cat, {"avail": [], "util": [], "assets": []})
+        cat_map[cat]["assets"].append(row["asset_name"])
+        cat_map[cat]["avail"].append(flt(row.get("plant_shift_availability") or 0))
+        cat_map[cat]["util"].append(flt(row.get("plant_shift_utilisation") or 0))
+
+    charts = []
+    for cat, vals in cat_map.items():
+        chart = {
+            "title": f"{cat} — Availability vs Utilisation",
+            "data": {
+                "labels": vals["assets"],
+                "datasets": [
+                    {"name": "Availability %", "values": vals["avail"]},
+                    {"name": "Utilisation %", "values": vals["util"]}
+                ]
+            },
+            "type": "bar",
+            "height": 250,
+            "barOptions": {"spaceRatio": 0.6},
+            "colors": ["#4CAF50", "#2196F3"]
+        }
+        charts.append(chart)
+    return charts
