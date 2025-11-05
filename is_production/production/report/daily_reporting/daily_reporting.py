@@ -479,6 +479,7 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
             <tr><td style="{td}">Daily Dozing BCMs</td><td style="{td}">{fmt(actual_dozer_day)}</td></tr>
             <tr><td style="{td}">Daily Achieved</td><td style="{td}">{fmt(actual_ts_day + actual_dozer_day)}</td></tr>
             <tr><td style="{td}">Daily Average BCM per Hour</td><td style="{td}" contenteditable="true"></td></tr>
+            <tr><td style="{td}">Forecast</td><td style="{td}">{fmt(mpp.month_forecated_bcm if mpp else 0)}</td></tr>
         </table>
     </div>
     """

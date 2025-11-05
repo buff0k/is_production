@@ -29,6 +29,7 @@
   "whats_send",
   "locked_hour_slot",
   "section_break_fxug",
+  "column_break_rupf",
   "dnd_html_excavator_ui",
   "dnd_html_dozer_ui",
   "truck_loads",
@@ -478,12 +479,16 @@
    "fieldtype": "Data",
    "hidden": 1,
    "label": "Locked Hour Slot"
+  },
+  {
+   "fieldname": "column_break_rupf",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-10-29 11:05:12.267640",
+ "modified": "2025-11-04 14:37:38.449493",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",

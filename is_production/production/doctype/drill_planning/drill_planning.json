@@ -1,0 +1,100 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:monthly_production_plan",
+ "creation": "2025-11-04 12:47:00.437052",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site",
+  "monthly_production_plan",
+  "start_date",
+  "end_date",
+  "column_break_xiju",
+  "monthly_target",
+  "number_of_drills",
+  "daily_required_rate",
+  "hourly_required_rate"
+ ],
+ "fields": [
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Location"
+  },
+  {
+   "fieldname": "monthly_production_plan",
+   "fieldtype": "Link",
+   "label": "Monthly Production Plan",
+   "options": "Monthly Production Planning",
+   "unique": 1
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date"
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date"
+  },
+  {
+   "fieldname": "column_break_xiju",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "monthly_target",
+   "fieldtype": "Float",
+   "label": "Monthly Target",
+   "precision": "1"
+  },
+  {
+   "fieldname": "number_of_drills",
+   "fieldtype": "Float",
+   "label": "Number of Drills",
+   "precision": "0"
+  },
+  {
+   "fieldname": "daily_required_rate",
+   "fieldtype": "Float",
+   "label": "Daily Required Rate",
+   "precision": "1"
+  },
+  {
+   "fieldname": "hourly_required_rate",
+   "fieldtype": "Float",
+   "label": "Hourly Required Rate",
+   "precision": "1"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-11-04 13:15:49.849465",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Drill Planning",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
