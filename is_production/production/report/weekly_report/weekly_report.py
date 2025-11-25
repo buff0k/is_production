@@ -108,10 +108,9 @@ def execute(filters=None):
 
         data["days_left"] = remaining_days
 
-        data["forecast"] = (
-            (data["mtd_actual_bcms"] / worked_days) * remaining_days + data["mtd_actual_bcms"]
-            if worked_days else 0
-        )
+        # Forecast should come directly from Monthly Production Planning (MPP), same as Daily Report
+        data["forecast"] = flt(mpp.month_forecated_bcm) if mpp else 0
+
         data["short_over_forecast"] = data["monthly_target"] - data["forecast"]
 
         data["strip_ratio"] = round(
