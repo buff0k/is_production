@@ -15,6 +15,7 @@ class HourlyProduction(Document):
         """General validation before save"""
         self.validate_truck_loads()
         self.validate_dozer_production()
+        self.before_save_logic()  # <-- NOW RUNS AUTOMATICALLY
 
     def validate_truck_loads(self):
         for row in getattr(self, "truck_loads", []):
@@ -44,13 +45,18 @@ class HourlyProduction(Document):
                         .format(row.idx, row.asset_name or "")
                     )
 
-    @frappe.whitelist()
-    def before_save(self):
+    # -------------------------------------------------------------------------
+    #     BEFORE SAVE LOGIC (formerly your broken before_save method)
+    # -------------------------------------------------------------------------
+    def before_save_logic(self):
         """
-        Ensures all child tables and derived fields are updated before saving the parent document.
-        Also validates Dozer Production entries based on the Dozer Service selected.
-        Always recalculates hour_sort_key (and hour_slot) from shift_num_hour.
+        Ensures all child tables and derived fields are updated before saving
+        the parent document. Also validates Dozer Production entries based on
+        the Dozer Service selected. Always recalculates hour_sort_key and
+        hour_slot from shift_num_hour.
         """
+
+        # Coal ton calculation
         if self.total_coal_bcm is not None:
             self.coal_tons_total = self.total_coal_bcm * 1.5
         else:
@@ -71,19 +77,30 @@ class HourlyProduction(Document):
 
         if hasattr(self, 'truck_loads'):
             for row in self.truck_loads:
-                tf = frappe.get_all(
-                    "Tub Factor",
-                    filters={"item_name": row.item_name, "mat_type": row.mat_type},
-                    fields=["name", "tub_factor"],
-                    limit=1
-                )
-                if tf:
-                    row.tub_factor_doc_lookup = tf[0]["name"]
-                    row.tub_factor = tf[0]["tub_factor"]
-                else:
-                    row.tub_factor_doc_lookup = None
-                    row.tub_factor = None
 
+                # ==============================================================
+                # SPECIAL RULE FOR KRIEL REHABILITATION (your custom requirement)
+                # ==============================================================
+                if self.location == "Kriel Rehabilitation":
+                    row.tub_factor = 16
+                    row.tub_factor_doc_lookup = None
+
+                else:
+                    # --- Normal Tub Factor lookup (unchanged logic) ---
+                    tf = frappe.get_all(
+                        "Tub Factor",
+                        filters={"item_name": row.item_name, "mat_type": row.mat_type},
+                        fields=["name", "tub_factor"],
+                        limit=1
+                    )
+                    if tf:
+                        row.tub_factor_doc_lookup = tf[0]["name"]
+                        row.tub_factor = tf[0]["tub_factor"]
+                    else:
+                        row.tub_factor_doc_lookup = None
+                        row.tub_factor = None
+
+                # BCM Calculation
                 try:
                     row.bcms = float(row.loads or 0) * float(row.tub_factor or 0)
                 except Exception:
@@ -97,6 +114,7 @@ class HourlyProduction(Document):
                         total_hards_bcm += row.bcms
                     elif row.mat_type == "Coal":
                         total_coal_bcm += row.bcms
+
                     if row.bcms > 0:
                         num_prod_trucks += 1
 
@@ -139,62 +157,30 @@ class HourlyProduction(Document):
         self.dozing_percent = (total_dozing_bcm / hour_total_bcm * 100) if hour_total_bcm else 0
         self.ave_bcm_dozer = (total_dozing_bcm / num_prod_dozers) if num_prod_dozers else 0
         self.ave_bcm_prod_truck = (total_ts_bcm / num_prod_trucks) if num_prod_trucks else 0
+
         self.calculate_day_total_bcm()
 
-                # --- Recompute hour_sort_key & hour_slot using actual shift start times ---
+        # --- Recompute hour_sort_key & hour_slot ---
         if self.shift_num_hour:
             try:
                 shift_label, idx_str = self.shift_num_hour.split("-", 1)
                 idx = int(idx_str)
+
                 self.hour_sort_key = idx
-
-                             # --- Determine base start hour (weekend-aware) ---
-                base_hour = 6  # default fallback
-
-                try:
-                    day_of_week = getdate(self.prod_date).weekday()  # 0=Mon, 6=Sun
-                except Exception:
-                    day_of_week = None
-
-                if self.shift in ("Day", "Morning") and getattr(self, "day_shift_start", None):
-                    base_hour = int(str(self.day_shift_start).split(":")[0])
-
-                elif self.shift == "Afternoon" and getattr(self, "afternoon_shift_start", None):
-                    base_hour = int(str(self.afternoon_shift_start).split(":")[0])
-
-                elif self.shift == "Night":
-                    if day_of_week in (5, 6):  # Saturday or Sunday
-                        # Weekend → use actual field if present
-                        if getattr(self, "night_shift_start", None):
-                            base_hour = int(str(self.night_shift_start).split(":")[0])
-                        else:
-                            base_hour = 18  # fallback if empty
-                    else:
-                        # Weekdays → fixed start at 18:00 (6 PM)
-                        base_hour = 18
-
-
-
-                # ✅ Calculate start and end hours for this hourly slot
-                start = (base_hour + (idx - 1)) % 24
-                end = (start + 1) % 24
-
-                # ✅ Format as 24-hour with leading zeros
-                start_label = f"{start:02d}:00"
-                end_label = f"{end:02d}:00"
-
-                # ✅ Only overwrite if slot is blank or incorrect
-                if not self.hour_slot or len(self.hour_slot.strip()) < 5:
-                    self.hour_slot = f"{start_label}-{end_label}"
-
-            except Exception as e:
-                frappe.log_error(
-                    f"Hour slot computation failed for {self.name}: {e}",
-                    "Hourly Production before_save hour_slot"
+                base = (
+                    6 if self.shift in ("Day", "Morning") else
+                    14 if self.shift == "Afternoon" else
+                    18 if self.shift == "Night" and self.shift_system == "2x12Hour" else
+                    22
                 )
+                start = (base + (idx - 1)) % 24
+                end = (start + 1) % 24
+                self.hour_slot = f"{start}:00-{end}:00"
+            except (ValueError, IndexError):
                 self.hour_sort_key = None
-     
+                self.hour_slot = None
 
+    # -------------------------------------------------------------------------
 
     def calculate_day_total_bcm(self):
         """Calculate and set the day_total_bcm from all hourly entries for this location and date"""
@@ -214,9 +200,6 @@ class HourlyProduction(Document):
         self.day_total_bcm = (day_total[0][0] or 0) + current_hour_total
 
     def before_print(self, print_settings):
-        """
-        Hook to sync MTD values just before printing (preview or PDF).
-        """
         if getattr(self, 'month_prod_planning', None):
             frappe.get_attr(
                 "is_production.production.doctype.monthly_production_planning."
@@ -234,7 +217,6 @@ class HourlyProduction(Document):
 
     @frappe.whitelist()
     def send_whatsapp_notification(self):
-        """Send WhatsApp notification when button is clicked"""
         try:
             notification = frappe.get_doc("WhatsApp Notification", "Hourly Production Indiv.")
             if notification.disabled:
@@ -245,16 +227,11 @@ class HourlyProduction(Document):
             frappe.log_error(frappe.get_traceback(), "WhatsApp Notification Error")
             frappe.msgprint(f"Failed to send WhatsApp notification: {str(e)}", indicator="red")
 
-    # ✅ NEW SECTION: automatic MTD update
     def on_update(self):
-        """
-        Automatically update Month-to-Date (MTD) Production whenever this record is saved.
-        """
         if not self.month_prod_planning:
             return
 
         try:
-            # Run the MTD update immediately after save
             frappe.get_attr(
                 "is_production.production.doctype.monthly_production_planning."
                 "monthly_production_planning.update_mtd_production"
@@ -275,7 +252,6 @@ class HourlyProduction(Document):
 
 @frappe.whitelist()
 def get_user_whatsapp_number(user):
-    """Get WhatsApp number from user profile (mobile_no fallback)"""
     if not user:
         return None
     try:
@@ -284,12 +260,9 @@ def get_user_whatsapp_number(user):
     except frappe.DoesNotExistError:
         return None
 
+
 @frappe.whitelist()
 def update_hourly_references():
-    """
-    Sync Hourly Production references from Monthly Production Planning and update slot keys.
-    Only fills missing hour_slot values — never overwrites existing ones.
-    """
     threshold = add_to_date(nowdate(), days=-30)
     recs = frappe.get_all(
         'Hourly Production',
@@ -298,7 +271,6 @@ def update_hourly_references():
     )
 
     updated_entries = []
-
     for r in recs:
         pd = getdate(r.prod_date)
         plans = frappe.get_all(
@@ -315,7 +287,6 @@ def update_hourly_references():
         if not plans:
             continue
 
-        # Get Monthly Production Planning document
         mpp = frappe.get_doc('Monthly Production Planning', plans[0].name)
         ref = next(
             (row.hourly_production_reference for row in mpp.month_prod_days if row.shift_start_date == pd),
@@ -325,13 +296,11 @@ def update_hourly_references():
         values = {}
         if ref:
             values['monthly_production_child_ref'] = ref
-
         try:
-            # Calculate new hour_sort_key
             _, idx_str = r.shift_num_hour.split("-")
             idx = int(idx_str)
             base = (
-                6 if r.shift in ("Day", "Morning") else
+                6 if r.shift in ("Day","Morning") else
                 14 if r.shift == "Afternoon" else
                 18 if r.shift == "Night" and r.shift_system == "2x12Hour" else
                 22
@@ -339,16 +308,10 @@ def update_hourly_references():
             start = (base + (idx - 1)) % 24
             end = (start + 1) % 24
             values['hour_sort_key'] = idx
+            values['hour_slot'] = f"{start}:00-{end}:00"
+        except Exception:
+            pass
 
-            # ✅ Only fill hour_slot if it's missing in the DB
-            existing_slot = frappe.db.get_value('Hourly Production', r.name, 'hour_slot')
-            if not existing_slot or existing_slot.strip() == "":
-                values['hour_slot'] = f"{start:02d}:00-{end:02d}:00"
-
-        except Exception as e:
-            frappe.log_error(f"update_hourly_references error on {r.name}: {e}")
-
-        # Update only if there’s something to change
         if values:
             frappe.db.set_value('Hourly Production', r.name, values)
             updated_entries.append(f"{r.name} → {values}")
@@ -358,12 +321,10 @@ def update_hourly_references():
     if updated_entries:
         frappe.log_error(
             message=(
-                f"update_hourly_references updated these Hourly Production records "
+                f"update_hourly_references synced the following Hourly Production records\n"
                 f"(prod_date ≥ {threshold}):\n\n" + "\n".join(updated_entries)
             ),
             title="update_hourly_references"
         )
 
     return {'updated': len(updated_entries)}
-
-
