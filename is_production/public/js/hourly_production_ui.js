@@ -949,69 +949,55 @@ calculateBCMS(doctype, name) {
     // Add this new method to the class:
    // Replace the existing handleDozerServiceChange method with this updated version:
 
+// Replace the existing handleDozerServiceChange method with this final version:
 async handleDozerServiceChange(row) {
-    if (!this.frm.doc.month_prod_planning) return;
-    
-    // Get the dozing_tempo from Monthly Production Planning
-    const mpp = await frappe.db.get_value('Monthly Production Planning', 
-        this.frm.doc.month_prod_planning, 'dozing_tempo');
-        
-    const dozingTempo = mpp.message.dozing_tempo || 0;
+
     let bcmValue = 0;
-    
-    switch(row.dozer_service) {
-        case 'Production Dozing-50m':
-        case 'Production Dozing-100m':
-            bcmValue = dozingTempo;
-            break;
-        case 'No Dozing':
-        case 'Tip Dozing':
-        case 'Levelling':
-        default:
-            bcmValue = 0;
+
+    // --- Production Dozing rules ---
+    if (row.dozer_service === 'Production Dozing-50m') {
+        bcmValue = 180;
     }
-    
-    // Update local data
-    row.bcm_hour = bcmValue;
-    
-    // If "No Dozing" is selected, reset geo layer and area to default
-    if (row.dozer_service === 'No Dozing') {
+    else if (row.dozer_service === 'Production Dozing-100m') {
+        bcmValue = 200;
+    }
+
+    // --- Zero-BCM services ---
+    else if (
+        row.dozer_service === 'No Dozing' ||
+        row.dozer_service === 'Tip Dozing' ||
+        row.dozer_service === 'Levelling'
+    ) {
+        bcmValue = 0;
+
+        // Reset related fields
         row.dozer_geo_mat_layer = '';
         row.mining_areas_dozer_child = '';
         row.mat_type = '';
-        
-        // Update the server with reset values
+
         frappe.model.set_value(row.doctype, row.name, 'dozer_geo_mat_layer', '');
         frappe.model.set_value(row.doctype, row.name, 'mining_areas_dozer_child', '');
         frappe.model.set_value(row.doctype, row.name, 'mat_type', '');
-        
-        // Update the UI dropdowns
-        const dozerBlock = $(`.dozer-block[data-dozer-name="${row.asset_name}"]`);
-        if (dozerBlock.length) {
-            dozerBlock.find('.dozer-geo-layer').val('');
-            dozerBlock.find('.dozer-area').val('');
-        }
     }
-    
-    // Mark document as dirty
-    this.frm.dirty = true;
-    this.frm.doc.__unsaved = 1;
-    
-    // Use frappe.model.set_value to register the change
+
+    // Apply BCM/hour
+    row.bcm_hour = bcmValue;
     frappe.model.set_value(row.doctype, row.name, 'bcm_hour', bcmValue);
 
-    // Update the UI field
-    const dozerBlock = $(`.dozer-block[data-dozer-name="${row.asset_name}"]`);
-    if (dozerBlock.length) {
-        dozerBlock.find('.dozer-production').val(bcmValue);
+    // Update UI control
+    const block = $(`.dozer-block[data-dozer-name="${row.asset_name}"]`);
+    if (block.length) {
+        block.find('.dozer-production').val(bcmValue);
     }
-    
-    // Refresh the child table field to show changes
+
+    // Mark doc as dirty
+    this.frm.dirty = true;
+    this.frm.doc.__unsaved = 1;
+
     this.frm.refresh_field('dozer_production');
-    
-    // Update the toolbar to show save button
     this.frm.toolbar.refresh();
 }
+
 
     
 
