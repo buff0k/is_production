@@ -97,49 +97,76 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
   mainEl.appendChild(tab4Pane);
 
 
-  tab1Btn.onclick = () => {
-  tab1Pane.style.display = 'block';
-  tab2Pane.style.display = 'none';
-  tab3Pane.style.display = 'none';
-  tab4Pane.style.display = 'none';
-  tab1Btn.className = 'btn btn-primary me-2';
-  tab2Btn.className = 'btn btn-secondary me-2';
-  tab3Btn.className = 'btn btn-secondary me-2';
-  tab4Btn.className = 'btn btn-secondary';
+let active_tab = 1;
+
+tab1Btn.onclick = async () => {
+    active_tab = 1;
+
+    tab1Pane.style.display = 'block';
+    tab2Pane.style.display = 'none';
+    tab3Pane.style.display = 'none';
+    tab4Pane.style.display = 'none';
+
+    tab1Btn.className = 'btn btn-primary me-2';
+    tab2Btn.className = 'btn btn-secondary me-2';
+    tab3Btn.className = 'btn btn-secondary me-2';
+    tab4Btn.className = 'btn btn-secondary';
+
+    const f = get_filters();
+    if (f) await refresh_tab1(f);
 };
 
-tab2Btn.onclick = () => {
-  tab1Pane.style.display = 'none';
-  tab2Pane.style.display = 'block';
-  tab3Pane.style.display = 'none';
-  tab4Pane.style.display = 'none';
-  tab1Btn.className = 'btn btn-secondary me-2';
-  tab2Btn.className = 'btn btn-primary me-2';
-  tab3Btn.className = 'btn btn-secondary me-2';
-  tab4Btn.className = 'btn btn-secondary';
+tab2Btn.onclick = async () => {
+    active_tab = 2;
+
+    tab1Pane.style.display = 'none';
+    tab2Pane.style.display = 'block';
+    tab3Pane.style.display = 'none';
+    tab4Pane.style.display = 'none';
+
+    tab1Btn.className = 'btn btn-secondary me-2';
+    tab2Btn.className = 'btn btn-primary me-2';
+    tab3Btn.className = 'btn btn-secondary me-2';
+    tab4Btn.className = 'btn btn-secondary';
+
+    const f = get_filters();
+    if (f) await refresh_tab2(f);
 };
 
-tab3Btn.onclick = () => {
-  tab1Pane.style.display = 'none';
-  tab2Pane.style.display = 'none';
-  tab3Pane.style.display = 'block';
-  tab4Pane.style.display = 'none';
-  tab1Btn.className = 'btn btn-secondary me-2';
-  tab2Btn.className = 'btn btn-secondary me-2';
-  tab3Btn.className = 'btn btn-primary me-2';
-  tab4Btn.className = 'btn btn-secondary';
+tab3Btn.onclick = async () => {
+    active_tab = 3;
+
+    tab1Pane.style.display = 'none';
+    tab2Pane.style.display = 'none';
+    tab3Pane.style.display = 'block';
+    tab4Pane.style.display = 'none';
+
+    tab1Btn.className = 'btn btn-secondary me-2';
+    tab2Btn.className = 'btn btn-secondary me-2';
+    tab3Btn.className = 'btn btn-primary me-2';
+    tab4Btn.className = 'btn btn-secondary';
+
+    const f = get_filters();
+    if (f) await refresh_tab3(f);
 };
 
-tab4Btn.onclick = () => {
-  tab1Pane.style.display = 'none';
-  tab2Pane.style.display = 'none';
-  tab3Pane.style.display = 'none';
-  tab4Pane.style.display = 'block';
-  tab1Btn.className = 'btn btn-secondary me-2';
-  tab2Btn.className = 'btn btn-secondary me-2';
-  tab3Btn.className = 'btn btn-secondary me-2';
-  tab4Btn.className = 'btn btn-primary';
+tab4Btn.onclick = async () => {
+    active_tab = 4;
+
+    tab1Pane.style.display = 'none';
+    tab2Pane.style.display = 'none';
+    tab3Pane.style.display = 'none';
+    tab4Pane.style.display = 'block';
+
+    tab1Btn.className = 'btn btn-secondary me-2';
+    tab2Btn.className = 'btn btn-secondary me-2';
+    tab3Btn.className = 'btn btn-secondary me-2';
+    tab4Btn.className = 'btn btn-primary';
+
+    const f = get_filters();
+    if (f) await refresh_tab4(f);
 };
+
 
 
 
@@ -656,96 +683,91 @@ async function render_daily_report(filters, mountSelector, parentEl) {
   }
 
   // -------- Refresh Flow -------- 
-  async function refresh_all() { 
-    const start_v = start.get_value(); 
-    const end_v = end.get_value(); 
-    const site_v = site.get_value(); 
-    const monthly_v = monthly_production.get_value(); 
-    const shift_v = shift.get_value(); 
-    if (!start_v || !end_v || !site_v || !monthly_v) return; 
-    const filters = { start_date: start_v, end_date: end_v, site: site_v, monthly_production: monthly_v }; 
-    if (shift_v) filters.shift = shift_v; 
-    // --- Render charts as before ---
-const teamsTotal = await render_chart_teams(filters) || 0;
-const dozingTotal = await render_chart_dozing(filters) || 0;
+function get_filters() {
+    const start_v = start.get_value();
+    const end_v = end.get_value();
+    const site_v = site.get_value();
+    const monthly_v = monthly_production.get_value();
+    const shift_v = shift.get_value();
 
-// --- Fetch Total BCM Tallies directly from Production Shift Material (MTD Tallies BCM row) ---
-const matRes = await run_report('Production Shift Material', filters);
-let mtdTallies = 0;
+    if (!start_v || !end_v || !site_v || !monthly_v) return null;
 
-if (matRes.result && matRes.result.length) {
-  const talliesRow = matRes.result.find(r =>
-    (r.mat_type && r.mat_type.toString().toLowerCase().includes('mtd tallies bcm'))
-  );
-  if (talliesRow) {
-    mtdTallies = Number(talliesRow.total_bcm) || 0;
-  }
+    const f = {
+        start_date: start_v,
+        end_date: end_v,
+        site: site_v,
+        monthly_production: monthly_v
+    };
+    if (shift_v) f.shift = shift_v;
+
+    return f;
 }
+async function refresh_tab1(filters) {
+    const teamsTotal = await render_chart_teams(filters);
+    const dozingTotal = await render_chart_dozing(filters);
 
-// --- Update the top "Total BCM Tallies" block ---
-document.getElementById('total-bcm').textContent = mtdTallies.toLocaleString();
-
-
-    const prodRes = await run_report('Productivity', filters); 
-    if (prodRes.result && prodRes.result.length) { 
-      let excavatorProd = 0; 
-      let dozerProd = 0; 
-      prodRes.result.forEach(r => { 
-        if (r.label && r.label.toLowerCase().includes("excavator")) { 
-          excavatorProd += Number(r.productivity) || 0; 
-        } 
-        if (r.label && r.label.toLowerCase().includes("dozer")) { 
-          dozerProd += Number(r.productivity) || 0; 
-        } 
-      }); 
-      document.getElementById('excavator-prod').textContent = excavatorProd.toFixed(2) + " BCM/hr"; 
-      document.getElementById('dozer-prod').textContent = dozerProd.toFixed(2) + " BCM/hr"; 
-    } 
-
-    await render_table('Production Shift Material', filters, '#tbl-material', tab1Pane, true); 
-    await render_table('Production Shift Location', filters, '#tbl-location', tab1Pane, true); 
-    await render_table('Production Shift Teams', filters, '#tbl-teams', tab1Pane, true); 
-    // --- Update Actual BCM (Survey + HP) and Survey Variance ---
-const mtdRes = await run_report('Production Shift Teams', filters);
-let actualBcm = 0;
-if (mtdRes.summary && mtdRes.summary.length) {
-  const bcmRow = mtdRes.summary.find(s =>
-    s.label && s.label.toLowerCase().includes('mtd actual bcm')
-  );
-  if (bcmRow) {
-    actualBcm = Number(bcmRow.value.replace(/,/g, '')) || 0;
-    document.getElementById('actual-bcm-survey').textContent = actualBcm.toLocaleString();
-  }
-}
-// --- Calculate Survey Variance (Actual BCM - Total BCM Tallies) ---
-const totalBcmText = document.getElementById('total-bcm')?.textContent || '0';
-const totalBcmValue = Number(totalBcmText.replace(/,/g, '')) || 0;
-
-const variance = actualBcm - totalBcmValue;
-const varianceEl = document.getElementById('survey-variance');
-if (varianceEl) {
-  varianceEl.textContent = variance.toLocaleString();
-  varianceEl.style.color = variance >= 0 ? '#006600' : '#cc0000';
-}
-
-
-    await render_table('Production Shift Dozing', filters, '#tbl-dozing', tab1Pane, true); 
-    // --- Monthly Production Report ---
-    await render_monthly_production(filters, '#tbl-monthly-production', tab1Pane);
-    await render_table('Productivity', filters, '#tbl-productivity', tab1Pane, true); 
-    await render_table('Production Performance', filters, '#tbl-performance', tab2Pane, false); 
-
-    if (prodRes.result && prodRes.result.length) {
-      const rows = prodRes.result;
-      const cols = prodRes.columns || [];
-      render_child_table(rows, cols, "excavator", "#tbl-excavators", tab2Pane);
-      render_child_table(rows, cols, "dozer", "#tbl-dozers", tab2Pane);
+    const matRes = await run_report('Production Shift Material', filters);
+    let mtdTallies = 0;
+    if (matRes.result?.length) {
+        const talliesRow = matRes.result.find(r =>
+            r.mat_type?.toLowerCase().includes("mtd tallies bcm")
+        );
+        if (talliesRow) mtdTallies = Number(talliesRow.total_bcm) || 0;
     }
-      // --- Weekly Report ---
-  await render_weekly_report(filters, '#tbl-weekly', tab3Pane);
-  await render_daily_report(filters, '#tbl-daily', tab4Pane);
+    document.getElementById('total-bcm').textContent = mtdTallies.toLocaleString();
 
-  } 
+    const prodRes = await run_report('Productivity', filters);
+    let excavatorProd = 0, dozerProd = 0;
+    prodRes.result?.forEach(r => {
+        if (r.label?.toLowerCase().includes("excavator")) excavatorProd += Number(r.productivity) || 0;
+        if (r.label?.toLowerCase().includes("dozer")) dozerProd += Number(r.productivity) || 0;
+    });
+
+    document.getElementById('excavator-prod').textContent = excavatorProd.toFixed(2) + " BCM/hr";
+    document.getElementById('dozer-prod').textContent = dozerProd.toFixed(2) + " BCM/hr";
+
+    await render_table('Production Shift Material', filters, '#tbl-material', tab1Pane, true);
+    await render_table('Production Shift Location', filters, '#tbl-location', tab1Pane, true);
+    await render_table('Production Shift Teams', filters, '#tbl-teams', tab1Pane, true);
+    await render_table('Production Shift Dozing', filters, '#tbl-dozing', tab1Pane, true);
+    await render_monthly_production(filters, '#tbl-monthly-production', tab1Pane);
+    await render_table('Productivity', filters, '#tbl-productivity', tab1Pane, true);
+
+    // Calculate variance
+    const mtdRes = await run_report('Production Shift Teams', filters);
+    let actualBcm = 0;
+    if (mtdRes.summary?.length) {
+        const bcmRow = mtdRes.summary.find(s =>
+            s.label?.toLowerCase().includes('mtd actual bcm')
+        );
+        if (bcmRow) actualBcm = Number(bcmRow.value.replace(/,/g, '')) || 0;
+    }
+
+    document.getElementById('actual-bcm-survey').textContent = actualBcm.toLocaleString();
+    const totalBcmValue = Number(document.getElementById('total-bcm').textContent.replace(/,/g, '')) || 0;
+    const variance = actualBcm - totalBcmValue;
+    const varianceEl = document.getElementById('survey-variance');
+    varianceEl.textContent = variance.toLocaleString();
+    varianceEl.style.color = variance >= 0 ? '#006600' : '#cc0000';
+}
+async function refresh_tab2(filters) {
+    await render_table('Production Performance', filters, '#tbl-performance', tab2Pane, false);
+
+    const prodRes = await run_report('Productivity', filters);
+    if (prodRes.result?.length) {
+        const rows = prodRes.result;
+        const cols = prodRes.columns || [];
+        render_child_table(rows, cols, "excavator", "#tbl-excavators", tab2Pane);
+        render_child_table(rows, cols, "dozer", "#tbl-dozers", tab2Pane);
+    }
+}
+async function refresh_tab3(filters) {
+    await render_weekly_report(filters, '#tbl-weekly', tab3Pane);
+}
+async function refresh_tab4(filters) {
+    await render_daily_report(filters, '#tbl-daily', tab4Pane);
+}
+
 
   // -------- Defaults -------- 
   const today = frappe.datetime.get_today(); 
@@ -757,7 +779,16 @@ if (varianceEl) {
   document.head.appendChild(script); 
   script.onload = () => { 
     refresh_all(); 
-    setInterval(() => refresh_all(), 300000); 
+    setInterval(async () => {
+    const f = get_filters();
+    if (!f) return;
+
+    if (active_tab === 1) await refresh_tab1(f);
+    if (active_tab === 2) await refresh_tab2(f);
+    if (active_tab === 3) await refresh_tab3(f);
+    if (active_tab === 4) await refresh_tab4(f);
+}, 300000);
+
   }; 
 
   // -------- Compact CSS -------- 
