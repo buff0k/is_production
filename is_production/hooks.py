@@ -60,7 +60,3 @@ app_include_css = [
 page_js = {
     "production-dashboard": "public/js/production_dashboard.js",
 }
-
-page_js = {
-    "esd-dashboard": "public/js/esd_dashboard.js"
-}
