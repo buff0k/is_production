@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2025-12-04 07:21:43.524058",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2025-12-04 07:21:43.524058",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "esd-dashboard",
+ "owner": "Administrator",
+ "page_name": "esd-dashboard",
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "ESD Dashboard"
+}
