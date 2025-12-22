@@ -61,6 +61,7 @@
   "monthly_volume_planning_tab",
   "truck_and_shovel_section",
   "monthly_target_bcm",
+  "mine_target",
   "coal_tons_planned",
   "coal_planned_bcm",
   "waste_bcms_planned",
@@ -539,12 +540,17 @@
    "label": "Month Coal Tons Variance",
    "precision": "1",
    "read_only": 1
+  },
+  {
+   "fieldname": "mine_target",
+   "fieldtype": "Data",
+   "label": "Mine Target"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-04 11:32:45.608376",
+ "modified": "2025-12-22 19:19:35.312954",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",
