@@ -1,7 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Node / frontend
+node_modules/
+*.map
+
+# Frappe / Bench
+*.log
+logs/
+pids/
+sites/*/private/
+sites/*/public/files/
+sites/*/public/build/
+sites/*/private/backups/
+sites/*/locks/
+sites/*/nginx.conf
+sites/*/redis_cache.conf
+sites/*/redis_queue.conf
+sites/*/redis_socketio.conf
+
+# Env / local
+.env
+.venv
+venv/
+.idea/
+.vscode/
 .DS_Store
-*.pyc
-*.egg-info
-*.swp
-tags
-node_modules
-__pycache__

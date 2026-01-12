@@ -1,0 +1,46 @@
+{
+ "add_total_row": 0,
+ "add_translate_data": 0,
+ "columns": [],
+ "creation": "2026-01-12 11:21:44.875577",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [
+  {
+   "fieldname": "monthly_production_plan",
+   "fieldtype": "Link",
+   "label": "Monthly Production Plan",
+   "mandatory": 1,
+   "options": "Define Monthly Production",
+   "wildcard_filter": 0
+  }
+ ],
+ "idx": 0,
+ "is_standard": "Yes",
+ "letter_head": null,
+ "modified": "2026-01-12 11:21:44.875577",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "CEO Dashboard One",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "Hourly Production",
+ "report_name": "CEO Dashboard One",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "Production Manager"
+  },
+  {
+   "role": "Production User"
+  },
+  {
+   "role": "All"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "timeout": 0
+}
