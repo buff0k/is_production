@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2026-01-13 12:28:59.073252",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-01-13 12:29:31.988358",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "ceo-dashboard",
+ "owner": "Administrator",
+ "page_name": "ceo-dashboard",
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "CEO Dashboard"
+}
