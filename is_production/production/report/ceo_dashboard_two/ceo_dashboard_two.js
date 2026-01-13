@@ -32,7 +32,7 @@ frappe.query_reports["CEO Dashboard Two"] = {
                     },
                     30
                 );
-            }, 300000); // 5 minutes
+            }, 1800000); // 30 minutes
         }
     }
 };

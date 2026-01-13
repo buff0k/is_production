@@ -13,13 +13,24 @@ def get_operational_day():
 # SITE HEADER COLOURS
 # =========================================================
 SITE_HEADER_COLOURS = {
-    "Klipfontein": "#E6F0FA",
-    "Gwab": "#F2F2F2",
-    "Kriel Rehabilitation": "#E9F5EC",
-    "Koppie": "#F7F3E8",
-    "Uitgevallen": "#F1ECF8",
-    "Bankfontein": "#FCEEE6"
+    "Klipfontein": "#4DA3FF",
+    "Gwab": "#00B3A4",
+    "Kriel Rehabilitation": "#2ECC71",
+    "Koppie": "#F39C12",
+    "Uitgevallen": "#9B59B6",
+    "Bankfontein": "#E74C3C"
 }
+
+
+# =========================================================
+# HEADER SLOT LABELS (06:00 → 05:59)
+# =========================================================
+SLOT_LABELS = [
+    "6", "7", "8", "9", "10", "11", "12",
+    "1", "2", "3", "4", "5",
+    "6", "7", "8", "9", "10", "11", "12",
+    "1", "2", "3", "4", "5"
+]
 
 
 # =========================================================
@@ -67,9 +78,8 @@ def execute(filters=None):
             text-align: center;
             font-weight: bold;
             font-size: 11px;
-            margin-bottom: 2px;
-            color: #003366;
-            padding: 4px;
+            padding: 6px;
+            color: #000000;
         }}
 
         table {{
@@ -102,18 +112,11 @@ def execute(filters=None):
             width: 100px;
         }}
 
-        /* BCM CELL COLOURS */
-        .low {{
-            background-color: #f8d7da;
-        }}
-
-        .medium {{
-            background-color: #fff3cd;
-        }}
-
-        .high {{
-            background-color: #d4edda;
-        }}
+        /* CELL COLOURS */
+        .low {{ background-color: #f8d7da; }}      /* Red */
+        .medium {{ background-color: #fff3cd; }}   /* Yellow */
+        .high {{ background-color: #d4edda; }}     /* Green */
+        .blank {{ background-color: #ffffff; }}    /* White */
     </style>
 
     <div class="dashboard">
@@ -130,23 +133,21 @@ def execute(filters=None):
 # SITE BLOCK
 # =========================================================
 def build_site_block(site, prod_date):
-    slots = [str(i) for i in range(1, 25)]
     excavators = get_excavators(site)
     data = get_hourly_data(site, prod_date)
-
     header_colour = SITE_HEADER_COLOURS.get(site, "#FFFFFF")
 
     header = "<tr><th>Excavator</th>" + "".join(
-        f"<th class='slot'>{s}</th>" for s in slots
+        f"<th class='slot'>{label}</th>" for label in SLOT_LABELS
     ) + "</tr>"
 
     rows = ""
     for ex in excavators:
         rows += f"<tr><td>{ex}</td>"
-        for s in slots:
-            value = int(data.get(ex, {}).get(s, 0))
-            css_class = get_cell_class(value)
-            rows += f"<td class='{css_class}'>{value}</td>"
+        for slot in range(1, 25):
+            value = int(data.get(ex, {}).get(str(slot), 0))
+            css_class, display = get_cell_display(value)
+            rows += f"<td class='{css_class}'>{display}</td>"
         rows += "</tr>"
 
     return f"""
@@ -164,15 +165,17 @@ def build_site_block(site, prod_date):
 
 
 # =========================================================
-# CELL COLOUR LOGIC
+# CELL DISPLAY + COLOUR RULES
 # =========================================================
-def get_cell_class(value):
-    if value < 200:
-        return "low"
+def get_cell_display(value):
+    if value == 0:
+        return "blank", ""
+    elif 1 <= value <= 199:
+        return "low", value
     elif 200 <= value <= 219:
-        return "medium"
+        return "medium", value
     else:
-        return "high"
+        return "high", value
 
 
 # =========================================================
@@ -192,7 +195,7 @@ def get_excavators(site):
 
 
 # =========================================================
-# DATA → SLOT MAPPING
+# DATA → SLOT MAPPING (06:00 → 05:59)
 # =========================================================
 def get_hourly_data(site, prod_date):
     results = {}

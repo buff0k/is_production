@@ -13,7 +13,7 @@ frappe.query_reports["CEO Dashboard One"] = {
     ],
 
     onload: function (report) {
-        report.auto_refresh_interval = 300000;
+        report.auto_refresh_interval = 1800000;
 
         if (!report._auto_refresh_started) {
             report._auto_refresh_started = true;
@@ -30,7 +30,7 @@ frappe.query_reports["CEO Dashboard One"] = {
                     },
                     30
                 );
-            }, 300000);
+            }, 1800000);
         }
     }
 };

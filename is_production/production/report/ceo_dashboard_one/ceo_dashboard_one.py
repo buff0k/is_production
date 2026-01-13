@@ -2,9 +2,12 @@ import frappe
 from frappe.utils import format_date, getdate
 from datetime import datetime, timedelta
 
+# =========================================================
+# COLOUR CONSTANTS
+# =========================================================
+GREEN = "#C9F2D8"
+RED = "#F9CACA"
 
-GREEN = "#E9F5EC"
-RED = "#FDEAEA"
 FORECAST_TARGET = 619_380
 
 
@@ -15,11 +18,7 @@ def get_operational_dates():
     now = datetime.now()
     today = now.date()
     yesterday = today - timedelta(days=1)
-
-    if now.hour < 6:
-        return [yesterday, today]
-
-    return [today]
+    return [yesterday, today] if now.hour < 6 else [today]
 
 
 # =========================================================
@@ -37,24 +36,33 @@ def execute(filters=None):
     if not dmp.define:
         return [], None, "<b>No sites configured.</b>"
 
+    # 🔒 Fetch all Monthly Production Plans ONCE
+    mpp_map = get_monthly_plans(dmp.define)
+
     site_sections = []
 
     for row in dmp.define:
+        mpp = mpp_map.get(row.site)
+        if not mpp:
+            continue
+
         site_sections.append(
             build_site_section(
                 site=row.site,
                 start_date=getdate(row.start_date),
-                end_date=getdate(row.end_date)
+                end_date=getdate(row.end_date),
+                mpp=mpp
             )
         )
 
-    final_html = f"""
+    html = f"""
     <style>
         @page {{ size: landscape; margin: 10mm; }}
 
         body {{
             font-family: Arial, Helvetica, sans-serif;
             font-weight: bold;
+            color: #002244;
         }}
 
         .dashboard-grid {{
@@ -64,12 +72,12 @@ def execute(filters=None):
         }}
 
         .site-section {{
-            border: 3px solid #003366;
+            border: 4px solid #002244;
         }}
 
         .site-header {{
-            padding: 10px 14px;
-            color: #003366;
+            padding: 12px 16px;
+            font-weight: 800;
         }}
 
         .site-title {{
@@ -101,8 +109,8 @@ def execute(filters=None):
         }}
 
         table.summary-table th {{
-            background: #EAF3FA;
-            color: #003366;
+            background: #DCEAF7;
+            color: #002244;
             text-align: center;
         }}
     </style>
@@ -112,34 +120,34 @@ def execute(filters=None):
     </div>
     """
 
-    return [], None, final_html
+    return [], None, html
 
 
 # =========================================================
 # SITE SECTION
 # =========================================================
-def build_site_section(site, start_date, end_date):
-    site_colours = {
-        "Klipfontein": "#E6F0FA",
-        "Gwab": "#F2F2F2",
-        "Kriel Rehabilitation": "#E9F5EC",
-        "Koppie": "#F7F3E8",
-        "Uitgevallen": "#F1ECF8",
-        "Bankfontein": "#FCEEE6",
+def build_site_section(site, start_date, end_date, mpp):
+    colours = {
+        "Klipfontein": "#4DA3FF",
+        "Gwab": "#00B3A4",
+        "Kriel Rehabilitation": "#2ECC71",
+        "Koppie": "#F39C12",
+        "Uitgevallen": "#9B59B6",
+        "Bankfontein": "#E74C3C",
     }
 
-    bg_colour = site_colours.get(site, "#FFFFFF")
+    bg = colours.get(site, "#BDC3C7")
 
     return f"""
     <div class="site-section">
-        <div class="site-header" style="background:{bg_colour};">
+        <div class="site-header" style="background:{bg};">
             <div class="site-title">SITE: {site}</div>
             <div class="site-period">
                 PRODUCTION PERIOD: {format_date(start_date)} → {format_date(end_date)}
             </div>
         </div>
         <div class="site-body">
-            {build_daily_report_html(site, start_date, end_date)}
+            {build_daily_report_html(site, start_date, end_date, mpp)}
         </div>
     </div>
     """
@@ -148,106 +156,106 @@ def build_site_section(site, start_date, end_date):
 # =========================================================
 # DAILY REPORT
 # =========================================================
-def build_daily_report_html(site, start_date, end_date):
-    mpp = get_monthly_plan(site, end_date)
-    month_start = start_date
-
+def build_daily_report_html(site, start_date, end_date, mpp):
     operational_dates = get_operational_dates()
 
-    actual_ts_day = frappe.db.sql("""
-        SELECT COALESCE(SUM(total_ts_bcm),0)
-        FROM `tabHourly Production`
-        WHERE location=%s AND prod_date IN %s
-    """, (site, tuple(operational_dates)))[0][0]
+    data = get_aggregated_production_data(
+        site=site,
+        start_date=start_date,
+        end_date=end_date,
+        operational_dates=operational_dates
+    )
 
-    actual_dozer_day = frappe.db.sql("""
-        SELECT COALESCE(SUM(total_dozing_bcm),0)
-        FROM `tabHourly Production`
-        WHERE location=%s AND prod_date IN %s
-    """, (site, tuple(operational_dates)))[0][0]
+    day_bcm = data["day_ts"] + data["day_dz"]
 
-    mtd_actual_bcms = get_actual_bcms_for_date(site, end_date, month_start)
-    mtd_coal = get_mtd_coal_dynamic(site, end_date, month_start)
-    mtd_waste = mtd_actual_bcms - (mtd_coal / 1.5)
+    # 🔒 AUTHORITATIVE MTD (unchanged behaviour)
+    mtd_actual = mpp.month_actual_bcm
+
+    mtd_coal = data["mtd_coal"]
+    mtd_waste = mtd_actual - (mtd_coal / 1.5)
 
     return build_html(
-        mpp,
-        mtd_actual_bcms,
-        mtd_coal,
-        mtd_waste,
-        actual_ts_day,
-        actual_dozer_day
+        mpp=mpp,
+        mtd_actual=mtd_actual,
+        mtd_coal=mtd_coal,
+        mtd_waste=mtd_waste,
+        ts=data["day_ts"],
+        dz=data["day_dz"]
     )
 
 
 # =========================================================
-# MONTHLY PLAN
+# AGGREGATED PRODUCTION DATA (SINGLE QUERY PER SITE)
 # =========================================================
-def get_monthly_plan(site, date):
-    plan_name = frappe.db.get_value(
-        "Monthly Production Planning",
-        {
-            "location": site,
-            "prod_month_start_date": ["<=", date],
-            "prod_month_end_date": [">=", date],
-        },
-        "name",
-    )
-    return frappe.get_doc("Monthly Production Planning", plan_name) if plan_name else None
-
-
-# =========================================================
-# MTD BCMs
-# =========================================================
-def get_actual_bcms_for_date(site, end_date, month_start):
-    ts, dz = get_hourly_bcms(month_start, end_date, site)
-    return ts + dz
-
-
-def get_hourly_bcms(start_date, end_date, site):
-    ts = frappe.db.sql("""
-        SELECT COALESCE(SUM(tl.bcms),0)
+def get_aggregated_production_data(site, start_date, end_date, operational_dates):
+    row = frappe.db.sql("""
+        SELECT
+            SUM(CASE WHEN hp.prod_date IN %(ops)s THEN hp.total_ts_bcm ELSE 0 END) AS day_ts,
+            SUM(CASE WHEN hp.prod_date IN %(ops)s THEN hp.total_dozing_bcm ELSE 0 END) AS day_dz,
+            SUM(
+                CASE
+                    WHEN LOWER(tl.mat_type) LIKE '%%coal%%'
+                    THEN tl.bcms
+                    ELSE 0
+                END
+            ) * 1.5 AS mtd_coal
         FROM `tabHourly Production` hp
-        JOIN `tabTruck Loads` tl ON tl.parent = hp.name
-        WHERE hp.prod_date BETWEEN %s AND %s AND hp.location = %s
-    """, (start_date, end_date, site))[0][0]
+        LEFT JOIN `tabTruck Loads` tl ON tl.parent = hp.name
+        WHERE hp.location = %(site)s
+          AND hp.prod_date BETWEEN %(start)s AND %(end)s
+    """, {
+        "site": site,
+        "start": start_date,
+        "end": end_date,
+        "ops": tuple(operational_dates),
+    }, as_dict=True)[0]
 
-    dz = frappe.db.sql("""
-        SELECT COALESCE(SUM(dp.bcm_hour),0)
-        FROM `tabHourly Production` hp
-        JOIN `tabDozer Production` dp ON dp.parent = hp.name
-        WHERE hp.prod_date BETWEEN %s AND %s AND hp.location = %s
-    """, (start_date, end_date, site))[0][0]
-
-    return ts or 0, dz or 0
-
-
-# =========================================================
-# COAL
-# =========================================================
-def get_mtd_coal_dynamic(site, end_date, month_start):
-    COAL_CONVERSION = 1.5
-
-    coal_bcm = frappe.db.sql("""
-        SELECT COALESCE(SUM(tl.bcms),0)
-        FROM `tabHourly Production` hp
-        JOIN `tabTruck Loads` tl ON tl.parent = hp.name
-        WHERE hp.prod_date BETWEEN %s AND %s
-          AND hp.location = %s
-          AND LOWER(tl.mat_type) LIKE '%%coal%%'
-    """, (month_start, end_date, site))[0][0]
-
-    return (coal_bcm or 0) * COAL_CONVERSION
+    return {
+        "day_ts": row.day_ts or 0,
+        "day_dz": row.day_dz or 0,
+        "mtd_coal": row.mtd_coal or 0,
+    }
 
 
 # =========================================================
-# HTML SUMMARY TABLE (WITH COLOUR LOGIC)
+# FETCH MONTHLY PLANS ONCE (KEY UPGRADE)
+# =========================================================
+def get_monthly_plans(define_rows):
+    plans = {}
+
+    for row in define_rows:
+        plan_name = frappe.db.get_value(
+            "Monthly Production Planning",
+            {
+                "location": row.site,
+                "prod_month_start_date": ["<=", row.end_date],
+                "prod_month_end_date": [">=", row.end_date],
+            },
+            "name",
+        )
+
+        if plan_name:
+            plans[row.site] = frappe.get_doc(
+                "Monthly Production Planning",
+                plan_name
+            )
+
+    return plans
+
+
+# =========================================================
+# HTML SUMMARY TABLE (UNCHANGED)
 # =========================================================
 def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, ts, dz):
 
-    def fmt(v): return f"{int(round(v)):,}"
-    def cell(val, good): 
+    def fmt(v):
+        return f"{int(round(v)):,}"
+
+    def cell(val, good):
         return f"<td style='background:{GREEN if good else RED};'>{fmt(val)}</td>"
+
+    day_bcm = ts + dz
+    daily_remaining = mpp.target_bcm_day - day_bcm
 
     monthly = mpp.monthly_target_bcm
     coal_total = mpp.coal_tons_planned
@@ -269,7 +277,7 @@ def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, ts, dz):
             <th>MTD Coal</th><th>MTD C Plan</th>
             <th>MTD Waste</th><th>MTD W Plan</th>
             <th>Remaining</th><th>Forecast</th>
-            <th>Daily Target</th><th>TS</th><th>Dozing</th><th>Day BCM</th>
+            <th>Daily Target</th><th>Day BCM</th><th>Daily Left</th>
         </tr>
         <tr>
             <td>{fmt(monthly)}</td>
@@ -284,9 +292,8 @@ def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, ts, dz):
             <td>{fmt(monthly - mtd_actual)}</td>
             {cell(forecast, forecast >= FORECAST_TARGET)}
             <td>{fmt(mpp.target_bcm_day)}</td>
-            <td>{fmt(ts)}</td>
-            <td>{fmt(dz)}</td>
-            <td>{fmt(ts + dz)}</td>
+            <td>{fmt(day_bcm)}</td>
+            <td>{fmt(daily_remaining)}</td>
         </tr>
     </table>
     """

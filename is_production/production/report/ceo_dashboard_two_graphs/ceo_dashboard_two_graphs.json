@@ -8,7 +8,7 @@
  "doctype": "Report",
  "filters": [
   {
-   "fieldname": "monthly_production_plan",
+   "fieldname": "define_monthly_production",
    "fieldtype": "Link",
    "label": "Monthly Production Plan",
    "mandatory": 1,
@@ -19,7 +19,7 @@
  "idx": 0,
  "is_standard": "Yes",
  "letter_head": null,
- "modified": "2026-01-12 11:40:45.889636",
+ "modified": "2026-01-13 05:25:00.126555",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "CEO Dashboard Two Graphs",
@@ -29,15 +29,6 @@
  "report_name": "CEO Dashboard Two Graphs",
  "report_type": "Script Report",
  "roles": [
-  {
-   "role": "System Manager"
-  },
-  {
-   "role": "Production Manager"
-  },
-  {
-   "role": "Production User"
-  },
   {
    "role": "All"
   }
