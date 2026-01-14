@@ -63,10 +63,10 @@
   },
   {
    "fieldname": "drilling_month",
-   "fieldtype": "Date",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Drilling Month",
-   "reqd": 1
+   "read_only": 1
   },
   {
    "fieldname": "number_of_drills",
@@ -118,12 +118,6 @@
    "options": "1\n2\n3"
   },
   {
-   "fieldname": "mining_areas",
-   "fieldtype": "Table",
-   "label": "Mining Areas",
-   "options": "Monthly Production-Areas"
-  },
-  {
    "fieldname": "total_monthly_drilling_hours",
    "fieldtype": "Float",
    "label": "Total Monthly Drilling Hours",
@@ -140,6 +134,12 @@
    "fieldtype": "Float",
    "label": "Monthly Remaining Drilling Hours",
    "precision": "0"
+  },
+  {
+   "fieldname": "mining_areas",
+   "fieldtype": "Table",
+   "label": "Mining Areas",
+   "options": "Monthly Production-Areas"
   },
   {
    "fieldname": "column_break_jjpc",
@@ -185,7 +185,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-14 15:19:49.863562",
+ "modified": "2026-01-14 15:41:08.060522",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Drilling Meter Planning",
