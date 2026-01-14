@@ -1,13 +1,13 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "field:monthly_production_plan",
+ "autoname": "field:monthly_drill_planning",
  "creation": "2025-11-04 12:47:00.437052",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "site",
-  "monthly_production_plan",
+  "monthly_drill_planning",
   "start_date",
   "end_date",
   "column_break_xiju",
@@ -21,24 +21,32 @@
    "fieldname": "site",
    "fieldtype": "Link",
    "label": "Site",
-   "options": "Location"
+   "options": "Location",
+   "reqd": 1,
+   "in_list_view": 1
   },
   {
-   "fieldname": "monthly_production_plan",
+   "fieldname": "monthly_drill_planning",
    "fieldtype": "Link",
-   "label": "Monthly Production Plan",
-   "options": "Monthly Production Planning",
-   "unique": 1
+   "label": "Monthly Drill Planning",
+   "options": "Monthly Drill Planning",
+   "unique": 1,
+   "reqd": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "start_date",
    "fieldtype": "Date",
-   "label": "Start Date"
+   "label": "Start Date",
+   "reqd": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "end_date",
    "fieldtype": "Date",
-   "label": "End Date"
+   "label": "End Date",
+   "reqd": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "column_break_xiju",
@@ -48,31 +56,44 @@
    "fieldname": "monthly_target",
    "fieldtype": "Float",
    "label": "Monthly Target",
-   "precision": "1"
+   "precision": "1",
+   "reqd": 1,
+   "in_list_view": 1
   },
   {
    "fieldname": "number_of_drills",
    "fieldtype": "Float",
    "label": "Number of Drills",
-   "precision": "0"
+   "precision": "0",
+   "read_only": 1,
+   "fetch_from": "monthly_drill_planning.number_of_drills",
+   "fetch_if_empty": 1
   },
   {
    "fieldname": "daily_required_rate",
    "fieldtype": "Float",
    "label": "Daily Required Rate",
-   "precision": "1"
+   "precision": "1",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "depends_on": "eval:doc.monthly_drill_planning && doc.start_date && doc.end_date && doc.monthly_target"
   },
   {
    "fieldname": "hourly_required_rate",
    "fieldtype": "Float",
    "label": "Hourly Required Rate",
-   "precision": "1"
+   "precision": "1",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "depends_on": "eval:doc.monthly_drill_planning && doc.start_date && doc.end_date && doc.monthly_target"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-04 13:15:49.849465",
+ "modified": "2026-01-13 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Drill Planning",

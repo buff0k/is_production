@@ -13,6 +13,7 @@
    }
   ],
   "asset_category_name": "Dozer",
+  "custom_service_schedule_inclusion": 0,
   "docstatus": 0,
   "doctype": "Asset Category",
   "enable_cwip_accounting": 0,
@@ -45,6 +46,7 @@
    }
   ],
   "asset_category_name": "Excavator",
+  "custom_service_schedule_inclusion": 0,
   "docstatus": 0,
   "doctype": "Asset Category",
   "enable_cwip_accounting": 0,
@@ -67,6 +69,7 @@
    }
   ],
   "asset_category_name": "ADT",
+  "custom_service_schedule_inclusion": 0,
   "docstatus": 0,
   "doctype": "Asset Category",
   "enable_cwip_accounting": 0,

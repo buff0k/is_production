@@ -1,83 +1,71 @@
-frappe.ui.form.on('Drill Planning', {
-    refresh(frm) {
-        // Apply initial filter if Site already selected
-        if (frm.doc.site) {
-            frm.set_query('monthly_production_plan', function() {
-                return {
-                    filters: {
-                        location: frm.doc.site
-                    }
-                };
-            });
-        }
-    },
+frappe.ui.form.on("Drill Planning", {
+  refresh(frm) {
+    compute_rates(frm);
+  },
 
-    site(frm) {
-        // Dynamically reapply filter when Site changes
-        frm.set_query('monthly_production_plan', function() {
-            return {
-                filters: {
-                    location: frm.doc.site
-                }
-            };
-        });
+  monthly_drill_planning(frm) {
+    // fetch_from should populate number_of_drills automatically
+    // but we recompute for instant update
+    compute_rates(frm);
+  },
 
-        // Clear the Monthly Plan when Site changes
-        frm.set_value('monthly_production_plan', null);
-    },
+  start_date(frm) {
+    compute_rates(frm);
+  },
 
-    monthly_production_plan(frm) {
-        if (frm.doc.monthly_production_plan) {
-            frappe.db.get_value(
-                'Monthly Production Planning',
-                frm.doc.monthly_production_plan,
-                ['prod_month_start_date', 'prod_month_end_date', 'total_month_prod_hours', 'num_prod_days'],
-                function(value) {
-                    if (value) {
-                        // Auto populate Start/End Date from Monthly Production Plan
-                        frm.set_value('start_date', value.prod_month_start_date);
-                        frm.set_value('end_date', value.prod_month_end_date);
+  end_date(frm) {
+    compute_rates(frm);
+  },
 
-                        // Calculate rates if target already entered
-                        if (frm.doc.monthly_target) {
-                            if (value.total_month_prod_hours) {
-                                frm.set_value('hourly_required_rate',
-                                    flt(frm.doc.monthly_target / value.total_month_prod_hours, 1)
-                                );
-                            }
-                            if (value.num_prod_days) {
-                                frm.set_value('daily_required_rate',
-                                    flt(frm.doc.monthly_target / value.num_prod_days, 1)
-                                );
-                            }
-                        }
-                    }
-                }
-            );
-        }
-    },
-
-    monthly_target(frm) {
-        if (frm.doc.monthly_production_plan && frm.doc.monthly_target) {
-            frappe.db.get_value(
-                'Monthly Production Planning',
-                frm.doc.monthly_production_plan,
-                ['total_month_prod_hours', 'num_prod_days'],
-                function(value) {
-                    if (value) {
-                        if (value.total_month_prod_hours) {
-                            frm.set_value('hourly_required_rate',
-                                flt(frm.doc.monthly_target / value.total_month_prod_hours, 1)
-                            );
-                        }
-                        if (value.num_prod_days) {
-                            frm.set_value('daily_required_rate',
-                                flt(frm.doc.monthly_target / value.num_prod_days, 1)
-                            );
-                        }
-                    }
-                }
-            );
-        }
-    }
+  monthly_target(frm) {
+    compute_rates(frm);
+  }
 });
+
+function compute_rates(frm) {
+  const start = frm.doc.start_date;
+  const end = frm.doc.end_date;
+  const target = frm.doc.monthly_target;
+
+  if (!start || !end || target === null || target === undefined) {
+    frm.set_value("daily_required_rate", 0);
+    frm.set_value("hourly_required_rate", 0);
+    return;
+  }
+
+  const start_date = frappe.datetime.str_to_obj(start);
+  const end_date = frappe.datetime.str_to_obj(end);
+
+  if (!start_date || !end_date) return;
+
+  if (end_date < start_date) {
+    frm.set_value("daily_required_rate", 0);
+    frm.set_value("hourly_required_rate", 0);
+    return;
+  }
+
+  const diffMs = end_date - start_date;
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1; // inclusive
+
+  if (days <= 0) {
+    frm.set_value("daily_required_rate", 0);
+    frm.set_value("hourly_required_rate", 0);
+    return;
+  }
+
+  const shift_hours = 8.0; // keep same as python DEFAULT_SHIFT_HOURS
+  const monthly_target = parseFloat(target) || 0;
+
+  let daily = monthly_target / days;
+  let hourly = daily / shift_hours;
+
+  // OPTIONAL: If you want PER DRILL rates, uncomment:
+  // const drills = parseFloat(frm.doc.number_of_drills) || 0;
+  // if (drills > 0) {
+  //   daily = daily / drills;
+  //   hourly = hourly / drills;
+  // }
+
+  frm.set_value("daily_required_rate", frappe.utils.round_precision(daily, 1));
+  frm.set_value("hourly_required_rate", frappe.utils.round_precision(hourly, 1));
+}

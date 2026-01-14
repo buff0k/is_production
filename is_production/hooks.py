@@ -60,3 +60,15 @@ app_include_css = [
 page_js = {
     "production-dashboard": "public/js/production_dashboard.js",
 }
+
+# ------------------------------------------------------------------------
+# Scheduler Events
+# ------------------------------------------------------------------------
+
+scheduler_events = {
+    "cron": {
+        "*/20 * * * *": [
+            "is_production.production.scheduled_jobs.rebuild_ho_db_0001"
+        ]
+    }
+}
