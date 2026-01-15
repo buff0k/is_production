@@ -1,0 +1,62 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-14 19:11:20.670068",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "hourly_slot",
+  "drill",
+  "area",
+  "material",
+  "meters"
+ ],
+ "fields": [
+  {
+   "fieldname": "hourly_slot",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Hourly Slot",
+   "options": "06:00-07:00\n07:00-08:00\n08:00-09:00\n09:00-10:00\n10:00-11:00\n11:00-12:00\n12:00-13:00\n13:00-14:00\n14:00-15:00\n15:00-16:00\n16:00-17:00\n17:00-18:00\n18:00-19:00\n19:00-20:00\n20:00-21:00\n21:00-22:00\n22:00-23:00\n23:00-00:00\n00:00-12:00\n12:00-01:00\n01:00-02:00\n02:00-03:00\n03:00-04:00\n04:00-05:00\n05:00-06:00",
+   "reqd": 1
+  },
+  {
+   "fieldname": "drill",
+   "fieldtype": "Data",
+   "label": "Drill"
+  },
+  {
+   "fieldname": "area",
+   "fieldtype": "Data",
+   "label": "Area"
+  },
+  {
+   "fieldname": "meters",
+   "fieldtype": "Float",
+   "label": "Meters",
+   "precision": "2"
+  },
+  {
+   "fieldname": "material",
+   "fieldtype": "Data",
+   "label": "Material"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-14 22:21:16.751005",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Hourly Entries",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

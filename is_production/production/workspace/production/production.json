@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"olCtlaV4d5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Dashboard\",\"col\":12}},{\"id\":\"0HfZP2diJP\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Data Capturing production and Diesel</b></span>\",\"col\":12}},{\"id\":\"1OtdQROBoY\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Hourly Production\",\"col\":3}},{\"id\":\"MKwJMkplZ8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Survey\",\"col\":3}},{\"id\":\"sy5Tirdbdm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pre-Use Hours\",\"col\":3}},{\"id\":\"4WZiVZ-1oB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Diesel Receipts\",\"col\":3}},{\"id\":\"eH7ItHjvTR\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Data Capturing Breakdowns and Lost Hours</b></span>\",\"col\":12}},{\"id\":\"mtyHQpVS79\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Breakdowns\",\"col\":3}},{\"id\":\"u9NIgGeh2M\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Other Lost Hours\",\"col\":3}},{\"id\":\"7ozFKDlz1p\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reporting</b></span>\",\"col\":12}},{\"id\":\"GYP2HJcZD1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Report\",\"col\":4}},{\"id\":\"OohTXAFUvn\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Shovel Productivity \",\"col\":3}},{\"id\":\"nDpc_zk3b9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Site production Volumes\",\"col\":3}},{\"id\":\"eZYYaHD0Tw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Equipment Hours\",\"col\":5}},{\"id\":\"VTPBfW5UiW\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Support Equipment Machine Hours\",\"col\":3}},{\"id\":\"C8tgGQ_gj-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Rates per hour\",\"col\":3}},{\"id\":\"BeVH2yybmK\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Weekly Report\",\"col\":4}}]",
+ "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"olCtlaV4d5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Dashboard\",\"col\":12}},{\"id\":\"0HfZP2diJP\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Data Capturing production and Diesel</b></span>\",\"col\":12}},{\"id\":\"1OtdQROBoY\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Hourly Production\",\"col\":3}},{\"id\":\"3e_mbfO-sz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Diesel Sheet\",\"col\":3}},{\"id\":\"MKwJMkplZ8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Survey\",\"col\":3}},{\"id\":\"sy5Tirdbdm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pre-Use Hours\",\"col\":3}},{\"id\":\"4WZiVZ-1oB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Diesel Receipts\",\"col\":3}},{\"id\":\"6tnNjbjxn3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Diesel Usage Site Analysis\",\"col\":3}},{\"id\":\"eH7ItHjvTR\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Data Capturing Breakdowns and Lost Hours</b></span>\",\"col\":12}},{\"id\":\"mtyHQpVS79\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Breakdowns\",\"col\":3}},{\"id\":\"u9NIgGeh2M\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Other Lost Hours\",\"col\":3}},{\"id\":\"7ozFKDlz1p\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reporting</b></span>\",\"col\":12}},{\"id\":\"GYP2HJcZD1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Report\",\"col\":4}},{\"id\":\"OohTXAFUvn\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Shovel Productivity \",\"col\":3}},{\"id\":\"nDpc_zk3b9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Site production Volumes\",\"col\":3}},{\"id\":\"eZYYaHD0Tw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Equipment Hours\",\"col\":5}},{\"id\":\"VTPBfW5UiW\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Support Equipment Machine Hours\",\"col\":3}},{\"id\":\"C8tgGQ_gj-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Rates per hour\",\"col\":3}},{\"id\":\"BeVH2yybmK\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Weekly Report\",\"col\":4}}]",
  "creation": "2024-07-29 15:25:05.760313",
  "custom_blocks": [],
  "docstatus": 0,
@@ -13,7 +13,7 @@
  "is_hidden": 0,
  "label": "Production",
  "links": [],
- "modified": "2026-01-14 15:45:23.107653",
+ "modified": "2026-01-15 06:56:25.048243",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
@@ -25,6 +25,14 @@
  "roles": [],
  "sequence_id": 42.0,
  "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Daily Diesel Sheet",
+   "link_to": "Daily Diesel Sheet",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
   {
    "color": "Grey",
    "doc_view": "List",
@@ -63,6 +71,14 @@
    "label": "Production Equipment Hours",
    "link_to": "Pre-Use Report",
    "report_ref_doctype": "Pre-Use Hours",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Diesel Usage Site Analysis",
+   "link_to": "Diesel Usage Site Analyses",
+   "report_ref_doctype": "Daily Diesel Sheet",
    "type": "Report"
   },
   {

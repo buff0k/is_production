@@ -1,25 +1,39 @@
-# -*- coding: utf-8 -*-
+import re
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt, getdate
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 
 class DrillingMeterPlanning(Document):
     def validate(self):
         self.validate_dates()
-        self.set_drilling_month_label()   # drilling_month is Data
-        self.calculate_all()
+        self.set_drilling_month_label()
 
+        # Actuals from Hourly Drilling Reports (server truth)
+        self.calculate_worked_days_from_hourly_reports()
+        self.calculate_completed_hours_from_hourly_reports()
+
+        # Planning calculations
+        self.calculate_planned_and_remaining_days()
+        self.calculate_daily_target()
+
+        self.calculate_total_monthly_hours()
+        self.calculate_monthly_remaining_hours()
+
+        self.calculate_remaining_meter()
+        self.calculate_rates()
+        self.calculate_meters_per_drill()
+        self.calculate_forecast()
+
+    # ---------------- validation ----------------
     def validate_dates(self):
         if self.start_date and self.end_date:
-            sd = getdate(self.start_date)
-            ed = getdate(self.end_date)
-            if ed < sd:
+            if getdate(self.end_date) < getdate(self.start_date):
                 frappe.throw("End Date cannot be earlier than Start Date.")
 
+    # ---------------- drilling_month (Data) ----------------
     def set_drilling_month_label(self):
-        # Data field: "January 2026" or "Jan 2026 - Feb 2026"
         if not (self.start_date and self.end_date):
             self.drilling_month = ""
             return
@@ -32,97 +46,196 @@ class DrillingMeterPlanning(Document):
         else:
             self.drilling_month = f"{sd.strftime('%b %Y')} - {ed.strftime('%b %Y')}"
 
-    # ---------- core calcs ----------
+    # ---------------- worked days (from Hourly Reports) ----------------
+    def calculate_worked_days_from_hourly_reports(self):
+        """
+        worked_days = number of DISTINCT dates with Hourly Drilling Reports
+        for this planning within the planning date range.
+        """
+        if not (self.name and self.start_date and self.end_date):
+            return
 
-    def calculate_all(self):
-        # Inputs
-        no_shifts = int(flt(self.no_of_shifts) or 0)  # select values are strings ("1","2","3")
+        worked_days = frappe.db.sql(
+            """
+            SELECT COUNT(DISTINCT hdr.date)
+            FROM `tabHourly Drilling Report` hdr
+            WHERE hdr.drilling_meter_planning = %s
+              AND hdr.docstatus < 2
+              AND hdr.date BETWEEN %s AND %s
+            """,
+            (self.name, self.start_date, self.end_date),
+        )[0][0] or 0
+
+        self.worked_days = int(worked_days)
+
+    # ---------------- completed hours (from hourly_slot) ----------------
+    def calculate_completed_hours_from_hourly_reports(self):
+        """
+        monthly_drilling_hours_completed = sum(slot duration)
+        using DISTINCT (report_name, hourly_slot) to avoid double counting.
+        """
+        if not (self.name and self.start_date and self.end_date):
+            return
+
+        slots = frappe.db.sql(
+            """
+            SELECT DISTINCT hdr.name AS report_name, he.hourly_slot
+            FROM `tabHourly Drilling Report` hdr
+            JOIN `tabHourly Entries` he
+              ON he.parent = hdr.name
+             AND he.parenttype = 'Hourly Drilling Report'
+             AND he.parentfield = 'hourly_entries'
+            WHERE hdr.drilling_meter_planning = %s
+              AND hdr.docstatus < 2
+              AND hdr.date BETWEEN %s AND %s
+              AND COALESCE(he.hourly_slot, '') != ''
+            """,
+            (self.name, self.start_date, self.end_date),
+            as_dict=True
+        )
+
+        if not slots:
+            # If no hourly entries, keep it as-is (or set to 0)
+            self.monthly_drilling_hours_completed = flt(self.monthly_drilling_hours_completed) or 0
+            return
+
+        total_hours = 0.0
+        for row in slots:
+            total_hours += flt(slot_to_hours(row.get("hourly_slot")))
+
+        self.monthly_drilling_hours_completed = flt(total_hours)
+
+    # ---------------- planned/remaining days ----------------
+    def calculate_planned_and_remaining_days(self):
+        planned_weekdays = 0
+        planned_saturdays = 0
+
+        if self.start_date and self.end_date:
+            planned_weekdays, planned_saturdays = count_weekdays_and_saturdays(
+                self.start_date, self.end_date
+            )
+
+        planned_days = planned_weekdays + planned_saturdays
+        self.planned_drilling_days = int(planned_days)
+
+        self.remaining_days = int(max(planned_days - flt(self.worked_days), 0))
+
+    # ---------------- daily target ----------------
+    def calculate_daily_target(self):
+        target = flt(self.monthly_target_meters)
+        days = flt(self.planned_drilling_days)
+        self.daily_target = (target / days) if days > 0 else 0
+
+    # ---------------- total monthly hours ----------------
+    def calculate_total_monthly_hours(self):
+        no_shifts = int(flt(self.no_of_shifts) or 0)
         no_shifts = max(no_shifts, 0)
 
         weekday_hours = flt(self.weekday_shift_hours)
         saturday_hours = flt(self.saturday_shift_hours)
 
-        monthly_target = flt(self.monthly_target_meters)
-        worked_days = flt(self.worked_days)
-        number_of_drills = flt(self.number_of_drills)
-
-        # 1) Planned drilling days from date range (weekdays + Saturdays, no Sundays)
-        planned_weekdays = 0
-        planned_saturdays = 0
-        planned_days = 0
-
+        planned_weekdays, planned_saturdays = (0, 0)
         if self.start_date and self.end_date:
-            planned_weekdays, planned_saturdays = count_weekdays_and_saturdays(self.start_date, self.end_date)
-            planned_days = planned_weekdays + planned_saturdays
+            planned_weekdays, planned_saturdays = count_weekdays_and_saturdays(
+                self.start_date, self.end_date
+            )
 
-        # store planned_drilling_days as calculated (if you want it always system-driven)
-        self.planned_drilling_days = int(planned_days)
+        total_one_shift = (planned_weekdays * weekday_hours) + (planned_saturdays * saturday_hours)
+        self.total_monthly_drilling_hours = max(total_one_shift * no_shifts, 0)
 
-        # clamp worked days
-        worked_days = min(worked_days, flt(self.planned_drilling_days))
-        self.worked_days = int(worked_days)
-
-        # 2) Total monthly drilling hours
-        total_hours_per_shift = (planned_weekdays * weekday_hours) + (planned_saturdays * saturday_hours)
-        self.total_monthly_drilling_hours = max(total_hours_per_shift * no_shifts, 0)
-
-        # 3) Monthly drilling hours completed (based on planned weekday/sat mix)
-        avg_hours_per_day_one_shift = 0
-        if planned_days > 0:
-            avg_hours_per_day_one_shift = total_hours_per_shift / planned_days
-
-        completed_hours = worked_days * avg_hours_per_day_one_shift * no_shifts
-        self.monthly_drilling_hours_completed = max(completed_hours, 0)
-
-        # 4) Monthly remaining hours
+    # ---------------- remaining monthly hours ----------------
+    def calculate_monthly_remaining_hours(self):
         self.monthly_remaining_drilling_hours = max(
             flt(self.total_monthly_drilling_hours) - flt(self.monthly_drilling_hours_completed),
             0
         )
 
-        # 5) MTD drilled meters (linear progress vs worked days)
-        if planned_days > 0:
-            mtd_meters = (worked_days / planned_days) * monthly_target
-        else:
-            mtd_meters = 0
+    # ---------------- remaining meter ----------------
+    def calculate_remaining_meter(self):
+        target = flt(self.monthly_target_meters)
+        mtd = flt(self.mtd_drills_meter)
+        self.remaining_meter = max(target - mtd, 0)
 
-        # clamp to [0, target]
-        mtd_meters = max(min(mtd_meters, monthly_target), 0)
-        self.mtd_drills_meter = mtd_meters
+    # ---------------- rates ----------------
+    def calculate_rates(self):
+        mtd = flt(self.mtd_drills_meter)
 
-        # 6) Remaining meters
-        self.remaining_meter = max(monthly_target - flt(self.mtd_drills_meter), 0)
+        completed_hours = flt(self.monthly_drilling_hours_completed)
+        remaining_hours = flt(self.monthly_remaining_drilling_hours)
 
-        # 7) Current rate (m/h)
-        if flt(self.monthly_drilling_hours_completed) > 0:
-            self.current_rate = flt(self.mtd_drills_meter) / flt(self.monthly_drilling_hours_completed)
-        else:
-            self.current_rate = 0
+        self.current_rate = (mtd / completed_hours) if completed_hours > 0 else 0
+        self.required_hourly_rate = (flt(self.remaining_meter) / remaining_hours) if remaining_hours > 0 else 0
 
-        # 8) Required hourly rate to hit target
-        if flt(self.monthly_remaining_drilling_hours) > 0:
-            self.required_hourly_rate = flt(self.remaining_meter) / flt(self.monthly_remaining_drilling_hours)
-        else:
-            self.required_hourly_rate = 0
+    # ---------------- meters per drill ----------------
+    def calculate_meters_per_drill(self):
+        target = flt(self.monthly_target_meters)
+        drills = flt(self.number_of_drills)
+        self.meters_per_drill = (target / drills) if drills > 0 else 0
 
-        # 9) Meters per drill
-        if number_of_drills > 0:
-            self.meters_per_drill = monthly_target / number_of_drills
-        else:
-            self.meters_per_drill = 0
+    # ---------------- forecast ----------------
+    def calculate_forecast(self):
+        mtd = flt(self.mtd_drills_meter)
+        worked = flt(self.worked_days)
+        remaining = flt(self.remaining_days)
 
-        # 10) Forecast meters by month end
-        forecast = flt(self.mtd_drills_meter) + (flt(self.current_rate) * flt(self.monthly_remaining_drilling_hours))
-        # clamp to [0, target]
-        self.drilling_meters_forecast = max(min(forecast, monthly_target), 0)
+        self.drilling_meters_forecast = ((mtd / worked) * remaining + mtd) if worked > 0 else mtd
 
 
+# ---------------- whitelisted method for JS ----------------
+@frappe.whitelist()
+def get_hourly_report_actuals(planning_name: str):
+    """
+    Used by JS to fetch:
+      - worked_days (distinct report dates)
+      - monthly_drilling_hours_completed (from hourly slots)
+    """
+    doc = frappe.get_doc("Drilling Meter Planning", planning_name)
+
+    worked_days = frappe.db.sql(
+        """
+        SELECT COUNT(DISTINCT hdr.date)
+        FROM `tabHourly Drilling Report` hdr
+        WHERE hdr.drilling_meter_planning = %s
+          AND hdr.docstatus < 2
+          AND hdr.date BETWEEN %s AND %s
+        """,
+        (doc.name, doc.start_date, doc.end_date),
+    )[0][0] or 0
+
+    slots = frappe.db.sql(
+        """
+        SELECT DISTINCT hdr.name AS report_name, he.hourly_slot
+        FROM `tabHourly Drilling Report` hdr
+        JOIN `tabHourly Entries` he
+          ON he.parent = hdr.name
+         AND he.parenttype = 'Hourly Drilling Report'
+         AND he.parentfield = 'hourly_entries'
+        WHERE hdr.drilling_meter_planning = %s
+          AND hdr.docstatus < 2
+          AND hdr.date BETWEEN %s AND %s
+          AND COALESCE(he.hourly_slot, '') != ''
+        """,
+        (doc.name, doc.start_date, doc.end_date),
+        as_dict=True
+    )
+
+    total_hours = 0.0
+    for s in slots:
+        total_hours += flt(slot_to_hours(s.get("hourly_slot")))
+
+    return {
+        "worked_days": int(worked_days),
+        "monthly_drilling_hours_completed": round(flt(total_hours), 2)
+    }
+
+
+# ---------------- helper functions ----------------
 def count_weekdays_and_saturdays(start_date, end_date):
     """
-    Inclusive count of:
+    Inclusive count:
       - weekdays: Mon-Fri
       - Saturdays
-    Sundays ignored (0)
+      - Sundays ignored
     """
     sd = getdate(start_date)
     ed = getdate(end_date)
@@ -140,3 +253,30 @@ def count_weekdays_and_saturdays(start_date, end_date):
         d = d + timedelta(days=1)
 
     return weekdays, saturdays
+
+
+def slot_to_hours(slot: str) -> float:
+    """
+    Converts "06:00-07:00" => 1
+    Converts "23:00-00:00" => 1 (wrap midnight)
+    Converts "00:00-12:00" => 12
+    If invalid => 1 hour.
+    """
+    if not slot:
+        return 1.0
+
+    times = re.findall(r"\b(\d{2}:\d{2})\b", slot)
+    if len(times) < 2:
+        return 1.0
+
+    start = datetime.strptime(times[0], "%H:%M")
+    end = datetime.strptime(times[1], "%H:%M")
+
+    if end <= start:
+        end += timedelta(days=1)
+
+    hours = (end - start).total_seconds() / 3600.0
+    if hours <= 0 or hours > 24:
+        return 1.0
+
+    return hours

@@ -1,212 +1,222 @@
 {
- "actions": [],
- "allow_rename": 1,
- "creation": "2026-01-14 14:47:03.799217",
- "doctype": "DocType",
- "engine": "InnoDB",
- "field_order": [
-  "site",
-  "monthly_target_meters",
-  "daily_target",
-  "start_date",
-  "end_date",
-  "drilling_month",
-  "number_of_drills",
-  "planned_drilling_days",
-  "worked_days",
-  "remaining_days",
-  "column_break_zpmo",
-  "shift_system",
-  "weekday_shift_hours",
-  "saturday_shift_hours",
-  "no_of_shifts",
-  "total_monthly_drilling_hours",
-  "monthly_drilling_hours_completed",
-  "monthly_remaining_drilling_hours",
-  "mining_areas",
-  "column_break_jjpc",
-  "required_hourly_rate",
-  "current_rate",
-  "mtd_drills_meter",
-  "remaining_meter",
-  "meters_per_drill",
-  "drilling_meters_forecast"
- ],
- "fields": [
-  {
-   "fieldname": "site",
-   "fieldtype": "Link",
-   "label": "Site",
-   "options": "Location"
-  },
-  {
-   "fieldname": "monthly_target_meters",
-   "fieldtype": "Float",
-   "label": "Monthly Target Meters",
-   "precision": "0"
-  },
-  {
-   "fieldname": "daily_target",
-   "fieldtype": "Float",
-   "label": "Daily Target",
-   "precision": "0"
-  },
-  {
-   "fieldname": "start_date",
-   "fieldtype": "Date",
-   "label": "Start Date"
-  },
-  {
-   "fieldname": "end_date",
-   "fieldtype": "Date",
-   "label": "End Date"
-  },
-  {
-   "fieldname": "drilling_month",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Drilling Month",
-   "read_only": 1
-  },
-  {
-   "fieldname": "number_of_drills",
-   "fieldtype": "Int",
-   "label": "Number of Drills"
-  },
-  {
-   "fieldname": "planned_drilling_days",
-   "fieldtype": "Int",
-   "label": "Planned drilling Days"
-  },
-  {
-   "fieldname": "worked_days",
-   "fieldtype": "Int",
-   "label": "Worked Days"
-  },
-  {
-   "fieldname": "remaining_days",
-   "fieldtype": "Int",
-   "label": "Remaining Days"
-  },
-  {
-   "fieldname": "column_break_zpmo",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "shift_system",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "label": "Shifts system",
-   "options": "2x12hours\n2x10hours\n2x8hours"
-  },
-  {
-   "fieldname": "weekday_shift_hours",
-   "fieldtype": "Float",
-   "label": "Weekday Shift Hours",
-   "precision": "0"
-  },
-  {
-   "fieldname": "saturday_shift_hours",
-   "fieldtype": "Float",
-   "label": "Sarturday Shift Hours",
-   "precision": "0"
-  },
-  {
-   "fieldname": "no_of_shifts",
-   "fieldtype": "Select",
-   "label": "No Of Shift",
-   "options": "1\n2\n3"
-  },
-  {
-   "fieldname": "total_monthly_drilling_hours",
-   "fieldtype": "Float",
-   "label": "Total Monthly Drilling Hours",
-   "precision": "0"
-  },
-  {
-   "fieldname": "monthly_drilling_hours_completed",
-   "fieldtype": "Float",
-   "label": "Monthly Drilling Hours Completed",
-   "precision": "0"
-  },
-  {
-   "fieldname": "monthly_remaining_drilling_hours",
-   "fieldtype": "Float",
-   "label": "Monthly Remaining Drilling Hours",
-   "precision": "0"
-  },
-  {
-   "fieldname": "mining_areas",
-   "fieldtype": "Table",
-   "label": "Mining Areas",
-   "options": "Monthly Production-Areas"
-  },
-  {
-   "fieldname": "column_break_jjpc",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "required_hourly_rate",
-   "fieldtype": "Float",
-   "label": "Required Hourly Rate",
-   "precision": "0"
-  },
-  {
-   "fieldname": "current_rate",
-   "fieldtype": "Float",
-   "label": "Current Rate",
-   "precision": "0"
-  },
-  {
-   "fieldname": "mtd_drills_meter",
-   "fieldtype": "Float",
-   "label": "MTD Drills Meters",
-   "precision": "0"
-  },
-  {
-   "fieldname": "remaining_meter",
-   "fieldtype": "Float",
-   "label": "Remaining Meters",
-   "precision": "0"
-  },
-  {
-   "fieldname": "meters_per_drill",
-   "fieldtype": "Float",
-   "label": "Meters Per Drill",
-   "precision": "0"
-  },
-  {
-   "fieldname": "drilling_meters_forecast",
-   "fieldtype": "Float",
-   "label": "Drilling meters Forecast",
-   "precision": "0"
-  }
- ],
- "grid_page_length": 50,
- "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-01-14 15:41:08.060522",
- "modified_by": "Administrator",
- "module": "Production",
- "name": "Drilling Meter Planning",
- "owner": "Administrator",
- "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  }
- ],
- "row_format": "Dynamic",
- "rows_threshold_for_grid_search": 20,
- "sort_field": "modified",
- "sort_order": "DESC",
- "states": []
+  "doctype": "DocType",
+  "name": "Drilling Meter Planning",
+  "module": "Production",
+  "allow_rename": 1,
+  "engine": "InnoDB",
+  "index_web_pages_for_search": 1,
+  "row_format": "Dynamic",
+  "grid_page_length": 50,
+  "rows_threshold_for_grid_search": 20,
+  "sort_field": "modified",
+  "sort_order": "DESC",
+
+  "permissions": [
+    {
+      "role": "System Manager",
+      "read": 1,
+      "write": 1,
+      "create": 1,
+      "delete": 1,
+      "share": 1,
+      "print": 1,
+      "email": 1,
+      "export": 1,
+      "report": 1
+    }
+  ],
+
+  "field_order": [
+    "site",
+    "monthly_target_meters",
+    "daily_target",
+    "start_date",
+    "end_date",
+    "drilling_month",
+    "number_of_drills",
+    "planned_drilling_days",
+    "worked_days",
+    "remaining_days",
+    "column_break_zpmo",
+    "shift_system",
+    "weekday_shift_hours",
+    "saturday_shift_hours",
+    "no_of_shifts",
+    "total_monthly_drilling_hours",
+    "monthly_drilling_hours_completed",
+    "monthly_remaining_drilling_hours",
+    "mining_areas",
+    "column_break_jjpc",
+    "required_hourly_rate",
+    "current_rate",
+    "mtd_drills_meter",
+    "remaining_meter",
+    "meters_per_drill",
+    "drilling_meters_forecast"
+  ],
+
+  "fields": [
+    {
+      "fieldname": "site",
+      "fieldtype": "Link",
+      "label": "Site",
+      "options": "Location"
+    },
+    {
+      "fieldname": "monthly_target_meters",
+      "fieldtype": "Float",
+      "label": "Monthly Target Meters",
+      "precision": "0"
+    },
+    {
+      "fieldname": "daily_target",
+      "fieldtype": "Float",
+      "label": "Daily Target",
+      "precision": "0",
+      "read_only": 1
+    },
+    {
+      "fieldname": "start_date",
+      "fieldtype": "Date",
+      "label": "Start Date"
+    },
+    {
+      "fieldname": "end_date",
+      "fieldtype": "Date",
+      "label": "End Date"
+    },
+    {
+      "fieldname": "drilling_month",
+      "fieldtype": "Data",
+      "label": "Drilling Month",
+      "in_list_view": 1,
+      "read_only": 1
+    },
+    {
+      "fieldname": "number_of_drills",
+      "fieldtype": "Int",
+      "label": "Number of Drills"
+    },
+    {
+      "fieldname": "planned_drilling_days",
+      "fieldtype": "Int",
+      "label": "Planned Drilling Days",
+      "read_only": 1
+    },
+    {
+      "fieldname": "worked_days",
+      "fieldtype": "Int",
+      "label": "Worked Days"
+    },
+    {
+      "fieldname": "remaining_days",
+      "fieldtype": "Int",
+      "label": "Remaining Days",
+      "read_only": 1
+    },
+    {
+      "fieldname": "column_break_zpmo",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "shift_system",
+      "fieldtype": "Select",
+      "label": "Shift System",
+      "options": "2x12hours\n2x10hours\n2x8hours"
+    },
+    {
+      "fieldname": "weekday_shift_hours",
+      "fieldtype": "Float",
+      "label": "Weekday Shift Hours",
+      "precision": "0"
+    },
+    {
+      "fieldname": "saturday_shift_hours",
+      "fieldtype": "Float",
+      "label": "Saturday Shift Hours",
+      "precision": "0"
+    },
+    {
+      "fieldname": "no_of_shifts",
+      "fieldtype": "Select",
+      "label": "No Of Shifts",
+      "options": "1\n2\n3"
+    },
+    {
+      "fieldname": "total_monthly_drilling_hours",
+      "fieldtype": "Float",
+      "label": "Total Monthly Drilling Hours",
+      "precision": "0",
+      "read_only": 1
+    },
+    {
+      "fieldname": "monthly_drilling_hours_completed",
+      "fieldtype": "Float",
+      "label": "Monthly Drilling Hours Completed",
+      "precision": "0",
+      "read_only": 1
+    },
+    {
+      "fieldname": "monthly_remaining_drilling_hours",
+      "fieldtype": "Float",
+      "label": "Monthly Remaining Drilling Hours",
+      "precision": "0",
+      "read_only": 1
+    },
+    {
+      "fieldname": "mining_areas",
+      "fieldtype": "Table",
+      "label": "Mining Areas",
+      "options": "Monthly Production-Areas"
+    },
+    {
+      "fieldname": "column_break_jjpc",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "required_hourly_rate",
+      "fieldtype": "Float",
+      "label": "Required Hourly Rate",
+      "precision": "0",
+      "read_only": 1
+    },
+    {
+      "fieldname": "current_rate",
+      "fieldtype": "Float",
+      "label": "Current Rate",
+      "precision": "0",
+      "read_only": 1
+    },
+    {
+      "fieldname": "mtd_drills_meter",
+      "fieldtype": "Float",
+      "label": "MTD Drilled Meters",
+      "precision": "0"
+    },
+    {
+      "fieldname": "remaining_meter",
+      "fieldtype": "Float",
+      "label": "Remaining Meters",
+      "precision": "0",
+      "read_only": 1
+    },
+    {
+      "fieldname": "meters_per_drill",
+      "fieldtype": "Float",
+      "label": "Meters Per Drill",
+      "precision": "0",
+      "read_only": 1
+    },
+    {
+      "fieldname": "drilling_meters_forecast",
+      "fieldtype": "Float",
+      "label": "Drilling Meters Forecast",
+      "precision": "0",
+      "read_only": 1
+    }
+  ],
+
+  "links": [],
+  "states": [],
+  "actions": []
 }

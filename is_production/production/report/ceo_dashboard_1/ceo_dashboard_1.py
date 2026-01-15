@@ -16,13 +16,6 @@ SITE_COLOURS = {
 }
 
 
-def get_operational_dates():
-    now = datetime.now()
-    today = now.date()
-    yesterday = today - timedelta(days=1)
-    return [yesterday, today] if now.hour < 6 else [today]
-
-
 def execute(filters=None):
     if not filters:
         return [], None, "<b>Please select a Monthly Production Definition.</b>"
@@ -72,13 +65,10 @@ def execute(filters=None):
 
     html = f"""
     <style>
-        @page {{ size: landscape; margin: 10mm; }}
-
         body {{
             font-family: Arial, Helvetica, sans-serif;
             font-weight: bold;
             color: #002244;
-            margin: 0;
         }}
 
         .dashboard-grid {{
@@ -89,7 +79,20 @@ def execute(filters=None):
 
         .site-section {{
             border: 4px solid #000;
-            margin-bottom: 6px;
+        }}
+
+        .kpi-bar {{
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }}
+
+        .kpi-box {{
+            background: white;
+            border: 2px solid #000;
+            padding: 6px 10px;
+            text-align: center;
+            min-width: 130px;
         }}
 
         table.summary-table {{
@@ -109,7 +112,6 @@ def execute(filters=None):
             border: 1px solid #9FB6D1;
             padding: 4px 6px;
             text-align: right;
-            white-space: nowrap;
         }}
 
         /* KPI GROUP BORDERS */
@@ -149,9 +151,8 @@ def execute(filters=None):
 def get_today_bcm_bulk(sites):
     today = getdate(nowdate())
     rows = frappe.db.sql("""
-        SELECT
-            location,
-            SUM(total_ts_bcm + total_dozing_bcm) AS bcm
+        SELECT location,
+               SUM(total_ts_bcm + total_dozing_bcm) AS bcm
         FROM `tabHourly Production`
         WHERE location IN %(sites)s
           AND prod_date = %(today)s
@@ -163,12 +164,11 @@ def get_today_bcm_bulk(sites):
 
 def get_mtd_coal_bulk(sites, start_date, end_date):
     rows = frappe.db.sql("""
-        SELECT
-            hp.location,
-            SUM(
-                CASE WHEN LOWER(tl.mat_type) LIKE '%%coal%%'
-                THEN tl.bcms ELSE 0 END
-            ) * 1.5 AS mtd_coal
+        SELECT hp.location,
+               SUM(
+                   CASE WHEN LOWER(tl.mat_type) LIKE '%%coal%%'
+                   THEN tl.bcms ELSE 0 END
+               ) * 1.5 AS mtd_coal
         FROM `tabHourly Production` hp
         LEFT JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.location IN %(sites)s
@@ -181,7 +181,6 @@ def get_mtd_coal_bulk(sites, start_date, end_date):
 
 def get_monthly_plans_bulk(rows):
     plans = {}
-
     for r in rows:
         name = frappe.db.get_value(
             "Monthly Production Planning",
@@ -193,10 +192,7 @@ def get_monthly_plans_bulk(rows):
             "name"
         )
         if name:
-            plans[r.site] = frappe.get_doc(
-                "Monthly Production Planning", name
-            )
-
+            plans[r.site] = frappe.get_doc("Monthly Production Planning", name)
     return plans
 
 
@@ -206,19 +202,43 @@ def get_monthly_plans_bulk(rows):
 
 def build_site_section(site, start_date, end_date, mpp,
                        mtd_actual, mtd_coal, mtd_waste, day_bcm):
+
+    def fmt(v): return f"{int(round(v)):,}"
+
+    forecast_var = mpp.month_forecated_bcm - mpp.monthly_target_bcm
     bg = SITE_COLOURS.get(site, "#BDC3C7")
 
     return f"""
     <div class="site-section">
-        <div style="padding:6px 10px;background:{bg};color:#002244;">
+        <div style="padding:8px;background:{bg};">
             <div style="font-size:17px;">SITE: {site}</div>
             <div style="font-size:12px;">
                 PRODUCTION PERIOD: {format_date(start_date)} → {format_date(end_date)}
             </div>
+
+            <div class="kpi-bar">
+                {kpi("Month Target", mpp.monthly_target_bcm)}
+                {kpi("Forecast", mpp.month_forecated_bcm)}
+                {kpi("Var", forecast_var, True)}
+                {kpi("Days Left", mpp.month_remaining_production_days)}
+                {kpi("Prod/day for target", mpp.target_bcm_day)}
+            </div>
         </div>
+
         <div style="padding:6px;">
             {build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm)}
         </div>
+    </div>
+    """
+
+
+def kpi(label, value, coloured=False):
+    bg = GREEN if value >= 0 else RED
+    style = f"background:{bg};" if coloured else ""
+    return f"""
+    <div class="kpi-box" style="{style}">
+        <div style="font-size:11px;">{label}</div>
+        <div style="font-size:16px;">{int(round(value)):,}</div>
     </div>
     """
 
@@ -227,20 +247,14 @@ def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm):
 
     def fmt(v): return f"{int(round(v)):,}"
     def var_cell(v):
-        return f"<td style='background:{RED if v > 0 else GREEN};'>{fmt(v)}</td>"
+        return f"<td style='background:{GREEN if v >= 0 else RED};'>{fmt(v)}</td>"
 
-    monthly = mpp.monthly_target_bcm
-    coal_total = mpp.coal_tons_planned
-    waste_total = mpp.waste_bcms_planned
     days = mpp.num_prod_days
     done = mpp.prod_days_completed
 
-    mtd_plan = monthly / days * done if days else 0
-    coal_plan = coal_total / days * done if days else 0
-    waste_plan = waste_total / days * done if days else 0
-
-    day_target = mpp.target_bcm_day
-    day_var = day_target - day_bcm
+    mtd_plan = mpp.monthly_target_bcm / days * done if days else 0
+    coal_plan = mpp.coal_tons_planned / days * done if days else 0
+    waste_plan = mpp.waste_bcms_planned / days * done if days else 0
 
     return f"""
     <table class="summary-table">
@@ -266,25 +280,25 @@ def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm):
             <th>Day Var</th>
         </tr>
         <tr>
-            <td>{fmt(monthly)}</td>
-            <td>{fmt(coal_total)}</td>
-            <td>{fmt(waste_total)}</td>
+            <td>{fmt(mpp.monthly_target_bcm)}</td>
+            <td>{fmt(mpp.coal_tons_planned)}</td>
+            <td>{fmt(mpp.waste_bcms_planned)}</td>
 
             <td>{fmt(mtd_actual)}</td>
             <td>{fmt(mtd_plan)}</td>
-            {var_cell(mtd_plan - mtd_actual)}
+            {var_cell(mtd_actual - mtd_plan)}
 
             <td>{fmt(mtd_coal)}</td>
             <td>{fmt(coal_plan)}</td>
-            {var_cell(coal_plan - mtd_coal)}
+            {var_cell(mtd_coal - coal_plan)}
 
             <td>{fmt(mtd_waste)}</td>
             <td>{fmt(waste_plan)}</td>
-            {var_cell(waste_plan - mtd_waste)}
+            {var_cell(mtd_waste - waste_plan)}
 
             <td>{fmt(day_bcm)}</td>
-            <td>{fmt(day_target)}</td>
-            {var_cell(day_var)}
+            <td>{fmt(mpp.target_bcm_day)}</td>
+            {var_cell(day_bcm - mpp.target_bcm_day)}
         </tr>
     </table>
     """
