@@ -1,6 +1,6 @@
 import frappe
 from frappe.utils import format_date, getdate, nowdate
-from datetime import datetime, timedelta
+from datetime import datetime
 
 GREEN = "#C9F2D8"
 RED = "#F9CACA"
@@ -32,6 +32,7 @@ def execute(filters=None):
 
     mpp_map = get_monthly_plans_bulk(dmp.define)
     today_bcm_map = get_today_bcm_bulk(sites)
+    today_hours_map = get_today_hours_bulk(sites)
     mtd_coal_map = get_mtd_coal_bulk(
         sites,
         min(r.start_date for r in dmp.define),
@@ -46,9 +47,18 @@ def execute(filters=None):
             continue
 
         day_bcm = today_bcm_map.get(row.site, 0)
+        hours_today = today_hours_map.get(row.site, 0)
+
+        mtd_actual = mpp.month_actual_bcm or 0
         mtd_coal = mtd_coal_map.get(row.site, 0)
-        mtd_actual = mpp.month_actual_bcm
         mtd_waste = mtd_actual - (mtd_coal / 1.5)
+
+        # 🔹 Dynamic Day Target
+        day_target = (
+            (mpp.num_excavators or 0)
+            * 220
+            * hours_today
+        )
 
         site_sections.append(
             build_site_section(
@@ -59,7 +69,8 @@ def execute(filters=None):
                 mtd_actual,
                 mtd_coal,
                 mtd_waste,
-                day_bcm
+                day_bcm,
+                day_target
             )
         )
 
@@ -85,6 +96,7 @@ def execute(filters=None):
             display: flex;
             gap: 6px;
             margin-top: 6px;
+            flex-wrap: wrap;
         }}
 
         .kpi-box {{
@@ -162,6 +174,19 @@ def get_today_bcm_bulk(sites):
     return {r.location: r.bcm or 0 for r in rows}
 
 
+def get_today_hours_bulk(sites):
+    today = getdate(nowdate())
+    rows = frappe.db.sql("""
+        SELECT location, COUNT(name) AS hours
+        FROM `tabHourly Production`
+        WHERE location IN %(sites)s
+          AND prod_date = %(today)s
+        GROUP BY location
+    """, {"sites": sites, "today": today}, as_dict=True)
+
+    return {r.location: r.hours or 0 for r in rows}
+
+
 def get_mtd_coal_bulk(sites, start_date, end_date):
     rows = frappe.db.sql("""
         SELECT hp.location,
@@ -201,11 +226,21 @@ def get_monthly_plans_bulk(rows):
 # ===============================
 
 def build_site_section(site, start_date, end_date, mpp,
-                       mtd_actual, mtd_coal, mtd_waste, day_bcm):
+                       mtd_actual, mtd_coal, mtd_waste,
+                       day_bcm, day_target):
 
     def fmt(v): return f"{int(round(v)):,}"
 
-    forecast_var = mpp.month_forecated_bcm - mpp.monthly_target_bcm
+    forecast = mpp.month_forecated_bcm or 0
+    month_target = mpp.monthly_target_bcm or 0
+    forecast_var = forecast - month_target
+
+    prod_days_done = mpp.prod_days_completed or 0
+    days_left = mpp.month_remaining_production_days or 0
+
+    current_avg = (mtd_actual / prod_days_done) if prod_days_done else 0
+    required_daily = ((month_target - forecast) / days_left) if days_left else 0
+
     bg = SITE_COLOURS.get(site, "#BDC3C7")
 
     return f"""
@@ -217,16 +252,18 @@ def build_site_section(site, start_date, end_date, mpp,
             </div>
 
             <div class="kpi-bar">
-                {kpi("Month Target", mpp.monthly_target_bcm)}
-                {kpi("Forecast", mpp.month_forecated_bcm)}
+                {kpi("Month Target", month_target)}
+                {kpi("Forecast", forecast)}
                 {kpi("Var", forecast_var, True)}
-                {kpi("Days Left", mpp.month_remaining_production_days)}
-                {kpi("Prod/day for target", mpp.target_bcm_day)}
+                {kpi("Days Left", days_left)}
+                {kpi("Original Daily Target", mpp.target_bcm_day)}
+                {kpi("Current Avg / Day", current_avg)}
+                {kpi("Required Daily for Target", required_daily)}
             </div>
         </div>
 
         <div style="padding:6px;">
-            {build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm)}
+            {build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm, day_target)}
         </div>
     </div>
     """
@@ -243,7 +280,7 @@ def kpi(label, value, coloured=False):
     """
 
 
-def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm):
+def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm, day_target):
 
     def fmt(v): return f"{int(round(v)):,}"
     def var_cell(v):
@@ -297,8 +334,8 @@ def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm):
             {var_cell(mtd_waste - waste_plan)}
 
             <td>{fmt(day_bcm)}</td>
-            <td>{fmt(mpp.target_bcm_day)}</td>
-            {var_cell(day_bcm - mpp.target_bcm_day)}
+            <td>{fmt(day_target)}</td>
+            {var_cell(day_bcm - day_target)}
         </tr>
     </table>
     """
