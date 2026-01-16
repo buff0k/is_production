@@ -130,7 +130,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-09-18 06:21:49.026184",
+ "modified": "2026-01-16 10:28:35.749170",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Survey",
@@ -183,5 +183,8 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
 }

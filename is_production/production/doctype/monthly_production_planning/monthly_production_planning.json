@@ -32,6 +32,7 @@
   "num_sat_shifts",
   "section_break_beyf",
   "month_prod_days",
+  "month_prod_days_field",
   "month_production_stats_tab",
   "shift_day_and_month_hours_section",
   "month_production_hours_days_column",
@@ -61,7 +62,8 @@
   "monthly_volume_planning_tab",
   "truck_and_shovel_section",
   "monthly_target_bcm",
-  "mine_target",
+  "pre_target",
+  "prod_adjust_factor",
   "coal_tons_planned",
   "coal_planned_bcm",
   "waste_bcms_planned",
@@ -542,15 +544,25 @@
    "read_only": 1
   },
   {
-   "fieldname": "mine_target",
+   "fieldname": "pre_target",
    "fieldtype": "Data",
-   "label": "Mine Target"
+   "label": "Pre-Target"
+  },
+  {
+   "fieldname": "prod_adjust_factor",
+   "fieldtype": "Data",
+   "label": "Production Adjustment Factor"
+  },
+  {
+   "fieldname": "month_prod_days_field",
+   "fieldtype": "HTML",
+   "label": "Month Production Days"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-12-22 19:19:35.312954",
+ "modified": "2026-01-16 10:29:20.246448",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",
@@ -595,5 +607,6 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1
 }

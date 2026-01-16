@@ -51,7 +51,7 @@
  "modified": "2026-01-14 22:21:16.751005",
  "modified_by": "Administrator",
  "module": "Production",
- "name": "Hourly Entries",
+ "name": "Drills Hourly Entries",
  "owner": "Administrator",
  "permissions": [],
  "row_format": "Dynamic",

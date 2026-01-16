@@ -77,6 +77,12 @@ frappe.ui.form.on('Monthly Production Planning', {
   try {
     console.log("🌀 Refresh triggered");
     console.log("📍 Location is:", frm.doc.location);
+// ─────────────────────────────────────────────
+// Default Production Adjustment Factor
+// ─────────────────────────────────────────────
+if (frm.doc.prod_adjust_factor == null) {
+  frm.set_value('prod_adjust_factor', 1);
+}
 
     // on every refresh, re-enable the delete icon in the grid
     if (frm.fields_dict.dozer_table && frm.fields_dict.dozer_table.grid) {
@@ -134,7 +140,7 @@ frappe.ui.form.on('Monthly Production Planning', {
     frm.fields_dict.blasting_plan.grid.update_docfield_property(
       'geo_description', 'options', opts
     );
-
+  renderMonthProdDaysHTML(frm);
   } catch (e) {
     logError('refresh', e);
   }
@@ -268,13 +274,32 @@ refresh_machines_from_assets(frm) {
         totals.morning  += hours.morning;
         totals.afternoon+= hours.afternoon;
 
-        const row = frm.add_child('month_prod_days');
-        row.shift_start_date      = frappe.datetime.obj_to_str(d);
-        row.day_week              = dow;
-        row.shift_day_hours       = hours.day;
-        row.shift_night_hours     = hours.night;
-        row.shift_morning_hours   = hours.morning;
-        row.shift_afternoon_hours = hours.afternoon;
+      const row = frm.add_child('month_prod_days');
+
+row.shift_start_date      = frappe.datetime.obj_to_str(d);
+row.day_week              = dow;
+row.shift_day_hours       = hours.day;
+row.shift_night_hours     = hours.night;
+row.shift_morning_hours   = hours.morning;
+row.shift_afternoon_hours = hours.afternoon;
+
+// ─────────────────────────────────────────────
+// NEW LOGIC: Default Production Excavators
+// ─────────────────────────────────────────────
+
+// Default from parent, but allow manual override later
+row.production_excavators = frm.doc.num_excavators || 0;
+
+// Calculate BCM per day
+const totalShiftHours =
+  (row.shift_day_hours || 0) +
+  (row.shift_night_hours || 0);
+
+row.bcm_per_day =
+  (row.production_excavators || 0) *
+  totalShiftHours *
+  220;
+
       }
 
       frm.set_value({
@@ -286,6 +311,7 @@ refresh_machines_from_assets(frm) {
       });
       frm.trigger('recalculate_totals');
       frm.refresh_field('month_prod_days');
+      recalc_pre_target(frm);
       frappe.msgprint(__('Monthly Production Days populated.'));
     } catch (e) {
       logError('populate_monthly_prod_days', e);
@@ -686,58 +712,49 @@ refresh_machines_from_assets(frm) {
 
   // Section X: Update TS Planned Volumes (with logging, using precomputed excavator count)
   update_ts_planned_volumes(frm) {
-    try {
-      const hours = frm.doc.total_month_prod_hours || 0;
-      const tempo = frm.doc.ts_tempo            || 0;
-      // Use precomputed number of excavators
-      const numExcavators = frm.doc.num_excavators || 0;
-      // Calculate TS volume
-      const tsTotal = hours * tempo * numExcavators;
-      // Retrieve current dozer volume
-      const dozerTotal = frm.doc.planned_dozer_volumes || 0;
-      // Calculate target BCM
-      const monthlyTarget = tsTotal + dozerTotal;
+  try {
+    // TS production now comes ONLY from Monthly Production Days
+   const tsTotal = (frm.doc.month_prod_days || []).reduce(
+  (sum, r) => sum + flt(r.bcm_per_day),
+  0
+);
 
-      // Log calculations
-      console.log(
-        `📊 TS Planned Volumes -> hours: ${hours}, tempo: ${tempo}, excavators: ${numExcavators}, tsTotal: ${tsTotal}, dozerTotal: ${dozerTotal}, monthlyTarget: ${monthlyTarget}`
-      );
 
-      frm.set_value({
-        total_ts_planned_volumes: tsTotal,
-        monthly_target_bcm:       monthlyTarget
-      });
-    } catch (e) {
-      logError('update_ts_planned_volumes', e);
-    }
-  },
+
+    frm.set_value('total_ts_planned_volumes', tsTotal);
+
+    // Recalculate pre_target whenever TS changes
+    recalc_pre_target(frm);
+
+  } catch (e) {
+    logError('update_ts_planned_volumes', e);
+  }
+},
+
 
   // Section Y: Update Planned Dozer Volumes (with logging)
   update_planned_dozer_volumes(frm) {
-    try {
-      const blasts = frm.doc.blasting_plan || [];
-      const dozerTotal = blasts.reduce(
-        (sum, row) => sum + (row.block_dozing_bcms || 0), 0
-      );
-      // Retrieve current TS volume
-      const tsTotal = frm.doc.total_ts_planned_volumes || 0;
-      // Calculate target BCM
-      const monthlyTarget = tsTotal + dozerTotal;
+  try {
+    const dozerTotal = (frm.doc.blasting_plan || []).reduce(
+      (sum, row) => sum + (row.block_dozing_bcms || 0),
+      0
+    );
 
-      // Log calculations
-      console.log(
-        `📐 Planned Dozer Volumes -> blast rows: ${blasts.length}, dozerTotal: ${dozerTotal}, tsTotal: ${tsTotal}, monthlyTarget: ${monthlyTarget}`
-      );
+    frm.set_value('planned_dozer_volumes', dozerTotal);
 
-      frm.set_value({
-        planned_dozer_volumes: dozerTotal,
-        monthly_target_bcm:    monthlyTarget
-      });
-    } catch (e) {
-      logError('update_planned_dozer_volumes', e);
-    }
-  },
+    // Recalculate pre_target whenever dozing changes
+    recalc_pre_target(frm);
 
+  } catch (e) {
+    logError('update_planned_dozer_volumes', e);
+  }
+},
+
+prod_adjust_factor: function(frm) {
+  // When the production adjustment factor changes,
+  // recalculate the pre-target value
+  recalc_pre_target(frm);
+},
  coal_tons_planned: function(frm) {
         // Calculate the derived fields when coal_tons_planned changes
         if (frm.doc.coal_tons_planned) {
@@ -789,43 +806,44 @@ refresh_machines_from_assets(frm) {
 
 //Child Table Triggers (diagnostic version)
 frappe.ui.form.on('Monthly Production Days', {
+
+  production_excavators: function (frm, cdt, cdn) {
+    recalc_bcm_per_day(cdt, cdn);
+    recalc_pre_target(frm);
+    renderMonthProdDaysHTML(frm);
+
+  },
+
   shift_day_hours: function (frm, cdt, cdn) {
-    const row = locals[cdt][cdn];
-    console.log('🟨 shift_day_hours changed', {
-      cdn,
-      ref: row.hourly_production_reference,
-      newVal: row.shift_day_hours
-    });
+    recalc_bcm_per_day(cdt, cdn);
+    recalc_pre_target(frm);
     frm.trigger('recalculate_totals');
+    renderMonthProdDaysHTML(frm);
+
   },
+
   shift_night_hours: function (frm, cdt, cdn) {
-    const row = locals[cdt][cdn];
-    console.log('🟨 shift_night_hours changed', {
-      cdn,
-      ref: row.hourly_production_reference,
-      newVal: row.shift_night_hours
-    });
+    recalc_bcm_per_day(cdt, cdn);
+    recalc_pre_target(frm);
     frm.trigger('recalculate_totals');
+    renderMonthProdDaysHTML(frm);
+
   },
+
   shift_morning_hours: function (frm, cdt, cdn) {
-    const row = locals[cdt][cdn];
-    console.log('🟨 shift_morning_hours changed', {
-      cdn,
-      ref: row.hourly_production_reference,
-      newVal: row.shift_morning_hours
-    });
     frm.trigger('recalculate_totals');
+    renderMonthProdDaysHTML(frm);
+
   },
+
   shift_afternoon_hours: function (frm, cdt, cdn) {
-    const row = locals[cdt][cdn];
-    console.log('🟨 shift_afternoon_hours changed', {
-      cdn,
-      ref: row.hourly_production_reference,
-      newVal: row.shift_afternoon_hours
-    });
     frm.trigger('recalculate_totals');
+    renderMonthProdDaysHTML(frm);
+
   }
 });
+
+
 
 // When either source field changes on a Geo_mat_layer row:
 frappe.ui.form.on('Geo_mat_layer', {
@@ -910,6 +928,36 @@ const dz = flt((row.block_bcm || 0) * ((row.dozing_percentage || 0) / 100), 2);
 frappe.model.set_value(cdt, cdn, 'block_dozing_bcms', dz);
 
 }
+
+function recalc_bcm_per_day(cdt, cdn) {
+  const row = locals[cdt][cdn];
+
+  const excavators = flt(row.production_excavators);
+  const hours =
+    flt(row.shift_day_hours) +
+    flt(row.shift_night_hours);
+
+
+  const bcm = excavators * hours * 220;
+
+  frappe.model.set_value(cdt, cdn, 'bcm_per_day', bcm);
+}
+
+function recalc_pre_target(frm) {
+  const ts     = flt(frm.doc.total_ts_planned_volumes);
+  const dozing = flt(frm.doc.planned_dozer_volumes);
+  
+  const factor = frm.doc.prod_adjust_factor || 1;
+
+  const rawTarget = ts + dozing;
+  const preTarget = rawTarget * factor;
+
+  frm.set_value({
+    pre_target: preTarget,
+    monthly_target_bcm: preTarget   // 🔒 display-only mirror
+  });
+}
+
 
 
 function renderTeam(container, excavatorId, excavatorModel, truckList) {
@@ -1305,5 +1353,61 @@ function renderDozerAssignmentUI(frm) {
 
     container.append(card);
   });
+}
+function renderMonthProdDaysHTML(frm) {
+  const rows = frm.doc.month_prod_days || [];
+  const wrapper = frm.get_field('month_prod_days_field').$wrapper;
+
+  if (!rows.length) {
+    wrapper.html('<p><em>No production days yet.</em></p>');
+    return;
+  }
+
+  // 🔹 Get child DocType metadata
+  const meta = frappe.get_meta('Monthly Production Days');
+
+  // 🔹 Select visible, data-carrying fields only
+  const fields = meta.fields.filter(df =>
+    !df.hidden &&
+    !df.print_hide &&
+    df.fieldtype !== 'Section Break' &&
+    df.fieldtype !== 'Column Break' &&
+    df.fieldtype !== 'Button' &&
+    df.fieldtype !== 'HTML'
+  );
+
+  // 🔹 Header row
+  let html = `
+    <div style="overflow-x:auto;">
+    <table class="table table-bordered table-condensed"
+           style="font-size:11px; line-height:1.2;">
+      <thead>
+        <tr>
+          ${fields.map(f => `<th style="white-space:nowrap;">${f.label}</th>`).join('')}
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  // 🔹 Data rows
+  rows.forEach(row => {
+    html += `
+      <tr>
+        ${fields.map(f => `
+          <td style="white-space:nowrap;">
+            ${row[f.fieldname] ?? ''}
+          </td>
+        `).join('')}
+      </tr>
+    `;
+  });
+
+  html += `
+      </tbody>
+    </table>
+    </div>
+  `;
+
+  wrapper.html(html);
 }
 

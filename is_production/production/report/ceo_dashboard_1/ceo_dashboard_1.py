@@ -1,20 +1,90 @@
 import frappe
-from frappe.utils import format_date, getdate, nowdate
-from datetime import datetime
+from frappe.utils import format_date, getdate, now_datetime
+from datetime import timedelta, datetime
 
 GREEN = "#C9F2D8"
 RED = "#F9CACA"
 HEADER_BG = "#EEF4FB"
 
 SITE_COLOURS = {
-    "Klipfontein": "#4DA3FF",
+    "Klipfontein": "#55A7FF",
     "Gwab": "#ECE6F5",
     "Kriel Rehabilitation": "#2ECC71",
-    "Koppie": "#F39C12",
+    "Koppie": "#F5A623",
     "Uitgevallen": "#1ABC9C",
     "Bankfontein": "#F1C40F",
 }
 
+GROUP_A = {"Klipfontein", "Gwab"}
+GROUP_B = {"Kriel Rehabilitation", "Bankfontein", "Uitgevallen", "Koppie"}
+
+PRODUCTIVITY_RATE = 220
+
+# ==========================================================
+# PRODUCTION DATE (06:00 → 06:00)
+# ==========================================================
+
+def get_production_date():
+    now = now_datetime()
+    six_am = now.replace(hour=6, minute=0, second=0, microsecond=0)
+    if now < six_am:
+        return (now - timedelta(days=1)).date()
+    return now.date()
+
+
+def get_production_window():
+    now = now_datetime()
+    start = now.replace(hour=6, minute=0, second=0, microsecond=0)
+    if now < start:
+        start -= timedelta(days=1)
+    return start, now
+
+
+# ==========================================================
+# PRODUCTIVE HOURS LOGIC
+# ==========================================================
+
+def get_productive_hours(site):
+    start_dt, now = get_production_window()
+    weekday = start_dt.weekday()  # Mon=0
+
+    # ---- determine work end ----
+    if site in GROUP_A:
+        if weekday == 6:  # Sunday
+            work_end = start_dt.replace(hour=14)
+        else:
+            work_end = start_dt + timedelta(days=1)
+    else:
+        if weekday == 6:  # Sunday
+            return 0
+        elif weekday == 5:  # Saturday
+            work_end = start_dt.replace(hour=0) + timedelta(days=1)
+        else:
+            work_end = start_dt + timedelta(days=1)
+
+    effective_end = min(now, work_end)
+
+    excluded = {
+        (6, 7), (7, 8),   # startup
+        (13, 14),         # lunch
+        (1, 2),           # fatigue
+    }
+
+    productive = 0
+    cursor = start_dt
+
+    while cursor + timedelta(hours=1) <= effective_end:
+        slot = (cursor.hour, (cursor.hour + 1) % 24)
+        if slot not in excluded:
+            productive += 1
+        cursor += timedelta(hours=1)
+
+    return productive
+
+
+# ==========================================================
+# MAIN EXECUTE
+# ==========================================================
 
 def execute(filters=None):
     if not filters:
@@ -29,14 +99,20 @@ def execute(filters=None):
         return [], None, "<b>No sites configured.</b>"
 
     sites = [r.site for r in dmp.define]
+    prod_date = get_production_date()
+
+    start_date = min(r.start_date for r in dmp.define)
+    end_date = max(r.end_date for r in dmp.define)
 
     mpp_map = get_monthly_plans_bulk(dmp.define)
-    today_bcm_map = get_today_bcm_bulk(sites)
-    today_hours_map = get_today_hours_bulk(sites)
+    today_bcm_map = get_today_bcm_bulk(sites, prod_date)
+
+    survey_map = get_latest_coal_surveys_bulk(
+        sites, start_date, end_date
+    )
+
     mtd_coal_map = get_mtd_coal_bulk(
-        sites,
-        min(r.start_date for r in dmp.define),
-        max(r.end_date for r in dmp.define)
+        sites, start_date, end_date, survey_map
     )
 
     site_sections = []
@@ -47,17 +123,17 @@ def execute(filters=None):
             continue
 
         day_bcm = today_bcm_map.get(row.site, 0)
-        hours_today = today_hours_map.get(row.site, 0)
 
         mtd_actual = mpp.month_actual_bcm or 0
         mtd_coal = mtd_coal_map.get(row.site, 0)
         mtd_waste = mtd_actual - (mtd_coal / 1.5)
 
-        # 🔹 Dynamic Day Target
+        productive_hours = get_productive_hours(row.site)
+
         day_target = (
             (mpp.num_excavators or 0)
-            * 220
-            * hours_today
+            * PRODUCTIVITY_RATE
+            * productive_hours
         )
 
         site_sections.append(
@@ -84,12 +160,13 @@ def execute(filters=None):
 
         .dashboard-grid {{
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(750px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(900px, 1fr));
+            gap: 10px;
         }}
 
         .site-section {{
             border: 4px solid #000;
+            background: #ffffff;
         }}
 
         .kpi-bar {{
@@ -104,7 +181,7 @@ def execute(filters=None):
             border: 2px solid #000;
             padding: 6px 10px;
             text-align: center;
-            min-width: 130px;
+            min-width: 120px;
         }}
 
         table.summary-table {{
@@ -115,37 +192,16 @@ def execute(filters=None):
 
         table.summary-table th {{
             background: {HEADER_BG};
-            border: 1px solid #9FB6D1;
+            border: 1px solid #000;
             padding: 6px;
             text-align: center;
         }}
 
         table.summary-table td {{
-            border: 1px solid #9FB6D1;
+            border: 1px solid #000;
             padding: 4px 6px;
             text-align: right;
         }}
-
-        /* KPI GROUP BORDERS */
-        .summary-table th:nth-child(4),
-        .summary-table td:nth-child(4) {{ border-left: 4px solid #000; }}
-        .summary-table th:nth-child(6),
-        .summary-table td:nth-child(6) {{ border-right: 4px solid #000; }}
-
-        .summary-table th:nth-child(7),
-        .summary-table td:nth-child(7) {{ border-left: 4px solid #000; }}
-        .summary-table th:nth-child(9),
-        .summary-table td:nth-child(9) {{ border-right: 4px solid #000; }}
-
-        .summary-table th:nth-child(10),
-        .summary-table td:nth-child(10) {{ border-left: 4px solid #000; }}
-        .summary-table th:nth-child(12),
-        .summary-table td:nth-child(12) {{ border-right: 4px solid #000; }}
-
-        .summary-table th:nth-child(13),
-        .summary-table td:nth-child(13) {{ border-left: 4px solid #000; }}
-        .summary-table th:nth-child(15),
-        .summary-table td:nth-child(15) {{ border-right: 4px solid #000; }}
     </style>
 
     <div class="dashboard-grid">
@@ -156,52 +212,92 @@ def execute(filters=None):
     return [], None, html
 
 
-# ===============================
+# ==========================================================
 # BULK QUERIES
-# ===============================
+# ==========================================================
 
-def get_today_bcm_bulk(sites):
-    today = getdate(nowdate())
+def get_today_bcm_bulk(sites, prod_date):
     rows = frappe.db.sql("""
         SELECT location,
                SUM(total_ts_bcm + total_dozing_bcm) AS bcm
         FROM `tabHourly Production`
         WHERE location IN %(sites)s
-          AND prod_date = %(today)s
+          AND prod_date = %(prod_date)s
         GROUP BY location
-    """, {"sites": sites, "today": today}, as_dict=True)
+    """, {"sites": sites, "prod_date": prod_date}, as_dict=True)
 
     return {r.location: r.bcm or 0 for r in rows}
 
 
-def get_today_hours_bulk(sites):
-    today = getdate(nowdate())
+def get_latest_coal_surveys_bulk(sites, start_date, end_date):
     rows = frappe.db.sql("""
-        SELECT location, COUNT(name) AS hours
-        FROM `tabHourly Production`
-        WHERE location IN %(sites)s
-          AND prod_date = %(today)s
-        GROUP BY location
-    """, {"sites": sites, "today": today}, as_dict=True)
+        SELECT s.location,
+               s.survey_datetime,
+               s.total_surveyed_coal_tons
+        FROM `tabSurvey` s
+        INNER JOIN (
+            SELECT location,
+                   MAX(survey_datetime) AS max_dt
+            FROM `tabSurvey`
+            WHERE location IN %(sites)s
+              AND DATE(survey_datetime) BETWEEN %(start)s AND %(end)s
+            GROUP BY location
+        ) latest
+        ON latest.location = s.location
+       AND latest.max_dt = s.survey_datetime
+    """, {
+        "sites": sites,
+        "start": start_date,
+        "end": end_date
+    }, as_dict=True)
 
-    return {r.location: r.hours or 0 for r in rows}
+    return {
+        r.location: {
+            "survey_date": r.survey_datetime.date(),
+            "survey_tons": r.total_surveyed_coal_tons or 0
+        }
+        for r in rows
+    }
 
 
-def get_mtd_coal_bulk(sites, start_date, end_date):
+def get_mtd_coal_bulk(sites, start_date, end_date, survey_map):
     rows = frappe.db.sql("""
         SELECT hp.location,
+               hp.prod_date,
                SUM(
                    CASE WHEN LOWER(tl.mat_type) LIKE '%%coal%%'
                    THEN tl.bcms ELSE 0 END
-               ) * 1.5 AS mtd_coal
+               ) AS coal_bcm
         FROM `tabHourly Production` hp
         LEFT JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.location IN %(sites)s
           AND hp.prod_date BETWEEN %(start)s AND %(end)s
-        GROUP BY hp.location
-    """, {"sites": sites, "start": start_date, "end": end_date}, as_dict=True)
+        GROUP BY hp.location, hp.prod_date
+    """, {
+        "sites": sites,
+        "start": start_date,
+        "end": end_date
+    }, as_dict=True)
 
-    return {r.location: r.mtd_coal or 0 for r in rows}
+    bcm_map = {}
+
+    for r in rows:
+        survey = survey_map.get(r.location)
+        if survey and r.prod_date <= survey["survey_date"]:
+            continue
+        bcm_map.setdefault(r.location, 0)
+        bcm_map[r.location] += r.coal_bcm or 0
+
+    mtd_map = {}
+    for site in sites:
+        survey = survey_map.get(site)
+        post_survey_tons = bcm_map.get(site, 0) * 1.5
+        mtd_map[site] = (
+            survey["survey_tons"] + post_survey_tons
+            if survey else post_survey_tons
+        )
+
+    return mtd_map
 
 
 def get_monthly_plans_bulk(rows):
@@ -221,9 +317,9 @@ def get_monthly_plans_bulk(rows):
     return plans
 
 
-# ===============================
+# ==========================================================
 # HTML BUILDERS
-# ===============================
+# ==========================================================
 
 def build_site_section(site, start_date, end_date, mpp,
                        mtd_actual, mtd_coal, mtd_waste,
@@ -239,7 +335,9 @@ def build_site_section(site, start_date, end_date, mpp,
     days_left = mpp.month_remaining_production_days or 0
 
     current_avg = (mtd_actual / prod_days_done) if prod_days_done else 0
-    required_daily = ((month_target - forecast) / days_left) if days_left else 0
+    required_daily = (
+        (month_target - mtd_actual) / days_left
+    ) if days_left else 0
 
     bg = SITE_COLOURS.get(site, "#BDC3C7")
 
