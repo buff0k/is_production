@@ -47,6 +47,7 @@
   "month_remaining_prod_hours",
   "split_ratio",
   "month_actual_coal",
+  "mtd_coal_survey",
   "column_break_jdas",
   "target_bcm_day",
   "target_bcm_hour",
@@ -546,23 +547,30 @@
   {
    "fieldname": "pre_target",
    "fieldtype": "Data",
-   "label": "Pre-Target"
+   "label": "Pre-Target",
+   "precision": "0"
   },
   {
    "fieldname": "prod_adjust_factor",
    "fieldtype": "Data",
-   "label": "Production Adjustment Factor"
+   "label": "Production Adjustment Factor",
+   "precision": "2"
   },
   {
    "fieldname": "month_prod_days_field",
    "fieldtype": "HTML",
    "label": "Month Production Days"
+  },
+  {
+   "fieldname": "mtd_coal_survey",
+   "fieldtype": "Float",
+   "label": "MTD Coal With Survey"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-16 10:29:20.246448",
+ "modified": "2026-01-16 15:09:59.824223",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",

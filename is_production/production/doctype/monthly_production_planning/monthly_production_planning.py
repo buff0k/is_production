@@ -38,8 +38,7 @@ class MonthlyProductionPlanning(Document):
         """
         # 1. Gather references from child table
         refs = [row.hourly_production_reference for row in self.month_prod_days if row.hourly_production_reference]
-        if not refs:
-            return
+        
 
         # 2. Fetch Hourly Production aggregates
         hp_records = frappe.get_all('Hourly Production',
@@ -58,27 +57,12 @@ class MonthlyProductionPlanning(Document):
             hp_map[ref]['ts'] += ts
             hp_map[ref]['dz'] += dz
 
-        coal_records = frappe.get_all('Hourly Production',
-            filters=[
-                ['month_prod_planning', '=', self.name],
-                ['monthly_production_child_ref', 'in', refs]
-            ],
-            fields=['coal_tons_total']
-        )
-        total_coal = sum(rec.get('coal_tons_total') or 0 for rec in coal_records)
-
-        # Then later in the same method, where other totals are set (around line 100), add:
-        self.month_actual_coal = total_coal
+       
 
         
-        # Calculate split ratio
-        if self.month_actual_coal and (self.month_actual_bcm or self.month_actual_coal):
-            try:
-                self.split_ratio = (self.month_actual_bcm - (self.month_actual_coal/1.5 )) / self.month_actual_coal
-            except ZeroDivisionError:
-                self.split_ratio = 0
-        else:
-            self.split_ratio = 0
+
+        
+
 
         # 3. Fetch Survey data
         srv_records = frappe.get_all('Survey',
@@ -101,6 +85,75 @@ class MonthlyProductionPlanning(Document):
         if survey_rows:
             last_row = max(survey_rows, key=lambda r: r.shift_start_date)
             last_ref = last_row.hourly_production_reference
+        
+                # ─────────────────────────────────────────────
+        # MTD COAL CALCULATION (SITE + DATE RANGE)
+        # ─────────────────────────────────────────────
+
+        
+
+                # ─────────────────────────────────────────────
+        # MTD COAL (MATCHES PRODUCTION PERFORMANCE REPORT)
+        # Criteria:
+        # - Hourly Production.location == MPP.location
+        # - prod_date BETWEEN prod_month_start_date AND prod_month_end_date
+        # - Coal material only
+        # Progressive by nature
+        # ─────────────────────────────────────────────
+
+               # ─────────────────────────────────────────────
+        # MTD COAL WITH SURVEY OVERRIDE (PROGRESSIVE)
+        # ─────────────────────────────────────────────
+
+        COAL_CONVERSION = 1.5
+        base_coal_tons = 0
+        base_date = self.prod_month_start_date
+
+        # 1️⃣ Fetch latest survey in the month for this site
+        survey = frappe.get_all(
+            "Survey",
+            filters={
+                "location": self.location,
+                "last_production_shift_start_date": ["between", [
+                    self.prod_month_start_date,
+                    self.prod_month_end_date
+                ]],
+                "docstatus": 1
+            },
+            fields=[
+                "last_production_shift_start_date",
+                "total_surveyed_coal_tons"
+            ],
+            order_by="last_production_shift_start_date desc",
+            limit_page_length=1
+        )
+
+        # 2️⃣ If survey exists, it becomes the base
+        if survey:
+            base_coal_tons = survey[0].total_surveyed_coal_tons or 0
+            base_date = survey[0].last_production_shift_start_date
+
+        # 3️⃣ Add HP coal AFTER survey (or month start if no survey)
+        hp_rows = frappe.db.sql("""
+            SELECT COALESCE(SUM(tl.bcms), 0) AS coal_bcm
+            FROM `tabHourly Production` hp
+            JOIN `tabTruck Loads` tl ON tl.parent = hp.name
+            WHERE hp.location = %s
+              AND hp.prod_date > %s
+              AND hp.prod_date <= %s
+              AND LOWER(tl.mat_type) LIKE '%%coal%%'
+        """, (
+            self.location,
+            base_date,
+            self.prod_month_end_date
+        ), as_dict=True)
+
+        hp_coal_bcm = hp_rows[0]["coal_bcm"] or 0
+        hp_coal_tons = hp_coal_bcm * COAL_CONVERSION
+
+        # 4️⃣ Final progressive MTD coal
+        self.mtd_coal = base_coal_tons + hp_coal_tons
+
 
         # 5. Update child table rows
         cum_ts = 0
@@ -166,6 +219,22 @@ class MonthlyProductionPlanning(Document):
         self.month_act_dozing_bcm_tallies = total_dz
         self.monthly_act_tally_survey_variance = survey_var
         self.month_actual_bcm = actual
+                # Finalise coal totals
+        self.month_actual_coal = self.mtd_coal
+
+        # Calculate split ratio (waste BCM / coal tons)
+        if self.month_actual_coal:
+            try:
+                self.split_ratio = (
+                    self.month_actual_bcm
+                    - (self.month_actual_coal / 1.5)
+                ) / self.month_actual_coal
+            except ZeroDivisionError:
+                self.split_ratio = 0
+        else:
+            self.split_ratio = 0
+
+        self.month_actual_coal = self.mtd_coal
         self.prod_days_completed = done_days
         self.month_prod_hours_completed = done_hours
         self.month_remaining_production_days = (self.num_prod_days or 0) - done_days

@@ -125,7 +125,7 @@ def execute(filters=None):
         day_bcm = today_bcm_map.get(row.site, 0)
 
         mtd_actual = mpp.month_actual_bcm or 0
-        mtd_coal = mtd_coal_map.get(row.site, 0)
+        mtd_coal = mpp.month_actual_coal or 0   # ✅ UPGRADE APPLIED HERE
         mtd_waste = mtd_actual - (mtd_coal / 1.5)
 
         productive_hours = get_productive_hours(row.site)
@@ -352,11 +352,14 @@ def build_site_section(site, start_date, end_date, mpp,
             <div class="kpi-bar">
                 {kpi("Month Target", month_target)}
                 {kpi("Forecast", forecast)}
-                {kpi("Var", forecast_var, True)}
-                {kpi("Days Left", days_left)}
+                {kpi("Var: Forecast vs.Month Target", forecast_var, True)}
+                {kpi("Days Left in Month", days_left)}
                 {kpi("Original Daily Target", mpp.target_bcm_day)}
-                {kpi("Current Avg / Day", current_avg)}
-                {kpi("Required Daily for Target", required_daily)}
+                {kpi("Current Avg per Day", current_avg)}
+                {kpi_required_vs_original(
+                    "Required Daily for Target",
+                    required_daily,
+                    mpp.target_bcm_day)}
             </div>
         </div>
 
@@ -374,6 +377,18 @@ def kpi(label, value, coloured=False):
     <div class="kpi-box" style="{style}">
         <div style="font-size:11px;">{label}</div>
         <div style="font-size:16px;">{int(round(value)):,}</div>
+    </div>
+    """
+
+
+def kpi_required_vs_original(label, required, original):
+    bg = GREEN if required <= original else RED
+    return f"""
+    <div class="kpi-box" style="background:{bg};">
+        <div style="font-size:11px;">{label}</div>
+        <div style="font-size:16px;">
+            {int(round(required)):,}
+        </div>
     </div>
     """
 
