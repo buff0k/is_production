@@ -77,6 +77,15 @@ frappe.ui.form.on('Monthly Production Planning', {
   try {
     console.log("🌀 Refresh triggered");
     console.log("📍 Location is:", frm.doc.location);
+
+    // ─────────────────────────────────────────────
+    // Hide native Monthly Production Days child table
+    // Users will interact ONLY with the HTML grid (month_prod_days_field)
+    // ─────────────────────────────────────────────
+    if (frm.fields_dict.month_prod_days && frm.fields_dict.month_prod_days.$wrapper) {
+      frm.fields_dict.month_prod_days.$wrapper.hide();
+    }
+
 // ─────────────────────────────────────────────
 // Default Production Adjustment Factor
 // ─────────────────────────────────────────────
@@ -1354,6 +1363,84 @@ function renderDozerAssignmentUI(frm) {
     container.append(card);
   });
 }
+
+function getMPPDaysMetaColumns(frm) {
+  // UI JSON (DocType) is the control mechanism:
+  // - order: meta.field_order / meta.fields order
+  // - label: df.label
+  // - visibility: df.hidden
+  // - editability: df.read_only and shift_system rules
+  // - precision/fieldtype: df.fieldtype / df.precision
+  const meta = frappe.get_meta('Monthly Production Days');
+  if (!meta || !meta.fields) return [];
+
+  // Build in DocType field order (excluding layout fields)
+  const layoutTypes = new Set(['Section Break','Column Break','Tab Break','Fold','HTML','Button','Table','Table MultiSelect','Heading']);
+  let fields = meta.fields.filter(df => df.fieldname && !layoutTypes.has(df.fieldtype) && !df.hidden);
+
+  // Prefer DocType-export order if available
+  if (Array.isArray(meta.field_order) && meta.field_order.length) {
+    const idx = Object.create(null);
+    meta.field_order.forEach((fn, i) => { idx[fn] = i; });
+    fields.sort((a,b) => (idx[a.fieldname] ?? 9999) - (idx[b.fieldname] ?? 9999));
+  }
+
+  // Only show what the UI JSON says is "in_list_view" OR the core frozen columns (shift_start_date, day_week)
+  const mustShow = new Set(['shift_start_date','day_week']);
+  fields = fields.filter(df => mustShow.has(df.fieldname) || df.in_list_view);
+
+  // Map to column defs
+  const shiftSystem = frm.doc.shift_system;
+
+  return fields.map(df => {
+    // Base editability is controlled by DocType read_only
+    let editable = !(df.read_only || df.read_only === 1);
+
+    // Shift-system-aware alignment (keeps structure consistent and prevents "irrelevant" edits)
+    if (shiftSystem === '2x12Hour') {
+      if (['shift_morning_hours','shift_afternoon_hours'].includes(df.fieldname)) editable = false;
+    }
+    if (shiftSystem === '3x8Hour') {
+      // In 3x8, day/night may still exist, but typically morning/afternoon/night are used.
+      // Keep them editable only if DocType allows it.
+      // (No extra lock here other than DocType read_only)
+    }
+
+    // Enforce computed field locks (even if DocType wasn't updated yet)
+    if (['bcm_per_day','total_daily_bcms','total_ts_bcms','total_dozing_bcms',
+         'cum_ts_bcms','tot_cumulative_dozing_bcms',
+         'tot_cum_dozing_survey','tot_cum_ts_survey',
+         'cum_dozing_variance','cum_ts_variance'].includes(df.fieldname)) {
+      editable = false;
+    }
+
+    // Determine input type + step from fieldtype/precision
+    const precision = (df.precision != null && df.precision !== '') ? parseInt(df.precision, 10) : null;
+    let inputType = 'text';
+    let step = 'any';
+
+    if (['Float','Currency','Percent'].includes(df.fieldtype)) {
+      inputType = 'number';
+      step = precision != null ? String(Math.pow(10, -precision)) : '0.01';
+    } else if (df.fieldtype === 'Int') {
+      inputType = 'number';
+      step = '1';
+    } else if (df.fieldtype === 'Date') {
+      inputType = 'date';
+      step = null;
+    }
+
+    return {
+      fieldname: df.fieldname,
+      label: df.label || df.fieldname,
+      editable,
+      df,
+      inputType,
+      step
+    };
+  });
+}
+
 function renderMonthProdDaysHTML(frm) {
   const rows = frm.doc.month_prod_days || [];
   const wrapper = frm.get_field('month_prod_days_field').$wrapper;
@@ -1363,51 +1450,127 @@ function renderMonthProdDaysHTML(frm) {
     return;
   }
 
-  // 🔹 Get child DocType metadata
-  const meta = frappe.get_meta('Monthly Production Days');
+  const columns = getMPPDaysMetaColumns(frm);
+  if (!columns.length) {
+    wrapper.html('<p><em>Unable to load Monthly Production Days meta.</em></p>');
+    return;
+  }
 
-  // 🔹 Select visible, data-carrying fields only
-  const fields = meta.fields.filter(df =>
-    !df.hidden &&
-    !df.print_hide &&
-    df.fieldtype !== 'Section Break' &&
-    df.fieldtype !== 'Column Break' &&
-    df.fieldtype !== 'Button' &&
-    df.fieldtype !== 'HTML'
-  );
+  // Freeze first 2 columns + sticky header row. Horizontal scroll from col 3 onward.
+  const style = `
+    <style>
+      .mpp-days-wrap { overflow:auto; max-height:520px; border:1px solid #ddd; border-radius:6px; }
+      table.mpp-days { border-collapse: separate; border-spacing: 0; width: max-content; min-width:100%; font-size:11px; line-height:1.2; }
+      table.mpp-days th, table.mpp-days td { border:1px solid #e6e6e6; padding:6px 8px; white-space:nowrap; background:#fff; }
+      table.mpp-days thead th { position: sticky; top: 0; z-index: 7; background:#f7f7f7; }
 
-  // 🔹 Header row
-  let html = `
-    <div style="overflow-x:auto;">
-    <table class="table table-bordered table-condensed"
-           style="font-size:11px; line-height:1.2;">
-      <thead>
-        <tr>
-          ${fields.map(f => `<th style="white-space:nowrap;">${f.label}</th>`).join('')}
-        </tr>
-      </thead>
-      <tbody>
+      /* CSS variables set dynamically after render */
+      .mpp-days-wrap { --mpp-col1w: 180px; --mpp-col2w: 160px; }
+
+      /* Freeze first 2 columns */
+      table.mpp-days th:nth-child(1), table.mpp-days td:nth-child(1) {
+        position: sticky; left: 0; z-index: 8; background:#fff;
+      }
+      table.mpp-days th:nth-child(2), table.mpp-days td:nth-child(2) {
+        position: sticky; left: var(--mpp-col1w); z-index: 8; background:#fff;
+      }
+
+      /* Keep header above sticky columns */
+      table.mpp-days thead th:nth-child(1),
+      table.mpp-days thead th:nth-child(2) {
+        z-index: 10; background:#f0f0f0;
+      }
+
+      .mpp-edit { width:100px; padding:2px 4px; font-size:11px; }
+      .mpp-readonly { color:#555; }
+    </style>
   `;
 
-  // 🔹 Data rows
+  let html = `${style}<div class="mpp-days-wrap"><table class="mpp-days"><thead><tr>`;
+  html += columns.map(c => `<th data-fieldname="${c.fieldname}">${frappe.utils.escape_html(c.label)}</th>`).join('');
+  html += `</tr></thead><tbody>`;
+
   rows.forEach(row => {
-    html += `
-      <tr>
-        ${fields.map(f => `
-          <td style="white-space:nowrap;">
-            ${row[f.fieldname] ?? ''}
+    html += `<tr data-rowname="${row.name}" data-doctype="${row.doctype}">`;
+
+    columns.forEach(col => {
+      const val = row[col.fieldname] ?? '';
+
+      if (col.editable) {
+        const stepAttr = col.step ? `step="${col.step}"` : '';
+        html += `
+          <td>
+            <input
+              class="mpp-edit"
+              data-fieldname="${col.fieldname}"
+              type="${col.inputType}"
+              ${stepAttr}
+              value="${val}"
+            />
           </td>
-        `).join('')}
-      </tr>
-    `;
+        `;
+      } else {
+        html += `<td class="mpp-readonly">${frappe.utils.escape_html(String(val))}</td>`;
+      }
+    });
+
+    html += `</tr>`;
   });
 
-  html += `
-      </tbody>
-    </table>
-    </div>
-  `;
-
+  html += `</tbody></table></div>`;
   wrapper.html(html);
+
+  // Dynamically set sticky left offsets so the 2nd frozen column never overlaps
+  try {
+    const $wrap = wrapper.find('.mpp-days-wrap').get(0);
+    const th1 = wrapper.find('table.mpp-days thead th:nth-child(1)').get(0);
+    const th2 = wrapper.find('table.mpp-days thead th:nth-child(2)').get(0);
+    if ($wrap && th1 && th2) {
+      const w1 = Math.ceil(th1.getBoundingClientRect().width);
+      const w2 = Math.ceil(th2.getBoundingClientRect().width);
+      $wrap.style.setProperty('--mpp-col1w', `${w1}px`);
+      $wrap.style.setProperty('--mpp-col2w', `${w2}px`);
+    }
+  } catch (e) {
+    console.warn('MPP Days sticky width calc failed', e);
+  }
+
+  // Single delegated handler (prevents duplicate bindings on rerender)
+  wrapper.off('change.mppdays');
+  wrapper.on('change.mppdays', 'input.mpp-edit', function () {
+    const $input = $(this);
+    const fieldname = $input.data('fieldname');
+
+    const $tr = $input.closest('tr');
+    const rowname = $tr.data('rowname');
+    const doctype = $tr.data('doctype');
+
+    const child = (frm.doc.month_prod_days || []).find(r => r.name === rowname);
+    if (!child) return;
+
+    let newVal = $input.val();
+    const col = (getMPPDaysMetaColumns(frm) || []).find(c => c.fieldname === fieldname);
+
+    if (col && col.inputType === 'number') {
+      newVal = (newVal === '' || newVal == null) ? 0 : flt(newVal);
+    }
+
+    frappe.model.set_value(doctype, rowname, fieldname, newVal).then(() => {
+      // Recalc BCM/day + totals + pre-target where relevant (structure stays meta-driven)
+      if (['shift_day_hours', 'shift_night_hours', 'production_excavators'].includes(fieldname)) {
+        recalc_bcm_per_day(doctype, rowname);
+        frm.trigger('update_ts_planned_volumes');
+        recalc_pre_target(frm);
+      }
+
+      if (['shift_day_hours','shift_night_hours','shift_morning_hours','shift_afternoon_hours'].includes(fieldname)) {
+        frm.trigger('recalculate_totals');
+      }
+
+      // Re-render to reflect calculated columns immediately (and keep sticky columns correct)
+      renderMonthProdDaysHTML(frm);
+    });
+  });
 }
+
 

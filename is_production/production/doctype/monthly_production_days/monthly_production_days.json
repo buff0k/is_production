@@ -8,6 +8,7 @@
  "field_order": [
   "shift_start_date",
   "day_week",
+  "production_excavators",
   "shift_day_hours",
   "shift_night_hours",
   "shift_morning_hours",
@@ -31,7 +32,6 @@
   "cum_survey_variance",
   "hourly_production_reference",
   "total_coal_tons_tallies",
-  "production_excavators",
   "bcm_per_day"
  ],
  "fields": [
@@ -40,14 +40,16 @@
    "fieldname": "day_week",
    "fieldtype": "Read Only",
    "in_list_view": 1,
-   "label": "Day of Week"
+   "label": "Day of Week",
+   "read_only": 1
   },
   {
    "columns": 1,
    "fieldname": "shift_start_date",
    "fieldtype": "Date",
    "in_list_view": 1,
-   "label": "Shift Start Date"
+   "label": "Shift Start Date",
+   "read_only": 1
   },
   {
    "columns": 1,
@@ -68,18 +70,22 @@
   {
    "fieldname": "shift_morning_hours",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Morning Shift Hours",
    "precision": "2"
   },
   {
    "fieldname": "shift_afternoon_hours",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Afternoon Shift Hours",
    "precision": "2"
   },
   {
+   "columns": 1,
    "fieldname": "total_daily_bcms",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Daily BCMs",
    "precision": "1",
    "read_only": 1
@@ -87,6 +93,7 @@
   {
    "fieldname": "morning_shift_bcms",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Total Morning Shift BCMs",
    "precision": "1",
    "read_only": 1
@@ -94,20 +101,25 @@
   {
    "fieldname": "afternoon_shift_bcms",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Total Afternoon Shift BCMs",
    "precision": "1",
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "night_shift_bcms",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Night Shift BCMs",
    "precision": "1",
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "day_shift_bcms",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Total Day Shift BCMs",
    "precision": "1",
    "read_only": 1
@@ -133,11 +145,14 @@
   {
    "fieldname": "month_survey_totals",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Month Survey Totals"
   },
   {
+   "columns": 1,
    "fieldname": "cum_survey_variance",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Cumulative survey variance",
    "precision": "1",
    "read_only": 1
@@ -161,15 +176,19 @@
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "cum_dozing_variance",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Cumulative Dozing Variance",
    "precision": "1",
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "cum_ts_variance",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Cumulative Truck and Shovel Variance",
    "precision": "1",
    "read_only": 1
@@ -193,8 +212,11 @@
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "hourly_production_reference",
    "fieldtype": "Data",
+   "hidden": 1,
+   "in_list_view": 1,
    "label": "Hourly Production Reference"
   },
   {
@@ -207,8 +229,10 @@
    "read_only": 1
   },
   {
+   "columns": 1,
    "fieldname": "cumulative_coal_tons_variance",
    "fieldtype": "Float",
+   "in_list_view": 1,
    "label": "Cumulative Coal Tons  Variance",
    "precision": "1",
    "read_only": 1
@@ -216,16 +240,19 @@
   {
    "fieldname": "total_coal_tons_tallies",
    "fieldtype": "Float",
+   "hidden": 1,
    "label": "Total Coal Tons",
    "precision": "1"
   },
   {
+   "columns": 1,
    "fieldname": "production_excavators",
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Production Excavators"
   },
   {
+   "columns": 1,
    "fieldname": "bcm_per_day",
    "fieldtype": "Data",
    "in_list_view": 1,
@@ -236,7 +263,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-16 07:42:48.424695",
+ "modified": "2026-01-18 11:07:11.744992",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Days",

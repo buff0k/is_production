@@ -117,6 +117,7 @@
   {
    "fieldname": "month_prod_days",
    "fieldtype": "Table",
+   "hidden": 1,
    "options": "Monthly Production Days"
   },
   {
