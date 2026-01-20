@@ -955,17 +955,21 @@ function recalc_bcm_per_day(cdt, cdn) {
 function recalc_pre_target(frm) {
   const ts     = flt(frm.doc.total_ts_planned_volumes);
   const dozing = flt(frm.doc.planned_dozer_volumes);
-  
+
   const factor = frm.doc.prod_adjust_factor || 1;
 
-  const rawTarget = ts + dozing;
-  const preTarget = rawTarget * factor;
+  // 1️⃣ Base target (NO adjustment factor)
+  const preTarget = ts + dozing;
+
+  // 2️⃣ Adjusted monthly target
+  const monthlyTarget = preTarget * factor;
 
   frm.set_value({
     pre_target: preTarget,
-    monthly_target_bcm: preTarget   // 🔒 display-only mirror
+    monthly_target_bcm: monthlyTarget
   });
 }
+
 
 
 

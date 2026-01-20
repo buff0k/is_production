@@ -13,11 +13,24 @@ frappe.query_reports["CEO Dashboard 2"] = {
     ],
 
     onload: function (report) {
-        if (!report._auto_refresh_started) {
-            report._auto_refresh_started = true;
+        if (report._auto_refresh_started) return;
 
-            setInterval(() => {
-                report.refresh();
+        report._auto_refresh_started = true;
+        report._refreshing = false;
+
+        const refresh_interval_ms = 60000; // 1 minute
+
+        const auto_refresh = () => {
+            if (report._refreshing) {
+                // Skip if a refresh is still running
+                schedule_next();
+                return;
+            }
+
+            report._refreshing = true;
+
+            report.refresh().then(() => {
+                report._refreshing = false;
 
                 const now = new Date();
                 const time = now.toLocaleTimeString([], {
@@ -30,9 +43,28 @@ frappe.query_reports["CEO Dashboard 2"] = {
                         message: `CEO Dashboard updated at ${time}`,
                         indicator: "green"
                     },
-                    30
+                    5
                 );
-            }, 1800000); // 5 minutes
+
+                schedule_next();
+            });
+        };
+
+        const schedule_next = () => {
+            report._auto_refresh_timer = setTimeout(
+                auto_refresh,
+                refresh_interval_ms
+            );
+        };
+
+        // Start first cycle
+        schedule_next();
+    },
+
+    onunload: function (report) {
+        // Clean up when user leaves the report
+        if (report._auto_refresh_timer) {
+            clearTimeout(report._auto_refresh_timer);
         }
     }
 };

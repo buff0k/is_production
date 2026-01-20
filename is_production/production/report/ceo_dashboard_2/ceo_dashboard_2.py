@@ -1,5 +1,9 @@
+# Copyright (c) 2026, Isambane Mining (Pty) Ltd
+# CEO Dashboard Two – Hourly Excavator Production (Optimised)
+
 import frappe
 from datetime import datetime, timedelta
+
 
 # =========================================================
 # OPERATIONAL DAY (06:00 → 05:59)
@@ -47,11 +51,29 @@ def execute(filters=None):
 
     prod_date = get_operational_day()
 
-    site_blocks = [
-        build_site_block(row.site, prod_date)
-        for row in plan.define
-    ]
+    # ---------------------------------------------
+    # FETCH DATA ONCE
+    # ---------------------------------------------
+    excavators_by_site = get_all_excavators()
+    hourly_data = get_all_hourly_data(prod_date)
 
+    # ---------------------------------------------
+    # BUILD SITE BLOCKS
+    # ---------------------------------------------
+    site_blocks = []
+    for row in plan.define:
+        site_blocks.append(
+            build_site_block(
+                site=row.site,
+                prod_date=prod_date,
+                excavators_by_site=excavators_by_site,
+                hourly_data=hourly_data
+            )
+        )
+
+    # ---------------------------------------------
+    # HTML OUTPUT
+    # ---------------------------------------------
     html = f"""
     <style>
         body {{
@@ -112,11 +134,10 @@ def execute(filters=None):
             width: 100px;
         }}
 
-        /* CELL COLOURS */
-        .low {{ background-color: #f8d7da; }}      /* Red */
-        .medium {{ background-color: #fff3cd; }}   /* Yellow */
-        .high {{ background-color: #d4edda; }}     /* Green */
-        .blank {{ background-color: #ffffff; }}    /* White */
+        .low {{ background-color: #f8d7da; }}
+        .medium {{ background-color: #fff3cd; }}
+        .high {{ background-color: #d4edda; }}
+        .blank {{ background-color: #ffffff; }}
     </style>
 
     <div class="dashboard">
@@ -130,25 +151,28 @@ def execute(filters=None):
 
 
 # =========================================================
-# SITE BLOCK
+# BUILD SITE BLOCK (NO DB CALLS)
 # =========================================================
-def build_site_block(site, prod_date):
-    excavators = get_excavators(site)
-    data = get_hourly_data(site, prod_date)
+def build_site_block(site, prod_date, excavators_by_site, hourly_data):
+    excavators = excavators_by_site.get(site, [])
+    site_data = hourly_data.get(site, {})
     header_colour = SITE_HEADER_COLOURS.get(site, "#FFFFFF")
 
     header = "<tr><th>Excavator</th>" + "".join(
         f"<th class='slot'>{label}</th>" for label in SLOT_LABELS
     ) + "</tr>"
 
-    rows = ""
+    rows = []
     for ex in excavators:
-        rows += f"<tr><td>{ex}</td>"
+        cells = [f"<td>{ex}</td>"]
+        ex_data = site_data.get(ex, {})
+
         for slot in range(1, 25):
-            value = int(data.get(ex, {}).get(str(slot), 0))
+            value = int(ex_data.get(str(slot), 0))
             css_class, display = get_cell_display(value)
-            rows += f"<td class='{css_class}'>{display}</td>"
-        rows += "</tr>"
+            cells.append(f"<td class='{css_class}'>{display}</td>")
+
+        rows.append("<tr>" + "".join(cells) + "</tr>")
 
     return f"""
     <div class="site">
@@ -158,7 +182,7 @@ def build_site_block(site, prod_date):
         </div>
         <table>
             {header}
-            {rows}
+            {''.join(rows)}
         </table>
     </div>
     """
@@ -179,42 +203,46 @@ def get_cell_display(value):
 
 
 # =========================================================
-# EXCAVATORS
+# FETCH ALL EXCAVATORS (ONCE)
 # =========================================================
-def get_excavators(site):
-    return [
-        a.name for a in frappe.get_all(
-            "Asset",
-            filters={
-                "location": site,
-                "asset_category": "Excavator"
-            },
-            fields=["name"]
-        )
-    ]
+def get_all_excavators():
+    rows = frappe.get_all(
+        "Asset",
+        filters={"asset_category": "Excavator"},
+        fields=["name", "location"]
+    )
+
+    excavators = {}
+    for r in rows:
+        if r.location:
+            excavators.setdefault(r.location, []).append(r.name)
+
+    return excavators
 
 
 # =========================================================
-# DATA → SLOT MAPPING (06:00 → 05:59)
+# FETCH ALL HOURLY DATA (ONCE)
 # =========================================================
-def get_hourly_data(site, prod_date):
-    results = {}
-
+def get_all_hourly_data(prod_date):
     rows = frappe.db.sql("""
         SELECT
+            hp.location AS site,
             tl.asset_name_shoval AS excavator,
             HOUR(tl.creation) AS hour,
             SUM(tl.bcms) AS bcm
         FROM `tabHourly Production` hp
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
-        WHERE hp.location = %s
-          AND hp.prod_date = %s
+        WHERE hp.prod_date = %s
           AND tl.asset_name_shoval IS NOT NULL
-        GROUP BY tl.asset_name_shoval, HOUR(tl.creation)
-    """, (site, prod_date), as_dict=True)
+        GROUP BY hp.location, tl.asset_name_shoval, HOUR(tl.creation)
+    """, prod_date, as_dict=True)
+
+    data = {}
 
     for r in rows:
         slot = ((r.hour - 6) % 24) + 1
-        results.setdefault(r.excavator, {})[str(slot)] = int(r.bcm or 0)
+        data \
+            .setdefault(r.site, {}) \
+            .setdefault(r.excavator, {})[str(slot)] = int(r.bcm or 0)
 
-    return results
+    return data
