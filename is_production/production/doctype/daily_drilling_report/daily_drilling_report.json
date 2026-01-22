@@ -1,0 +1,169 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{site}-{date}-{shift}",
+ "creation": "2026-01-22 07:11:41.348670",
+ "custom": 1,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "date",
+  "site",
+  "area",
+  "material",
+  "shift",
+  "shift_hours",
+  "column_break_qeoa",
+  "drill_no",
+  "opening_drilling_hrs",
+  "closing_drilling_hrs",
+  "total_drilling_hrs",
+  "total_meters",
+  "column_break_levk",
+  "supervisor",
+  "operator",
+  "assistant",
+  "diameter_holes",
+  "total_holes",
+  "section_break_ymaf",
+  "holes_and_meter"
+ ],
+ "fields": [
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Location"
+  },
+  {
+   "fieldname": "area",
+   "fieldtype": "Data",
+   "label": "Area"
+  },
+  {
+   "fieldname": "material",
+   "fieldtype": "Data",
+   "label": "Material"
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "in_filter": 1,
+   "label": "SHIFT",
+   "options": "Shift A\nShift B\nshift C"
+  },
+  {
+   "fieldname": "shift_hours",
+   "fieldtype": "Select",
+   "label": "Shift Hours",
+   "options": "8\n10\n12"
+  },
+  {
+   "fieldname": "column_break_qeoa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "drill_no",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Drill No",
+   "reqd": 1
+  },
+  {
+   "fieldname": "opening_drilling_hrs",
+   "fieldtype": "Float",
+   "label": "Opening Drilling Hrs"
+  },
+  {
+   "fieldname": "closing_drilling_hrs",
+   "fieldtype": "Float",
+   "label": "Closing Drilling Hrs"
+  },
+  {
+   "fieldname": "total_drilling_hrs",
+   "fieldtype": "Float",
+   "label": "Total Drilling Hrs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_meters",
+   "fieldtype": "Float",
+   "label": "Total Meters"
+  },
+  {
+   "fieldname": "column_break_levk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "supervisor",
+   "fieldtype": "Data",
+   "label": "Supervisor"
+  },
+  {
+   "fieldname": "operator",
+   "fieldtype": "Data",
+   "label": "Operator"
+  },
+  {
+   "fieldname": "assistant",
+   "fieldtype": "Data",
+   "label": "Assistant"
+  },
+  {
+   "fieldname": "diameter_holes",
+   "fieldtype": "Data",
+   "label": "Diameter holes"
+  },
+  {
+   "fieldname": "total_holes",
+   "fieldtype": "Float",
+   "label": "Total Holes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_ymaf",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "holes_and_meter",
+   "fieldtype": "Table",
+   "label": "Holes and Meter ",
+   "options": "Daily Drilling Hole"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-22 12:15:18.414274",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Daily Drilling Report",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
