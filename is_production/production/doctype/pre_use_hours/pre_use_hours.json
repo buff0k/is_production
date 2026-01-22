@@ -116,7 +116,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-26 14:53:26.757821",
+ "modified": "2026-01-22 06:18:30.024261",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Pre-Use Hours",
@@ -161,7 +161,6 @@
   },
   {
    "create": 1,
-   "delete": 1,
    "email": 1,
    "export": 1,
    "print": 1,

@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-22 07:03:21.511819",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "no_of_holes",
+  "tag_no",
+  "meters"
+ ],
+ "fields": [
+  {
+   "fieldname": "no_of_holes",
+   "fieldtype": "Float",
+   "label": "No of holes"
+  },
+  {
+   "fieldname": "tag_no",
+   "fieldtype": "Float",
+   "label": "Tag No"
+  },
+  {
+   "fieldname": "meters",
+   "fieldtype": "Float",
+   "label": "Meters"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-22 07:08:26.058961",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Daily Drilling Hole",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

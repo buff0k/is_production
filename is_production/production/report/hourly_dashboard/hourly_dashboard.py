@@ -30,12 +30,41 @@ SITE_HEADER_COLOURS = {
 # HEADER SLOT LABELS (06:00 → 05:59)
 # =========================================================
 SLOT_LABELS = [
-    "6", "7", "8", "9", "10", "11", "12",
-    "1", "2", "3", "4", "5",
-    "6", "7", "8", "9", "10", "11", "12",
-    "1", "2", "3", "4", "5"
+    "06-07", "07-08", "08-09", "09-10", "10-11", "11-12", "12-13",
+    "13-14", "14-15", "15-16", "16-17", "17-18",
+    "18-19", "19-20", "20-21", "21-22", "22-23", "23-24", "24-01",
+    "01-02", "02-03", "03-04", "04-05", "05-06"
 ]
 
+# =========================================================
+# HOUR SLOT → COLUMN INDEX MAP
+# =========================================================
+HOUR_SLOT_MAP = {
+    "6:00-7:00": 1,
+    "7:00-8:00": 2,
+    "8:00-9:00": 3,
+    "9:00-10:00": 4,
+    "10:00-11:00": 5,
+    "11:00-12:00": 6,
+    "12:00-13:00": 7,
+    "13:00-14:00": 8,
+    "14:00-15:00": 9,
+    "15:00-16:00": 10,
+    "16:00-17:00": 11,
+    "17:00-18:00": 12,
+    "18:00-19:00": 13,
+    "19:00-20:00": 14,
+    "20:00-21:00": 15,
+    "21:00-22:00": 16,
+    "22:00-23:00": 17,
+    "23:00-0:00": 18,
+    "0:00-1:00": 19,
+    "1:00-2:00": 20,
+    "2:00-3:00": 21,
+    "3:00-4:00": 22,
+    "4:00-5:00": 23,
+    "5:00-6:00": 24,
+}
 
 # =========================================================
 # MAIN EXECUTE
@@ -208,7 +237,10 @@ def get_cell_display(value):
 def get_all_excavators():
     rows = frappe.get_all(
         "Asset",
-        filters={"asset_category": "Excavator"},
+        filters={
+            "asset_category": "Excavator",
+            "docstatus": 1  # ONLY SUBMITTED ASSETS
+        },
         fields=["name", "location"]
     )
 
@@ -221,28 +253,37 @@ def get_all_excavators():
 
 
 # =========================================================
-# FETCH ALL HOURLY DATA (ONCE)
+# FETCH ALL HOURLY DATA (DRIVEN BY hour_slot)
 # =========================================================
 def get_all_hourly_data(prod_date):
     rows = frappe.db.sql("""
         SELECT
             hp.location AS site,
             tl.asset_name_shoval AS excavator,
-            HOUR(tl.creation) AS hour,
+            hp.hour_slot AS hour_slot,
             SUM(tl.bcms) AS bcm
         FROM `tabHourly Production` hp
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.prod_date = %s
           AND tl.asset_name_shoval IS NOT NULL
-        GROUP BY hp.location, tl.asset_name_shoval, HOUR(tl.creation)
+        GROUP BY
+            hp.location,
+            tl.asset_name_shoval,
+            hp.hour_slot
     """, prod_date, as_dict=True)
 
     data = {}
 
     for r in rows:
-        slot = ((r.hour - 6) % 24) + 1
+        slot = HOUR_SLOT_MAP.get(r.hour_slot)
+
+        # Skip if slot is not recognised
+        if not slot:
+            continue
+
         data \
             .setdefault(r.site, {}) \
             .setdefault(r.excavator, {})[str(slot)] = int(r.bcm or 0)
 
     return data
+

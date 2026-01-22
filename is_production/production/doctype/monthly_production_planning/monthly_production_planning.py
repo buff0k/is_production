@@ -7,6 +7,8 @@ import frappe
 from frappe.model.document import Document
 import datetime
 from frappe.exceptions import TimestampMismatchError
+from frappe.utils import get_datetime
+
 
 class MonthlyProductionPlanning(Document):
     def validate(self):
@@ -39,15 +41,16 @@ class MonthlyProductionPlanning(Document):
         # 1. Gather references from child table
         refs = [row.hourly_production_reference for row in self.month_prod_days if row.hourly_production_reference]
         
-
         # 2. Fetch Hourly Production aggregates
-        hp_records = frappe.get_all('Hourly Production',
+        hp_records = frappe.get_all(
+            'Hourly Production',
             filters=[
                 ['month_prod_planning', '=', self.name],
                 ['monthly_production_child_ref', 'in', refs]
             ],
             fields=['monthly_production_child_ref', 'total_ts_bcm', 'total_dozing_bcm']
         )
+
         hp_map = {}
         for rec in hp_records:
             ref = rec['monthly_production_child_ref']
@@ -57,27 +60,23 @@ class MonthlyProductionPlanning(Document):
             hp_map[ref]['ts'] += ts
             hp_map[ref]['dz'] += dz
 
-       
-
-        
-
-        
-
-
-        # 3. Fetch Survey data
-        srv_records = frappe.get_all('Survey',
+        # 3. Fetch Survey data (for TS / dozing variances)
+        srv_records = frappe.get_all(
+            'Survey',
             filters=[
                 ['hourly_prod_ref', 'in', refs],
                 ['docstatus', '=', 1]
             ],
             fields=['hourly_prod_ref', 'total_ts_bcm', 'total_dozing_bcm']
         )
+
         survey_map = {}
         for rec in srv_records:
             ref = rec['hourly_prod_ref']
-            ts = rec.get('total_ts_bcm') or 0
-            dz = rec.get('total_dozing_bcm') or 0
-            survey_map[ref] = {'ts': ts, 'dz': dz}
+            survey_map[ref] = {
+                'ts': rec.get('total_ts_bcm') or 0,
+                'dz': rec.get('total_dozing_bcm') or 0
+            }
 
         # 4. Identify latest survey reference
         survey_rows = [row for row in self.month_prod_days if row.hourly_production_reference in survey_map]
@@ -85,39 +84,23 @@ class MonthlyProductionPlanning(Document):
         if survey_rows:
             last_row = max(survey_rows, key=lambda r: r.shift_start_date)
             last_ref = last_row.hourly_production_reference
-        
-                # ─────────────────────────────────────────────
-        # MTD COAL CALCULATION (SITE + DATE RANGE)
+
         # ─────────────────────────────────────────────
-
-        
-
-                # ─────────────────────────────────────────────
-        # MTD COAL (MATCHES PRODUCTION PERFORMANCE REPORT)
-        # Criteria:
-        # - Hourly Production.location == MPP.location
-        # - prod_date BETWEEN prod_month_start_date AND prod_month_end_date
-        # - Coal material only
-        # Progressive by nature
-        # ─────────────────────────────────────────────
-
-               # ─────────────────────────────────────────────
-        # MTD COAL WITH SURVEY OVERRIDE (PROGRESSIVE)
+        # MONTH ACTUAL COAL (MATCHES PRODUCTION SUMMARY)
         # ─────────────────────────────────────────────
 
         COAL_CONVERSION = 1.5
-        base_coal_tons = 0
-        base_date = self.prod_month_start_date
+        month_actual_coal = 0
 
-        # 1️⃣ Fetch latest survey in the month for this site
+        start_dt = get_datetime(self.prod_month_start_date)
+        end_dt   = get_datetime(f"{self.prod_month_end_date} 23:59:59")
+
+        # 1️⃣ Get latest survey ≤ month end
         survey = frappe.get_all(
             "Survey",
             filters={
                 "location": self.location,
-                "last_production_shift_start_date": ["between", [
-                    self.prod_month_start_date,
-                    self.prod_month_end_date
-                ]],
+                "last_production_shift_start_date": ["<=", end_dt],
                 "docstatus": 1
             },
             fields=[
@@ -128,48 +111,61 @@ class MonthlyProductionPlanning(Document):
             limit_page_length=1
         )
 
-        # 2️⃣ If survey exists, it becomes the base
         if survey:
-            base_coal_tons = survey[0].total_surveyed_coal_tons or 0
-            base_date = survey[0].last_production_shift_start_date
+            survey_date = survey[0]["last_production_shift_start_date"]
+            if isinstance(survey_date, datetime.datetime):
+                survey_date = survey_date.date()
 
-        # 3️⃣ Add HP coal AFTER survey (or month start if no survey)
-        hp_rows = frappe.db.sql("""
-            SELECT COALESCE(SUM(tl.bcms), 0) AS coal_bcm
-            FROM `tabHourly Production` hp
-            JOIN `tabTruck Loads` tl ON tl.parent = hp.name
-            WHERE hp.location = %s
-              AND hp.prod_date > %s
-              AND hp.prod_date <= %s
-              AND LOWER(tl.mat_type) LIKE '%%coal%%'
-        """, (
-            self.location,
-            base_date,
-            self.prod_month_end_date
-        ), as_dict=True)
 
-        hp_coal_bcm = hp_rows[0]["coal_bcm"] or 0
-        hp_coal_tons = hp_coal_bcm * COAL_CONVERSION
+            # Ensure survey is inside the month
+            if self.prod_month_start_date <= survey_date <= self.prod_month_end_date:
+                month_actual_coal = survey[0]["total_surveyed_coal_tons"] or 0
 
-        # 4️⃣ Final progressive MTD coal
-        self.mtd_coal = base_coal_tons + hp_coal_tons
+                coal_after = frappe.db.sql("""
+                    SELECT COALESCE(SUM(tl.bcms),0)
+                    FROM `tabHourly Production` hp
+                    JOIN `tabTruck Loads` tl ON tl.parent = hp.name
+                    WHERE hp.location = %s
+                      AND hp.prod_date > %s
+                      AND hp.prod_date <= %s
+                      AND LOWER(tl.mat_type) LIKE '%%coal%%'
+                """, (self.location, survey_date, end_dt))[0][0]
 
+                month_actual_coal += (coal_after or 0) * COAL_CONVERSION
+            else:
+                survey = None
+
+        # 2️⃣ No valid survey → use all HP coal for month
+        if not survey:
+            coal_bcm = frappe.db.sql("""
+                SELECT COALESCE(SUM(tl.bcms),0)
+                FROM `tabHourly Production` hp
+                JOIN `tabTruck Loads` tl ON tl.parent = hp.name
+                WHERE hp.location = %s
+                  AND hp.prod_date BETWEEN %s AND %s
+                  AND LOWER(tl.mat_type) LIKE '%%coal%%'
+            """, (self.location, start_dt, end_dt))[0][0]
+
+            month_actual_coal = (coal_bcm or 0) * COAL_CONVERSION
+
+        self.month_actual_coal = month_actual_coal
 
         # 5. Update child table rows
         cum_ts = 0
         cum_dz = 0
         for row in sorted(self.month_prod_days, key=lambda r: r.shift_start_date):
             ref = row.hourly_production_reference
-            # Hourly Production totals
             hp = hp_map.get(ref, {'ts': 0, 'dz': 0})
+
             row.total_ts_bcms = hp['ts']
             row.total_dozing_bcms = hp['dz']
-            # cumulative running totals
+
             cum_ts += row.total_ts_bcms or 0
             cum_dz += row.total_dozing_bcms or 0
+
             row.cum_ts_bcms = cum_ts
             row.tot_cumulative_dozing_bcms = cum_dz
-            # survey and variances
+
             sv = survey_map.get(ref, {'ts': 0, 'dz': 0})
             if ref == last_ref:
                 row.tot_cum_ts_survey = sv['ts']
@@ -185,6 +181,7 @@ class MonthlyProductionPlanning(Document):
         # 6. Parent-level totals and MTD summary
         total_ts = sum(row.total_ts_bcms or 0 for row in self.month_prod_days)
         total_dz = sum(row.total_dozing_bcms or 0 for row in self.month_prod_days)
+
         survey_var = 0
         if last_ref:
             base_row = next((r for r in self.month_prod_days if r.hourly_production_reference == last_ref), None)
@@ -192,9 +189,9 @@ class MonthlyProductionPlanning(Document):
                 sv = survey_map.get(last_ref, {'ts': 0, 'dz': 0})
                 survey_var = (sv['dz'] - base_row.tot_cumulative_dozing_bcms) + (sv['ts'] - base_row.cum_ts_bcms)
 
-        # Completed days & hours up to yesterday
         today = datetime.date.today()
         yesterday = today - datetime.timedelta(days=1)
+
         done_days = 0
         done_hours = 0
         for r in self.month_prod_days:
@@ -214,15 +211,11 @@ class MonthlyProductionPlanning(Document):
         mtd_hour = actual / done_hours if done_hours else 0
         forecast = mtd_hour * (self.total_month_prod_hours or 0)
 
-        # Set virtual fields
         self.month_act_ts_bcm_tallies = total_ts
         self.month_act_dozing_bcm_tallies = total_dz
         self.monthly_act_tally_survey_variance = survey_var
         self.month_actual_bcm = actual
-                # Finalise coal totals
-        self.month_actual_coal = self.mtd_coal
 
-        # Calculate split ratio (waste BCM / coal tons)
         if self.month_actual_coal:
             try:
                 self.split_ratio = (
@@ -234,7 +227,6 @@ class MonthlyProductionPlanning(Document):
         else:
             self.split_ratio = 0
 
-        self.month_actual_coal = self.mtd_coal
         self.prod_days_completed = done_days
         self.month_prod_hours_completed = done_hours
         self.month_remaining_production_days = (self.num_prod_days or 0) - done_days
@@ -242,13 +234,12 @@ class MonthlyProductionPlanning(Document):
         self.mtd_bcm_day = mtd_day
         self.mtd_bcm_hour = mtd_hour
         self.month_forecated_bcm = forecast
-        # targets
+
         if self.num_prod_days:
             self.target_bcm_day = self.monthly_target_bcm / self.num_prod_days
         if self.total_month_prod_hours:
             self.target_bcm_hour = self.monthly_target_bcm / self.total_month_prod_hours
 
-        # Safely save without raising TimestampMismatchError
         try:
             self.save()
         except TimestampMismatchError as e:
@@ -256,6 +247,7 @@ class MonthlyProductionPlanning(Document):
                 message=f"TimestampMismatchError in update_mtd_production for {self.name}: {e}",
                 title="update_mtd_production"
             )
+
 
 @frappe.whitelist()
 def update_mtd_production(name):
@@ -272,4 +264,3 @@ def update_mtd_production(name):
             title="update_mtd_production RPC"
         )
         return {"status": "error", "message": str(e)}
-
