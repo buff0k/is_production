@@ -1,6 +1,3 @@
-// Copyright (c) 2026, Isambane Mining (Pty) Ltd
-// CEO Dashboard Two – Hourly Excavator Production
-
 frappe.query_reports["Hourly Dashboard"] = {
     filters: [
         {
@@ -18,11 +15,34 @@ frappe.query_reports["Hourly Dashboard"] = {
         report._auto_refresh_started = true;
         report._refreshing = false;
 
-        const refresh_interval_ms = 25 * 60 * 1000; // 25 minutes (1,500,000 ms)
+        const get_ms_until_next_refresh = () => {
+            const now = new Date();
+
+            const minutes = now.getMinutes();
+            const seconds = now.getSeconds();
+            const ms = now.getMilliseconds();
+
+            let nextMinute;
+
+            if (minutes < 10) {
+                nextMinute = 10;
+            } else if (minutes < 30) {
+                nextMinute = 30;
+            } else {
+                nextMinute = 70; // next hour + 10 minutes
+            }
+
+            const waitMinutes = nextMinute - minutes;
+
+            return (
+                waitMinutes * 60 * 1000
+                - seconds * 1000
+                - ms
+            );
+        };
 
         const auto_refresh = () => {
             if (report._refreshing) {
-                // Skip if a refresh is still running
                 schedule_next();
                 return;
             }
@@ -51,18 +71,15 @@ frappe.query_reports["Hourly Dashboard"] = {
         };
 
         const schedule_next = () => {
-            report._auto_refresh_timer = setTimeout(
-                auto_refresh,
-                refresh_interval_ms
-            );
+            const delay = get_ms_until_next_refresh();
+            report._auto_refresh_timer = setTimeout(auto_refresh, delay);
         };
 
-        // Start first cycle
+        // Schedule first aligned refresh
         schedule_next();
     },
 
     onunload: function (report) {
-        // Clean up when user leaves the report
         if (report._auto_refresh_timer) {
             clearTimeout(report._auto_refresh_timer);
         }
