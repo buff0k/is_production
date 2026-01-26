@@ -401,6 +401,24 @@ def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm, day_target):
 
     days = mpp.num_prod_days
     done = mpp.prod_days_completed
+    def th(label, left=False, right=False):
+        style = ""
+        if left:
+            style += "border-left:4px solid #000;"
+        if right:
+            style += "border-right:4px solid #000;"
+        return f"<th style='{style}'>{label}</th>"
+
+    def td(value, left=False, right=False, bg=None):
+        style = ""
+        if left:
+            style += "border-left:4px solid #000;"
+        if right:
+            style += "border-right:4px solid #000;"
+        if bg:
+            style += f"background:{bg};"
+        return f"<td style='{style}'>{fmt(value)}</td>"
+
 
     mtd_plan = mpp.monthly_target_bcm / days * done if days else 0
     coal_plan = mpp.coal_tons_planned / days * done if days else 0
@@ -430,25 +448,31 @@ def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm, day_target):
             <th>Day Var</th>
         </tr>
         <tr>
-            <td>{fmt(mpp.monthly_target_bcm)}</td>
-            <td>{fmt(mpp.coal_tons_planned)}</td>
-            <td>{fmt(mpp.waste_bcms_planned)}</td>
+                   <tr>
+            {td(mpp.monthly_target_bcm, left=True)}
+            {td(mpp.coal_tons_planned)}
+            {td(mpp.waste_bcms_planned, right=True)}
 
-            <td>{fmt(mtd_actual)}</td>
-            <td>{fmt(mtd_plan)}</td>
-            {var_cell(mtd_actual - mtd_plan)}
+            {td(mtd_actual, left=True)}
+            {td(mtd_plan)}
+            {td(mtd_actual - mtd_plan, right=True,
+                bg=GREEN if (mtd_actual - mtd_plan) >= 0 else RED)}
 
-            <td>{fmt(mtd_coal)}</td>
-            <td>{fmt(coal_plan)}</td>
-            {var_cell(mtd_coal - coal_plan)}
+            {td(mtd_coal, left=True)}
+            {td(coal_plan)}
+            {td(mtd_coal - coal_plan, right=True,
+                bg=GREEN if (mtd_coal - coal_plan) >= 0 else RED)}
 
-            <td>{fmt(mtd_waste)}</td>
-            <td>{fmt(waste_plan)}</td>
-            {var_cell(mtd_waste - waste_plan)}
+            {td(mtd_waste, left=True)}
+            {td(waste_plan)}
+            {td(mtd_waste - waste_plan, right=True,
+                bg=GREEN if (mtd_waste - waste_plan) >= 0 else RED)}
 
-            <td>{fmt(day_bcm)}</td>
-            <td>{fmt(day_target)}</td>
-            {var_cell(day_bcm - day_target)}
+            {td(day_bcm, left=True)}
+            {td(day_target)}
+            {td(day_bcm - day_target, right=True,
+                bg=GREEN if (day_bcm - day_target) >= 0 else RED)}
         </tr>
+
     </table>
     """
