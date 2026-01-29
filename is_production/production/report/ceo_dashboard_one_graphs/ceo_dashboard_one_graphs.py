@@ -13,11 +13,11 @@ SITE_COLORS = {
     "Kriel Rehabilitation": "#2ECC71",
     "Koppie": "#F5A623",
     "Uitgevallen": "#1ABC9C",
-    "Bankfontein": "#F1C40F",
+    "Bankfontein": "#9E9E9E",
 }
 
-TARGET_LINE_COLOR = "#0B2C4D"
-ACTUAL_LINE_COLOR = "#1E8449"
+TARGET_LINE_COLOR = "#9E9E9E"
+ACTUAL_LINE_COLOR = "#0B2C4D"
 
 
 # =========================================================
@@ -170,17 +170,19 @@ def build_site_block(site, prod_start, prod_end, monthly_target, actual_map, yes
                     "label": "MTD Target",
                     "data": target,
                     "borderColor": TARGET_LINE_COLOR,
-                    "borderWidth": 3,
+                    "borderWidth": 2,
                     "tension": 0.25,
                     "pointRadius": 3,
+                    "pointBorderWidth": 1,
                 },
                 {
                     "label": "MTD Actual",
                     "data": actual,
                     "borderColor": ACTUAL_LINE_COLOR,
-                    "borderWidth": 3,
+                    "borderWidth": 2,
                     "tension": 0.25,
                     "pointRadius": 3,
+                    "pointBorderWidth": 1,
                     "spanGaps": False,
                 },
             ],

@@ -12,7 +12,7 @@ SITE_COLOURS = {
     "Kriel Rehabilitation": "#2ECC71",
     "Koppie": "#F5A623",
     "Uitgevallen": "#1ABC9C",
-    "Bankfontein": "#F1C40F",
+    "Bankfontein": "#9E9E9E",
 }
 
 GROUP_A = {"Klipfontein", "Gwab"}

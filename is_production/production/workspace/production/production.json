@@ -35,13 +35,12 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 0,
+   "is_query_report": 1,
    "label": "Monthly Volume Graphs",
    "link_count": 0,
    "link_to": "CEO Dashboard One Graphs",
    "link_type": "Report",
    "onboard": 0,
-   "report_ref_doctype": "Hourly Production",
    "type": "Link"
   },
   {
@@ -56,17 +55,16 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 0,
+   "is_query_report": 1,
    "label": "Hourly Dashboard",
    "link_count": 0,
    "link_to": "Hourly Dashboard",
    "link_type": "Report",
    "onboard": 0,
-   "report_ref_doctype": "Hourly Production",
    "type": "Link"
   }
  ],
- "modified": "2026-01-29 18:38:31.353628",
+ "modified": "2026-01-29 19:31:45.758436",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
