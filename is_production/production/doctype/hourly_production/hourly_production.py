@@ -1,5 +1,3 @@
-# apps/is_production/is_production/production/doctype/hourly_production/hourly_production.py
-
 # Copyright (c) 2025, BuFf0k and contributors
 # For license information, please see license.txt
 
@@ -328,3 +326,28 @@ def update_hourly_references():
         )
 
     return {'updated': len(updated_entries)}
+
+@frappe.whitelist()
+def get_day_total_bcm(location, prod_date, exclude_name=None):
+    if not location or not prod_date:
+        return 0
+
+    cond = ""
+    params = [location, prod_date]
+
+    if exclude_name:
+        cond = " AND name != %s"
+        params.append(exclude_name)
+
+    res = frappe.db.sql(
+        f"""
+        SELECT COALESCE(SUM(hour_total_bcm), 0)
+        FROM `tabHourly Production`
+        WHERE location = %s
+          AND prod_date = %s
+          AND docstatus < 2
+          {cond}
+        """,
+        params,
+    )
+    return res[0][0] if res else 0

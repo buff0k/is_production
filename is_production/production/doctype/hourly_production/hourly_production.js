@@ -1424,29 +1424,23 @@ function populate_truck_loads_and_lookup(frm) {
 function calculate_day_total(frm) {
     if (!frm.doc.prod_date || !frm.doc.location) return;
     
-    frappe.call({
-        method: 'frappe.client.get_list',
-        args: {
-            doctype: 'Hourly Production',
-            filters: [
-                ['location', '=', frm.doc.location],
-                ['prod_date', '=', frm.doc.prod_date],
-                ['docstatus', '<', 2],
-                ['name', '!=', frm.doc.name] // Exclude current doc
-            ],
-            fields: ['sum(hour_total_bcm) as day_total']
-        },
-        callback: function(r) {
-            if (r.message && r.message[0]) {
-                // Add current hour's total (which might not be saved yet)
+    function calculate_day_total(frm) {
+        if (!frm.doc.prod_date || !frm.doc.location) return;
+
+        frappe.call({
+            method: 'is_production.production.doctype.hourly_production.hourly_production.get_day_total_bcm',
+            args: {
+                location: frm.doc.location,
+                prod_date: frm.doc.prod_date,
+                exclude_name: frm.doc.name
+            },
+            callback: function (r) {
+                const existing_total = r.message || 0;
                 const current_total = frm.doc.hour_total_bcm || 0;
-                const day_total = (r.message[0].day_total || 0) + current_total;
-                
-                // Set value without marking as dirty
-                frm.set_value('day_total_bcm', day_total);
+                frm.set_value('day_total_bcm', existing_total + current_total);
             }
-        }
-    });
+        });
+    }
 }
 // ——————————————————————
 // DOZER PRODUCTION
