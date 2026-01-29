@@ -1,5 +1,5 @@
 // Copyright (c) 2026, Isambane Mining (Pty) Ltd
-// CEO Dashboard – Multi-Site Monthly Production
+// Hourly Dashboard – Multi-Site Monthly Production
 
 frappe.query_reports["Hourly Dashboard"] = {
     filters: [
@@ -13,6 +13,18 @@ frappe.query_reports["Hourly Dashboard"] = {
     ],
 
     onload: function (report) {
+        const hide_table = () => {
+            // report.page.main is reliable in v16
+            report.page.main.find('.datatable, .dt-scrollable, .dt-footer, .result .no-result').hide();
+        };
+
+        // Hide immediately
+        hide_table();
+
+        // Also hide again after a short delay (datatable often initializes after onload)
+        setTimeout(hide_table, 50);
+        setTimeout(hide_table, 250);
+
         if (report._auto_refresh_started) return;
 
         report._auto_refresh_started = true;
@@ -55,6 +67,10 @@ frappe.query_reports["Hourly Dashboard"] = {
             report.refresh().then(() => {
                 report._refreshing = false;
 
+                // Hide again after refresh completes (datatable may re-render)
+                hide_table();
+                setTimeout(hide_table, 50);
+
                 const now = new Date();
                 const time = now.toLocaleTimeString([], {
                     hour: "2-digit",
@@ -63,7 +79,7 @@ frappe.query_reports["Hourly Dashboard"] = {
 
                 frappe.show_alert(
                     {
-                        message: `CEO Dashboard updated at ${time}`,
+                        message: `Hourly Dashboard updated at ${time}`,
                         indicator: "green"
                     },
                     5
@@ -80,6 +96,14 @@ frappe.query_reports["Hourly Dashboard"] = {
 
         // Schedule first aligned refresh
         schedule_next();
+    },
+
+    refresh: function (report) {
+        // Runs when filters change or user hits refresh
+        report.page.main.find('.datatable, .dt-scrollable, .dt-footer, .result .no-result').hide();
+        setTimeout(() => {
+            report.page.main.find('.datatable, .dt-scrollable, .dt-footer, .result .no-result').hide();
+        }, 50);
     },
 
     onunload: function (report) {

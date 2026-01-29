@@ -24,8 +24,12 @@ ACTUAL_LINE_COLOR = "#0B2C4D"
 # MAIN EXECUTE
 # =========================================================
 def execute(filters=None):
+    # Always return at least 1 column + 1 row so Frappe (v16) doesn't show "Nothing to show"
+    columns = [{"fieldname": "noop", "label": "", "fieldtype": "Data", "width": 1}]
+    data = [{"noop": ""}]
+
     if not filters or not filters.get("monthly_production_plan"):
-        return [], None, "<b>Please select a Monthly Production Plan.</b>"
+        return columns, data, "<b>Please select a Monthly Production Plan.</b>"
 
     yesterday = getdate(nowdate()) - timedelta(days=1)
 
@@ -64,7 +68,7 @@ def execute(filters=None):
         )
 
     # Theme-aware, scoped styling (no bleed into other pages)
-    return [], None, f"""
+    html = f"""
     <style>
         .isd-ceo-graphs {{
             --isd-gap: 14px;
@@ -150,6 +154,8 @@ def execute(filters=None):
     </div>
     """
 
+    return columns, data, html
+
 
 # =========================================================
 # SITE BLOCK
@@ -160,7 +166,6 @@ def build_site_block(site, prod_start, prod_end, monthly_target, actual_map, yes
     target = build_mtd_target(monthly_target, len(labels))
     actual = build_mtd_actual(dates, actual_map, yesterday)
 
-    # Chart config preserved; only legend handling etc. remains same
     chart_config = {
         "type": "line",
         "data": {

@@ -263,7 +263,9 @@ def execute(filters=None):
     </div>
     """
 
-    return [], None, html
+    columns = [{"fieldname": "noop", "label": "", "fieldtype": "Data", "width": 1}]
+    data = [{"noop": ""}]
+    return columns, data, html
 
 
 # =========================================================

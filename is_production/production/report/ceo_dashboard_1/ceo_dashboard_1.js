@@ -13,6 +13,44 @@ frappe.query_reports["CEO Dashboard 1"] = {
     ],
 
     onload: function (report) {
+        // --------------------------------------------------
+        // Hide Frappe datatable / empty-state for dashboard-only report (v16-safe)
+        // --------------------------------------------------
+        const hide_table_bits = () => {
+            if (!report || !report.page || !report.page.main) return;
+
+            report.page.main
+                .find(".datatable, .dt-scrollable, .dt-footer, .no-result, .result .no-result")
+                .hide();
+        };
+
+        // Hide immediately (safe but sometimes too early)
+        hide_table_bits();
+
+        // Observe this report page for late datatable mounts (common in v16)
+        const page_el = report.page && report.page.main && report.page.main.get(0);
+        if (page_el && !report._isd_table_observer) {
+            report._isd_table_observer = new MutationObserver(() => hide_table_bits());
+            report._isd_table_observer.observe(page_el, { childList: true, subtree: true });
+        }
+
+        // Also hide after refresh renders content
+        if (!report._isd_refresh_wrapped) {
+            report._isd_refresh_wrapped = true;
+
+            const original_refresh = report.refresh.bind(report);
+            report.refresh = function () {
+                hide_table_bits();
+                return original_refresh().then(() => {
+                    hide_table_bits();
+                    setTimeout(hide_table_bits, 50);
+                });
+            };
+        }
+
+        // --------------------------------------------------
+        // Your existing auto-refresh logic (unchanged)
+        // --------------------------------------------------
         if (report._auto_refresh_started) return;
         report._auto_refresh_started = true;
         report._refreshing = false;
@@ -84,9 +122,21 @@ frappe.query_reports["CEO Dashboard 1"] = {
         schedule_next();
     },
 
+    refresh: function (report) {
+        // In case Frappe re-mounts datatable on manual refresh/filter change
+        if (!report || !report.page || !report.page.main) return;
+        report.page.main
+            .find(".datatable, .dt-scrollable, .dt-footer, .no-result, .result .no-result")
+            .hide();
+    },
+
     onunload: function (report) {
         if (report._auto_refresh_timer) {
             clearTimeout(report._auto_refresh_timer);
+        }
+        if (report._isd_table_observer) {
+            report._isd_table_observer.disconnect();
+            report._isd_table_observer = null;
         }
     }
 };

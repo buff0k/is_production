@@ -235,3 +235,10 @@
     font-size: 11px;
   }
 }
+
+/* Only hide datatable for these dashboard-style reports */
+.isd-hourly-dashboard ~ .datatable,
+.isd-ceo-graphs ~ .datatable,
+.isd-ceo-1 ~ .datatable {
+  display: none !important;
+}
