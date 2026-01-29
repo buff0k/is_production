@@ -1,3 +1,6 @@
+// Copyright (c) 2026, Isambane Mining (Pty) Ltd
+// CEO Dashboard – Multi-Site Monthly Production
+
 frappe.query_reports["Hourly Dashboard"] = {
     filters: [
         {

@@ -13,7 +13,6 @@ frappe.query_reports["CEO Dashboard 1"] = {
     ],
 
     onload: function (report) {
-
         if (report._auto_refresh_started) return;
         report._auto_refresh_started = true;
         report._refreshing = false;

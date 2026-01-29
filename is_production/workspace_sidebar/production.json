@@ -1,0 +1,89 @@
+{
+ "app": "is_production",
+ "creation": "2026-01-14 08:06:58.520223",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "header_icon": "arrow-up-right",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "home",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Home",
+   "link_to": "Production",
+   "link_type": "Workspace",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "scale-3d",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Survey Data",
+   "link_to": "Survey Data",
+   "link_type": "Workspace",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "git-graph",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Site Volume Tracking",
+   "link_to": "CEO Dashboard 1",
+   "link_type": "Report",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "chart-area",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Monthly Volume Graphs",
+   "link_to": "CEO Dashboard One Graphs",
+   "link_type": "Report",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "chart-pie",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Production Dashboard",
+   "link_to": "production-dashboard",
+   "link_type": "Page",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "icon": "clock-arrow-up",
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Hourly Dashboard",
+   "link_to": "Hourly Dashboard",
+   "link_type": "Report",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-01-29 18:41:42.897947",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "Production"
+}

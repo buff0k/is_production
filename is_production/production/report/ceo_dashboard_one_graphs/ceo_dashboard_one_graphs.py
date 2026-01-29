@@ -63,43 +63,90 @@ def execute(filters=None):
             )
         )
 
+    # Theme-aware, scoped styling (no bleed into other pages)
     return [], None, f"""
     <style>
-        .dashboard-grid {{
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 22px;
-            padding: 18px;
+        .isd-ceo-graphs {{
+            --isd-gap: 14px;
+
+            /* Frappe theme vars with fallbacks */
+            --isd-text: var(--text-color, #1f272e);
+            --isd-muted: var(--text-muted, #6b7280);
+            --isd-bg: var(--bg-color, #f7f7f7);
+            --isd-card: var(--card-bg, var(--fg-color, #ffffff));
+            --isd-border: var(--border-color, #d1d8dd);
+            --isd-control-bg: var(--control-bg, #ffffff);
+
+            --isd-shadow: 0 1px 2px rgba(0,0,0,.06);
+            --isd-radius: 12px;
+
+            color: var(--isd-text);
         }}
 
-        .graph-card {{
-            border: 1px solid #cfcfcf;
-            background: #fff;
+        .isd-ceo-graphs .isd-grid {{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: var(--isd-gap);
+            padding: 14px;
+            align-items: start;
+        }}
+
+        /* Cards */
+        .isd-ceo-graphs .isd-card {{
+            background: var(--isd-card);
+            border: 1px solid var(--isd-border);
+            border-radius: var(--isd-radius);
+            overflow: hidden;
+            box-shadow: var(--isd-shadow);
             height: 420px;
             display: flex;
             flex-direction: column;
         }}
 
-        .site-banner {{
+        /* Header/Banner (keeps your site colour but makes text theme-friendly) */
+        .isd-ceo-graphs .isd-banner {{
             padding: 10px 14px;
-            font-weight: 700;
-            font-size: 13px;
-            line-height: 1.4;
+            font-weight: 800;
+            font-size: 12px;
+            line-height: 1.35;
+            color: var(--isd-text);
+            border-bottom: 1px solid var(--isd-border);
         }}
 
-        .chart-wrapper {{
+        .isd-ceo-graphs .isd-banner .isd-sub {{
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--isd-muted);
+            margin-top: 4px;
+        }}
+
+        /* Chart area */
+        .isd-ceo-graphs .isd-chart {{
             flex: 1;
-            padding: 18px 22px 22px 22px;
+            padding: 12px 14px 14px 14px;
+            background: transparent;
         }}
 
-        .chart-wrapper canvas {{
+        .isd-ceo-graphs .isd-chart canvas {{
             width: 100% !important;
             height: 100% !important;
         }}
+
+        /* Responsive: 1 column on smaller widths */
+        @media (max-width: 1200px) {{
+            .isd-ceo-graphs .isd-grid {{
+                grid-template-columns: 1fr;
+            }}
+            .isd-ceo-graphs .isd-card {{
+                height: 380px;
+            }}
+        }}
     </style>
 
-    <div class="dashboard-grid">
-        {''.join(site_blocks)}
+    <div class="isd-ceo-graphs">
+        <div class="isd-grid">
+            {''.join(site_blocks)}
+        </div>
     </div>
     """
 
@@ -113,6 +160,7 @@ def build_site_block(site, prod_start, prod_end, monthly_target, actual_map, yes
     target = build_mtd_target(monthly_target, len(labels))
     actual = build_mtd_actual(dates, actual_map, yesterday)
 
+    # Chart config preserved; only legend handling etc. remains same
     chart_config = {
         "type": "line",
         "data": {
@@ -169,14 +217,19 @@ def build_site_block(site, prod_start, prod_end, monthly_target, actual_map, yes
         },
     }
 
+    banner_bg = SITE_COLORS.get(site) or "#e5e7eb"
+
     return f"""
-    <div class="graph-card">
-        <div class="site-banner" style="background:{SITE_COLORS.get(site)}">
-            Site: {site}<br>
-            Production Period: {prod_start} → {prod_end}<br>
-            MTD up to: {yesterday}
+    <div class="isd-card">
+        <div class="isd-banner" style="background:{banner_bg}">
+            <div>Site: {site}</div>
+            <div class="isd-sub">
+                Production Period: {prod_start} → {prod_end}<br>
+                MTD up to: {yesterday}
+            </div>
         </div>
-        <div class="chart-wrapper">
+
+        <div class="isd-chart">
             <canvas data-chart='{frappe.as_json(chart_config)}'></canvas>
         </div>
     </div>

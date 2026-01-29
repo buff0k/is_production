@@ -6,10 +6,7 @@
     "capital_work_in_progress_account": null,
     "company_name": "Isambane Mining (Pty) Ltd",
     "depreciation_expense_account": null,
-    "fixed_asset_account": "Capital Equipments - ISA",
-    "parent": "Dozer",
-    "parentfield": "accounts",
-    "parenttype": "Asset Category"
+    "fixed_asset_account": "Capital Equipments - ISA"
    }
   ],
   "asset_category_name": "Dozer",
@@ -28,20 +25,14 @@
     "capital_work_in_progress_account": "CWIP Account - ISA",
     "company_name": "Isambane Mining (Pty) Ltd",
     "depreciation_expense_account": "Depreciation - ISA",
-    "fixed_asset_account": "Capital Equipments - ISA",
-    "parent": "Excavator",
-    "parentfield": "accounts",
-    "parenttype": "Asset Category"
+    "fixed_asset_account": "Capital Equipments - ISA"
    },
    {
     "accumulated_depreciation_account": "Accumulated Depreciation - EX",
     "capital_work_in_progress_account": "CWIP Account - EX",
     "company_name": "Excavo Mining (Pty) Ltd",
     "depreciation_expense_account": "Depreciation - EX",
-    "fixed_asset_account": "Capital Equipments - EX",
-    "parent": "Excavator",
-    "parentfield": "accounts",
-    "parenttype": "Asset Category"
+    "fixed_asset_account": "Capital Equipments - EX"
    }
   ],
   "asset_category_name": "Excavator",
@@ -60,10 +51,7 @@
     "capital_work_in_progress_account": null,
     "company_name": "Isambane Mining (Pty) Ltd",
     "depreciation_expense_account": "Depreciation - ISA",
-    "fixed_asset_account": "Capital Equipments - ISA",
-    "parent": "ADT",
-    "parentfield": "accounts",
-    "parenttype": "Asset Category"
+    "fixed_asset_account": "Capital Equipments - ISA"
    }
   ],
   "asset_category_name": "ADT",

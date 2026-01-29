@@ -4,16 +4,17 @@ app_publisher = "Isambane Mining (Pty) Ltd"
 app_description = "Isambane Mining Frappe App for Production Records"
 app_email = "eben@isambane.co.za"
 app_license = "mit"
+app_version = "16.0.0"
 required_apps = ["frappe/erpnext", "shridarpatil/frappe_whatsapp"]
 source_link = "http://github.com/buff0k/is_production"
 app_logo_url = "/assets/is_production/images/is-logo.svg"
-app_home = "/app/production"
+app_home = "/desk/production"
 add_to_apps_screen = [
     {
-        "name": "is_production",
+        "name": app_name,
         "logo": "/assets/is_production/images/is-logo.svg",
-        "title": "Production",
-        "route": "/app/production",
+        "title": app_title,
+        "route": app_home,
         "has_permission": "is_production.production.utils.check_app_permission",
     }
 ]
@@ -54,21 +55,13 @@ app_include_js = [
 
 app_include_css = [
    # "/assets/is_production/css/offline.css",
-    "/assets/is_production/css/hourly_production_ui.css"
+    "/assets/is_production/css/hourly_production_ui.css",
+    "/assets/is_production/css/hourly_dashboard.css"
 ]
 
 page_js = {
     "production-dashboard": "public/js/production_dashboard.js",
 }
 
-# ------------------------------------------------------------------------
-# Scheduler Events
-# ------------------------------------------------------------------------
 
-scheduler_events = {
-    "cron": {
-        "*/20 * * * *": [
-            "is_production.production.scheduled_jobs.rebuild_ho_db_0001"
-        ]
-    }
-}
+

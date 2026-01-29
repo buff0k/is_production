@@ -3,7 +3,7 @@ from frappe.utils import format_date, getdate
 from datetime import datetime, timedelta
 
 # =========================================================
-# COLOUR CONSTANTS
+# COLOUR CONSTANTS (LOGIC PRESERVED)
 # =========================================================
 GREEN = "#C9F2D8"
 RED = "#F9CACA"
@@ -36,7 +36,7 @@ def execute(filters=None):
     if not dmp.define:
         return [], None, "<b>No sites configured.</b>"
 
-    # 🔒 Fetch all Monthly Production Plans ONCE
+    # 🔒 Fetch all Monthly Production Plans ONCE (UNCHANGED)
     mpp_map = get_monthly_plans(dmp.define)
 
     site_sections = []
@@ -55,68 +55,133 @@ def execute(filters=None):
             )
         )
 
+    # Theme-aware, scoped styling (no global bleed)
     html = f"""
     <style>
-        @page {{ size: landscape; margin: 10mm; }}
+        /* Scope everything */
+        .isd-ceo-one {{
+            --isd-gap: 12px;
 
-        body {{
-            font-family: Arial, Helvetica, sans-serif;
-            font-weight: bold;
-            color: #002244;
+            --isd-text: var(--text-color, #1f272e);
+            --isd-muted: var(--text-muted, #6b7280);
+            --isd-bg: var(--bg-color, #f7f7f7);
+            --isd-card: var(--card-bg, var(--fg-color, #ffffff));
+            --isd-border: var(--border-color, #d1d8dd);
+            --isd-control-bg: var(--control-bg, #ffffff);
+
+            --isd-shadow: 0 1px 2px rgba(0,0,0,.06);
+            --isd-radius: 12px;
+
+            color: var(--isd-text);
         }}
 
-        .dashboard-grid {{
+        .isd-ceo-one .isd-grid {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(700px, 1fr));
-            gap: 30px;
+            gap: var(--isd-gap);
+            align-items: start;
         }}
 
-        .site-section {{
-            border: 4px solid #002244;
+        .isd-ceo-one .isd-site {{
+            background: var(--isd-card);
+            border: 1px solid var(--isd-border);
+            border-radius: var(--isd-radius);
+            overflow: hidden;
+            box-shadow: var(--isd-shadow);
         }}
 
-        .site-header {{
-            padding: 12px 16px;
-            font-weight: 800;
+        .isd-ceo-one .isd-site-header {{
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--isd-border);
         }}
 
-        .site-title {{
-            font-size: 18px;
-            margin-bottom: 4px;
-        }}
-
-        .site-period {{
+        .isd-ceo-one .isd-site-title {{
             font-size: 13px;
+            font-weight: 800;
+            line-height: 1.2;
+            margin: 0;
+            color: var(--isd-text);
         }}
 
-        .site-body {{
-            padding: 12px;
+        .isd-ceo-one .isd-site-period {{
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--isd-muted);
+            margin-top: 4px;
         }}
 
-        table.summary-table {{
+        .isd-ceo-one .isd-site-body {{
+            padding: 12px 12px 14px 12px;
+        }}
+
+        /* Table */
+        .isd-ceo-one table.summary-table {{
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0;
             table-layout: fixed;
-            font-size: 12px;
+            font-size: 11px;
         }}
 
-        table.summary-table th,
-        table.summary-table td {{
-            border: 1px solid #9FB6D1;
-            padding: 4px 6px;
+        .isd-ceo-one table.summary-table th,
+        .isd-ceo-one table.summary-table td {{
+            border-right: 1px solid var(--isd-border);
+            border-bottom: 1px solid var(--isd-border);
+            padding: 6px 6px;
             text-align: right;
+            background: var(--isd-control-bg);
+            color: var(--isd-text);
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }}
 
-        table.summary-table th {{
-            background: #DCEAF7;
-            color: #002244;
+        .isd-ceo-one table.summary-table th {{
+            font-weight: 800;
             text-align: center;
+            background: var(--isd-control-bg);
+        }}
+
+        /* Round the table corners inside card */
+        .isd-ceo-one table.summary-table tr:first-child th:first-child {{
+            border-top-left-radius: 10px;
+        }}
+        .isd-ceo-one table.summary-table tr:first-child th:last-child {{
+            border-top-right-radius: 10px;
+        }}
+        .isd-ceo-one table.summary-table tr:last-child td:first-child {{
+            border-bottom-left-radius: 10px;
+        }}
+        .isd-ceo-one table.summary-table tr:last-child td:last-child {{
+            border-bottom-right-radius: 10px;
+        }}
+
+        /* Remove extra borders at edges */
+        .isd-ceo-one table.summary-table th:last-child,
+        .isd-ceo-one table.summary-table td:last-child {{
+            border-right: none;
+        }}
+
+        /* Subtle “status” cells that remain theme-friendly */
+        .isd-ceo-one td.isd-good {{
+            background: rgba(47, 179, 68, 0.16) !important;
+        }}
+        .isd-ceo-one td.isd-bad {{
+            background: rgba(226, 76, 76, 0.16) !important;
+        }}
+
+        /* Small-screen fallback */
+        @media (max-width: 860px) {{
+            .isd-ceo-one .isd-grid {{
+                grid-template-columns: 1fr;
+            }}
         }}
     </style>
 
-    <div class="dashboard-grid">
-        {''.join(site_sections)}
+    <div class="isd-ceo-one">
+        <div class="isd-grid">
+            {''.join(site_sections)}
+        </div>
     </div>
     """
 
@@ -127,6 +192,7 @@ def execute(filters=None):
 # SITE SECTION
 # =========================================================
 def build_site_section(site, start_date, end_date, mpp):
+    # colours map preserved, only used for a header accent bar
     colours = {
         "Klipfontein": "#4DA3FF",
         "Gwab": "#00B3A4",
@@ -136,17 +202,17 @@ def build_site_section(site, start_date, end_date, mpp):
         "Bankfontein": "#E74C3C",
     }
 
-    bg = colours.get(site, "#BDC3C7")
+    accent = colours.get(site, "#BDC3C7")
 
     return f"""
-    <div class="site-section">
-        <div class="site-header" style="background:{bg};">
-            <div class="site-title">SITE: {site}</div>
-            <div class="site-period">
+    <div class="isd-site">
+        <div class="isd-site-header" style="background: linear-gradient(90deg, {accent} 0%, rgba(0,0,0,0) 70%);">
+            <div class="isd-site-title">SITE: {site}</div>
+            <div class="isd-site-period">
                 PRODUCTION PERIOD: {format_date(start_date)} → {format_date(end_date)}
             </div>
         </div>
-        <div class="site-body">
+        <div class="isd-site-body">
             {build_daily_report_html(site, start_date, end_date, mpp)}
         </div>
     </div>
@@ -244,15 +310,18 @@ def get_monthly_plans(define_rows):
 
 
 # =========================================================
-# HTML SUMMARY TABLE (UNCHANGED)
+# HTML SUMMARY TABLE (LOGIC PRESERVED; VISUALS UPDATED)
 # =========================================================
 def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, ts, dz):
 
     def fmt(v):
         return f"{int(round(v)):,}"
 
+    # Previously: inline GREEN/RED backgrounds
+    # Now: use theme-friendly classes; logic identical (good vs bad)
     def cell(val, good):
-        return f"<td style='background:{GREEN if good else RED};'>{fmt(val)}</td>"
+        cls = "isd-good" if good else "isd-bad"
+        return f"<td class='{cls}'>{fmt(val)}</td>"
 
     day_bcm = ts + dz
     daily_remaining = mpp.target_bcm_day - day_bcm

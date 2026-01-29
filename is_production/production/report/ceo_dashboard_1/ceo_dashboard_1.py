@@ -20,6 +20,7 @@ GROUP_B = {"Kriel Rehabilitation", "Bankfontein", "Uitgevallen", "Koppie"}
 
 PRODUCTIVITY_RATE = 220
 
+
 # ==========================================================
 # PRODUCTION DATE (06:00 → 06:00)
 # ==========================================================
@@ -111,6 +112,7 @@ def execute(filters=None):
         sites, start_date, end_date
     )
 
+    # NOTE: computed but not used (kept as per original)
     mtd_coal_map = get_mtd_coal_bulk(
         sites, start_date, end_date, survey_map
     )
@@ -125,7 +127,7 @@ def execute(filters=None):
         day_bcm = today_bcm_map.get(row.site, 0)
 
         mtd_actual = mpp.month_actual_bcm or 0
-        mtd_coal = mpp.month_actual_coal or 0   # ✅ UPGRADE APPLIED HERE
+        mtd_coal = mpp.month_actual_coal or 0
         mtd_waste = mtd_actual - (mtd_coal / 1.5)
 
         productive_hours = get_productive_hours(row.site)
@@ -151,59 +153,6 @@ def execute(filters=None):
         )
 
     html = f"""
-    <style>
-        body {{
-            font-family: Arial, Helvetica, sans-serif;
-            font-weight: bold;
-            color: #002244;
-        }}
-
-        .dashboard-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(900px, 1fr));
-            gap: 10px;
-        }}
-
-        .site-section {{
-            border: 4px solid #000;
-            background: #ffffff;
-        }}
-
-        .kpi-bar {{
-            display: flex;
-            gap: 6px;
-            margin-top: 6px;
-            flex-wrap: wrap;
-        }}
-
-        .kpi-box {{
-            background: white;
-            border: 2px solid #000;
-            padding: 6px 10px;
-            text-align: center;
-            min-width: 120px;
-        }}
-
-        table.summary-table {{
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }}
-
-        table.summary-table th {{
-            background: {HEADER_BG};
-            border: 1px solid #000;
-            padding: 6px;
-            text-align: center;
-        }}
-
-        table.summary-table td {{
-            border: 1px solid #000;
-            padding: 4px 6px;
-            text-align: right;
-        }}
-    </style>
-
     <div class="dashboard-grid">
         {''.join(site_sections)}
     </div>
@@ -325,8 +274,6 @@ def build_site_section(site, start_date, end_date, mpp,
                        mtd_actual, mtd_coal, mtd_waste,
                        day_bcm, day_target):
 
-    def fmt(v): return f"{int(round(v)):,}"
-
     forecast = mpp.month_forecated_bcm or 0
     month_target = mpp.monthly_target_bcm or 0
     forecast_var = forecast - month_target
@@ -352,14 +299,11 @@ def build_site_section(site, start_date, end_date, mpp,
             <div class="kpi-bar">
                 {kpi("Month Target", month_target)}
                 {kpi("Forecast", forecast)}
-                {kpi("Var: Forecast vs.Month Target", forecast_var, True)}
+                {kpi("Var: Forecast vs.Month Target", forecast_var, coloured=True, show_arrow=True)}
                 {kpi("Days Left in Month", days_left)}
                 {kpi("Original Daily Target", mpp.target_bcm_day)}
                 {kpi("Current Avg per Day", current_avg)}
-                {kpi_required_vs_original(
-                    "Required Daily for Target",
-                    required_daily,
-                    mpp.target_bcm_day)}
+                {kpi_required_vs_original("Required Daily for Target", required_daily, mpp.target_bcm_day, show_arrow=True)}
             </div>
         </div>
 
@@ -370,109 +314,113 @@ def build_site_section(site, start_date, end_date, mpp,
     """
 
 
-def kpi(label, value, coloured=False):
-    bg = GREEN if value >= 0 else RED
-    style = f"background:{bg};" if coloured else ""
+def kpi(label, value, coloured=False, show_arrow=False):
+    cls = ""
+    arrow = ""
+
+    if coloured:
+        good = value >= 0
+        cls = "isd-good" if good else "isd-bad"
+        if show_arrow:
+            arrow = "▲" if good else "▼"
+
     return f"""
-    <div class="kpi-box" style="{style}">
-        <div style="font-size:11px;">{label}</div>
-        <div style="font-size:16px;">{int(round(value)):,}</div>
+    <div class="kpi-box {cls}">
+        <div class="label">{label}</div>
+        <div class="value">
+            <span class="trend">
+                {f"<span class='arrow'>{arrow}</span>" if arrow else ""}
+                <span>{int(round(value)):,}</span>
+            </span>
+        </div>
     </div>
     """
 
 
-def kpi_required_vs_original(label, required, original):
-    bg = GREEN if required <= original else RED
+def kpi_required_vs_original(label, required, original, show_arrow=False):
+    good = required <= original
+    cls = "isd-good" if good else "isd-bad"
+    arrow = "▲" if good else "▼" if show_arrow else ""
+
     return f"""
-    <div class="kpi-box" style="background:{bg};">
-        <div style="font-size:11px;">{label}</div>
-        <div style="font-size:16px;">
-            {int(round(required)):,}
+    <div class="kpi-box {cls}">
+        <div class="label">{label}</div>
+        <div class="value">
+            <span class="trend">
+                {f"<span class='arrow'>{arrow}</span>" if arrow else ""}
+                <span>{int(round(required)):,}</span>
+            </span>
         </div>
     </div>
     """
 
 
 def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm, day_target):
-
     def fmt(v): return f"{int(round(v)):,}"
-    def var_cell(v):
-        return f"<td style='background:{GREEN if v >= 0 else RED};'>{fmt(v)}</td>"
 
     days = mpp.num_prod_days
     done = mpp.prod_days_completed
-    def th(label, left=False, right=False):
-        style = ""
-        if left:
-            style += "border-left:4px solid #000;"
-        if right:
-            style += "border-right:4px solid #000;"
-        return f"<th style='{style}'>{label}</th>"
-
-    def td(value, left=False, right=False, bg=None):
-        style = ""
-        if left:
-            style += "border-left:4px solid #000;"
-        if right:
-            style += "border-right:4px solid #000;"
-        if bg:
-            style += f"background:{bg};"
-        return f"<td style='{style}'>{fmt(value)}</td>"
-
 
     mtd_plan = mpp.monthly_target_bcm / days * done if days else 0
     coal_plan = mpp.coal_tons_planned / days * done if days else 0
     waste_plan = mpp.waste_bcms_planned / days * done if days else 0
 
+    def th(text, cls=""):
+        return f"<th class='{cls}'>{text}</th>"
+
+    def td(value, bg=None, cls=""):
+        style = f" style='background:{bg};'" if bg else ""
+        return f"<td class='{cls}'{style}>{fmt(value)}</td>"
+
+    mtd_var = mtd_actual - mtd_plan
+    coal_var = mtd_coal - coal_plan
+    waste_var = mtd_waste - waste_plan
+    day_var = day_bcm - day_target
+
+    # Within each group: use 'subsep' between internal columns, and 'sep' at end of group.
     return f"""
     <table class="summary-table">
         <tr>
-            <th>Month Target(bcm)</th>
-            <th>Month Coal(t)</th>
-            <th>Month Waste(bcm)</th>
+            {th("Month Target(bcm)", "subsep")}
+            {th("Month Coal(t)", "subsep")}
+            {th("Month Waste(bcm)", "sep")}
 
-            <th>MTD Act(bcm)</th>
-            <th>MTD Plan(bcm)</th>
-            <th>Var</th>
+            {th("MTD Act(bcm)", "subsep")}
+            {th("MTD Plan(bcm)", "subsep")}
+            {th("Var", "sep")}
 
-            <th>MTD C (t)</th>
-            <th>MTD C Plan(t)</th>
-            <th>Var C</th>
+            {th("MTD C (t)", "subsep")}
+            {th("MTD C Plan(t)", "subsep")}
+            {th("Var C", "sep")}
 
-            <th>MTD W (bcm)</th>
-            <th>MTD W Plan(bcm)</th>
-            <th>Var W</th>
+            {th("MTD W (bcm)", "subsep")}
+            {th("MTD W Plan(bcm)", "subsep")}
+            {th("Var W", "sep")}
 
-            <th>Day BCM</th>
-            <th>Day Target(bcm)</th>
-            <th>Day Var</th>
+            {th("Day BCM", "subsep")}
+            {th("Day Target(bcm)", "subsep")}
+            {th("Day Var", "sep")}
         </tr>
         <tr>
-                   <tr>
-            {td(mpp.monthly_target_bcm, left=True)}
-            {td(mpp.coal_tons_planned)}
-            {td(mpp.waste_bcms_planned, right=True)}
+            {td(mpp.monthly_target_bcm, cls="subsep")}
+            {td(mpp.coal_tons_planned, cls="subsep")}
+            {td(mpp.waste_bcms_planned, cls="sep")}
 
-            {td(mtd_actual, left=True)}
-            {td(mtd_plan)}
-            {td(mtd_actual - mtd_plan, right=True,
-                bg=GREEN if (mtd_actual - mtd_plan) >= 0 else RED)}
+            {td(mtd_actual, cls="subsep")}
+            {td(mtd_plan, cls="subsep")}
+            {td(mtd_var, bg=GREEN if mtd_var >= 0 else RED, cls="sep")}
 
-            {td(mtd_coal, left=True)}
-            {td(coal_plan)}
-            {td(mtd_coal - coal_plan, right=True,
-                bg=GREEN if (mtd_coal - coal_plan) >= 0 else RED)}
+            {td(mtd_coal, cls="subsep")}
+            {td(coal_plan, cls="subsep")}
+            {td(coal_var, bg=GREEN if coal_var >= 0 else RED, cls="sep")}
 
-            {td(mtd_waste, left=True)}
-            {td(waste_plan)}
-            {td(mtd_waste - waste_plan, right=True,
-                bg=GREEN if (mtd_waste - waste_plan) >= 0 else RED)}
+            {td(mtd_waste, cls="subsep")}
+            {td(waste_plan, cls="subsep")}
+            {td(waste_var, bg=GREEN if waste_var >= 0 else RED, cls="sep")}
 
-            {td(day_bcm, left=True)}
-            {td(day_target)}
-            {td(day_bcm - day_target, right=True,
-                bg=GREEN if (day_bcm - day_target) >= 0 else RED)}
+            {td(day_bcm, cls="subsep")}
+            {td(day_target, cls="subsep")}
+            {td(day_var, bg=GREEN if day_var >= 0 else RED, cls="sep")}
         </tr>
-
     </table>
     """
