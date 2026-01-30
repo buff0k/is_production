@@ -2,9 +2,6 @@ import frappe
 from frappe.utils import getdate, nowdate
 from datetime import timedelta
 
-# =========================================================
-# CONSTANTS
-# =========================================================
 Y_AXIS_STEP = 10_000
 
 SITE_COLORS = {
@@ -20,11 +17,7 @@ TARGET_LINE_COLOR = "#9E9E9E"
 ACTUAL_LINE_COLOR = "#0B2C4D"
 
 
-# =========================================================
-# MAIN EXECUTE
-# =========================================================
 def execute(filters=None):
-    # Always return at least 1 column + 1 row so Frappe (v16) doesn't show "Nothing to show"
     columns = [{"fieldname": "noop", "label": "", "fieldtype": "Data", "width": 1}]
     data = [{"noop": ""}]
 
@@ -33,14 +26,10 @@ def execute(filters=None):
 
     yesterday = getdate(nowdate()) - timedelta(days=1)
 
-    dmp = frappe.get_doc(
-        "Define Monthly Production",
-        filters.get("monthly_production_plan")
-    )
-
+    dmp = frappe.get_doc("Define Monthly Production", filters.get("monthly_production_plan"))
     mpp_map = get_monthly_plans(dmp.define)
-    site_blocks = []
 
+    site_blocks = []
     for row in dmp.define:
         mpp = mpp_map.get(row.site)
         if not mpp:
@@ -67,86 +56,7 @@ def execute(filters=None):
             )
         )
 
-    # Theme-aware, scoped styling (no bleed into other pages)
     html = f"""
-    <style>
-        .isd-ceo-graphs {{
-            --isd-gap: 14px;
-
-            /* Frappe theme vars with fallbacks */
-            --isd-text: var(--text-color, #1f272e);
-            --isd-muted: var(--text-muted, #6b7280);
-            --isd-bg: var(--bg-color, #f7f7f7);
-            --isd-card: var(--card-bg, var(--fg-color, #ffffff));
-            --isd-border: var(--border-color, #d1d8dd);
-            --isd-control-bg: var(--control-bg, #ffffff);
-
-            --isd-shadow: 0 1px 2px rgba(0,0,0,.06);
-            --isd-radius: 12px;
-
-            color: var(--isd-text);
-        }}
-
-        .isd-ceo-graphs .isd-grid {{
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: var(--isd-gap);
-            padding: 14px;
-            align-items: start;
-        }}
-
-        /* Cards */
-        .isd-ceo-graphs .isd-card {{
-            background: var(--isd-card);
-            border: 1px solid var(--isd-border);
-            border-radius: var(--isd-radius);
-            overflow: hidden;
-            box-shadow: var(--isd-shadow);
-            height: 420px;
-            display: flex;
-            flex-direction: column;
-        }}
-
-        /* Header/Banner (keeps your site colour but makes text theme-friendly) */
-        .isd-ceo-graphs .isd-banner {{
-            padding: 10px 14px;
-            font-weight: 800;
-            font-size: 12px;
-            line-height: 1.35;
-            color: var(--isd-text);
-            border-bottom: 1px solid var(--isd-border);
-        }}
-
-        .isd-ceo-graphs .isd-banner .isd-sub {{
-            font-weight: 600;
-            font-size: 11px;
-            color: var(--isd-muted);
-            margin-top: 4px;
-        }}
-
-        /* Chart area */
-        .isd-ceo-graphs .isd-chart {{
-            flex: 1;
-            padding: 12px 14px 14px 14px;
-            background: transparent;
-        }}
-
-        .isd-ceo-graphs .isd-chart canvas {{
-            width: 100% !important;
-            height: 100% !important;
-        }}
-
-        /* Responsive: 1 column on smaller widths */
-        @media (max-width: 1200px) {{
-            .isd-ceo-graphs .isd-grid {{
-                grid-template-columns: 1fr;
-            }}
-            .isd-ceo-graphs .isd-card {{
-                height: 380px;
-            }}
-        }}
-    </style>
-
     <div class="isd-ceo-graphs">
         <div class="isd-grid">
             {''.join(site_blocks)}
@@ -157,9 +67,6 @@ def execute(filters=None):
     return columns, data, html
 
 
-# =========================================================
-# SITE BLOCK
-# =========================================================
 def build_site_block(site, prod_start, prod_end, monthly_target, actual_map, yesterday):
     labels, dates = build_date_axis(prod_start, prod_end)
 
@@ -197,27 +104,21 @@ def build_site_block(site, prod_start, prod_end, monthly_target, actual_map, yes
             "maintainAspectRatio": False,
             "layout": {
                 "padding": {
-                    "left": 10,
-                    "right": 10,
+                    "left": 32,
+                    "right": 12,
                     "top": 10,
                     "bottom": 10,
                 }
             },
-            "plugins": {
-                "legend": {"display": False}
-            },
+            "plugins": {"legend": {"display": False}},
             "scales": {
-                "x": {
-                    "ticks": {
-                        "autoSkip": True,
-                        "font": {"size": 11},
-                    }
-                },
+                "x": {"ticks": {"autoSkip": True, "font": {"size": 11}}},
                 "y": {
                     "beginAtZero": True,
                     "ticks": {
                         "stepSize": Y_AXIS_STEP,
                         "font": {"size": 11},
+                        "padding": 6,
                     }
                 },
             },
@@ -243,18 +144,13 @@ def build_site_block(site, prod_start, prod_end, monthly_target, actual_map, yes
     """
 
 
-# =========================================================
-# ACTUALS (MTD)
-# =========================================================
 def extract_actuals_mtd(rows, prod_start, prod_end, cutoff):
     actuals = {}
-
     for r in rows:
         if not r.shift_start_date:
             continue
 
         d = getdate(r.shift_start_date)
-
         if d < prod_start or d > prod_end or d > cutoff:
             continue
 
@@ -270,18 +166,12 @@ def build_mtd_actual(dates, actual_map, cutoff):
     return [None if d > cutoff else actual_map.get(d) for d in dates]
 
 
-# =========================================================
-# TARGET (MTD)
-# =========================================================
 def build_mtd_target(monthly_target, days):
     daily = monthly_target / days if days else 0
     total = 0
     return [round((total := total + daily), 2) for _ in range(days)]
 
 
-# =========================================================
-# HELPERS
-# =========================================================
 def build_date_axis(start, end):
     labels, dates = [], []
     cur = start

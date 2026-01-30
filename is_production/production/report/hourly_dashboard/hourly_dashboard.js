@@ -13,17 +13,18 @@ frappe.query_reports["Hourly Dashboard"] = {
     ],
 
     onload: function (report) {
-        const hide_table = () => {
-            // report.page.main is reliable in v16
-            report.page.main.find('.datatable, .dt-scrollable, .dt-footer, .result .no-result').hide();
+        const hide_table_bits = () => {
+            if (!report || !report.page || !report.page.main) return;
+            report.page.main.find(".datatable, .dt-scrollable, .dt-footer, .result .no-result, .no-result").hide();
         };
 
-        // Hide immediately
-        hide_table();
+        hide_table_bits();
 
-        // Also hide again after a short delay (datatable often initializes after onload)
-        setTimeout(hide_table, 50);
-        setTimeout(hide_table, 250);
+        const page_el = report.page && report.page.main && report.page.main.get(0);
+        if (page_el && !report._isd_table_observer) {
+            report._isd_table_observer = new MutationObserver(() => hide_table_bits());
+            report._isd_table_observer.observe(page_el, { childList: true, subtree: true });
+        }
 
         if (report._auto_refresh_started) return;
 
@@ -32,20 +33,14 @@ frappe.query_reports["Hourly Dashboard"] = {
 
         const get_ms_until_next_refresh = () => {
             const now = new Date();
-
             const minutes = now.getMinutes();
             const seconds = now.getSeconds();
             const ms = now.getMilliseconds();
 
             let nextMinute;
-
-            if (minutes < 10) {
-                nextMinute = 10;
-            } else if (minutes < 30) {
-                nextMinute = 30;
-            } else {
-                nextMinute = 70; // next hour + 10 minutes
-            }
+            if (minutes < 10) nextMinute = 10;
+            else if (minutes < 30) nextMinute = 30;
+            else nextMinute = 70; // next hour + 10 minutes
 
             const waitMinutes = nextMinute - minutes;
 
@@ -67,12 +62,9 @@ frappe.query_reports["Hourly Dashboard"] = {
             report.refresh().then(() => {
                 report._refreshing = false;
 
-                // Hide again after refresh completes (datatable may re-render)
-                hide_table();
-                setTimeout(hide_table, 50);
+                hide_table_bits();
 
-                const now = new Date();
-                const time = now.toLocaleTimeString([], {
+                const time = new Date().toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit"
                 });
@@ -90,25 +82,23 @@ frappe.query_reports["Hourly Dashboard"] = {
         };
 
         const schedule_next = () => {
-            const delay = get_ms_until_next_refresh();
-            report._auto_refresh_timer = setTimeout(auto_refresh, delay);
+            report._auto_refresh_timer = setTimeout(auto_refresh, get_ms_until_next_refresh());
         };
 
-        // Schedule first aligned refresh
         schedule_next();
     },
 
     refresh: function (report) {
-        // Runs when filters change or user hits refresh
-        report.page.main.find('.datatable, .dt-scrollable, .dt-footer, .result .no-result').hide();
-        setTimeout(() => {
-            report.page.main.find('.datatable, .dt-scrollable, .dt-footer, .result .no-result').hide();
-        }, 50);
+        if (!report || !report.page || !report.page.main) return;
+        report.page.main.find(".datatable, .dt-scrollable, .dt-footer, .result .no-result, .no-result").hide();
     },
 
     onunload: function (report) {
-        if (report._auto_refresh_timer) {
-            clearTimeout(report._auto_refresh_timer);
+        if (report._auto_refresh_timer) clearTimeout(report._auto_refresh_timer);
+
+        if (report._isd_table_observer) {
+            report._isd_table_observer.disconnect();
+            report._isd_table_observer = null;
         }
     }
 };

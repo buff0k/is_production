@@ -1,5 +1,5 @@
 /* =========================================================
-   Hourly Dashboard (Theme-aware)
+   Hourly Dashboard (Theme-aware) — DASHBOARD (no scroll, 24 hours in one row)
    ========================================================= */
 
 .isd-hourly-dashboard {
@@ -7,10 +7,12 @@
   gap: 8px;
 }
 
+/* KEY: do not tile site cards horizontally (keeps hour columns readable) */
 .isd-hourly-dashboard .isd-grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fit, minmax(540px, 1fr));
+  grid-template-columns: 1fr;
+  align-items: start;
 }
 
 .isd-hourly-dashboard .isd-site {
@@ -29,6 +31,13 @@
   border-bottom: 1px solid var(--border-color, #d1d8dd);
 }
 
+.isd-hourly-dashboard .isd-site-sub {
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-muted, #6b7280);
+  margin-top: 4px;
+}
+
 .isd-hourly-dashboard table {
   width: 100%;
   border-collapse: separate;
@@ -36,51 +45,58 @@
   table-layout: fixed;
 }
 
+/* Compact cells so 24 hours fit without scroll or ellipsis */
 .isd-hourly-dashboard th,
 .isd-hourly-dashboard td {
   border-bottom: 1px solid var(--border-color, #d1d8dd);
   border-right: 1px solid var(--border-color, #d1d8dd);
   text-align: center;
-  font-size: 11px;
-  padding: 6px 4px;
-  height: 34px;
+  font-size: 10px;
+  padding: 2px 1px;
+  height: 30px;
   color: var(--text-color, #1f272e);
   background: var(--control-bg, #fff);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Keep values tidy */
 .isd-hourly-dashboard td {
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
-/* But allow hour headers to be 2-line and readable */
+/* Hour headers to be 2-line and readable */
 .isd-hourly-dashboard th {
   white-space: normal;
   line-height: 1.05;
-  padding: 4px 2px;
-  font-size: 10px;
-}
-
-.isd-hourly-dashboard th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  padding: 2px 1px;
+  font-size: 9px;
   background: var(--control-bg, #f7fafc);
-  font-weight: 700;
+  font-weight: 800;
 }
 
+/* Excavator column: narrower + sticky */
 .isd-hourly-dashboard th:first-child,
 .isd-hourly-dashboard td:first-child {
   text-align: left;
-  font-weight: 700;
-  width: 120px;
-  padding-left: 10px;
+  font-weight: 800;
+  width: 92px;
+  padding-left: 8px;
   background: var(--control-bg, #f7fafc);
   position: sticky;
   left: 0;
   z-index: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hour columns */
+.isd-hourly-dashboard th:not(:first-child),
+.isd-hourly-dashboard td:not(:first-child) {
+  width: 26px;
+  min-width: 26px;
 }
 
 .isd-hourly-dashboard td.isd-low {
@@ -93,16 +109,10 @@
   background: color-mix(in srgb, var(--green-500, #2fb344) 18%, var(--control-bg, #fff));
 }
 
-.isd-hourly-dashboard th:not(:first-child),
-.isd-hourly-dashboard td:not(:first-child) {
-  width: 30px;
-  min-width: 30px;
-}
 
-
-/* =========================================================
-   CEO Dashboard 1 (Layout + KPI styling + table separators)
-   ========================================================= */
+/* =====================================================================
+   CEO Dashboard 1 + separators (PRESERVED from your uploaded shared CSS)
+   ===================================================================== */
 
 .dashboard-grid {
   display: grid;
@@ -118,7 +128,6 @@
   box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.06));
 }
 
-/* KPI bar horizontal layout */
 .site-section .kpi-bar {
   display: flex;
   gap: 6px;
@@ -136,7 +145,6 @@
   min-width: 140px;
 }
 
-/* KPI label/value */
 .site-section .kpi-box .label {
   font-size: 11px;
   font-weight: 700;
@@ -148,17 +156,15 @@
   color: var(--text-color, #1f272e);
 }
 
-/* Solid good/bad KPI backgrounds */
 .site-section .kpi-box.isd-good {
   background: #2fb344 !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
   color: #ffffff !important;
 }
 .site-section .kpi-box.isd-bad {
   background: #e24c4c !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
   color: #ffffff !important;
 }
+
 .site-section .kpi-box.isd-good .label,
 .site-section .kpi-box.isd-bad .label {
   color: rgba(255, 255, 255, 0.92) !important;
@@ -167,54 +173,6 @@
 .site-section .kpi-box.isd-bad .value {
   color: #ffffff !important;
 }
-
-/* Arrow styling */
-.site-section .kpi-box .trend {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  justify-content: center;
-}
-.site-section .kpi-box .trend .arrow {
-  font-size: 16px;
-  line-height: 1;
-  font-weight: 900;
-}
-
-/* Summary table */
-.site-section table.summary-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  table-layout: fixed;
-  font-size: 12px;
-}
-
-.site-section table.summary-table th,
-.site-section table.summary-table td {
-  padding: 8px 8px;
-  text-align: center;
-  border-bottom: 1px solid var(--border-color, #d1d8dd);
-  background: var(--control-bg, #fff);
-  color: var(--text-color, #1f272e);
-}
-
-.site-section table.summary-table th {
-  font-weight: 800;
-  background: var(--control-bg, #f7fafc);
-}
-
-/* Default subtle vertical borders */
-.site-section table.summary-table th,
-.site-section table.summary-table td {
-  border-right: 1px solid var(--border-color, #d1d8dd);
-}
-.site-section table.summary-table th:last-child,
-.site-section table.summary-table td:last-child {
-  border-right: none;
-}
-
-/* === Two-level separators === */
 
 /* Major group separator (thick bar) */
 .site-section table.summary-table th.sep,
@@ -235,6 +193,78 @@
     font-size: 11px;
   }
 }
+
+
+/* =========================================================
+   CEO Dashboard One Graphs (Theme-aware) — 2-up in half-screen
+   ========================================================= */
+
+.isd-ceo-graphs {
+  --isd-gap: 14px;
+  --isd-text: var(--text-color, #1f272e);
+  --isd-muted: var(--text-muted, #6b7280);
+  --isd-card: var(--card-bg, var(--fg-color, #ffffff));
+  --isd-border: var(--border-color, #d1d8dd);
+  --isd-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.06));
+  --isd-radius: 12px;
+  color: var(--isd-text);
+}
+
+.isd-ceo-graphs .isd-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(420px, 1fr));
+  gap: var(--isd-gap);
+  padding: 14px;
+  align-items: start;
+}
+
+/* Only drop to 1-up when genuinely narrow */
+@media (max-width: 760px) {
+  .isd-ceo-graphs .isd-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.isd-ceo-graphs .isd-card {
+  background: var(--isd-card);
+  border: 1px solid var(--isd-border);
+  border-radius: var(--isd-radius);
+  overflow: hidden;
+  box-shadow: var(--isd-shadow);
+  height: 420px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.isd-ceo-graphs .isd-banner {
+  padding: 10px 14px;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--isd-text);
+  border-bottom: 1px solid var(--isd-border);
+}
+
+.isd-ceo-graphs .isd-banner .isd-sub {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--isd-muted);
+  margin-top: 4px;
+}
+
+.isd-ceo-graphs .isd-chart {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 12px 12px 26px;
+}
+
+.isd-ceo-graphs .isd-chart canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
 
 /* Only hide datatable for these dashboard-style reports */
 .isd-hourly-dashboard ~ .datatable,
