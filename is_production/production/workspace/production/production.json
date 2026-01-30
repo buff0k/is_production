@@ -1,7 +1,7 @@
 {
  "app": "is_production",
  "charts": [],
- "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production Dashboards</span>\",\"col\":12}},{\"id\":\"YDE94k2vZO\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Dashboards\",\"col\":4}},{\"id\":\"YoeOJfxDNK\",\"type\":\"card\",\"data\":{\"card_name\":\"Planning\",\"col\":4}},{\"id\":\"otyz_jgqrE\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Drilling and Diesel\",\"col\":4}},{\"id\":\"03mtDZtvFg\",\"type\":\"card\",\"data\":{\"card_name\":\"Breakdowns and Lost Hours\",\"col\":4}},{\"id\":\"obgFqF53Fu\",\"type\":\"card\",\"data\":{\"card_name\":\"Reporting\",\"col\":4}},{\"id\":\"eZYYaHD0Tw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Equipment Hours\",\"col\":5}}]",
+ "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"YDE94k2vZO\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Dashboards\",\"col\":4}},{\"id\":\"YoeOJfxDNK\",\"type\":\"card\",\"data\":{\"card_name\":\"Planning\",\"col\":4}},{\"id\":\"otyz_jgqrE\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Drilling and Diesel\",\"col\":4}},{\"id\":\"03mtDZtvFg\",\"type\":\"card\",\"data\":{\"card_name\":\"Breakdowns and Lost Hours\",\"col\":4}},{\"id\":\"obgFqF53Fu\",\"type\":\"card\",\"data\":{\"card_name\":\"Reporting\",\"col\":4}},{\"id\":\"eZYYaHD0Tw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Equipment Hours\",\"col\":5}}]",
  "creation": "2024-07-29 15:25:05.760313",
  "custom_blocks": [],
  "docstatus": 0,
@@ -300,7 +300,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-01-30 06:22:33.308869",
+ "modified": "2026-01-30 08:52:16.209050",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

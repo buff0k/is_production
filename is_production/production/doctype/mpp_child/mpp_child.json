@@ -10,7 +10,8 @@
   "site",
   "monthly_production_plan",
   "start_date",
-  "end_date"
+  "end_date",
+  "site_colour"
  ],
  "fields": [
   {
@@ -43,13 +44,18 @@
    "fieldtype": "Date",
    "in_list_view": 1,
    "label": "End Date"
+  },
+  {
+   "fieldname": "site_colour",
+   "fieldtype": "Color",
+   "label": "Site Colour"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-12 10:47:44.005787",
+ "modified": "2026-01-30 13:12:52.497314",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "MPP Child",

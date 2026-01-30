@@ -2,7 +2,7 @@
  "add_total_row": 0,
  "add_translate_data": 0,
  "columns": [],
- "creation": "2025-11-03 13:12:06.785287",
+ "creation": "2026-01-30 12:14:02.793711",
  "disabled": 0,
  "docstatus": 0,
  "doctype": "Report",
@@ -21,29 +21,26 @@
    "mandatory": 1,
    "wildcard_filter": 0
   },
-  
   {
-   "fieldname": "asset",
+   "fieldname": "site",
    "fieldtype": "Link",
-   "label": "Asset",
-   "mandatory": 0,
-   "options": "Asset",
+   "label": "Site",
+   "mandatory": 1,
+   "options": "Location",
    "wildcard_filter": 0
   }
-
  ],
  "idx": 0,
  "is_standard": "Yes",
- "letter_head": "Isambane Mining",
- "letterhead": null,
- "modified": "2025-11-03 13:12:06.785287",
+ "letter_head": null,
+ "modified": "2026-01-30 12:14:02.793711",
  "modified_by": "Administrator",
  "module": "Production",
- "name": "Avail and Util summary",
+ "name": "Availability and Utilisation Overview",
  "owner": "Administrator",
  "prepared_report": 0,
  "ref_doctype": "Availability and Utilisation",
- "report_name": "Avail and Util summary",
+ "report_name": "Availability and Utilisation Overview",
  "report_type": "Script Report",
  "roles": [
   {

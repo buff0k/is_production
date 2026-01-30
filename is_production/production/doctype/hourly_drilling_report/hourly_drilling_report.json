@@ -10,6 +10,8 @@
   "shift",
   "date",
   "drilling_meter_planning",
+  "diesel_used",
+  "water_used",
   "hourly_entries"
  ],
  "fields": [
@@ -42,16 +44,32 @@
    "fieldtype": "Table",
    "label": "Hourly Entries",
    "options": "Drills Hourly Entries"
+  },
+  {
+   "fieldname": "diesel_used",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Diesel_used",
+   "precision": "0",
+   "reqd": 1
+  },
+  {
+   "fieldname": "water_used",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Water_used",
+   "precision": "0",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-15 16:06:43.905864",
+ "modified": "2026-01-30 08:51:50.166866",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Drilling Report",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

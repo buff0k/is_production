@@ -13,7 +13,7 @@ def execute(filters=None):
         frappe.msgprint("⚠️ No records found for the selected filters or date range.")
         return columns, []
 
-    charts = build_charts(data)
+    charts = build_charts(data, filters)
 
     # HTML for multiple charts below the table
     message_html = ""
@@ -141,20 +141,46 @@ def build_conditions(filters):
 
     if filters.get("location") or filters.get("site"):
         loc = filters.get("location") or filters.get("site")
-        conditions.append(f"location = '{loc}'")
+        conditions.append(f"location = {frappe.db.escape(loc)}")
+
+    # NEW: Asset filter (filters against Availability and Utilisation.asset_name)
+    if filters.get("asset"):
+        conditions.append(f"asset_name = {frappe.db.escape(filters.get('asset'))}")
+
+    # NEW: Asset Category filter (All shows everything)
+    if filters.get("asset_category") and filters.get("asset_category") != "All":
+        cat = filters.get("asset_category")
+        if cat == "Uncategorised":
+            conditions.append("(asset_category IS NULL OR asset_category = '' OR asset_category = 'Uncategorised')")
+        else:
+            conditions.append(f"asset_category = '{cat}'")
+
+
 
     return "WHERE " + " AND ".join(conditions) if conditions else ""
 
 
 # -------------------------------------------------------
-# Chart Builder — one chart per category
+# Chart Builder — per category (asset view) OR time-bucket view
 # -------------------------------------------------------
-def build_charts(data):
+def build_charts(data, filters):
+    filters = filters or {}
+
+    metric = filters.get("metric") or "All"
+    chart_type = (filters.get("chart_type") or "Bar").lower()   # "bar" or "line"
+    time_column = filters.get("time_column") or "Month Only"
+
+    # If user selects any "time" mode, switch charts to a time-bucket chart
+    if time_column != "Month Only":
+        return [build_time_chart(filters, metric, chart_type, time_column)]
+
+    # Otherwise: keep the existing "per category, per asset" charts
     cat_map = {}
     for row in data:
         cat = row.get("asset_category") or "Uncategorised"
         if not row.get("asset_name"):
             continue
+
         cat_map.setdefault(cat, {"avail": [], "util": [], "assets": []})
         cat_map[cat]["assets"].append(row["asset_name"])
         cat_map[cat]["avail"].append(flt(row.get("plant_shift_availability") or 0))
@@ -162,19 +188,76 @@ def build_charts(data):
 
     charts = []
     for cat, vals in cat_map.items():
+        datasets = []
+        if metric in ("All", "Availability %"):
+            datasets.append({"name": "Availability %", "values": vals["avail"]})
+        if metric in ("All", "Utilisation %"):
+            datasets.append({"name": "Utilisation %", "values": vals["util"]})
+
         chart = {
             "title": f"{cat} — Availability vs Utilisation",
-            "data": {
-                "labels": vals["assets"],
-                "datasets": [
-                    {"name": "Availability %", "values": vals["avail"]},
-                    {"name": "Utilisation %", "values": vals["util"]}
-                ]
-            },
-            "type": "bar",
+            "data": {"labels": vals["assets"], "datasets": datasets},
+            "type": chart_type,
             "height": 250,
             "barOptions": {"spaceRatio": 0.6},
-            "colors": ["#4CAF50", "#2196F3"]
+            "colors": ["#FFC39B", "#7A7A7A"]  # Availability, Utilisation
         }
         charts.append(chart)
+
     return charts
+
+
+def build_time_chart(filters, metric, chart_type, time_column):
+    """
+    Time-bucket chart across selected filters.
+    Uses AVG(%) per bucket.
+    """
+    conditions = build_conditions(filters)
+    bucket_expr, bucket_label = get_time_bucket_expr(time_column)
+
+    rows = frappe.db.sql(f"""
+        SELECT
+            {bucket_expr} AS bucket,
+            AVG(plant_shift_availability) AS avail,
+            AVG(plant_shift_utilisation) AS util
+        FROM `tabAvailability and Utilisation`
+        {conditions}
+        GROUP BY {bucket_expr}
+        ORDER BY MIN(shift_date) ASC
+    """, as_dict=True)
+
+    labels = [r.get("bucket") for r in rows]
+    avail_vals = [flt(r.get("avail") or 0) for r in rows]
+    util_vals = [flt(r.get("util") or 0) for r in rows]
+
+    datasets = []
+    if metric in ("All", "Availability %"):
+        datasets.append({"name": "Availability %", "values": avail_vals})
+    if metric in ("All", "Utilisation %"):
+        datasets.append({"name": "Utilisation %", "values": util_vals})
+
+    return {
+        "title": f"Availability / Utilisation over Time ({bucket_label})",
+        "data": {"labels": labels, "datasets": datasets},
+        "type": chart_type,
+        "height": 280,
+        "colors": ["#FFC39B", "#7A7A7A"]  # Availability, Utilisation
+    }
+
+
+def get_time_bucket_expr(time_column):
+    """
+    Returns (SQL expr, label) for MariaDB/MySQL.
+    """
+    # NOTE: tabAvailability and Utilisation.shift_date is assumed to be a DATE/DATETIME.
+    if time_column == "Days Only":
+        return ("DATE_FORMAT(shift_date, '%Y-%m-%d')", "Day")
+    if time_column == "Days and Month":
+        return ("DATE_FORMAT(shift_date, '%d %b')", "Day+Month")
+    if time_column == "Weeks Only":
+        return ("DATE_FORMAT(shift_date, '%x-W%v')", "Week")
+    if time_column == "Week and Month":
+        return ("CONCAT(DATE_FORMAT(shift_date, '%b'), ' ', DATE_FORMAT(shift_date, '%x-W%v'))", "Week+Month")
+
+    # Month Only (default)
+    return ("DATE_FORMAT(shift_date, '%Y-%m')", "Month")

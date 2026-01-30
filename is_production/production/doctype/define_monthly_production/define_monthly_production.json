@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format: {month}-{year}",
+ "autoname": "format: {month}-{year}-{complex}-{type}",
  "creation": "2026-01-12 10:48:21.319588",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -9,6 +9,8 @@
   "start_and_end_dates",
   "month",
   "year",
+  "complex",
+  "type",
   "define"
  ],
  "fields": [
@@ -34,16 +36,28 @@
    "fieldtype": "Table",
    "label": "Define",
    "options": "MPP Child"
+  },
+  {
+   "fieldname": "complex",
+   "fieldtype": "Select",
+   "label": "Complex",
+   "options": "\nMiddelburg\nErmelo\nGraphs\nHourly"
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "\nHourly\nGraphs\nData"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-26 06:45:01.693211",
+ "modified": "2026-01-30 06:47:29.302499",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Define Monthly Production",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

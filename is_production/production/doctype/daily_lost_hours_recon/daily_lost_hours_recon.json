@@ -58,8 +58,7 @@
    "fieldname": "monthly_production_planning",
    "fieldtype": "Link",
    "label": "Monthly Production Planning Link",
-   "options": "Monthly Production Planning",
-   "read_only": 1
+   "options": "Monthly Production Planning"
   },
   {
    "fieldname": "column_break_bekh",
@@ -207,11 +206,11 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-11-04 08:44:54.782974",
+ "modified": "2026-01-30 10:05:45.974550",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Lost Hours Recon",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
