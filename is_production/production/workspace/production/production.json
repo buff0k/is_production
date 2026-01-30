@@ -1,7 +1,7 @@
 {
  "app": "is_production",
  "charts": [],
- "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production Dashboards</span>\",\"col\":12}},{\"id\":\"YDE94k2vZO\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Dashboards\",\"col\":4}},{\"id\":\"Jx9wCN_HNo\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Planning</b></span>\",\"col\":12}},{\"id\":\"y3Y4VRmjog\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Monthly Production Planning\",\"col\":10}},{\"id\":\"ECWWR9IpxG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Drill meter Planning\",\"col\":10}},{\"id\":\"ub3_ExS-Dj\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Dashboard Inputs\",\"col\":3}},{\"id\":\"prsx_ePfi-\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"0HfZP2diJP\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Production Drilling and Diesel</b></span>\",\"col\":10}},{\"id\":\"1OtdQROBoY\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Hourly Production\",\"col\":3}},{\"id\":\"3e_mbfO-sz\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily Diesel Sheet\",\"col\":3}},{\"id\":\"MKwJMkplZ8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Survey\",\"col\":4}},{\"id\":\"sy5Tirdbdm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pre-Use Hours\",\"col\":3}},{\"id\":\"bVxvqtjm29\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Hourly Drilling Report\",\"col\":3}},{\"id\":\"4WZiVZ-1oB\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Diesel Receipts\",\"col\":3}},{\"id\":\"94TWbkUhr0\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"eH7ItHjvTR\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Breakdowns and Lost Hours</b></span>\",\"col\":12}},{\"id\":\"mtyHQpVS79\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Breakdowns\",\"col\":3}},{\"id\":\"iDOcyiZaes\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Breakdown Records\",\"col\":4}},{\"id\":\"u9NIgGeh2M\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Other Lost Hours\",\"col\":4}},{\"id\":\"EAqLfrubFS\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"7ozFKDlz1p\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reporting</b></span>\",\"col\":12}},{\"id\":\"eZYYaHD0Tw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Equipment Hours\",\"col\":5}},{\"id\":\"BeVH2yybmK\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Weekly Report\",\"col\":4}},{\"id\":\"C8tgGQ_gj-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Rates per Hour\",\"col\":3}},{\"id\":\"VTPBfW5UiW\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Support Equipment Machine Hours\",\"col\":5}},{\"id\":\"08jFqktPwq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Avail and Util Full Version\",\"col\":4}},{\"id\":\"NNK5YzRXQG\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Team Production\",\"col\":3}},{\"id\":\"3YEPPKgEt-\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Avail and Util Summary\",\"col\":5}},{\"id\":\"jcAeSFaQ9M\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Diesel Reconciliation\",\"col\":4}}]",
+ "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production Dashboards</span>\",\"col\":12}},{\"id\":\"YDE94k2vZO\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Dashboards\",\"col\":4}},{\"id\":\"YoeOJfxDNK\",\"type\":\"card\",\"data\":{\"card_name\":\"Planning\",\"col\":4}},{\"id\":\"otyz_jgqrE\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Drilling and Diesel\",\"col\":4}},{\"id\":\"03mtDZtvFg\",\"type\":\"card\",\"data\":{\"card_name\":\"Breakdowns and Lost Hours\",\"col\":4}},{\"id\":\"obgFqF53Fu\",\"type\":\"card\",\"data\":{\"card_name\":\"Reporting\",\"col\":4}},{\"id\":\"eZYYaHD0Tw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Equipment Hours\",\"col\":5}}]",
  "creation": "2024-07-29 15:25:05.760313",
  "custom_blocks": [],
  "docstatus": 0,
@@ -62,9 +62,245 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Planning",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Monthly Production Planning",
+   "link_count": 0,
+   "link_to": "Monthly Production Planning",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Drilling Meter Planning",
+   "link_count": 0,
+   "link_to": "Drilling Meter Planning",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Dashboard Inputs",
+   "link_count": 0,
+   "link_to": "Define Monthly Production",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Production Drilling and Diesel",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Hourly Production",
+   "link_count": 0,
+   "link_to": "Hourly Production",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Pre-Use Hours",
+   "link_count": 0,
+   "link_to": "Pre-Use Hours",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Daily Diesel Sheet",
+   "link_count": 0,
+   "link_to": "Daily Diesel Sheet",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Hourly Drilling Report",
+   "link_count": 0,
+   "link_to": "Hourly Drilling Report",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Survey",
+   "link_count": 0,
+   "link_to": "Survey",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diesel Receipt",
+   "link_count": 0,
+   "link_to": "Diesel Receipt",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Breakdowns and Lost Hours",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Breakdowns",
+   "link_count": 0,
+   "link_to": "Plant Breakdown or Maintenance",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Breakdown Records",
+   "link_count": 0,
+   "link_to": "Breakdown History",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Other Lost Hours",
+   "link_count": 0,
+   "link_to": "Daily Lost Hours Recon",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reporting",
+   "link_count": 8,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Pre-Use Report",
+   "link_count": 0,
+   "link_to": "Pre-Use Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Weekly Report",
+   "link_count": 0,
+   "link_to": "Weekly Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Rates per Hour",
+   "link_count": 0,
+   "link_to": "Productivity",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Support Equipment Machine Hours",
+   "link_count": 0,
+   "link_to": "Rental Equipment Hours",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Avail and Util Full Version",
+   "link_count": 0,
+   "link_to": "Avail and Util report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Team Production",
+   "link_count": 0,
+   "link_to": "Production Shift Teams",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Avail and Util Summary",
+   "link_count": 0,
+   "link_to": "Avail and Util summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diesel Reconciliation",
+   "link_count": 0,
+   "link_to": "Diesel Reconciliation",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-01-29 19:31:45.758436",
+ "modified": "2026-01-30 06:22:33.308869",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
@@ -79,160 +315,8 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Monthly Production Planning",
-   "link_to": "Monthly Production Planning",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Daily Diesel Sheet",
-   "link_to": "Daily Diesel Sheet",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Rates per Hour",
-   "link_to": "Productivity",
-   "report_ref_doctype": "Hourly Production",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Avail and Util Full Version",
-   "link_to": "Avail and Util report",
-   "report_ref_doctype": "Availability and Utilisation",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Hourly Production",
-   "link_to": "Hourly Production",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Survey",
-   "link_to": "Survey",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Breakdowns",
-   "link_to": "Plant Breakdown or Maintenance",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Team Production",
-   "link_to": "Production Shift Teams",
-   "report_ref_doctype": "Hourly Production",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Breakdown Records",
-   "link_to": "Breakdown History",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
    "label": "Production Equipment Hours",
    "link_to": "Pre-Use Report",
-   "report_ref_doctype": "Pre-Use Hours",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Diesel Reconciliation",
-   "link_to": "Diesel Reconciliation",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Hourly Drilling Report",
-   "link_to": "Hourly Drilling Report",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Drill meter Planning",
-   "link_to": "Drilling Meter Planning",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Pre-Use Hours",
-   "link_to": "Pre-Use Hours",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Other Lost Hours",
-   "link_to": "Daily Lost Hours Recon",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Avail and Util Summary",
-   "link_to": "Avail and Util summary",
-   "report_ref_doctype": "Availability and Utilisation",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Dashboard Inputs",
-   "link_to": "Define Monthly Production",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Diesel Receipts",
-   "link_to": "Diesel Receipt",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Weekly Report",
-   "link_to": "Weekly Report",
-   "report_ref_doctype": "Hourly Production",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Support Equipment Machine Hours",
-   "link_to": "Rental Equipment Hours",
    "report_ref_doctype": "Pre-Use Hours",
    "type": "Report"
   }
