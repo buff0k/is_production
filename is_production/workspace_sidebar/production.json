@@ -77,9 +77,20 @@
    "link_type": "Report",
    "show_arrow": 0,
    "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Desktop",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link",
+   "url": "/desk"
   }
  ],
- "modified": "2026-01-29 18:41:42.897947",
+ "modified": "2026-02-02 15:42:53.348919",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

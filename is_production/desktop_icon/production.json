@@ -1,0 +1,32 @@
+{
+ "app": "is_production",
+ "creation": "2026-01-14 08:06:58.856867",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon_type": "App",
+ "idx": 1,
+ "label": "Production",
+ "link": "/app/production",
+ "link_to": "Production",
+ "link_type": "Workspace Sidebar",
+ "logo_url": "/assets/is_production/images/is-logo.svg",
+ "modified": "2026-02-02 15:43:36.671295",
+ "modified_by": "Administrator",
+ "name": "Production",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Safety Manager"
+  },
+  {
+   "role": "Safety User"
+  }
+ ],
+ "sidebar": "Production",
+ "standard": 1
+}
