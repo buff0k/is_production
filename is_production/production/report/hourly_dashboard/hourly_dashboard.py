@@ -16,9 +16,9 @@ def get_operational_day():
 SITE_HEADER_COLOURS = {
     "Klipfontein": "#55A7FF",
     "Gwab": "#ECE6F5",
-    "Kriel Rehabilitation": "#2ECC71",
+    "Kriel Rehabilitation": "#E6D3B1",
     "Koppie": "#F5A623",
-    "Uitgevallen": "#1ABC9C",
+    "Uitgevallen": "#E6DFFF",
     "Bankfontein": "#9E9E9E",
 }
 
