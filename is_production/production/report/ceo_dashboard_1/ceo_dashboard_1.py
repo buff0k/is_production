@@ -7,12 +7,12 @@ RED = "#F9CACA"
 HEADER_BG = "#EEF4FB"
 
 SITE_COLOURS = {
-    "Klipfontein": "#55A7FF",
-    "Gwab": "#ECE6F5",
+    "Klipfontein": "#EBF9FF",
+    "Gwab": "#f7d8ff",
     "Kriel Rehabilitation": "#E6D3B1",
-    "Koppie": "#F5A623",
-    "Uitgevallen": "#7B6CF6",
-    "Bankfontein": "#9E9E9E",
+    "Koppie": "#feff8d",
+    "Uitgevallen": "#ffd37f",
+    "Bankfontein": "#e3e3e3",
 }
 
 GROUP_A = {"Klipfontein", "Gwab"}
