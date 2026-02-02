@@ -1,3 +1,6 @@
+# Copyright (c) 2026, BuFf0k and contributors
+# For license information, please see license.txt
+
 import frappe
 from frappe.model.document import Document
 from frappe.utils import getdate, add_days, nowdate
@@ -50,15 +53,40 @@ def _pick_meters_field(child_doctype: str) -> str:
     for f in candidates:
         if meta.has_field(f):
             return f
-    # fallback to a common name
     return "meters"
+
+
+def _resolve_hourly_child_doctype() -> str:
+    """
+    Resolve the child doctype for Hourly Drilling Report's hourly_entries table field
+    dynamically from meta (no hardcoding).
+    """
+    parent_dt = "Hourly Drilling Report"
+    table_fieldname = "hourly_entries"
+
+    meta = frappe.get_meta(parent_dt)
+    if not meta.has_field(table_fieldname):
+        frappe.log_error(
+            f"{parent_dt} has no field '{table_fieldname}'",
+            "DrillingMeterPlanning: resolve hourly child doctype",
+        )
+        return ""
+
+    f = meta.get_field(table_fieldname)
+    child_dt = (f.options or "").strip() if f else ""
+    if not child_dt:
+        frappe.log_error(
+            f"{parent_dt}.{table_fieldname} has no options (child doctype)",
+            "DrillingMeterPlanning: resolve hourly child doctype",
+        )
+    return child_dt
 
 
 def get_mtd_drilled_meters(site: str, any_date_in_month, end_date=None) -> float:
     """
     MTD = sum of drilled meters from 1st of the month until today (or end_date if provided),
     filtered by site.
-    Reads from Hourly Drilling Report + its child table Drills Hourly Entries.
+    Reads from Hourly Drilling Report + its real child table (resolved dynamically).
     """
     if not site:
         return 0.0
@@ -67,22 +95,23 @@ def get_mtd_drilled_meters(site: str, any_date_in_month, end_date=None) -> float
     start = _month_start(any_date_in_month)
     today = getdate(nowdate())
 
-    # If you pass end_date, clamp to it; otherwise clamp to today
+    # Clamp end
     if end_date:
         end = min(getdate(end_date), today)
     else:
         end = today
 
-    # Parent + child doctypes/fields
     parent_dt = "Hourly Drilling Report"
     parent_date_field = "date"
     parent_site_field = "site"
 
-    # Child table doctype name from your Hourly Drilling Report JSON: "Drills Hourly Entries"
-    child_dt = "Drills Hourly Entries"
+    # ✅ dynamic child doctype
+    child_dt = _resolve_hourly_child_doctype()
+    if not child_dt:
+        return 0.0
+
     meters_field = _pick_meters_field(child_dt)
 
-    # Sum child meters where parent matches filters
     res = frappe.db.sql(
         f"""
         SELECT COALESCE(SUM(c.`{meters_field}`), 0)
@@ -90,8 +119,10 @@ def get_mtd_drilled_meters(site: str, any_date_in_month, end_date=None) -> float
         INNER JOIN `tab{parent_dt}` p ON p.name = c.parent
         WHERE
             c.parenttype = %s
+            AND c.parentfield = 'hourly_entries'
             AND p.`{parent_site_field}` = %s
             AND p.`{parent_date_field}` BETWEEN %s AND %s
+            AND p.docstatus < 2
         """,
         (parent_dt, site, start, end),
     )
@@ -126,14 +157,11 @@ def apply_calculations(doc: Document):
     worked = doc.worked_days or 0
     doc.remaining_days = clamp_non_negative((doc.planned_drilling_days or 0) - worked)
 
-    # ---- daily target meters (your field: daily_target_meters) ----
+    # ---- daily target meters ----
     planned_days = doc.planned_drilling_days or 0
     monthly_target = doc.monthly_target_meters or 0
 
-    if planned_days > 0:
-        doc.daily_target_meters = monthly_target / planned_days
-    else:
-        doc.daily_target_meters = 0
+    doc.daily_target_meters = (monthly_target / planned_days) if planned_days > 0 else 0
 
     # ---- shifts / hours ----
     try:
@@ -152,7 +180,7 @@ def apply_calculations(doc: Document):
     else:
         doc.total_monthly_drilling_hours = 0
 
-    # ---- hours completed (proxy) ----
+    # ---- hours completed (proxy from worked days) ----
     total_hours = doc.total_monthly_drilling_hours or 0
     avg_daily_hours = (total_hours / planned_days) if planned_days > 0 else 0
 
@@ -161,18 +189,12 @@ def apply_calculations(doc: Document):
         total_hours - (doc.monthly_drilling_hours_completed or 0)
     )
 
-    # =========================================================
-    # ✅ MTD DRILLED METERS (AUTO): 1st of month -> today
-    # =========================================================
-    # Use start_date month if exists; else fallback to today month
+    # ---- MTD drilled meters: 1st of month -> today ----
     month_anchor = getdate(doc.start_date) if doc.start_date else getdate(nowdate())
-
-    # If you want MTD to stop at planning end_date, pass doc.end_date.
-    # If you want pure calendar MTD until today, pass end_date=None.
     doc.mtd_drilled_meters = get_mtd_drilled_meters(
         site=doc.site,
         any_date_in_month=month_anchor,
-        end_date=None,   # change to doc.end_date if you want to cap it
+        end_date=None,  # keep calendar MTD-to-today behaviour
     )
 
     mtd = doc.mtd_drilled_meters or 0
@@ -184,7 +206,7 @@ def apply_calculations(doc: Document):
     rem_hours = doc.monthly_remaining_drilling_hours or 0
     doc.required_hourly_rate = (doc.remaining_meter / rem_hours) if rem_hours > 0 else 0
 
-    # ---- current hourly rate (your field: current_hourly_rate) ----
+    # ---- current hourly rate ----
     comp_hours = doc.monthly_drilling_hours_completed or 0
     doc.current_hourly_rate = (mtd / comp_hours) if comp_hours > 0 else 0
 
@@ -197,9 +219,9 @@ def apply_calculations(doc: Document):
         ((mtd / worked) * planned_days) if worked > 0 and planned_days > 0 else 0
     )
 
-    # ---- current daily meters (OPTIONAL AUTO) ----
-    # If you want it always auto (MTD/Worked days), uncomment:
-    # doc.current_daily_meters = (mtd / worked) if worked > 0 else 0
+    # ---- current daily meters (AUTO) ----
+    # Your JS + print expects this. If you want it manual, comment this out.
+    doc.current_daily_meters = (mtd / worked) if worked > 0 else 0
 
 
 class DrillingMeterPlanning(Document):
