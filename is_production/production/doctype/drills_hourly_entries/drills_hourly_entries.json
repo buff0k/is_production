@@ -25,22 +25,32 @@
   {
    "fieldname": "drill",
    "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Drill"
   },
   {
    "fieldname": "area",
    "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Area"
   },
   {
    "fieldname": "meters",
    "fieldtype": "Float",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Meters",
-   "precision": "2"
+   "non_negative": 1,
+   "precision": "2",
+   "reqd": 1
   },
   {
    "fieldname": "material",
    "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
    "label": "Material"
   }
  ],
@@ -48,7 +58,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-14 22:21:16.751005",
+ "modified": "2026-02-02 17:26:40.772383",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Drills Hourly Entries",

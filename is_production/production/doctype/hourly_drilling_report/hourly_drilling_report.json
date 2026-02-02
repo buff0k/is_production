@@ -49,21 +49,21 @@
    "fieldname": "diesel_used",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Diesel_used",
+   "label": "Diesel Used",
    "precision": "0"
   },
   {
    "fieldname": "water_used",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Water_used",
+   "label": "Water Used",
    "precision": "0"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-02 11:19:21.386226",
+ "modified": "2026-02-02 17:27:26.382494",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Drilling Report",
