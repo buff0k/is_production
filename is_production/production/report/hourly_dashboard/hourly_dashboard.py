@@ -18,7 +18,7 @@ SITE_HEADER_COLOURS = {
     "Gwab": "#ECE6F5",
     "Kriel Rehabilitation": "#E6D3B1",
     "Koppie": "#F5A623",
-    "Uitgevallen": "#E6DFFF",
+    "Uitgevallen": "#7B6CF6",
     "Bankfontein": "#9E9E9E",
 }
 
