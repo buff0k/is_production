@@ -19,8 +19,8 @@ add_to_apps_screen = [
     }
 ]
 fixtures = [
-    {"dt": "Role", "filters": [["name", "in", ["Production Manager", "Production User", "Control Clerk", "External Surveryor"]]]},
-    {"dt": "Custom DocPerm", "filters": [["role", "in", ["Production Manager", "Production User", "Control Clerk", "External Surveryor"]]]},
+    {"dt": "Role", "filters": [["name", "in", ["Production Manager", "Production User", "Control Clerk", "External Surveryor", "Drill Supervisor"]]]},
+    {"dt": "Custom DocPerm", "filters": [["role", "in", ["Production Manager", "Production User", "Control Clerk", "External Surveryor", "Drill Supervisor"]]]},
     {"dt": "Asset Category", "filters": [["name", "in", ["Dozer", "ADT", "Rigid", "Excavator"]]]}
 ]
 
