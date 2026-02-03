@@ -1,0 +1,38 @@
+{
+ "content": null,
+ "creation": "2026-02-02 19:05:06.907335",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-02-02 19:05:06.907335",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "hourly-dashboard",
+ "owner": "Administrator",
+ "page_name": "hourly-dashboard",
+ "roles": [
+  {
+   "role": "All"
+  },
+  {
+   "role": "Production Manager"
+  },
+  {
+   "role": "Production User"
+  },
+  {
+   "role": "Engineering Manager"
+  },
+  {
+   "role": "Engineering User"
+  },
+  {
+   "role": "Control Clerk"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Hourly Dashboard"
+}

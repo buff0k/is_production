@@ -6,6 +6,9 @@ GREEN = "#C9F2D8"
 RED = "#F9CACA"
 HEADER_BG = "#EEF4FB"
 
+# NEW: hard border colours (inline styles so theme cannot override)
+BLACK = "#000000"
+
 SITE_COLOURS = {
     "Klipfontein": "#EBF9FF",
     "Gwab": "#f7d8ff",
@@ -290,8 +293,11 @@ def build_site_section(site, start_date, end_date, mpp,
 
     bg = SITE_COLOURS.get(site, "#BDC3C7")
 
+    # NEW: inline black border around the whole site-section (3rd screenshot)
+    site_border_style = f"border:2px solid {BLACK};border-radius:12px;overflow:hidden;"
+
     return f"""
-    <div class="site-section">
+    <div class="site-section" style="{site_border_style}">
         <div style="padding:8px;background:{bg};">
             <div style="font-size:17px;">SITE: {site}</div>
             <div style="font-size:12px;">
@@ -326,8 +332,11 @@ def kpi(label, value, coloured=False, show_arrow=False):
         if show_arrow:
             arrow = "▲" if good else "▼"
 
+    # NEW: inline border for KPI boxes (so grey border becomes black)
+    box_style = f"border:2px solid {BLACK};border-radius:10px;"
+
     return f"""
-    <div class="kpi-box {cls}">
+    <div class="kpi-box {cls}" style="{box_style}">
         <div class="label">{label}</div>
         <div class="value">
             <span class="trend">
@@ -344,8 +353,11 @@ def kpi_required_vs_original(label, required, original, show_arrow=False):
     cls = "isd-good" if good else "isd-bad"
     arrow = "▲" if good else "▼" if show_arrow else ""
 
+    # NEW: inline border for KPI boxes (so grey border becomes black)
+    box_style = f"border:2px solid {BLACK};border-radius:10px;"
+
     return f"""
-    <div class="kpi-box {cls}">
+    <div class="kpi-box {cls}" style="{box_style}">
         <div class="label">{label}</div>
         <div class="value">
             <span class="trend">
@@ -367,21 +379,45 @@ def build_html(mpp, mtd_actual, mtd_coal, mtd_waste, day_bcm, day_target):
     coal_plan = mpp.coal_tons_planned / days * done if days else 0
     waste_plan = mpp.waste_bcms_planned / days * done if days else 0
 
-    def th(text, cls=""):
-        return f"<th class='{cls}'>{text}</th>"
-
-    def td(value, bg=None, cls=""):
-        style = f" style='background:{bg};'" if bg else ""
-        return f"<td class='{cls}'{style}>{fmt(value)}</td>"
-
     mtd_var = mtd_actual - mtd_plan
     coal_var = mtd_coal - coal_plan
     waste_var = mtd_waste - waste_plan
     day_var = day_bcm - day_target
 
+    # NEW: table styles to force black borders (2nd screenshot)
+    table_style = (
+        f"width:100%;"
+        f"border-collapse:collapse;"
+        f"border:4px solid {BLACK};"     # bold outer border for the whole table block
+    )
+
+    def th(text, cls=""):
+        # Default inner grid lines black
+        base = f"border:1px solid {BLACK};padding:6px 6px;text-align:center;"
+
+        # Group separators
+        if cls == "sep":
+            base += f"border-right:4px solid {BLACK};"
+        elif cls == "subsep":
+            base += f"border-right:2px solid {BLACK};"
+
+        return f"<th class='{cls}' style='{base}'>{text}</th>"
+
+    def td(value, bg=None, cls=""):
+        style = f"border:1px solid {BLACK};padding:6px 6px;text-align:center;"
+        if bg:
+            style += f"background:{bg};"
+
+        if cls == "sep":
+            style += f"border-right:4px solid {BLACK};"
+        elif cls == "subsep":
+            style += f"border-right:2px solid {BLACK};"
+
+        return f"<td class='{cls}' style='{style}'>{fmt(value)}</td>"
+
     # Within each group: use 'subsep' between internal columns, and 'sep' at end of group.
     return f"""
-    <table class="summary-table">
+    <table class="summary-table" style="{table_style}">
         <tr>
             {th("Month Target(bcm)", "subsep")}
             {th("Month Coal(t)", "subsep")}

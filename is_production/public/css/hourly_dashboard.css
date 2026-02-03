@@ -272,3 +272,99 @@
 .isd-ceo-1 ~ .datatable {
   display: none !important;
 }
+
+
+/* =====================================================================
+   CEO Dashboard 1 — HARD OVERRIDES (this is the FIX)
+   - Makes the existing grey outlines black (site card + KPI boxes)
+   - Puts bold black border around the entire summary table block
+   - Makes the internal grid lines black too
+   ===================================================================== */
+
+:root {
+  --isd-ceo-black: #000000;
+}
+
+/* 3rd screenshot: the outer site-section border must be black (not grey) */
+html body .dashboard-grid .site-section,
+html body .site-section {
+  border-color: var(--isd-ceo-black) !important;
+  border-style: solid !important;
+  border-width: 2px !important;
+
+  /* guarantee a black stroke even if border is overridden */
+  outline: 2px solid var(--isd-ceo-black) !important;
+  outline-offset: -2px !important;
+  box-shadow:
+    var(--shadow-sm, 0 1px 2px rgba(0,0,0,.06)),
+    inset 0 0 0 2px var(--isd-ceo-black) !important;
+}
+
+/* KPI boxes: same idea — make the existing grey border black */
+html body .dashboard-grid .site-section .kpi-box,
+html body .site-section .kpi-box {
+  border-color: var(--isd-ceo-black) !important;
+  border-style: solid !important;
+  border-width: 2px !important;
+
+  outline: 2px solid var(--isd-ceo-black) !important;
+  outline-offset: -2px !important;
+  box-shadow: inset 0 0 0 2px var(--isd-ceo-black) !important;
+}
+
+/* 2nd screenshot: bold black border around the OUTSIDE of the table block */
+html body .dashboard-grid .site-section table.summary-table,
+html body table.summary-table {
+  border-collapse: collapse !important;
+  border: 4px solid var(--isd-ceo-black) !important;
+
+  /* extra guarantee stroke */
+  outline: 4px solid var(--isd-ceo-black) !important;
+  outline-offset: -4px !important;
+  box-shadow: inset 0 0 0 4px var(--isd-ceo-black) !important;
+}
+
+/* Make the inner grid lines black (replace grey) */
+html body .dashboard-grid .site-section table.summary-table th,
+html body .dashboard-grid .site-section table.summary-table td,
+html body table.summary-table th,
+html body table.summary-table td {
+  border: 1px solid var(--isd-ceo-black) !important;
+}
+
+/* Keep the vertical group separators thick black */
+html body .dashboard-grid .site-section table.summary-table th.sep,
+html body .dashboard-grid .site-section table.summary-table td.sep,
+html body table.summary-table th.sep,
+html body table.summary-table td.sep {
+  border-right: 4px solid var(--isd-ceo-black) !important;
+}
+
+html body .dashboard-grid .site-section table.summary-table th.subsep,
+html body .dashboard-grid .site-section table.summary-table td.subsep,
+html body table.summary-table th.subsep,
+html body table.summary-table td.subsep {
+  border-right: 2px solid var(--isd-ceo-black) !important;
+}
+
+/* Ensure the OUTER edges remain bold */
+html body .dashboard-grid .site-section table.summary-table tr:first-child th,
+html body table.summary-table tr:first-child th {
+  border-top: 4px solid var(--isd-ceo-black) !important;
+}
+html body .dashboard-grid .site-section table.summary-table tr:last-child td,
+html body table.summary-table tr:last-child td {
+  border-bottom: 4px solid var(--isd-ceo-black) !important;
+}
+html body .dashboard-grid .site-section table.summary-table th:first-child,
+html body .dashboard-grid .site-section table.summary-table td:first-child,
+html body table.summary-table th:first-child,
+html body table.summary-table td:first-child {
+  border-left: 4px solid var(--isd-ceo-black) !important;
+}
+html body .dashboard-grid .site-section table.summary-table th:last-child,
+html body .dashboard-grid .site-section table.summary-table td:last-child,
+html body table.summary-table th:last-child,
+html body table.summary-table td:last-child {
+  border-right: 4px solid var(--isd-ceo-black) !important;
+}
