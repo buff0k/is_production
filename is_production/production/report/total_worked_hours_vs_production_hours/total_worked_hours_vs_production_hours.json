@@ -38,10 +38,10 @@
    "wildcard_filter": 0
   }
  ],
- "idx": 0,
+ "idx": 2,
  "is_standard": "Yes",
  "letter_head": null,
- "modified": "2026-02-03 10:31:53.027894",
+ "modified": "2026-02-04 13:32:32.386036",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Total Worked Hours vs Production Hours",
@@ -50,6 +50,22 @@
  "ref_doctype": "Pre-Use Hours",
  "report_name": "Total Worked Hours vs Production Hours",
  "report_type": "Script Report",
- "roles": [],
+ "roles": [
+  {
+   "role": "All"
+  },
+  {
+   "role": "Production Manager"
+  },
+  {
+   "role": "Production User"
+  },
+  {
+   "role": "Engineering Manager"
+  },
+  {
+   "role": "Engineering User"
+  }
+ ],
  "timeout": 0
 }

@@ -1,27 +1,29 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format: {site}-{shift_date}-{shift}",
- "creation": "2026-02-03 09:47:37.762661",
+ "autoname": "format: {notification_type}-{site}",
+ "creation": "2026-02-05 06:47:22.765406",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "shift_date",
-  "shift",
+  "enabled",
+  "notification_type",
   "site",
-  "equipment_non_production_hours"
+  "complex",
+  "recipients"
  ],
  "fields": [
   {
-   "fieldname": "shift_date",
-   "fieldtype": "Date",
-   "label": "Shift Date"
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
   },
   {
-   "fieldname": "shift",
+   "fieldname": "notification_type",
    "fieldtype": "Select",
-   "label": "Shift",
-   "options": "\nDay\nNight"
+   "label": "Notification Type",
+   "options": "CEO Dashboard 1\nProduction Efficiency"
   },
   {
    "fieldname": "site",
@@ -30,19 +32,25 @@
    "options": "Location"
   },
   {
-   "fieldname": "equipment_non_production_hours",
+   "fieldname": "recipients",
    "fieldtype": "Table",
-   "label": "Equipment Non-Production Hours",
-   "options": "Equipment Breakdown"
+   "label": "Recipients",
+   "options": "Production Notification Recipient"
+  },
+  {
+   "fieldname": "complex",
+   "fieldtype": "Select",
+   "label": "Complex",
+   "options": "\nMiddelburg\nErmelo\nOther"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-05 08:43:26.005662",
+ "modified": "2026-02-05 11:34:30.053867",
  "modified_by": "Administrator",
  "module": "Production",
- "name": "Non-Production Worked Hours",
+ "name": "Production Notification Group",
  "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
@@ -99,6 +107,17 @@
    "read": 1,
    "report": 1,
    "role": "Engineering User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
    "share": 1,
    "write": 1
   }

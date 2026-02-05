@@ -63,5 +63,39 @@ page_js = {
     "production-dashboard": "public/js/production_dashboard.js",
 }
 
+scheduler_events = {
+    "cron": {
+
+         # DAILY 05:55 - CEO Dashboard 1 PDF snapshot email
+        "55 5 * * *": [
+            "is_production.production.controllers.notifications.send_ceo_dashboard_daily_emails",
+        ],
+
+         # SUNDAY 14:15 - close previous week + send Production Efficiency weekly LINK emails
+        "15 14 * * SUN": [
+            "is_production.production.doctype.production_efficiency.production_efficiency.close_off_weekly_records",
+            "is_production.production.controllers.notifications.send_production_efficiency_weekly_emails",
+        ],
+
+
+        # Monday 04:00 - create new week
+        "0 4 * * MON": [
+            "is_production.production.doctype.production_efficiency.production_efficiency.create_weekly_records"
+        ],
+
+        # Daily 07:00 - update current week
+        "0 7 * * *": [
+        "is_production.production.doctype.production_efficiency.production_efficiency.update_weekly_records"
+        ],
+
+        # Daily 19:00 - update current week
+        "0 19 * * *": [
+        "is_production.production.doctype.production_efficiency.production_efficiency.update_weekly_records"
+        ],
+
+
+    }
+}
+
 
 

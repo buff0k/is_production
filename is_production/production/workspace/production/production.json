@@ -17,94 +17,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Production Dashboards",
-   "link_count": 4,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Site Volume Tracking",
-   "link_count": 0,
-   "link_to": "CEO Dashboard 1",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Monthly Volume Graphs",
-   "link_count": 0,
-   "link_to": "CEO Dashboard One Graphs",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Production Dashboard",
-   "link_count": 0,
-   "link_to": "production-dashboard",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Hourly Dashboard",
-   "link_count": 0,
-   "link_to": "Hourly Dashboard",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Planning",
-   "link_count": 3,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Monthly Production Planning",
-   "link_count": 0,
-   "link_to": "Monthly Production Planning",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Drilling Meter Planning",
-   "link_count": 0,
-   "link_to": "Drilling Meter Planning",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Dashboard Inputs",
-   "link_count": 0,
-   "link_to": "Define Monthly Production",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Breakdowns and Lost Hours",
    "link_count": 3,
    "link_type": "DocType",
@@ -137,85 +49,6 @@
    "label": "Other Lost Hours",
    "link_count": 0,
    "link_to": "Daily Lost Hours Recon",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Production Drilling and Diesel",
-   "link_count": 7,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Hourly Production",
-   "link_count": 0,
-   "link_to": "Hourly Production",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Capture Non Production Work Hour",
-   "link_count": 0,
-   "link_to": "Non-Production Worked Hours",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Pre-Use Hours",
-   "link_count": 0,
-   "link_to": "Pre-Use Hours",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Daily Diesel Sheet",
-   "link_count": 0,
-   "link_to": "Daily Diesel Sheet",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Hourly Drilling Report",
-   "link_count": 0,
-   "link_to": "Hourly Drilling Report",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Survey",
-   "link_count": 0,
-   "link_to": "Survey",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Diesel Receipt",
-   "link_count": 0,
-   "link_to": "Diesel Receipt",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -318,9 +151,216 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Production Drilling and Diesel",
+   "link_count": 8,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Hourly Production",
+   "link_count": 0,
+   "link_to": "Hourly Production",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Capture Non Production Work Hour",
+   "link_count": 0,
+   "link_to": "Non-Production Worked Hours",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Pre-Use Hours",
+   "link_count": 0,
+   "link_to": "Pre-Use Hours",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Daily Diesel Sheet",
+   "link_count": 0,
+   "link_to": "Daily Diesel Sheet",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Hourly Drilling Report",
+   "link_count": 0,
+   "link_to": "Hourly Drilling Report",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Survey",
+   "link_count": 0,
+   "link_to": "Survey",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diesel Receipt",
+   "link_count": 0,
+   "link_to": "Diesel Receipt",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Diesel Usage Site Analysis",
+   "link_count": 0,
+   "link_to": "Diesel Usage Site Analyses",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Planning",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Monthly Production Planning",
+   "link_count": 0,
+   "link_to": "Monthly Production Planning",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Drilling Meter Planning",
+   "link_count": 0,
+   "link_to": "Drilling Meter Planning",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Dashboard Inputs",
+   "link_count": 0,
+   "link_to": "Define Monthly Production",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Rate Inputs",
+   "link_count": 0,
+   "link_to": "Hourly Site Control",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Notification Management",
+   "link_count": 0,
+   "link_to": "Production Notification Group",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Production Dashboards",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Production Dashboard",
+   "link_count": 0,
+   "link_to": "production-dashboard",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Site Volume Tracking",
+   "link_count": 0,
+   "link_to": "CEO Dashboard 1",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Monthly Volume Graphs",
+   "link_count": 0,
+   "link_to": "CEO Dashboard One Graphs",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Hourly Dashboard",
+   "link_count": 0,
+   "link_to": "Hourly Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Production Efficiency (Weekly)",
+   "link_count": 0,
+   "link_to": "Production Efficiency",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-02-03 11:16:59.343355",
+ "modified": "2026-02-05 11:53:35.188034",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

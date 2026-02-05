@@ -1,25 +1,153 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format: {site}:{start_date}-{end_date}",
  "creation": "2026-01-29 11:13:14.788566",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "section_break_9jey"
+  "information_tab",
+  "hourly_production",
+  "site",
+  "monthly_production_plan",
+  "start_date",
+  "end_date",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+  "comments_tab",
+  "comment_section",
+  "comment",
+  "improvementrecommendation",
+  "report",
+  "reports",
+  "hourly_report"
  ],
  "fields": [
   {
-   "fieldname": "section_break_9jey",
-   "fieldtype": "Section Break"
+   "fieldname": "hourly_production",
+   "fieldtype": "Section Break",
+   "label": "Hourly Production"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date"
+  },
+  {
+   "fieldname": "monday",
+   "fieldtype": "Table",
+   "label": "Monday",
+   "options": "Monday"
+  },
+  {
+   "fieldname": "tuesday",
+   "fieldtype": "Table",
+   "label": "Tuesday",
+   "options": "Tuesday"
+  },
+  {
+   "fieldname": "wednesday",
+   "fieldtype": "Table",
+   "label": "Wednesday",
+   "options": "Wednesday"
+  },
+  {
+   "fieldname": "thursday",
+   "fieldtype": "Table",
+   "label": "Thursday",
+   "options": "Thursday"
+  },
+  {
+   "fieldname": "friday",
+   "fieldtype": "Table",
+   "label": "Friday",
+   "options": "Friday"
+  },
+  {
+   "fieldname": "saturday",
+   "fieldtype": "Table",
+   "label": "Saturday",
+   "options": "Saturday"
+  },
+  {
+   "fieldname": "sunday",
+   "fieldtype": "Table",
+   "label": "Sunday",
+   "options": "Sunday"
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date"
+  },
+  {
+   "fieldname": "monthly_production_plan",
+   "fieldtype": "Link",
+   "label": "Monthly Production Plan",
+   "options": "Monthly Production Planning"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Location"
+  },
+  {
+   "fieldname": "information_tab",
+   "fieldtype": "Tab Break",
+   "label": "Information"
+  },
+  {
+   "fieldname": "comments_tab",
+   "fieldtype": "Tab Break",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "comment_section",
+   "fieldtype": "Section Break",
+   "label": "Comment"
+  },
+  {
+   "fieldname": "comment",
+   "fieldtype": "Table",
+   "label": "Comment On Past 7 Days",
+   "options": "Production Efficiency Comments"
+  },
+  {
+   "fieldname": "improvementrecommendation",
+   "fieldtype": "Table",
+   "label": "Improvement/Recommendation For Next 7 Days",
+   "options": "Production Efficiency Improvements"
+  },
+  {
+   "fieldname": "report",
+   "fieldtype": "Tab Break",
+   "label": "Report"
+  },
+  {
+   "fieldname": "reports",
+   "fieldtype": "Section Break",
+   "label": "Report"
+  },
+  {
+   "fieldname": "hourly_report",
+   "fieldtype": "HTML",
+   "label": "Hourly Report"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-29 11:13:14.788566",
+ "modified": "2026-02-05 08:09:53.813929",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Efficiency",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -31,6 +159,71 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Engineering Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Engineering User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Control Clerk",
    "share": 1,
    "write": 1
   }

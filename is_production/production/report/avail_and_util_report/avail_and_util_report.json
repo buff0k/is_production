@@ -22,7 +22,7 @@
    "wildcard_filter": 0
   },
   {
-   "fieldname": "location",
+   "fieldname": "site",
    "fieldtype": "Link",
    "label": "Site",
    "mandatory": 0,
@@ -30,11 +30,10 @@
    "wildcard_filter": 0
   }
  ],
- "idx": 0,
+ "idx": 7,
  "is_standard": "Yes",
- "letter_head": "",
- "letterhead": null,
- "modified": "2025-11-03 10:40:32.477898",
+ "letter_head": null,
+ "modified": "2026-02-05 13:38:03.747993",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Avail and Util report",
@@ -52,6 +51,12 @@
   },
   {
    "role": "Engineering Manager"
+  },
+  {
+   "role": "Engineering User"
+  },
+  {
+   "role": "Production User"
   }
  ],
  "timeout": 0

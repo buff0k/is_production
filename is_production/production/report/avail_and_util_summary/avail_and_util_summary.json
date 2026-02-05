@@ -21,22 +21,19 @@
    "mandatory": 1,
    "wildcard_filter": 0
   },
-  
   {
-   "fieldname": "asset",
+   "fieldname": "site",
    "fieldtype": "Link",
-   "label": "Asset",
-   "mandatory": 0,
-   "options": "Asset",
+   "label": "Site",
+   "mandatory": 1,
+   "options": "Location",
    "wildcard_filter": 0
   }
-
  ],
- "idx": 0,
+ "idx": 3,
  "is_standard": "Yes",
- "letter_head": "Isambane Mining",
- "letterhead": null,
- "modified": "2025-11-03 13:12:06.785287",
+ "letter_head": null,
+ "modified": "2026-02-05 13:36:34.541415",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Avail and Util summary",
@@ -54,6 +51,12 @@
   },
   {
    "role": "Engineering Manager"
+  },
+  {
+   "role": "Engineering User"
+  },
+  {
+   "role": "Production User"
   }
  ],
  "timeout": 0

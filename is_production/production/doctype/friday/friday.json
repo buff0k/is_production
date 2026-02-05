@@ -1,0 +1,209 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-04 05:15:04.954936",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "friday_hours_section",
+  "excavators",
+  "six_seven",
+  "seven_eight",
+  "eight_nine",
+  "nine_ten",
+  "ten_eleven",
+  "eleven_twelve",
+  "twelve_thirteen",
+  "thirteen_fourteen",
+  "fourteen_fifteen",
+  "fifteen_sixteen",
+  "sixteen_seventeen",
+  "seventeen_eighteen",
+  "eighteen_nineteen",
+  "nineteen_twenty",
+  "twenty_twentyone",
+  "twentyone_twentytwo",
+  "twentytwo_twentythree",
+  "twentythree_zero_zero",
+  "zerozero_one",
+  "one_two",
+  "two_three",
+  "three_four",
+  "four_five",
+  "five_six"
+ ],
+ "fields": [
+  {
+   "fieldname": "friday_hours_section",
+   "fieldtype": "Section Break",
+   "label": "Friday Hours"
+  },
+  {
+   "fieldname": "excavators",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Excavators",
+   "options": "Asset"
+  },
+  {
+   "fieldname": "six_seven",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "06-07"
+  },
+  {
+   "fieldname": "seven_eight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "07-08"
+  },
+  {
+   "fieldname": "eight_nine",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "08-09"
+  },
+  {
+   "fieldname": "nine_ten",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "09-10"
+  },
+  {
+   "fieldname": "ten_eleven",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "10-11"
+  },
+  {
+   "fieldname": "eleven_twelve",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "11-12"
+  },
+  {
+   "fieldname": "twelve_thirteen",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "12-13"
+  },
+  {
+   "fieldname": "thirteen_fourteen",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "13-14"
+  },
+  {
+   "fieldname": "fourteen_fifteen",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "14-15"
+  },
+  {
+   "fieldname": "fifteen_sixteen",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "15-16"
+  },
+  {
+   "fieldname": "sixteen_seventeen",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "16-17"
+  },
+  {
+   "fieldname": "seventeen_eighteen",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "17-18"
+  },
+  {
+   "fieldname": "eighteen_nineteen",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "18-19"
+  },
+  {
+   "fieldname": "nineteen_twenty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "19-20"
+  },
+  {
+   "fieldname": "twenty_twentyone",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "20-21"
+  },
+  {
+   "fieldname": "twentyone_twentytwo",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "21-22"
+  },
+  {
+   "fieldname": "twentytwo_twentythree",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "22-23"
+  },
+  {
+   "fieldname": "twentythree_zero_zero",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "23-00"
+  },
+  {
+   "fieldname": "zerozero_one",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "00-01"
+  },
+  {
+   "fieldname": "one_two",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "01-02"
+  },
+  {
+   "fieldname": "two_three",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "02-03"
+  },
+  {
+   "fieldname": "three_four",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "03-04"
+  },
+  {
+   "fieldname": "four_five",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "04-05"
+  },
+  {
+   "fieldname": "five_six",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "05-06"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-04 05:23:19.146222",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Friday",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
