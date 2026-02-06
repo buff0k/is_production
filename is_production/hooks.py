@@ -84,14 +84,15 @@ scheduler_events = {
         ],
 
         # Daily 07:00 - update current week
-        "0 7 * * *": [
-        "is_production.production.doctype.production_efficiency.production_efficiency.update_weekly_records"
+        "0 6 * * *": [
+            "is_production.production.doctype.production_efficiency.production_efficiency.update_weekly_records"
         ],
 
         # Daily 19:00 - update current week
-        "0 19 * * *": [
-        "is_production.production.doctype.production_efficiency.production_efficiency.update_weekly_records"
-        ],
+        # Jy kan nie dieselfde controller function tweekeer gebruik in aparte schedulers nie
+        #"0 19 * * *": [
+        #"is_production.production.doctype.production_efficiency.production_efficiency.update_weekly_records"
+        #],
 
 
     }

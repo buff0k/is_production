@@ -4,6 +4,7 @@ from __future__ import annotations
 import calendar
 from dataclasses import dataclass
 from datetime import date
+from urllib.parse import urlencode
 
 import frappe
 from frappe.utils import add_days, getdate, now_datetime
@@ -42,12 +43,33 @@ def _today() -> date:
 def _previous_week_range(ref: date | None = None) -> tuple[date, date]:
     """
     Previous Monday -> Sunday relative to 'ref' (default: today).
+
+    Example:
+      If ref is Sunday 2026-02-08:
+        this week Monday = 2026-02-02
+        previous Monday  = 2026-01-26
+        previous Sunday  = 2026-02-01
     """
     ref = ref or _today()
     this_monday = add_days(ref, -ref.weekday())
     prev_monday = add_days(this_monday, -7)
     prev_sunday = add_days(prev_monday, 6)
     return getdate(prev_monday), getdate(prev_sunday)
+
+
+def _current_week_range(ref: date | None = None) -> tuple[date, date]:
+    """
+    Current Monday -> Sunday week for 'ref' (default: today).
+
+    Example:
+      If ref is Sunday 2026-02-08:
+        Monday = 2026-02-02
+        Sunday = 2026-02-08
+    """
+    ref = ref or _today()
+    this_monday = add_days(ref, -ref.weekday())
+    this_sunday = add_days(this_monday, 6)
+    return getdate(this_monday), getdate(this_sunday)
 
 
 def _fmt_week_range(monday: date, sunday: date) -> str:
@@ -137,7 +159,7 @@ def _get_all_sites_for_notification(notification_type: str) -> list[str]:
 
 
 # -------------------------------------------------------------------
-# CEO Dashboard 1 PDF snapshot helpers
+# CEO Dashboard 1 helpers
 # -------------------------------------------------------------------
 def _expected_define_monthly_production_name(ref: date | None = None) -> str:
     ref = ref or _today()
@@ -170,70 +192,17 @@ def _find_define_monthly_production_for_current_month() -> str | None:
     return name
 
 
-def _get_ceo_dashboard_html(define_monthly_production: str) -> str:
+def _build_query_report_link(report_name: str, filters: dict) -> str:
     """
-    Runs the script report and returns its HTML (stored in 'message').
-
-    IMPORTANT: On your system, frappe.desk.query_report is a module, not frappe.desk.query_report attribute.
+    Build a Desk link to a Query Report / Script Report with filters.
     """
-    import frappe.desk.query_report as qr
+    # Desk expects filters in the URL as JSON string
+    import json
 
-    data = qr.run(
-        REPORT_NAME_CEO,
-        filters={REPORT_FILTER_FIELD: define_monthly_production},
-        ignore_prepared_report=True,
-    )
-    return (data or {}).get("message") or ""
-
-
-def _get_ceo_dashboard_css() -> str:
-    return r"""
-/* =========================================================
-   Hourly Dashboard (Theme-aware) — DASHBOARD (no scroll, 24 hours in one row)
-   ========================================================= */
-.isd-hourly-dashboard { display: grid; gap: 8px; }
-.isd-hourly-dashboard .isd-grid { display: grid; gap: 8px; grid-template-columns: 1fr; align-items: start; }
-.isd-hourly-dashboard .isd-site { background: var(--card-bg, var(--fg-color, #fff)); border: 1px solid var(--border-color, #d1d8dd); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.06)); }
-.isd-hourly-dashboard .isd-site-header { padding: 10px 12px; font-weight: 700; font-size: 12px; color: var(--text-color, #1f272e); border-bottom: 1px solid var(--border-color, #d1d8dd); }
-.isd-hourly-dashboard .isd-site-sub { font-weight: 500; font-size: 11px; color: var(--text-muted, #6b7280); margin-top: 4px; }
-.isd-hourly-dashboard table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
-.isd-hourly-dashboard th, .isd-hourly-dashboard td { border-bottom: 1px solid var(--border-color, #d1d8dd); border-right: 1px solid var(--border-color, #d1d8dd); text-align: center; font-size: 10px; padding: 2px 1px; height: 30px; color: var(--text-color, #1f272e); background: var(--control-bg, #fff); font-variant-numeric: tabular-nums; }
-.isd-hourly-dashboard td { overflow: hidden; text-overflow: clip; white-space: nowrap; }
-.isd-hourly-dashboard th { white-space: normal; line-height: 1.05; padding: 2px 1px; font-size: 9px; background: var(--control-bg, #f7fafc); font-weight: 800; }
-.isd-hourly-dashboard th:first-child, .isd-hourly-dashboard td:first-child { text-align: left; font-weight: 800; width: 92px; padding-left: 8px; background: var(--control-bg, #f7fafc); position: sticky; left: 0; z-index: 2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.isd-hourly-dashboard th:not(:first-child), .isd-hourly-dashboard td:not(:first-child) { width: 26px; min-width: 26px; }
-
-.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(900px, 1fr)); gap: 10px; }
-.site-section { background: var(--card-bg, var(--fg-color, #ffffff)); border: 1px solid var(--border-color, #d1d8dd); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,.06)); }
-.site-section .kpi-bar { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: stretch; }
-.site-section .kpi-box { background: var(--control-bg, #fff); border: 1px solid var(--border-color, #d1d8dd); border-radius: 10px; padding: 6px 10px; text-align: center; min-width: 140px; }
-.site-section .kpi-box .label { font-size: 11px; font-weight: 700; color: var(--text-muted, #6b7280); }
-.site-section .kpi-box .value { font-size: 16px; font-weight: 900; color: var(--text-color, #1f272e); }
-.site-section .kpi-box.isd-good { background: #2fb344 !important; color: #ffffff !important; }
-.site-section .kpi-box.isd-bad { background: #e24c4c !important; color: #ffffff !important; }
-.site-section .kpi-box.isd-good .label, .site-section .kpi-box.isd-bad .label { color: rgba(255, 255, 255, 0.92) !important; }
-.site-section .kpi-box.isd-good .value, .site-section .kpi-box.isd-bad .value { color: #ffffff !important; }
-"""
-
-
-def _make_pdf_from_html(html: str, title: str) -> bytes:
-    from frappe.utils.pdf import get_pdf
-
-    css = _get_ceo_dashboard_css()
-    full = f"""
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>{frappe.utils.escape_html(title)}</title>
-  <style>{css}</style>
-</head>
-<body>
-  {html}
-</body>
-</html>
-"""
-    return get_pdf(full)
+    base = frappe.utils.get_url()
+    path = f"/app/query-report/{frappe.utils.quote(report_name)}"
+    qs = urlencode({"filters": json.dumps(filters or {})})
+    return f"{base}{path}?{qs}"
 
 
 # -------------------------------------------------------------------
@@ -255,7 +224,6 @@ def _send_email(recipients: list[Recipient], subject: str, body_html: str, attac
             attachments=attachments or [],
         )
     except frappe.OutgoingEmailError:
-        # This is exactly what you hit: no default outgoing email account
         frappe.log_error(
             "Outgoing Email is not configured.\n"
             "Fix: Setup a DEFAULT outgoing Email Account in Frappe.\n"
@@ -267,13 +235,13 @@ def _send_email(recipients: list[Recipient], subject: str, body_html: str, attac
 
 
 # -------------------------------------------------------------------
-# JOB 1: CEO Dashboard 1 DAILY (05:55) - skip Sundays
+# JOB 1: CEO Dashboard 1 DAILY (05:55) - LINK EMAIL (no PDF) - skip Sundays
 # -------------------------------------------------------------------
 def send_ceo_dashboard_daily_emails():
     """
     Daily 05:55 (except Sunday):
-    - Runs CEO Dashboard 1 with current month filter
-    - Generates PDF snapshot
+    - Builds a link to the CEO Dashboard 1 report with current month filter
+    - Sends as a LINK (no PDF)
     - Sends to recipients configured for notification_type="CEO Dashboard 1"
       using Plot 22 as the dummy/anchor site group for normal recipients,
       plus any receive_all_sites recipients across all CEO groups.
@@ -297,15 +265,11 @@ def send_ceo_dashboard_daily_emails():
         return
 
     try:
-        html = _get_ceo_dashboard_html(define_name)
-        if not html:
-            frappe.log_error(
-                f"Report returned no HTML. Report={REPORT_NAME_CEO}, filter={define_name}",
-                "CEO Dashboard 1 daily email",
-            )
-            return
-
-        pdf = _make_pdf_from_html(html=html, title=f"CEO Dashboard 1 - {define_name}")
+        # Build report link (with the same filter field you used in qr.run)
+        report_url = _build_query_report_link(
+            REPORT_NAME_CEO,
+            {REPORT_FILTER_FIELD: define_name},
+        )
 
         # 1) Anchor site recipients (Plot 22)
         all_recipients: dict[str, Recipient] = {}
@@ -331,7 +295,8 @@ def send_ceo_dashboard_daily_emails():
         subject = f"Production Update {_fmt_date(today)}"
         body = (
             "Dear Management,<br>"
-            f"please find attached the Production Dashboard Update after last week's production {week_range}.<br><br>"
+            f"Please find below the link for the Production Dashboard Update. {week_range}.<br><br>"
+            f"<a href=\"{report_url}\">Click here to view: CEO Dashboard 1</a><br><br>"
             "Kind Regards"
         )
 
@@ -339,10 +304,7 @@ def send_ceo_dashboard_daily_emails():
             recipients=recipients,
             subject=subject,
             body_html=body,
-            attachments=[{
-                "fname": f"Production_Update_{today.strftime('%Y-%m-%d')}.pdf",
-                "fcontent": pdf,
-            }],
+            attachments=[],
         )
 
     except Exception:
@@ -356,11 +318,19 @@ def send_production_efficiency_weekly_emails():
     """
     Sunday 14:15 (scheduled in hooks.py):
     - Sends Production Efficiency emails as LINKS (no PDF)
-    - Per site, for previous week's Monday->Sunday doc
+    - Per site, for CURRENT week's Monday->Sunday doc (the same range shown in the UI)
+      Example on Sunday: start_date = Monday (6 days back), end_date = Sunday (today).
     """
     today = _today()
-    prev_mon, prev_sun = _previous_week_range(today)
-    subject_week = _fmt_week_range(prev_mon, prev_sun)
+
+    # Guard: this job is intended for Sunday. If it runs on another day, do nothing.
+    if today.weekday() != 6:  # Sunday=6
+        return
+
+    this_mon, this_sun = _current_week_range(today)
+
+    # On Sunday, this_sun will equal 'today'
+    subject_week = _fmt_week_range(this_mon, this_sun)
     subject = f"Week Production Efficiency {subject_week}"
 
     sites = _get_all_sites_for_notification(NOTIF_TYPE_PE)
@@ -368,14 +338,14 @@ def send_production_efficiency_weekly_emails():
     for site in sites:
         docname = frappe.db.get_value(
             "Production Efficiency",
-            filters={"site": site, "start_date": prev_mon, "end_date": prev_sun},
+            filters={"site": site, "start_date": this_mon, "end_date": this_sun},
             fieldname="name",
             order_by="modified desc",
         )
 
         if not docname:
             frappe.log_error(
-                f"No Production Efficiency doc found for site={site} range={prev_mon}..{prev_sun}",
+                f"No Production Efficiency doc found for site={site} range={this_mon}..{this_sun}",
                 "Production Efficiency weekly link email",
             )
             continue
@@ -389,8 +359,8 @@ def send_production_efficiency_weekly_emails():
 
         body = (
             "Dear Management,<br>"
-            f"please find below the link for the Production Efficiency Update after last week's production {subject_week}.<br><br>"
-            f"<a href=\"{url}\">Click here to view: {site}</a><br><br>"
+            f"Please find below the link to access the Production Efficiency Update after this week's production {subject_week}.<br><br>"
+            f"<a href=\"{url}\">Please click here to view: {site}</a><br><br>"
             "Kind Regards"
         )
 
