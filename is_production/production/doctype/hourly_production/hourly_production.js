@@ -65,6 +65,87 @@ frappe.require('/assets/is_production/js/offline_sync.js');
 frappe.provide('is_production.ui');
 console.log('HourlyProduction namespace initialized');
 
+// -----------------------------------------------------------------------------
+// Asset mapping helpers (v16-safe)
+// -----------------------------------------------------------------------------
+
+/**
+ * Build lookup maps for Asset:
+ * - byName: Asset.name -> asset
+ * - byCode: Asset.asset_name (Plant No) -> asset
+ */
+function build_asset_maps(assets) {
+    const byName = {};
+    const byCode = {};
+    (assets || []).forEach(a => {
+        if (a && a.name) byName[a.name] = a;
+        if (a && a.asset_name) byCode[a.asset_name] = a;
+    });
+    return { byName, byCode };
+}
+
+/**
+ * Normalize legacy rows where Link fields stored Plant No (Asset.asset_name) instead of Asset.name.
+ * Also fills Plant No display fields (Data) if you added them.
+ */
+function normalize_asset_links_in_child_tables(frm) {
+    if (!frm || !frm.doc || !frm.doc.location) return;
+
+    frappe.call({
+        method: "frappe.client.get_list",
+        args: {
+            doctype: "Asset",
+            filters: { location: frm.doc.location, docstatus: 1 },
+            fields: ["name", "asset_name", "asset_category", "item_name"],
+            limit_page_length: 2000
+        },
+        callback: function (r) {
+            const assets = r.message || [];
+            const { byName, byCode } = build_asset_maps(assets);
+
+            // Truck Loads
+            (frm.doc.truck_loads || []).forEach(row => {
+                // truck link
+                if (row.asset_name_truck && !byName[row.asset_name_truck] && byCode[row.asset_name_truck]) {
+                    row.asset_name_truck = byCode[row.asset_name_truck].name;
+                }
+                // excavator link
+                if (row.asset_name_shoval && !byName[row.asset_name_shoval] && byCode[row.asset_name_shoval]) {
+                    row.asset_name_shoval = byCode[row.asset_name_shoval].name;
+                }
+
+                const truckAsset = byName[row.asset_name_truck];
+                if (truckAsset) {
+                    if (row.truck_plant_no !== undefined) row.truck_plant_no = truckAsset.asset_name || "";
+                    if (row.item_name !== undefined && truckAsset.item_name) row.item_name = truckAsset.item_name;
+                }
+
+                const excavAsset = byName[row.asset_name_shoval];
+                if (excavAsset && row.excavator_plant_no !== undefined) {
+                    row.excavator_plant_no = excavAsset.asset_name || "";
+                }
+            });
+
+            // Dozer Production
+            (frm.doc.dozer_production || []).forEach(row => {
+                if (row.asset_name && !byName[row.asset_name] && byCode[row.asset_name]) {
+                    row.asset_name = byCode[row.asset_name].name;
+                }
+                const dozerAsset = byName[row.asset_name];
+                if (dozerAsset) {
+                    if (row.dozer_plant_no !== undefined) row.dozer_plant_no = dozerAsset.asset_name || "";
+                    if (row.item_name !== undefined && dozerAsset.item_name) row.item_name = dozerAsset.item_name;
+                }
+            });
+
+            frm.refresh_field("truck_loads");
+            frm.refresh_field("dozer_production");
+        }
+    });
+}
+
+
+
 if (frappe.ui && frappe.ui.init_onboarding_tour) {
     const _origOnboarding = frappe.ui.init_onboarding_tour;
     frappe.ui.init_onboarding_tour = function() {
@@ -188,23 +269,16 @@ function createOrRefreshUI(frm) {
 
 function applyMPPAssignments(frm) {
     (frm.doc.truck_loads || []).forEach(row => {
-        if (row.asset_name_shoval) return;
-
-        // MPP assignment keys may be either Asset.name (new) or Plant No (legacy)
-        const truckKey = row.asset_name_truck;
-        const truckCode = row.truck_plant_no || null;
-
-        const excavVal =
-            (frm.mppAssignments && truckKey && frm.mppAssignments[truckKey]) ||
-            (frm.mppAssignments && truckCode && frm.mppAssignments[truckCode]);
-
-        if (!excavVal) return;
-
-        // We don't know yet if excavVal is Asset.name or Plant No; it will be normalized later
-        frappe.model.set_value(row.doctype, row.name, 'asset_name_shoval', excavVal);
+        if (!row.asset_name_shoval && frm.mppAssignments[row.asset_name_truck]) {
+            frappe.model.set_value(
+                row.doctype,
+                row.name,
+                'asset_name_shoval',
+                frm.mppAssignments[row.asset_name_truck]
+            );
+        }
     });
 }
-
 
 // Define this EXACTLY as shown - at the TOP LEVEL of your file
 function fetch_whatsapp_from_user(frm) {
@@ -701,6 +775,9 @@ frappe.ui.form.on('Mining Areas Options', {
         update_mining_area_dozer_options(frm);
     },
     refresh(frm) {
+        // v16 migration fix: normalize Asset link values in child tables
+        normalize_asset_links_in_child_tables(frm);
+
         update_mining_area_trucks_options(frm);
         update_mining_area_dozer_options(frm);
     }
@@ -1331,13 +1408,16 @@ month_prod_planning(frm) {
 // TRUCK LOADS: populate & lookup
 // ——————————————————————
 
+
 function populate_truck_loads_and_lookup(frm) {
     return new Promise((resolve) => {
+        if (!frm.doc.location) return resolve();
+
         // First, try to get previous hour assignments AND mining areas
         get_previous_hour_excavator_assignments(frm).then(prevAssignments => {
             console.log('Previous hour assignments found:', prevAssignments);
 
-            // Get truck assets (we need BOTH name (PK) and asset_name (Plant No))
+            // 1) Fetch trucks (need BOTH PK name and Plant No asset_name)
             frappe.call({
                 method: 'frappe.client.get_list',
                 args: {
@@ -1355,7 +1435,7 @@ function populate_truck_loads_and_lookup(frm) {
                     const trucks = (r.message || []);
                     const truckMaps = build_asset_maps(trucks);
 
-                    // Get excavator assets so we can normalize assignment values (name vs Plant No)
+                    // 2) Fetch excavators for normalization (MPP/previous-hour may store Plant No)
                     frappe.call({
                         method: 'frappe.client.get_list',
                         args: {
@@ -1375,7 +1455,7 @@ function populate_truck_loads_and_lookup(frm) {
 
                             frm.clear_table('truck_loads');
 
-                            // Add default mining area ONLY if we're NOT using previous hour data
+                            // Default mining area ONLY if we're NOT using previous hour data
                             let defaultArea = '';
                             if (!prevAssignments && frm.doc.mining_areas_options && frm.doc.mining_areas_options.length === 1) {
                                 defaultArea = frm.doc.mining_areas_options[0].mining_areas;
@@ -1385,10 +1465,10 @@ function populate_truck_loads_and_lookup(frm) {
                             trucks.forEach(asset => {
                                 const row = frm.add_child('truck_loads');
 
-                                // ✅ Link field MUST store Asset.name
+                                // ✅ Link must store Asset.name
                                 frappe.model.set_value(row.doctype, row.name, 'asset_name_truck', asset.name);
 
-                                // ✅ Display Plant No in a dedicated Data field (if you've added it)
+                                // ✅ Plant No display (Data) if you added it
                                 if (row.truck_plant_no !== undefined) {
                                     frappe.model.set_value(row.doctype, row.name, 'truck_plant_no', asset.asset_name || '');
                                 }
@@ -1403,40 +1483,26 @@ function populate_truck_loads_and_lookup(frm) {
                             const set_excavator_link = (loadRow, excavVal) => {
                                 if (!excavVal) return;
 
-                                // excavVal might be Asset.name OR Asset.asset_name (Plant No)
+                                // excavVal may be Asset.name OR Plant No
                                 let excavName = null;
-
                                 if (excavMaps.byName[excavVal]) {
                                     excavName = excavVal;
                                 } else if (excavMaps.byCode[excavVal]) {
                                     excavName = excavMaps.byCode[excavVal].name;
                                 } else {
-                                    // fallback: set raw value, server-side normalization will catch it
+                                    // last resort: set raw value (server-side normalize will catch if possible)
                                     excavName = excavVal;
                                 }
 
-                                frappe.model.set_value(
-                                    loadRow.doctype,
-                                    loadRow.name,
-                                    'asset_name_shoval',
-                                    excavName
-                                );
+                                frappe.model.set_value(loadRow.doctype, loadRow.name, 'asset_name_shoval', excavName);
 
-                                // Populate display Plant No field (if added)
                                 const excavAsset = excavMaps.byName[excavName];
                                 if (excavAsset && loadRow.excavator_plant_no !== undefined) {
-                                    frappe.model.set_value(
-                                        loadRow.doctype,
-                                        loadRow.name,
-                                        'excavator_plant_no',
-                                        excavAsset.asset_name || ''
-                                    );
+                                    frappe.model.set_value(loadRow.doctype, loadRow.name, 'excavator_plant_no', excavAsset.asset_name || '');
                                 }
                             };
 
-                            // Apply excavator assignments and mining areas - priority order:
-                            // 1. Previous hour assignments (if found) - includes mining areas
-                            // 2. MPP assignments (if no previous hour found) - no mining areas
+                            // Apply excavator assignments + mining areas (priority: previous hour, then MPP)
                             if (prevAssignments) {
                                 console.log('Applying previous hour assignments with mining areas');
 
@@ -1452,17 +1518,10 @@ function populate_truck_loads_and_lookup(frm) {
 
                                     if (!prevData) return;
 
-                                    if (prevData.excavator) {
-                                        set_excavator_link(loadRow, prevData.excavator);
-                                    }
+                                    if (prevData.excavator) set_excavator_link(loadRow, prevData.excavator);
 
                                     if (prevData.mining_area) {
-                                        frappe.model.set_value(
-                                            loadRow.doctype,
-                                            loadRow.name,
-                                            'mining_areas_trucks',
-                                            prevData.mining_area
-                                        );
+                                        frappe.model.set_value(loadRow.doctype, loadRow.name, 'mining_areas_trucks', prevData.mining_area);
                                     }
                                 });
                             } else if (frm.mppAssignments) {
@@ -1485,48 +1544,47 @@ function populate_truck_loads_and_lookup(frm) {
                             }
 
                             frm.refresh_field('truck_loads');
+                            update_mining_area_trucks_options(frm);
                             resolve();
                         },
                         error: () => {
-                            // Even if excavator fetch fails, show trucks and resolve
+                            // even if excavators fail, show trucks
                             frm.refresh_field('truck_loads');
+                            update_mining_area_trucks_options(frm);
                             resolve();
                         }
                     });
                 },
                 error: () => resolve()
             });
+        }).catch(error => {
+            console.error('Error in populate_truck_loads_and_lookup:', error);
+            resolve();
         });
     });
 }
 
-
-
-
 function calculate_day_total(frm) {
     if (!frm.doc.prod_date || !frm.doc.location) return;
-    
-    function calculate_day_total(frm) {
-        if (!frm.doc.prod_date || !frm.doc.location) return;
 
-        frappe.call({
-            method: 'is_production.production.doctype.hourly_production.hourly_production.get_day_total_bcm',
-            args: {
-                location: frm.doc.location,
-                prod_date: frm.doc.prod_date,
-                exclude_name: frm.doc.name
-            },
-            callback: function (r) {
-                const existing_total = r.message || 0;
-                const current_total = frm.doc.hour_total_bcm || 0;
-                frm.set_value('day_total_bcm', existing_total + current_total);
-            }
-        });
-    }
+    frappe.call({
+        method: 'is_production.production.doctype.hourly_production.hourly_production.get_day_total_bcm',
+        args: {
+            location: frm.doc.location,
+            prod_date: frm.doc.prod_date,
+            exclude_name: frm.doc.name
+        },
+        callback: function (r) {
+            const existing_total = r.message || 0;
+            const current_total = frm.doc.hour_total_bcm || 0;
+            frm.set_value('day_total_bcm', existing_total + current_total);
+        }
+    });
 }
+ // ——————————————————————
+ // DOZER PRODUCTION
 // ——————————————————————
-// DOZER PRODUCTION
-// ——————————————————————
+
 function populate_dozer_production_table(frm) {
     if (!frm.doc.location) return;
 
@@ -1545,17 +1603,17 @@ function populate_dozer_production_table(frm) {
             (r.message || []).forEach(asset => {
                 const row = frm.add_child('dozer_production');
 
-                // ✅ Link field MUST store Asset.name
+                // ✅ Link must store Asset.name
                 row.asset_name = asset.name;
 
-                // ✅ Display Plant No in a dedicated Data field (if you've added it)
+                // ✅ Plant No display (Data) if you added it
                 if (row.dozer_plant_no !== undefined) row.dozer_plant_no = asset.asset_name || '';
 
                 row.item_name = asset.item_name || '';
                 row.bcm_hour = 0;
-                row.dozer_service = 'No Dozing'; // Default value
+                row.dozer_service = 'No Dozing';
 
-                // Set default mining area if only one exists
+                // Default mining area if only one exists
                 if (frm.doc.mining_areas_options && frm.doc.mining_areas_options.length === 1) {
                     row.mining_areas_dozer_child = frm.doc.mining_areas_options[0].mining_areas;
                 }
@@ -1567,123 +1625,6 @@ function populate_dozer_production_table(frm) {
         }
     });
 }
-
-
-// Silent version of calculate_ts_area_bcm_totals that doesn't trigger dirty state
-function calculate_ts_area_bcm_totals_silent(frm) {
-    // Get all truck loads and group by mining area
-    const tsAreaTotals = {};
-    
-    (frm.doc.truck_loads || []).forEach(row => {
-        const area = row.mining_areas_trucks;
-        const bcms = parseFloat(row.bcms) || 0;
-        
-        if (area) {
-            if (!tsAreaTotals[area]) {
-                tsAreaTotals[area] = 0;
-            }
-            tsAreaTotals[area] += bcms;
-        }
-    });
-    
-    // Get all dozer production and group by mining area
-    const dozerAreaTotals = {};
-    
-    (frm.doc.dozer_production || []).forEach(row => {
-        const area = row.mining_areas_dozer_child;
-        const bcmHour = parseFloat(row.bcm_hour) || 0;
-        
-        if (area) {
-            if (!dozerAreaTotals[area]) {
-                dozerAreaTotals[area] = 0;
-            }
-            dozerAreaTotals[area] += bcmHour;
-        }
-    });
-    
-    // Store the original dirty state
-    const originalDirty = frm.dirty;
-    const originalUnsaved = frm.doc.__unsaved;
-    
-    // Update the ts_area_bcm_total table with direct assignment
-    (frm.doc.ts_area_bcm_total || []).forEach(row => {
-        const area = row.ts_area_options;
-        const tsTotal = tsAreaTotals[area] || 0;
-        const dozerTotal = dozerAreaTotals[area] || 0;
-        const bcmTotalArea = tsTotal + dozerTotal;
-        
-        // Direct assignment to avoid triggering dirty state
-        row.ts_area_bcm = tsTotal;
-        row.dozer_area_bcm = dozerTotal;
-        row.bcm_total_area = bcmTotalArea;
-    });
-    
-    // Restore the original dirty state
-    frm.dirty = originalDirty;
-    frm.doc.__unsaved = originalUnsaved;
-    
-    // Refresh the field display without triggering events
-    frm.refresh_field('ts_area_bcm_total');
-}
-
-// Silent version of calculate_geo_mat_bcm_totals that doesn't trigger dirty state
-function calculate_geo_mat_bcm_totals_silent(frm) {
-    // Get all truck loads and group by geo material layer
-    const geoTsTotals = {};
-    
-    (frm.doc.truck_loads || []).forEach(row => {
-        const geoLayer = row.geo_mat_layer_truck;
-        const bcms = parseFloat(row.bcms) || 0;
-        
-        if (geoLayer) {
-            if (!geoTsTotals[geoLayer]) {
-                geoTsTotals[geoLayer] = 0;
-            }
-            geoTsTotals[geoLayer] += bcms;
-        }
-    });
-    
-    // Get all dozer production and group by geo material layer
-    const geoDozerTotals = {};
-    
-    (frm.doc.dozer_production || []).forEach(row => {
-        const geoLayer = row.dozer_geo_mat_layer;
-        const bcmHour = parseFloat(row.bcm_hour) || 0;
-        
-        if (geoLayer) {
-            if (!geoDozerTotals[geoLayer]) {
-                geoDozerTotals[geoLayer] = 0;
-            }
-            geoDozerTotals[geoLayer] += bcmHour;
-        }
-    });
-    
-    // Store the original dirty state
-    const originalDirty = frm.dirty;
-    const originalUnsaved = frm.doc.__unsaved;
-    
-    // Update the geo_mat_total_bcm table with direct assignment
-    (frm.doc.geo_mat_total_bcm || []).forEach(row => {
-        const geoLayer = row.geo_layer_options;
-        const tsTotal = geoTsTotals[geoLayer] || 0;
-        const dozerTotal = geoDozerTotals[geoLayer] || 0;
-        const geoBcmTotal = tsTotal + dozerTotal;
-        
-        // Direct assignment to avoid triggering dirty state
-        row.geo_ts_bcm_total = tsTotal;
-        row.geo_dozer_bcm_total = dozerTotal;
-        row.geo_bcm_total = geoBcmTotal;
-    });
-    
-    // Restore the original dirty state
-    frm.dirty = originalDirty;
-    frm.doc.__unsaved = originalUnsaved;
-    
-    // Refresh the field display without triggering events
-    frm.refresh_field('geo_mat_total_bcm');
-}
-
-
 function calculate_geo_mat_bcm_totals(frm) {
     // Get all truck loads and group by geo material layer
     const geoTsTotals = {};
@@ -1758,7 +1699,7 @@ frappe.ui.form.on('Truck Loads', {
             frappe.model.get_value(cdt, cdn, 'mining_areas_trucks') === frm.doc.dd_area) {
             
         }
-        calculate_ts_area_bcm_totals_silents(frm);
+        calculate_ts_area_bcm_totals_silent(frm);
     },
    
     asset_name_shoval(frm, cdt, cdn) {
@@ -1843,7 +1784,7 @@ frappe.ui.form.on('Dozer Production', {
        calculate_ts_area_bcm_totals_silent(frm);
     },
     dozer_production_add(frm, cdt, cdn) {
-        calculate_ts_area_bcm_totals_silents(frm);
+        calculate_ts_area_bcm_totals_silent(frm);
         calculate_geo_mat_bcm_totals(frm);
     },
     dozer_production_remove(frm, cdt, cdn) {
