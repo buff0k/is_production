@@ -1,3 +1,6 @@
+// Copyright (c) 2026, BuFf0k and contributors
+// For license information, please see license.txt
+
 /*
  * Offline Sync Capabilities
  * ------------------------
@@ -185,16 +188,23 @@ function createOrRefreshUI(frm) {
 
 function applyMPPAssignments(frm) {
     (frm.doc.truck_loads || []).forEach(row => {
-        if (!row.asset_name_shoval && frm.mppAssignments[row.asset_name_truck]) {
-            frappe.model.set_value(
-                row.doctype,
-                row.name,
-                'asset_name_shoval',
-                frm.mppAssignments[row.asset_name_truck]
-            );
-        }
+        if (row.asset_name_shoval) return;
+
+        // MPP assignment keys may be either Asset.name (new) or Plant No (legacy)
+        const truckKey = row.asset_name_truck;
+        const truckCode = row.truck_plant_no || null;
+
+        const excavVal =
+            (frm.mppAssignments && truckKey && frm.mppAssignments[truckKey]) ||
+            (frm.mppAssignments && truckCode && frm.mppAssignments[truckCode]);
+
+        if (!excavVal) return;
+
+        // We don't know yet if excavVal is Asset.name or Plant No; it will be normalized later
+        frappe.model.set_value(row.doctype, row.name, 'asset_name_shoval', excavVal);
     });
 }
+
 
 // Define this EXACTLY as shown - at the TOP LEVEL of your file
 function fetch_whatsapp_from_user(frm) {
@@ -1326,98 +1336,170 @@ function populate_truck_loads_and_lookup(frm) {
         // First, try to get previous hour assignments AND mining areas
         get_previous_hour_excavator_assignments(frm).then(prevAssignments => {
             console.log('Previous hour assignments found:', prevAssignments);
-            
-            // Get truck assets
+
+            // Get truck assets (we need BOTH name (PK) and asset_name (Plant No))
             frappe.call({
                 method: 'frappe.client.get_list',
                 args: {
                     doctype: 'Asset',
-                    fields: ['asset_name', 'item_name'],
+                    fields: ['name', 'asset_name', 'item_name'],
                     filters: [
                         ['location', '=', frm.doc.location],
-                        ['asset_category', 'in', ['ADT','RIGID']],
+                        ['asset_category', 'in', ['ADT', 'RIGID']],
                         ['docstatus', '=', 1]
                     ],
                     order_by: 'asset_name asc',
-                    limit_page_length: 500   // <- add this
+                    limit_page_length: 500
                 },
                 callback: r => {
-                    frm.clear_table('truck_loads');
-                    
-                    // Add default mining area ONLY if we're NOT using previous hour data
-                    let defaultArea = '';
-                    if (!prevAssignments && frm.doc.mining_areas_options && frm.doc.mining_areas_options.length === 1) {
-                        defaultArea = frm.doc.mining_areas_options[0].mining_areas;
-                    }
-                    
-                    // Create truck load rows
-                    (r.message || []).forEach(asset => {
-                        const row = frm.add_child('truck_loads');
-                        frappe.model.set_value(row.doctype, row.name, 'asset_name_truck', asset.asset_name);
-                        frappe.model.set_value(row.doctype, row.name, 'item_name', asset.item_name || '');
-                        
-                        // Set default mining area ONLY if we're NOT using previous hour data
-                        if (defaultArea) {
-                            frappe.model.set_value(row.doctype, row.name, 'mining_areas_trucks', defaultArea);
-                        }
-                    });
-                    
-                    // Now apply excavator assignments and mining areas - priority order:
-                    // 1. Previous hour assignments (if found) - includes mining areas
-                    // 2. MPP assignments (if no previous hour found) - no mining areas
-                    
-                    if (prevAssignments) {
-                        console.log('Applying previous hour assignments with mining areas');
-                        // Apply both excavator assignments AND mining areas from previous hour
-                        (frm.doc.truck_loads || []).forEach(loadRow => {
-                            const prevData = prevAssignments[loadRow.asset_name_truck];
-                            if (prevData) {
-                                if (prevData.excavator) {
-                                    frappe.model.set_value(
-                                        loadRow.doctype,
-                                        loadRow.name,
-                                        'asset_name_shoval',
-                                        prevData.excavator
-                                    );
-                                }
-                                if (prevData.mining_area) {
-                                    frappe.model.set_value(
-                                        loadRow.doctype,
-                                        loadRow.name,
-                                        'mining_areas_trucks',
-                                        prevData.mining_area
-                                    );
-                                }
+                    const trucks = (r.message || []);
+                    const truckMaps = build_asset_maps(trucks);
+
+                    // Get excavator assets so we can normalize assignment values (name vs Plant No)
+                    frappe.call({
+                        method: 'frappe.client.get_list',
+                        args: {
+                            doctype: 'Asset',
+                            fields: ['name', 'asset_name'],
+                            filters: [
+                                ['location', '=', frm.doc.location],
+                                ['asset_category', '=', 'Excavator'],
+                                ['docstatus', '=', 1]
+                            ],
+                            order_by: 'asset_name asc',
+                            limit_page_length: 500
+                        },
+                        callback: r2 => {
+                            const excavators = (r2.message || []);
+                            const excavMaps = build_asset_maps(excavators);
+
+                            frm.clear_table('truck_loads');
+
+                            // Add default mining area ONLY if we're NOT using previous hour data
+                            let defaultArea = '';
+                            if (!prevAssignments && frm.doc.mining_areas_options && frm.doc.mining_areas_options.length === 1) {
+                                defaultArea = frm.doc.mining_areas_options[0].mining_areas;
                             }
-                        });
-                    } else if (frm.mppAssignments) {
-                        console.log('Applying MPP assignments (no mining areas)');
-                        // Apply only excavator assignments from MPP, leave mining areas empty
-                        (frm.doc.truck_loads || []).forEach(loadRow => {
-                            if (frm.mppAssignments[loadRow.asset_name_truck]) {
+
+                            // Create truck load rows
+                            trucks.forEach(asset => {
+                                const row = frm.add_child('truck_loads');
+
+                                // ✅ Link field MUST store Asset.name
+                                frappe.model.set_value(row.doctype, row.name, 'asset_name_truck', asset.name);
+
+                                // ✅ Display Plant No in a dedicated Data field (if you've added it)
+                                if (row.truck_plant_no !== undefined) {
+                                    frappe.model.set_value(row.doctype, row.name, 'truck_plant_no', asset.asset_name || '');
+                                }
+
+                                frappe.model.set_value(row.doctype, row.name, 'item_name', asset.item_name || '');
+
+                                if (defaultArea) {
+                                    frappe.model.set_value(row.doctype, row.name, 'mining_areas_trucks', defaultArea);
+                                }
+                            });
+
+                            const set_excavator_link = (loadRow, excavVal) => {
+                                if (!excavVal) return;
+
+                                // excavVal might be Asset.name OR Asset.asset_name (Plant No)
+                                let excavName = null;
+
+                                if (excavMaps.byName[excavVal]) {
+                                    excavName = excavVal;
+                                } else if (excavMaps.byCode[excavVal]) {
+                                    excavName = excavMaps.byCode[excavVal].name;
+                                } else {
+                                    // fallback: set raw value, server-side normalization will catch it
+                                    excavName = excavVal;
+                                }
+
                                 frappe.model.set_value(
                                     loadRow.doctype,
                                     loadRow.name,
                                     'asset_name_shoval',
-                                    frm.mppAssignments[loadRow.asset_name_truck]
+                                    excavName
                                 );
-                                // Explicitly leave mining_areas_trucks empty when using MPP
+
+                                // Populate display Plant No field (if added)
+                                const excavAsset = excavMaps.byName[excavName];
+                                if (excavAsset && loadRow.excavator_plant_no !== undefined) {
+                                    frappe.model.set_value(
+                                        loadRow.doctype,
+                                        loadRow.name,
+                                        'excavator_plant_no',
+                                        excavAsset.asset_name || ''
+                                    );
+                                }
+                            };
+
+                            // Apply excavator assignments and mining areas - priority order:
+                            // 1. Previous hour assignments (if found) - includes mining areas
+                            // 2. MPP assignments (if no previous hour found) - no mining areas
+                            if (prevAssignments) {
+                                console.log('Applying previous hour assignments with mining areas');
+
+                                (frm.doc.truck_loads || []).forEach(loadRow => {
+                                    const truckName = loadRow.asset_name_truck;
+                                    const truckCode =
+                                        loadRow.truck_plant_no ||
+                                        (truckMaps.byName[truckName] ? truckMaps.byName[truckName].asset_name : null);
+
+                                    const prevData =
+                                        (truckName && prevAssignments[truckName]) ||
+                                        (truckCode && prevAssignments[truckCode]);
+
+                                    if (!prevData) return;
+
+                                    if (prevData.excavator) {
+                                        set_excavator_link(loadRow, prevData.excavator);
+                                    }
+
+                                    if (prevData.mining_area) {
+                                        frappe.model.set_value(
+                                            loadRow.doctype,
+                                            loadRow.name,
+                                            'mining_areas_trucks',
+                                            prevData.mining_area
+                                        );
+                                    }
+                                });
+                            } else if (frm.mppAssignments) {
+                                console.log('Applying MPP assignments (no mining areas)');
+
+                                (frm.doc.truck_loads || []).forEach(loadRow => {
+                                    const truckName = loadRow.asset_name_truck;
+                                    const truckCode =
+                                        loadRow.truck_plant_no ||
+                                        (truckMaps.byName[truckName] ? truckMaps.byName[truckName].asset_name : null);
+
+                                    const excavVal =
+                                        (truckName && frm.mppAssignments[truckName]) ||
+                                        (truckCode && frm.mppAssignments[truckCode]);
+
+                                    if (!excavVal) return;
+
+                                    set_excavator_link(loadRow, excavVal);
+                                });
                             }
-                        });
-                    }
-                    
-                    frm.refresh_field('truck_loads');
-                    update_mining_area_trucks_options(frm);
-                    
-                    resolve();
-                }
+
+                            frm.refresh_field('truck_loads');
+                            resolve();
+                        },
+                        error: () => {
+                            // Even if excavator fetch fails, show trucks and resolve
+                            frm.refresh_field('truck_loads');
+                            resolve();
+                        }
+                    });
+                },
+                error: () => resolve()
             });
-        }).catch(error => {
-            console.error('Error in populate_truck_loads_and_lookup:', error);
-            resolve();
         });
     });
 }
+
 
 
 
@@ -1447,32 +1529,45 @@ function calculate_day_total(frm) {
 // ——————————————————————
 function populate_dozer_production_table(frm) {
     if (!frm.doc.location) return;
+
     frappe.call({
         method: 'frappe.client.get_list',
         args: {
             doctype: 'Asset',
-            fields: ['name as asset_name', 'item_name'],
-            filters: { location: frm.doc.location, asset_category: 'Dozer', docstatus: 1 }
+            fields: ['name', 'asset_name', 'item_name'],
+            filters: { location: frm.doc.location, asset_category: 'Dozer', docstatus: 1 },
+            order_by: 'asset_name asc',
+            limit_page_length: 500
         },
         callback: r => {
             frm.clear_table('dozer_production');
+
             (r.message || []).forEach(asset => {
                 const row = frm.add_child('dozer_production');
-                row.asset_name = asset.asset_name;
+
+                // ✅ Link field MUST store Asset.name
+                row.asset_name = asset.name;
+
+                // ✅ Display Plant No in a dedicated Data field (if you've added it)
+                if (row.dozer_plant_no !== undefined) row.dozer_plant_no = asset.asset_name || '';
+
                 row.item_name = asset.item_name || '';
                 row.bcm_hour = 0;
                 row.dozer_service = 'No Dozing'; // Default value
+
                 // Set default mining area if only one exists
                 if (frm.doc.mining_areas_options && frm.doc.mining_areas_options.length === 1) {
                     row.mining_areas_dozer_child = frm.doc.mining_areas_options[0].mining_areas;
                 }
             });
+
             frm.refresh_field('dozer_production');
             update_mining_area_dozer_options(frm);
             update_dozer_geo_options(frm);
         }
     });
 }
+
 
 // Silent version of calculate_ts_area_bcm_totals that doesn't trigger dirty state
 function calculate_ts_area_bcm_totals_silent(frm) {

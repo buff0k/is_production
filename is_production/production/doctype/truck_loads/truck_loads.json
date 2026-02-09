@@ -8,8 +8,10 @@
  "field_order": [
   "loads",
   "asset_name_shoval",
+  "excavator_plant_no",
   "item_name_excavator",
   "asset_name_truck",
+  "truck_plant_no",
   "item_name",
   "mat_type",
   "geo_mat_layer_truck",
@@ -77,7 +79,7 @@
    "fieldname": "asset_name_shoval",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Excavator Plant No.",
+   "label": "Excavator Asset",
    "options": "Asset",
    "read_only": 1
   },
@@ -86,7 +88,7 @@
    "fieldname": "asset_name_truck",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Truck Plant No.",
+   "label": "Truck Asset",
    "options": "Asset",
    "read_only": 1,
    "reqd": 1
@@ -117,13 +119,25 @@
    "in_list_view": 1,
    "label": "Geo / Mat layer",
    "read_only": 1
+  },
+  {
+   "fieldname": "excavator_plant_no",
+   "fieldtype": "Data",
+   "label": "Excavator Plant No",
+   "read_only": 1
+  },
+  {
+   "fieldname": "truck_plant_no",
+   "fieldtype": "Data",
+   "label": "Truck Plant No",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2025-07-15 23:32:55.859776",
+ "modified": "2026-02-09 09:53:08.803264",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Truck Loads",
