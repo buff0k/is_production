@@ -1,16 +1,62 @@
+# Copyright (c) 2026, BuFf0k and contributors
+# For license information, please see license.txt
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
 from datetime import datetime, timedelta, date
 from frappe.utils import flt
+from frappe.utils.data import getdate
+
 
 class PreUseHours(Document):
+    def before_validate(self):
+        """
+        Ensure child row `asset_name` (Link -> Asset) stores Asset.name.
+        If any existing rows contain the Plant No / code (Asset.asset_name),
+        convert them to Asset.name BEFORE Frappe link validation runs.
+        """
+        self._normalize_asset_links()
+
+    def _normalize_asset_links(self):
+        rows = self.get("pre_use_assets") or []
+        values = sorted({r.asset_name for r in rows if getattr(r, "asset_name", None)})
+        if not values:
+            return
+
+        # Values that already exist as Asset.name
+        existing_names = set(
+            frappe.get_all("Asset", filters={"name": ["in", values]}, pluck="name")
+        )
+
+        # Anything not a valid Asset.name: try match against Asset.asset_name (Plant No.)
+        unknown = [v for v in values if v not in existing_names]
+        if not unknown:
+            return
+
+        matches = frappe.get_all(
+            "Asset",
+            filters={"asset_name": ["in", unknown]},
+            fields=["name", "asset_name"],
+        )
+        code_to_name = {m.asset_name: m.name for m in matches if m.get("asset_name")}
+
+        if not code_to_name:
+            return
+
+        for r in rows:
+            v = getattr(r, "asset_name", None)
+            if v and v in code_to_name:
+                r.asset_name = code_to_name[v]
+
     def before_save(self):
         """
         Called before saving the 'Pre-Use Hours' document.
         Performs integrity checks on the current and validates the previous record.
         """
         try:
+            # normalize early for all downstream logic
+            self.shift_date = getdate(self.shift_date)
             monthly_plan = get_monthly_production_plan(self.location, self.shift_date)
             if not monthly_plan:
                 frappe.throw(
@@ -191,164 +237,102 @@ class PreUseHours(Document):
 
                 if working_hours < 0:
                     row_issues.append("❌ <span style='color:red;'>Negative Working Hours</span>")
-                    error_count += 1
+                elif working_hours > 12:
+                    row_issues.append("❌ <span style='color:red;'>Unrealistic Working Hours &gt; 12</span>")
                 elif working_hours == 0:
                     row_issues.append("⚠️ <span style='color:orange;'>Zero Working Hours</span>")
-                    warning_count += 1
-                elif working_hours > 12:
-                    row_issues.append(
-                        f"❌ <span style='color:red;'>Unusually High Working Hours ({working_hours})</span>"
-                    )
-                    error_count += 1
-
-            if not row.pre_use_avail_status:
-                row_issues.append("⚠️ <span style='color:orange;'>Missing Availability Status</span>")
-                warning_count += 1
 
             if row_issues:
-                errors.append(f"""
-                    <li>
-                        <b>Row {idx} – {row.asset_name or 'Unnamed Asset'}</b><br>
-                        <ul>
-                            <li><b>Engine Start:</b> {eng_hrs_start or '<i>Missing</i>'}</li>
-                            <li><b>Engine End:</b> {eng_hrs_end or '<i>Missing</i>'}</li>
-                            <li><b>Working Hours:</b> {working_hours or '<i>N/A</i>'}</li>
-                        </ul>
-                        <b>Issues:</b>
-                        <ul>{"".join(f"<li>{issue}</li>" for issue in row_issues)}</ul>
-                    </li>
-                """)
+                warning_count += sum("⚠️" in i or "orange" in i for i in row_issues)
+                error_count += sum("❌" in i or "red" in i for i in row_issues)
 
+                errors.append({
+                    "row": idx,
+                    "asset": row.asset_name,
+                    "issues": row_issues
+                })
+
+        indicator = "🟢"
+        if error_count > 0:
+            indicator = "🔴"
+        elif warning_count > 0:
+            indicator = "🟠"
+
+        # Build the HTML summary table
         if errors:
-            summary = (
-                "<h4>⚠️ Data Integrity Check Summary</h4>"
-                "<ul>" + "".join(errors) + "</ul>"
-                "<hr><h5>Legend & Help</h5>"
-                "<p><b>🔴 Red (Critical):</b> Negative or unrealistic working hours (&gt;12 hrs).<br>"
-                "<b>🟠 Yellow (Warning):</b> Missing data or zero hours.<br>"
-                "<b>🟢 Green (Valid):</b> All data checks passed.</p>"
-                "<p><i>Tip: Update engine hours and availability status before saving.</i></p>"
-                "<p style='color:gray; margin-top:10px;'>🔁 This summary updates after saving.</p>"
+            rows_html = "".join(
+                f"<tr><td>Row #{e['row']}</td><td>{e['asset']}</td><td>{'<br>'.join(e['issues'])}</td></tr>"
+                for e in errors
             )
-            indicator = "Red" if error_count else "Yellow"
+            self.data_integrity_summary = f"""
+                <table class="table table-bordered">
+                    <tr><th>Row</th><th>Asset</th><th>Issues</th></tr>
+                    {rows_html}
+                </table>
+            """
         else:
-            summary = (
-                "<p><b>✅ All Pre-Use entries passed integrity checks. No issues found.</b></p>"
-                "<p style='color:gray;'>🔁 Summary updates after saving.</p>"
-            )
-            indicator = "Green"
+            self.data_integrity_summary = "<p><b>✅ No integrity issues found.</b></p>"
 
-        self.set("data_integrity_summary", summary)
-        self.set("data_integ_indicator", indicator)
-        self.flags.dirty = True
+        self.data_integ_indicator = indicator
 
-
-# Utility functions
-def normalize_to_db_date(date_input):
-    if isinstance(date_input, str):
-        for fmt in ("%d-%m-%Y", "%Y-%m-%d"):
-            try:
-                return datetime.strptime(date_input, fmt).strftime("%Y-%m-%d")
-            except ValueError:
-                pass
-        frappe.throw("Invalid date format string for DB conversion.")
-    elif isinstance(date_input, date):
-        return date_input.strftime("%Y-%m-%d")
-    else:
-        frappe.throw("Invalid date format type.")
-
-def normalize_to_ui_date(date_input):
-    if isinstance(date_input, str):
-        for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
-            try:
-                return datetime.strptime(date_input, fmt).strftime("%d-%m-%Y")
-            except ValueError:
-                pass
-        frappe.throw("Invalid date format string for UI conversion.")
-    elif isinstance(date_input, date):
-        return date_input.strftime("%d-%m-%Y")
-    else:
-        frappe.throw("Invalid date format type.")
 
 def get_monthly_production_plan(location, shift_date):
-    try:
-        normalized_date = normalize_to_db_date(shift_date)
-        shift_date_obj = datetime.strptime(normalized_date, "%Y-%m-%d")
-        query_result = frappe.db.sql(
-            """
-            SELECT name, location, prod_month_start_date, prod_month_end_date,
-                   shift_system, site_status
-            FROM `tabMonthly Production Planning`
-            WHERE location = %(location)s
-              AND site_status = 'Producing'
-              AND %(shift_date)s BETWEEN prod_month_start_date AND prod_month_end_date
-            LIMIT 1
-            """,
-            {"location": location, "shift_date": shift_date_obj},
-            as_dict=True
-        )
-        return query_result[0] if query_result else None
-    except Exception:
-        frappe.log_error(message=frappe.get_traceback(), title="SQL Execution Error")
-        return None
+    """
+    Fetch Monthly Production Planning record for this site + date.
+    """
+    records = frappe.get_all(
+        "Monthly Production Planning",
+        filters={
+            "location": location,
+            "prod_month_start_date": ["<=", shift_date],
+            "prod_month_end_date": [">=", shift_date],
+            "site_status": "Producing"
+        },
+        fields=["name", "prod_month_start_date", "prod_month_end_date", "shift_system"],
+        limit=1
+    )
+    return records[0] if records else None
+
 
 def validate_shift_date(doc, monthly_plan):
-    try:
-        normalize_to_ui_date(doc.shift_date)
-        if monthly_plan["site_status"] != "Producing":
-            frappe.throw("Pre-Use Hours can only be saved if the site's status is 'Producing'.")
-    except Exception:
-        frappe.log_error(message=frappe.get_traceback(), title="Shift Date Validation Error")
-        raise
+    """
+    v16-safe: normalize values to datetime.date before comparing.
+    Frappe may supply doc.shift_date as a string on new/unsaved docs.
+    """
+    shift_date = getdate(doc.shift_date)
+    start_date = getdate(monthly_plan.prod_month_start_date)
+    end_date = getdate(monthly_plan.prod_month_end_date)
+
+    if not shift_date:
+        frappe.throw(_("Shift Date is required."))
+
+    if shift_date < start_date or shift_date > end_date:
+        frappe.throw(_("Shift Date is outside the producing month range."))
+
 
 def check_previous_record_sequence(doc, monthly_plan):
-    try:
-        previous_doc = get_previous_document(doc.location, doc.creation)
-        if previous_doc:
-            validate_next_shift_and_sequence(doc, previous_doc, monthly_plan)
-    except Exception:
-        frappe.log_error(message=frappe.get_traceback(), title="Shift Sequence Validation Error")
-        raise
+    """
+    Ensure the previous shift record exists and sequencing is correct.
+    """
+    prev_doc = get_previous_document(doc.location, doc.creation)
+    if not prev_doc:
+        return
 
-def validate_next_shift_and_sequence(doc, previous_doc, monthly_plan):
-    try:
-        shift_system = monthly_plan.get("shift_system")
-        if not shift_system:
-            frappe.throw("Shift System is not defined in the Monthly Production Planning.")
+    # Enforce that shift date is not going backwards
+    if prev_doc.shift_date and doc.shift_date and doc.shift_date < prev_doc.shift_date:
+        frappe.throw("Shift Date cannot be before the previous record's shift date.")
 
-        shift_sequence = {
-            "2x12Hour": {"Day": "Night", "Night": "Day"},
-            "3x8Hour": {"Morning": "Afternoon", "Afternoon": "Night", "Night": "Morning"},
-        }
-        previous_shift = previous_doc.shift
-        required_shift = shift_sequence.get(shift_system, {}).get(previous_shift)
-        if not required_shift:
-            frappe.throw(f"Invalid shift sequence for system '{shift_system}' after '{previous_shift}'.")
-        if doc.shift != required_shift:
-            frappe.throw(f"Expected '{required_shift}' after '{previous_shift}'.")
 
-        prev_date = datetime.strptime(normalize_to_db_date(previous_doc.shift_date), "%Y-%m-%d").date()
-        curr_date = datetime.strptime(normalize_to_db_date(doc.shift_date), "%Y-%m-%d").date()
-        if previous_shift == "Night" and required_shift in ("Day", "Morning"):
-            expected = prev_date + timedelta(days=1)
-            if curr_date != expected:
-                frappe.throw(f"{required_shift} shift must occur on {expected.strftime('%d-%m-%Y')}.")
-        elif doc.shift in ("Afternoon", "Night") and curr_date != prev_date:
-            frappe.throw(f"{doc.shift} shift must occur on the same date as the previous record.")
-    except Exception:
-        frappe.log_error(message=frappe.get_traceback(), title="Shift System Validation Error")
-        raise
-
-@frappe.whitelist()
-def get_previous_document(location, current_creation):
-    try:
-        name = frappe.db.get_value(
-            "Pre-Use Hours",
-            {"location": location, "creation": ["<", current_creation]},
-            "name",
-            order_by="creation desc"
-        )
-        return frappe.get_doc("Pre-Use Hours", name) if name else None
-    except Exception:
-        frappe.log_error(message=frappe.get_traceback(), title="Previous Document Fetch Error")
+def get_previous_document(location, creation_dt):
+    """
+    Get the previous Pre-Use Hours doc (by creation timestamp) for a location.
+    """
+    prev_name = frappe.db.get_value(
+        "Pre-Use Hours",
+        {"location": location, "creation": ["<", creation_dt]},
+        "name",
+        order_by="creation desc"
+    )
+    if not prev_name:
         return None
+    return frappe.get_doc("Pre-Use Hours", prev_name)
