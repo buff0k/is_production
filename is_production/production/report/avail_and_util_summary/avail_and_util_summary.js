@@ -14,21 +14,17 @@ frappe.query_reports["Avail and Util summary"] = {
         "reqd": 1,
         "default": frappe.datetime.nowdate()
     },
-    {
-        "fieldname": "location",
+
+
+
+{
+        "fieldname": "site",
         "label": __("Site"),
         "fieldtype": "Link",
         "options": "Location",
-        "reqd": 0
+        "reqd": 1
     },
-
-    {
-        "fieldname": "asset",
-        "label": __("Asset"),
-        "fieldtype": "Link",
-        "options": "Asset",
-        "reqd": 0
-    },    
+ 
     // NEW: Category filter (All + categories loaded onload)
     {
         "fieldname": "asset_category",

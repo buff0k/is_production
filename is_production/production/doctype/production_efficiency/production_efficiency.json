@@ -25,7 +25,10 @@
   "improvementrecommendation",
   "report",
   "reports",
-  "hourly_report"
+  "hourly_report",
+  "graph_tab",
+  "graphs",
+  "graph"
  ],
  "fields": [
   {
@@ -138,12 +141,27 @@
    "fieldname": "hourly_report",
    "fieldtype": "HTML",
    "label": "Hourly Report"
+  },
+  {
+   "fieldname": "graph_tab",
+   "fieldtype": "Tab Break",
+   "label": "Graph"
+  },
+  {
+   "fieldname": "graphs",
+   "fieldtype": "Section Break",
+   "label": "Graph"
+  },
+  {
+   "fieldname": "graph",
+   "fieldtype": "HTML",
+   "label": "Graph and KPI's"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-05 08:09:53.813929",
+ "modified": "2026-02-09 19:59:49.949898",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Efficiency",
