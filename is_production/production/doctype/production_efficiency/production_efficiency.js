@@ -164,6 +164,16 @@ const WTD_THRESHOLD_DASH = "4 0";
 const GRAPH_HOURS_PER_DAY = 18;
 const REPORT_HOURS_PER_DAY = 24;
 
+/**
+ * ✅ PRODUCTION DISPLAY FIXES (LAB vs PROD):
+ * 1) Force Y-axis to include 0 (some frappe-charts builds auto-start above 0)
+ *    -> add a hidden "zero floor" dataset (all zeros) so minY becomes 0.
+ * 2) Prevent X-axis excavator labels from being suppressed
+ *    -> force xAxisMode="tick" and give extra chart height + padding.
+ */
+const FORCE_Y_AXIS_ZERO = true;
+const EXTRA_CHART_HEIGHT = 50;
+
 function build_graph_html(frm) {
   const site = escape_html(frm.doc.site || "");
   const start = escape_html(frm.doc.start_date || "");
@@ -216,6 +226,9 @@ function build_graph_html(frm) {
     .pe-note { color:#6b7280; font-size:12px; margin-top:8px; }
     .pe-chart { width: 100%; min-height: 300px; }
     .pe-chart-sm { width: 100%; min-height: 280px; }
+
+    /* Extra room so PROD doesn't suppress x-axis labels (excavator names) */
+    .pe-panel-b .chart-container { padding-bottom: 14px; }
   </style>
 
   <div class="pe-dash">
@@ -225,13 +238,17 @@ function build_graph_html(frm) {
     </div>
 
     <div class="pe-kpis">
-      ${kpis.map(k => `
+      ${kpis
+        .map(
+          (k) => `
         <div class="pe-kpi pe-tone-${escape_html(k.tone)}">
           <div class="lbl">${escape_html(k.label)}</div>
           <div class="val">${escape_html(formatKpiNumber(k.value))}</div>
           <div class="sub">${escape_html(k.sub || "")}</div>
         </div>
-      `).join("")}
+      `
+        )
+        .join("")}
     </div>
 
     <div class="pe-panels">
@@ -285,6 +302,7 @@ function build_graph_html(frm) {
 function render_graph_charts(frm) {
   const computed = compute_metrics_from_doc(frm);
 
+  // A) Week hourly chart
   const elA = document.getElementById("pe_week_hourly_chart");
   if (elA) {
     if (!computed.days_with_data) {
@@ -293,16 +311,26 @@ function render_graph_charts(frm) {
       const labels = hourShortLabels();
       const values = computed.week_site_hourly_avg || new Array(24).fill(0);
 
+      let datasets = [
+        { name: "Site avg / hr (per excavator)", values, chartType: "line" },
+      ];
+
+      if (FORCE_Y_AXIS_ZERO) datasets = add_zero_floor_dataset(labels, datasets);
+
       new frappe.Chart("#pe_week_hourly_chart", {
         title: "",
-        data: { labels, datasets: [{ name: "Site avg / hr (per excavator)", values, chartType: "line" }] },
+        data: { labels, datasets },
         type: "axis-mixed",
-        height: 280,
+        height: 280 + EXTRA_CHART_HEIGHT,
+        axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
         lineOptions: { dotSize: 2, regionFill: 0 },
       });
+
+      if (FORCE_Y_AXIS_ZERO) strip_zero_floor_legend("#pe_week_hourly_chart");
     }
   }
 
+  // B) Week excavator daily chart
   const elB = document.getElementById("pe_week_excavator_daily_chart");
   if (elB) {
     if (!computed.excavator_labels.length || !computed.days_with_data) {
@@ -320,22 +348,31 @@ function render_graph_charts(frm) {
         chartType: "line",
       };
 
+      // IMPORTANT: keep Threshold as the LAST line-ish dataset for style_threshold_line()
+      let datasets = [...dayDatasets, thresholdLine];
+
+      // Add zero floor FIRST so Threshold still stays last
+      if (FORCE_Y_AXIS_ZERO) datasets = add_zero_floor_dataset(computed.excavator_labels, datasets);
+
       new frappe.Chart("#pe_week_excavator_daily_chart", {
         title: "",
         data: {
           labels: computed.excavator_labels,
-          datasets: [...dayDatasets, thresholdLine],
+          datasets,
         },
         type: "axis-mixed",
-        height: 300,
+        height: 300 + EXTRA_CHART_HEIGHT,
+        axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
         barOptions: { stacked: false, spaceRatio: 0.7 },
         lineOptions: { dotSize: 0, regionFill: 0 },
       });
 
       style_threshold_line("#pe_week_excavator_daily_chart", DAILY_THRESHOLD_COLOR, DAILY_THRESHOLD_DASH);
+      if (FORCE_Y_AXIS_ZERO) strip_zero_floor_legend("#pe_week_excavator_daily_chart");
     }
   }
 
+  // C) WTD excavator chart
   const elC = document.getElementById("pe_wtd_excavator_chart");
   if (elC) {
     if (!computed.excavator_labels.length || !computed.days_with_data) {
@@ -349,24 +386,73 @@ function render_graph_charts(frm) {
         chartType: "line",
       };
 
+      let datasets = [
+        { name: "WTD rate / hr", values: bars, chartType: "bar" },
+        thresholdLine, // keep last line-ish
+      ];
+
+      if (FORCE_Y_AXIS_ZERO) datasets = add_zero_floor_dataset(computed.excavator_labels, datasets);
+
       new frappe.Chart("#pe_wtd_excavator_chart", {
         title: "",
         data: {
           labels: computed.excavator_labels,
-          datasets: [
-            { name: "WTD rate / hr", values: bars, chartType: "bar" },
-            thresholdLine,
-          ],
+          datasets,
         },
         type: "axis-mixed",
-        height: 300,
+        height: 300 + EXTRA_CHART_HEIGHT,
+        axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
         barOptions: { stacked: false, spaceRatio: 0.7 },
         lineOptions: { dotSize: 0, regionFill: 0 },
       });
 
       style_threshold_line("#pe_wtd_excavator_chart", WTD_THRESHOLD_COLOR, WTD_THRESHOLD_DASH);
+      if (FORCE_Y_AXIS_ZERO) strip_zero_floor_legend("#pe_wtd_excavator_chart");
     }
   }
+}
+
+/**
+ * Adds a dummy dataset that is all zeros.
+ * This forces the computed y-axis min to be 0 across chart versions.
+ * We insert it FIRST so your threshold line remains the last "line-ish" path.
+ */
+function add_zero_floor_dataset(labels, datasets) {
+  const zeroFloor = {
+    name: "__zero_floor__",
+    values: new Array(labels.length).fill(0),
+    chartType: "line",
+  };
+  return [zeroFloor, ...datasets];
+}
+
+/**
+ * Remove legend entry for the dummy dataset so users never see it.
+ * No-ops safely if DOM differs.
+ */
+function strip_zero_floor_legend(containerSelector) {
+  setTimeout(() => {
+    try {
+      const root = document.querySelector(containerSelector);
+      if (!root) return;
+
+      // Frappe Charts legend class commonly includes .chart-legend
+      const legend = root.querySelector(".chart-legend");
+      if (!legend) return;
+
+      // Remove the legend item containing our dummy name
+      const items = Array.from(legend.querySelectorAll("*"));
+      for (const el of items) {
+        const t = (el.textContent || "").trim();
+        if (t === "__zero_floor__") {
+          const li = el.closest("li") || el.closest(".legend-item") || el;
+          li.remove();
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, 0);
 }
 
 function style_threshold_line(containerSelector, strokeHex, dashArray) {
@@ -389,6 +475,7 @@ function style_threshold_line(containerSelector, strokeHex, dashArray) {
         });
 
         if (lineish.length) {
+          // Because we add the zero-floor line FIRST, the last line-ish remains your threshold line.
           const p = lineish[lineish.length - 1];
           p.setAttribute("stroke", strokeHex);
           if (dashArray) p.setAttribute("stroke-dasharray", dashArray);
@@ -495,7 +582,7 @@ function compute_metrics_from_doc(frm) {
     .filter((x) => !!x)
     .sort((a, b) => a.localeCompare(b));
 
-  // Key fix: only show excavators that have real WTD BCM (>0) to prevent label suppression in prod
+  // Key fix (kept): only show excavators that have real WTD BCM (>0) to prevent label suppression in prod
   const excavator_labels = excavator_labels_all.filter((ex) => asNumber(wtd_total_bcm[ex] || 0) > 0);
 
   const week_excavator_daily_matrix = daySummaries.map((d) => {
