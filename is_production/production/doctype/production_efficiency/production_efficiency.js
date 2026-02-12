@@ -160,6 +160,10 @@ const DAILY_THRESHOLD_DASH = "4 4";
 const WTD_THRESHOLD_COLOR = "#ef4444";
 const WTD_THRESHOLD_DASH = "4 0";
 
+// Graph/KPI tab uses 18 divisor (requested). Hourly report remains 24.
+const GRAPH_HOURS_PER_DAY = 18;
+const REPORT_HOURS_PER_DAY = 24;
+
 function build_graph_html(frm) {
   const site = escape_html(frm.doc.site || "");
   const start = escape_html(frm.doc.start_date || "");
@@ -167,25 +171,14 @@ function build_graph_html(frm) {
 
   const computed = compute_metrics_from_doc(frm);
 
+  // KPI boxes: removed "Week avg / Excavator" and "Latest day avg / Excavator" (requested)
   const kpis = [
     { label: "Threshold", value: PE_THRESHOLD, tone: "neutral", sub: "BCM/hr target" },
-    {
-      label: "Week avg / Excavator",
-      value: computed.week_avg_per_excavator ?? 0,
-      tone: kpiTone(computed.week_avg_per_excavator),
-      sub: computed.days_with_data ? `${computed.days_with_data} day(s) with data` : "No week data",
-    },
     {
       label: "Week site avg / hr",
       value: computed.week_site_avg ?? 0,
       tone: kpiTone(computed.week_site_avg),
       sub: computed.days_with_data ? `Across ${computed.days_with_data} day(s)` : "No week data",
-    },
-    {
-      label: "Latest day avg / Excavator",
-      value: computed.focus_day?.daily_avg_per_excavator ?? 0,
-      tone: kpiTone(computed.focus_day?.daily_avg_per_excavator),
-      sub: computed.focus_day ? computed.focus_day.label : "No daily data",
     },
     {
       label: "Latest day site avg / hr",
@@ -202,7 +195,7 @@ function build_graph_html(frm) {
     .pe-dash-head h3 { margin:0; }
     .pe-dash-meta { color:#6b7280; font-size:12px; }
 
-    .pe-kpis { display:grid; grid-template-columns: repeat(5, minmax(160px, 1fr)); gap:10px; margin: 10px 0 14px; }
+    .pe-kpis { display:grid; grid-template-columns: repeat(3, minmax(160px, 1fr)); gap:10px; margin: 10px 0 14px; }
     @media (max-width: 1200px) { .pe-kpis { grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
 
     .pe-kpi { border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; background: #fff; box-shadow: 0 1px 1px rgba(0,0,0,.03); }
@@ -264,7 +257,7 @@ function build_graph_html(frm) {
         <div class="pe-panel-b">
           <div id="pe_week_excavator_daily_chart" class="pe-chart"></div>
           <div class="pe-note">
-            Bars show each excavator’s daily average BCM/hr (sum of 24 hours ÷ 24) for each day.
+            Bars show each excavator’s daily average BCM/hr (sum of 24 hours ÷ ${GRAPH_HOURS_PER_DAY}) for each day.
             Threshold is the dotted line at ${PE_THRESHOLD}.
           </div>
         </div>
@@ -278,7 +271,7 @@ function build_graph_html(frm) {
         <div class="pe-panel-b">
           <div id="pe_wtd_excavator_chart" class="pe-chart"></div>
           <div class="pe-note">
-            One bar per excavator = total BCM captured week-to-date ÷ hours completed (24 × days present for that excavator).
+            One bar per excavator = total BCM captured week-to-date ÷ hours completed (${GRAPH_HOURS_PER_DAY} × days present for that excavator).
             Threshold line = ${PE_THRESHOLD}.
           </div>
         </div>
@@ -432,7 +425,9 @@ function compute_metrics_from_doc(frm) {
 
     const grouped = {};
     for (const r of rows) {
-      const ex = r.excavators || "(No excavator)";
+      let ex = r.excavators;
+      ex = (ex == null ? "" : String(ex)).trim();
+      if (!ex) ex = "(No excavator)";
       if (!grouped[ex]) grouped[ex] = [];
       grouped[ex].push(r);
       allExcavatorsSet.add(ex);
@@ -455,7 +450,9 @@ function compute_metrics_from_doc(frm) {
       }
 
       excavatorDailyTotals.push(total);
-      excavatorDailyAvgs.push(total / 24.0);
+
+      // Graph divisor requested: 18
+      excavatorDailyAvgs.push(total / GRAPH_HOURS_PER_DAY);
 
       wtd_total_bcm[ex] = (wtd_total_bcm[ex] || 0) + total;
       wtd_days_present[ex] = (wtd_days_present[ex] || 0) + 1;
@@ -463,7 +460,9 @@ function compute_metrics_from_doc(frm) {
 
     const siteTotal = totalsByHour.reduce((a, b) => a + b, 0);
     const siteHourlyAvg = totalsByHour.map((v) => v / excavatorCount);
-    const siteDailyAvg = siteTotal / (excavatorCount * 24.0);
+
+    // Graph divisor requested: 18
+    const siteDailyAvg = siteTotal / (excavatorCount * GRAPH_HOURS_PER_DAY);
 
     daySummaries.push({
       label: d.label,
@@ -475,7 +474,6 @@ function compute_metrics_from_doc(frm) {
       daily_site_total: siteTotal,
       daily_site_hourly_avg: siteHourlyAvg,
       daily_site_avg: siteDailyAvg,
-      daily_avg_per_excavator: avg(excavatorDailyAvgs),
     });
   }
 
@@ -492,19 +490,13 @@ function compute_metrics_from_doc(frm) {
     week_site_avg = avg(daySummaries.map((d) => d.daily_site_avg || 0));
   }
 
-  const perEx = {};
-  for (const d of daySummaries) {
-    for (let i = 0; i < d.excavator_names.length; i++) {
-      const ex = d.excavator_names[i];
-      const v = d.excavator_daily_avgs[i];
-      if (!perEx[ex]) perEx[ex] = [];
-      perEx[ex].push(v);
-    }
-  }
-  const week_ex_avgs = Object.keys(perEx).map((ex) => avg(perEx[ex]));
-  const week_avg_per_excavator = week_ex_avgs.length ? avg(week_ex_avgs) : 0;
+  const excavator_labels_all = Array.from(allExcavatorsSet)
+    .map((x) => (x == null ? "" : String(x)).trim())
+    .filter((x) => !!x)
+    .sort((a, b) => a.localeCompare(b));
 
-  const excavator_labels = Array.from(allExcavatorsSet).sort((a, b) => a.localeCompare(b));
+  // Key fix: only show excavators that have real WTD BCM (>0) to prevent label suppression in prod
+  const excavator_labels = excavator_labels_all.filter((ex) => asNumber(wtd_total_bcm[ex] || 0) > 0);
 
   const week_excavator_daily_matrix = daySummaries.map((d) => {
     const map = {};
@@ -520,7 +512,7 @@ function compute_metrics_from_doc(frm) {
   const wtd_excavator_rate_per_hour = excavator_labels.map((ex) => {
     const total = asNumber(wtd_total_bcm[ex] || 0);
     const daysPresent = asNumber(wtd_days_present[ex] || 0);
-    const hours = daysPresent > 0 ? daysPresent * 24.0 : 0;
+    const hours = daysPresent > 0 ? daysPresent * GRAPH_HOURS_PER_DAY : 0;
     return hours > 0 ? total / hours : 0;
   });
 
@@ -529,7 +521,6 @@ function compute_metrics_from_doc(frm) {
     days_with_data,
     week_site_hourly_avg,
     week_site_avg,
-    week_avg_per_excavator,
     excavator_labels,
     week_excavator_daily_matrix,
     wtd_excavator_rate_per_hour,
@@ -694,6 +685,8 @@ function get_field_map_for_day(day) {
   return display.map((d) => ({ label: d.label, key: v[d.norm] }));
 }
 
+/* -------------------- HOURLY REPORT (UNCHANGED) -------------------- */
+
 function build_report_html(frm) {
   const days = [
     { field: "monday", label: "Monday", map: get_field_map_for_day("monday") },
@@ -835,12 +828,12 @@ function render_day_table(dayLabel, rows, map) {
       totalsByHour[k] += sum;
     }
     excavatorTotals[ex] = exTotal;
-    excavatorAvgs[ex] = exTotal / 24.0;
+    excavatorAvgs[ex] = exTotal / REPORT_HOURS_PER_DAY;
   }
 
   const dayGrandTotal = hourKeys.reduce((acc, k) => acc + totalsByHour[k], 0);
   const exCount = excavatorNames.length || 1;
-  const siteAvg = dayGrandTotal / (exCount * 24.0);
+  const siteAvg = dayGrandTotal / (exCount * REPORT_HOURS_PER_DAY);
 
   let html = `
     <div class="pe-day">
@@ -936,7 +929,11 @@ function render_generic_child_table(frm, child_doctype, rows) {
     if (!df.fieldname) return false;
     if (df.hidden) return false;
     if (["Section Break", "Column Break", "Tab Break", "HTML", "Button"].includes(df.fieldtype)) return false;
-    if (["parent", "parenttype", "parentfield", "idx", "doctype", "name", "owner", "creation", "modified", "modified_by"].includes(df.fieldname))
+    if (
+      ["parent", "parenttype", "parentfield", "idx", "doctype", "name", "owner", "creation", "modified", "modified_by"].includes(
+        df.fieldname
+      )
+    )
       return false;
     return true;
   });
