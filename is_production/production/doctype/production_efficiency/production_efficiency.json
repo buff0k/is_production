@@ -12,6 +12,7 @@
   "monthly_production_plan",
   "start_date",
   "end_date",
+  "production_excavators",
   "monday",
   "tuesday",
   "wednesday",
@@ -156,12 +157,18 @@
    "fieldname": "graph",
    "fieldtype": "HTML",
    "label": "Graph and KPI's"
+  },
+  {
+   "fieldname": "production_excavators",
+   "fieldtype": "Float",
+   "label": "Production Excavators",
+   "precision": "0"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-09 19:59:49.949898",
+ "modified": "2026-02-16 12:01:13.060182",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Efficiency",

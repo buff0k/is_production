@@ -176,14 +176,12 @@ def _fetch_hourly_bcms(site: str, start_date, end_date):
 
 
 def _populate_child_tables(pe_doc: Document, day_data: dict):
-    # clear
     for _, day_field in DAY_TABLE_FIELDS.items():
         if pe_doc.meta.has_field(day_field):
             pe_doc.set(day_field, [])
 
-    # fill per date
     for prod_date, excavators_map in day_data.items():
-        weekday = prod_date.weekday()  # 0=Mon..6=Sun
+        weekday = prod_date.weekday()
         day_field = DAY_TABLE_FIELDS.get(weekday)
         if not day_field or not pe_doc.meta.has_field(day_field):
             continue
@@ -205,9 +203,45 @@ def _populate_child_tables(pe_doc: Document, day_data: dict):
                 row.set(slot_fields[slot - 1], int(ex_slot_data.get(slot, 0) or 0))
 
 
+def _get_hsc_production_excavators(site: str) -> int:
+    site = (site or "").strip()
+    if not site:
+        return 0
+
+    name = frappe.db.get_value(
+        "Hourly Site Control",
+        filters={},
+        fieldname="name",
+        order_by="creation desc",
+    )
+    if not name:
+        return 0
+
+    doc = frappe.get_doc("Hourly Site Control", name)
+    for row in (doc.get("sites") or []):
+        if (row.get("site") or "").strip() == site:
+            try:
+                return int(row.get("production_excavators") or 0)
+            except Exception:
+                return 0
+
+    return 0
+
+
 def _update_single_pe_doc(doc: Document):
     if not doc.site or not doc.start_date or not doc.end_date:
         return
+
+    if doc.meta.has_field("production_excavators"):
+        try:
+            current_val = float(doc.get("production_excavators") or 0)
+        except Exception:
+            current_val = 0
+
+        if current_val <= 0:
+            default_val = _get_hsc_production_excavators(doc.site)
+            if default_val and default_val > 0:
+                doc.set("production_excavators", int(default_val))
 
     start_date = _to_date(doc.start_date)
     end_date = _to_date(doc.end_date)
@@ -239,36 +273,11 @@ def run_update(docname: str):
 
 @frappe.whitelist()
 def get_hourly_site_control_excavators(site: str) -> dict:
-    """
-    Returns the production excavator count for a site from the latest Hourly Site Control doc.
-    Looks inside the child table rows (commonly fieldname 'sites') for matching row.site == site.
-    """
     site = (site or "").strip()
     if not site:
         return {"site": site, "production_excavators": 0}
 
-    name = frappe.db.get_value(
-        "Hourly Site Control",
-        filters={},
-        fieldname="name",
-        order_by="creation desc",
-    )
-    if not name:
-        return {"site": site, "production_excavators": 0}
-
-    doc = frappe.get_doc("Hourly Site Control", name)
-
-    for row in (doc.get("sites") or []):
-        if (row.get("site") or "").strip() == site:
-            try:
-                return {
-                    "site": site,
-                    "production_excavators": int(row.get("production_excavators") or 0),
-                }
-            except Exception:
-                return {"site": site, "production_excavators": 0}
-
-    return {"site": site, "production_excavators": 0}
+    return {"site": site, "production_excavators": int(_get_hsc_production_excavators(site) or 0)}
 
 
 def get_sites_from_hourly_site_control() -> list[str]:
@@ -307,6 +316,12 @@ def upsert_production_efficiency(site: str, start_date, end_date) -> str:
             doc.start_date = start_date
         if doc.meta.has_field("end_date"):
             doc.end_date = end_date
+
+        if doc.meta.has_field("production_excavators"):
+            default_val = _get_hsc_production_excavators(site)
+            if default_val and default_val > 0:
+                doc.set("production_excavators", int(default_val))
+
         doc.insert(ignore_permissions=True)
 
     if doc.meta.has_field("site"):
@@ -315,6 +330,16 @@ def upsert_production_efficiency(site: str, start_date, end_date) -> str:
         doc.start_date = start_date
     if doc.meta.has_field("end_date"):
         doc.end_date = end_date
+
+    if doc.meta.has_field("production_excavators"):
+        try:
+            current_val = float(doc.get("production_excavators") or 0)
+        except Exception:
+            current_val = 0
+        if current_val <= 0:
+            default_val = _get_hsc_production_excavators(site)
+            if default_val and default_val > 0:
+                doc.set("production_excavators", int(default_val))
 
     doc.save(ignore_permissions=True)
     return doc.name

@@ -65,38 +65,34 @@ page_js = {
 
 scheduler_events = {
     "cron": {
-
-         # DAILY 05:55 - CEO Dashboard 1 PDF snapshot email
+        # DAILY 05:55 - CEO Dashboard 1 PDF snapshot email
         "55 5 * * *": [
             "is_production.production.controllers.notifications.send_ceo_dashboard_daily_emails",
         ],
-
-         # SUNDAY 14:15 - close previous week + send Production Efficiency weekly LINK emails
-        "15 14 * * SUN": [
-            "is_production.production.doctype.production_efficiency.production_efficiency.close_off_weekly_records",
-            "is_production.production.controllers.notifications.send_production_efficiency_weekly_emails",
-        ],
-
 
         # Monday 04:00 - create new week
         "0 4 * * MON": [
             "is_production.production.doctype.production_efficiency.production_efficiency.create_weekly_records"
         ],
 
-        # Daily 07:00 - update current week
+        # Daily 06:00 - update current week
         "0 6 * * *": [
             "is_production.production.doctype.production_efficiency.production_efficiency.update_weekly_records"
         ],
 
-        # Daily 19:00 - update current week
-        # Jy kan nie dieselfde controller function tweekeer gebruik in aparte schedulers nie
-        #"0 19 * * *": [
-        #"is_production.production.doctype.production_efficiency.production_efficiency.update_weekly_records"
-        #],
+        # SUNDAY 14:30 - extra update to bring in production (requested)
+        "30 14 * * SUN": [
+            "is_production.production.doctype.production_efficiency.production_efficiency.update_weekly_records"
+        ],
 
+        # SUNDAY 15:00 - close previous week (requested)
+        "0 15 * * SUN": [
+            "is_production.production.doctype.production_efficiency.production_efficiency.close_off_weekly_records"
+        ],
 
+        # SUNDAY 15:05 - send weekly Production Efficiency LINK emails (requested)
+        "5 15 * * SUN": [
+            "is_production.production.controllers.notifications.send_production_efficiency_weekly_emails",
+        ],
     }
 }
-
-
-

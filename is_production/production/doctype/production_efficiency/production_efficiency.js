@@ -54,6 +54,10 @@ frappe.ui.form.on("Production Efficiency", {
     frm.trigger("render_hourly_report");
   },
 
+  production_excavators(frm) {
+    frm.trigger("render_graph");
+  },
+
   monday(frm) {
     frm.trigger("render_graph");
     frm.trigger("render_hourly_report");
@@ -110,19 +114,8 @@ frappe.ui.form.on("Production Efficiency", {
     try {
       const computed = compute_metrics_from_doc(frm);
 
-      let hsc_excavators = 0;
-      try {
-        const r = await frappe.call({
-          method:
-            "is_production.production.doctype.production_efficiency.production_efficiency.get_hourly_site_control_excavators",
-          args: { site: frm.doc.site },
-        });
-        hsc_excavators = flt(r?.message?.production_excavators || 0);
-      } catch (e) {
-        hsc_excavators = 0;
-      }
-
-      computed.hsc_excavators = trunc0(hsc_excavators);
+      computed.production_excavators = trunc0(asNumber(frm.doc.production_excavators || 0));
+      computed.hourly_target = trunc0(computed.production_excavators * PE_THRESHOLD);
 
       const html = build_graph_html(frm, computed);
       targetField.$wrapper.html(html);
@@ -184,14 +177,16 @@ const FORCE_Y_AXIS_ZERO = true;
 const EXTRA_CHART_HEIGHT = 50;
 
 const FLOOR_DATASET_NAME = "Floor";
-const FLOOR_HEX = "#FFFFFF00";
+const FLOOR_HEX = "rgba(0,0,0,0)";
 
 function build_graph_html(frm, computed) {
   const site = escape_html(frm.doc.site || "");
   const start = escape_html(frm.doc.start_date || "");
   const end = escape_html(frm.doc.end_date || "");
 
-  const hourlyTarget = trunc0(asNumber(PE_THRESHOLD) * asNumber(computed.hsc_excavators || 0));
+  const hourlyTarget = trunc0(computed.hourly_target || 0);
+
+  const achievedTone = compareTone(computed.week_site_hourly_achieved ?? 0, hourlyTarget);
 
   const kpis = [
     { label: "Threshold", value: PE_THRESHOLD, tone: "neutral", sub: "BCM/hr target" },
@@ -199,12 +194,14 @@ function build_graph_html(frm, computed) {
       label: "Hourly Target",
       value: hourlyTarget,
       tone: "neutral",
-      sub: computed.hsc_excavators ? `${computed.hsc_excavators} excavators (Hourly Site Control)` : "No excavators found",
+      sub: computed.production_excavators
+        ? `${computed.production_excavators} excavators (Production Efficiency)`
+        : "Set Production Excavators",
     },
     {
       label: "Hourly Achieved",
       value: computed.week_site_hourly_achieved ?? 0,
-      tone: kpiTone(computed.week_site_hourly_achieved),
+      tone: achievedTone,
       sub: computed.days_with_data ? `Across ${computed.days_with_data} day(s)` : "No week data",
     },
     {
@@ -215,8 +212,8 @@ function build_graph_html(frm, computed) {
     },
     {
       label: "Latest day site avg / hr",
-      value: computed.focus_day?.daily_site_avg ?? 0,
-      tone: kpiTone(computed.focus_day?.daily_site_avg),
+      value: computed.focus_day?.daily_site_avg_display ?? 0,
+      tone: kpiTone(computed.focus_day?.daily_site_avg_display),
       sub: computed.focus_day ? `${computed.focus_day.excavator_count} excavators` : "No daily data",
     },
   ];
@@ -285,6 +282,7 @@ function build_graph_html(frm, computed) {
           <div id="pe_week_hourly_chart" class="pe-chart-sm"></div>
           <div class="pe-note">
             Line shows the <b>average of the site total BCM/hr</b> for each hour (sum of all excavators per day, averaged across days).
+            The threshold line is the <b>Hourly Target</b>.
           </div>
         </div>
       </div>
@@ -323,6 +321,7 @@ function build_graph_html(frm, computed) {
 }
 
 function render_graph_charts(frm, computed) {
+  // A) Week hourly chart
   const elA = document.getElementById("pe_week_hourly_chart");
   if (elA) {
     if (!computed.days_with_data) {
@@ -331,7 +330,14 @@ function render_graph_charts(frm, computed) {
       const labels = hourRangeLabels();
       const values = computed.week_site_hourly_total_avg || new Array(24).fill(0);
 
-      let datasets = [{ name: "Site total avg / hr", values, chartType: "line" }];
+      const hourlyTarget = trunc0(computed.hourly_target || 0);
+      const targetLine = {
+        name: "Hourly Target",
+        values: new Array(labels.length).fill(hourlyTarget),
+        chartType: "line",
+      };
+
+      let datasets = [{ name: "Site total avg / hr", values, chartType: "line" }, targetLine];
       if (FORCE_Y_AXIS_ZERO) datasets = add_floor_dataset(labels, datasets);
 
       new frappe.Chart("#pe_week_hourly_chart", {
@@ -341,15 +347,19 @@ function render_graph_charts(frm, computed) {
         height: 280 + EXTRA_CHART_HEIGHT,
         axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
         lineOptions: { dotSize: 2, regionFill: 0 },
+        colors: [FLOOR_HEX, "#3b82f6", "#22c55e"],
       });
 
       if (FORCE_Y_AXIS_ZERO) {
         style_floor_line("#pe_week_hourly_chart");
         strip_floor_legend("#pe_week_hourly_chart");
+        strip_floor_tooltip("#pe_week_hourly_chart");
       }
+      style_last_line("#pe_week_hourly_chart", "#22c55e", "4 0");
     }
   }
 
+  // B) Week excavator daily chart
   const elB = document.getElementById("pe_week_excavator_daily_chart");
   if (elB) {
     if (!computed.excavator_labels.length || !computed.days_with_data) {
@@ -376,7 +386,7 @@ function render_graph_charts(frm, computed) {
         type: "axis-mixed",
         height: 300 + EXTRA_CHART_HEIGHT,
         axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
-        barOptions: { stacked: false, spaceRatio: 0.7 },
+        barOptions: { stacked: false, spaceRatio: 0.6 },
         lineOptions: { dotSize: 0, regionFill: 0 },
       });
 
@@ -385,10 +395,12 @@ function render_graph_charts(frm, computed) {
       if (FORCE_Y_AXIS_ZERO) {
         style_floor_line("#pe_week_excavator_daily_chart");
         strip_floor_legend("#pe_week_excavator_daily_chart");
+        strip_floor_tooltip("#pe_week_excavator_daily_chart");
       }
     }
   }
 
+  // C) WTD excavator chart
   const elC = document.getElementById("pe_wtd_excavator_chart");
   if (elC) {
     if (!computed.excavator_labels.length || !computed.days_with_data) {
@@ -402,11 +414,7 @@ function render_graph_charts(frm, computed) {
         chartType: "line",
       };
 
-      let datasets = [
-        { name: "WTD rate / hr", values: bars, chartType: "bar" },
-        thresholdLine,
-      ];
-
+      let datasets = [{ name: "WTD rate / hr", values: bars, chartType: "bar" }, thresholdLine];
       if (FORCE_Y_AXIS_ZERO) datasets = add_floor_dataset(computed.excavator_labels, datasets);
 
       new frappe.Chart("#pe_wtd_excavator_chart", {
@@ -415,7 +423,7 @@ function render_graph_charts(frm, computed) {
         type: "axis-mixed",
         height: 300 + EXTRA_CHART_HEIGHT,
         axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
-        barOptions: { stacked: false, spaceRatio: 0.7 },
+        barOptions: { stacked: false, spaceRatio: 0.55 },
         lineOptions: { dotSize: 0, regionFill: 0 },
       });
 
@@ -424,6 +432,7 @@ function render_graph_charts(frm, computed) {
       if (FORCE_Y_AXIS_ZERO) {
         style_floor_line("#pe_wtd_excavator_chart");
         strip_floor_legend("#pe_wtd_excavator_chart");
+        strip_floor_tooltip("#pe_wtd_excavator_chart");
       }
     }
   }
@@ -445,7 +454,6 @@ function strip_floor_legend(containerSelector) {
     try {
       const root = document.querySelector(containerSelector);
       if (!root) return;
-
       const legend = root.querySelector(".chart-legend");
       if (!legend) return;
 
@@ -457,6 +465,36 @@ function strip_floor_legend(containerSelector) {
           li.remove();
         }
       }
+    } catch (e) {}
+  }, 0);
+}
+
+function strip_floor_tooltip(containerSelector) {
+  // removes the floor line row inside tooltip if it renders (best-effort, safe no-op)
+  setTimeout(() => {
+    try {
+      const root = document.querySelector(containerSelector);
+      if (!root) return;
+
+      // observe tooltip re-renders
+      const obs = new MutationObserver(() => {
+        try {
+          const tips = document.querySelectorAll(".graph-svg-tip");
+          tips.forEach((tip) => {
+            const rows = Array.from(tip.querySelectorAll("li, .dot, span, div"));
+            rows.forEach((r) => {
+              const txt = (r.textContent || "").trim();
+              if (txt === FLOOR_DATASET_NAME) {
+                const li = r.closest("li") || r.parentElement;
+                if (li) li.remove();
+              }
+            });
+          });
+        } catch (e) {}
+      });
+
+      obs.observe(root, { subtree: true, childList: true });
+      setTimeout(() => obs.disconnect(), 1500);
     } catch (e) {}
   }, 0);
 }
@@ -481,9 +519,40 @@ function style_floor_line(containerSelector) {
         });
 
         if (lineish.length) {
+          // first line-ish corresponds to floor because we insert it first
           const p = lineish[0];
-          p.setAttribute("stroke", FLOOR_HEX);
-          p.setAttribute("stroke-opacity", "1");
+          p.setAttribute("stroke", "transparent");
+          p.setAttribute("stroke-opacity", "0");
+          p.setAttribute("stroke-width", "0");
+        }
+      });
+    } catch (e) {}
+  }, 0);
+}
+
+function style_last_line(containerSelector, strokeHex, dashArray) {
+  setTimeout(() => {
+    try {
+      const root = document.querySelector(containerSelector);
+      if (!root) return;
+
+      const svgs = root.querySelectorAll("svg");
+      if (!svgs.length) return;
+
+      svgs.forEach((svg) => {
+        const paths = Array.from(svg.querySelectorAll("path"));
+        if (!paths.length) return;
+
+        const lineish = paths.filter((p) => {
+          const sw = parseFloat(p.getAttribute("stroke-width") || "0");
+          const fill = p.getAttribute("fill");
+          return sw >= 2 && (!fill || fill === "none");
+        });
+
+        if (lineish.length) {
+          const p = lineish[lineish.length - 1];
+          p.setAttribute("stroke", strokeHex);
+          if (dashArray) p.setAttribute("stroke-dasharray", dashArray);
         }
       });
     } catch (e) {}
@@ -583,8 +652,12 @@ function compute_metrics_from_doc(frm) {
     const siteTotal = totalsByHour.reduce((a, b) => a + b, 0);
     const siteHourlyTotal = totalsByHour.map((v) => trunc0(v));
 
-    const siteDailyAvg = trunc0(siteTotal / (excavatorCount * GRAPH_HOURS_PER_DAY));
+    const siteDailyAvg18 = trunc0(siteTotal / (excavatorCount * GRAPH_HOURS_PER_DAY));
     const dailyHourlyAchieved = trunc0(siteTotal / GRAPH_HOURS_PER_DAY);
+
+    // ONLY for the "Latest day site avg / hr" KPI display:
+    const divisorForDisplay = d.field === "sunday" ? 14 : 18;
+    const siteDailyAvgDisplay = trunc0(siteTotal / (excavatorCount * divisorForDisplay));
 
     daySummaries.push({
       label: d.label,
@@ -595,7 +668,8 @@ function compute_metrics_from_doc(frm) {
       excavator_daily_totals: excavatorDailyTotals,
       daily_site_total: trunc0(siteTotal),
       daily_site_hourly_total: siteHourlyTotal,
-      daily_site_avg: siteDailyAvg,
+      daily_site_avg: siteDailyAvg18,
+      daily_site_avg_display: siteDailyAvgDisplay,
       daily_hourly_achieved: dailyHourlyAchieved,
     });
   }
@@ -687,14 +761,14 @@ function get_field_map_for_day(day) {
     { label: labels[14], norm: "20_21" },
     { label: labels[15], norm: "21_22" },
     { label: labels[16], norm: "22_23" },
-    { label: labels[17], norm: "23_00" },
+    { label: labels[17], norm: "23-00", norm_key: "23_00" },
     { label: labels[18], norm: "00_01" },
     { label: labels[19], norm: "01_02" },
     { label: labels[20], norm: "02_03" },
     { label: labels[21], norm: "03_04" },
     { label: labels[22], norm: "04_05" },
     { label: labels[23], norm: "05_06" },
-  ];
+  ].map((d) => ({ label: d.label, norm: d.norm_key || d.norm }));
 
   const variants = {
     monday: {
@@ -1106,7 +1180,6 @@ function format_child_value(raw, df) {
   if (["Int", "Float", "Currency", "Percent"].includes(df.fieldtype)) {
     const n = flt(raw);
     if (isNaN(n)) return escape_html(String(raw));
-    // show without decimals
     return escape_html(String(trunc0(n)));
   }
 
@@ -1134,6 +1207,13 @@ function kpiTone(v) {
   if (n >= PE_WARN) return "orange";
   if (n > 0) return "red";
   return "neutral";
+}
+
+function compareTone(actual, target) {
+  const a = asNumber(actual);
+  const t = asNumber(target);
+  if (!t) return kpiTone(a);
+  return a >= t ? "green" : "red";
 }
 
 function asNumber(v) {

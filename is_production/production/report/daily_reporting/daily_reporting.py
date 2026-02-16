@@ -24,15 +24,21 @@ def execute(filters=None):
     # ✅ MTD Actual BCMs (using Production Summary logic)
     mtd_actual_bcms = get_actual_bcms_for_date(site, getdate(end_date), month_start) if mpp else 0
 
-    # ✅ MTD Coal (using Production Summary logic)
-    mtd_coal = get_mtd_coal_dynamic(site, getdate(end_date), month_start)
+    # ✅ MTD Coal (guard month_start!)
+    mtd_coal = get_mtd_coal_dynamic(site, getdate(end_date), month_start) if month_start else 0
 
     # ✅ Actual TS & Dozing for the Day
     actual_ts_day = get_actual_ts_for_day(site, end_date, shift)
     actual_dozer_day = get_actual_dozer_for_day(site, end_date, shift)
 
     # ✅ Daily Achieved = TS + Dozing
-    daily_achieved = actual_ts_day + actual_dozer_day
+    daily_achieved = (actual_ts_day or 0) + (actual_dozer_day or 0)
+
+    # ✅ Daily TS split by material category (Coal/Hards/Softs)
+    daily_by_material = get_daily_bcms_by_material(site, end_date, shift)
+    daily_coal = daily_by_material.get("Coal", 0)
+    daily_hards = daily_by_material.get("Hards", 0)
+    daily_softs = daily_by_material.get("Softs", 0)
 
     # ===== Target Hours per shift/day type =====
     day_type = date_obj.strftime("%A") if date_obj else ""
@@ -58,7 +64,7 @@ def execute(filters=None):
         dz["comment"] = ""
 
     # ===== Metrics =====
-    mtd_waste = mtd_actual_bcms - (mtd_coal / 1.5)
+    mtd_waste = mtd_actual_bcms - (mtd_coal / 1.5) if mtd_coal else (mtd_actual_bcms or 0)
 
     # ===== Daily Productivity =====
     excavator_prod, dozer_prod = get_daily_productivity(site, getdate(end_date), shift)
@@ -72,9 +78,10 @@ def execute(filters=None):
         excavators, dozers, fmt,
         mtd_coal, mtd_waste,
         actual_ts_day, actual_dozer_day, mtd_actual_bcms,
-        excavator_prod, dozer_prod
+        excavator_prod, dozer_prod,
+        daily_coal, daily_hards, daily_softs
     )
-    return [], None, html
+    return [], [], html
 
 
 # ---------------------------------------------------------
@@ -162,10 +169,71 @@ def get_mtd_hours(site, asset_name, month_start, end_date, category):
 
 
 # ---------------------------------------------------------
+# ✅ Daily BCM split by material category (Coal/Hards/Softs)
+# ---------------------------------------------------------
+def _classify_material(mat_type: str) -> str:
+    if not mat_type:
+        return "Unassigned"
+    mt = (mat_type or "").lower()
+    if "coal" in mt:
+        return "Coal"
+    if "hard" in mt:
+        return "Hards"
+    if "soft" in mt:
+        return "Softs"
+    return "Other"
+
+
+def get_daily_bcms_by_material(site, date, shift=None):
+    """
+    Returns dict like {'Coal': x, 'Hards': y, 'Softs': z, 'Other': a, 'Unassigned': b}
+    Uses the SAME fields as Production Shift Material:
+      - Truck Loads: tl.mat_type
+      - Dozer Production: dp.dozer_geo_mat_layer (treated as mat_type)
+    """
+    if not site or not date:
+        return {}
+
+    values = {"site": site, "date": date, "shift": shift}
+    shift_cond = "AND hp.shift = %(shift)s" if shift else ""
+
+    truck = frappe.db.sql(f"""
+        SELECT
+            tl.mat_type AS mat_type,
+            COALESCE(SUM(tl.bcms), 0) AS bcm
+        FROM `tabHourly Production` hp
+        JOIN `tabTruck Loads` tl ON tl.parent = hp.name
+        WHERE hp.location = %(site)s
+          AND hp.prod_date = %(date)s
+          {shift_cond}
+        GROUP BY tl.mat_type
+    """, values, as_dict=True)
+
+    dozer = frappe.db.sql(f"""
+        SELECT
+            dp.dozer_geo_mat_layer AS mat_type,
+            COALESCE(SUM(dp.bcm_hour), 0) AS bcm
+        FROM `tabHourly Production` hp
+        JOIN `tabDozer Production` dp ON dp.parent = hp.name
+        WHERE hp.location = %(site)s
+          AND hp.prod_date = %(date)s
+          {shift_cond}
+        GROUP BY dp.dozer_geo_mat_layer
+    """, values, as_dict=True)
+
+    totals = {"Coal": 0, "Hards": 0, "Softs": 0, "Other": 0, "Unassigned": 0}
+    for r in (truck or []) + (dozer or []):
+        cat = _classify_material(r.get("mat_type"))
+        totals[cat] = (totals.get(cat, 0) or 0) + (r.get("bcm") or 0)
+
+    return totals
+
+
+# ---------------------------------------------------------
 # ✅ MTD Prog Actual BCMs (full logic from Production Summary)
 # ---------------------------------------------------------
 def get_actual_bcms_for_date(site, end_date, month_start):
-    if not site or not end_date:
+    if not site or not end_date or not month_start:
         return 0
 
     survey_doc = frappe.get_all(
@@ -244,12 +312,10 @@ def get_hourly_bcms(start_date, end_date, site):
 # ✅ MTD Prog Actual COAL (full logic from Production Summary)
 # ---------------------------------------------------------
 def get_mtd_coal_dynamic(site, end_date, month_start):
-    """Calculate MTD Programmed Actual Coal (in Tons)
-    Matching Production Summary logic exactly."""
-    if not site or not end_date:
+    if not site or not end_date or not month_start:
         return 0
 
-    COAL_CONVERSION = 1.5  # ✅ convert BCM to tons
+    COAL_CONVERSION = 1.5
 
     survey_doc = frappe.get_all(
         "Survey",
@@ -284,15 +350,14 @@ def get_mtd_coal_dynamic(site, end_date, month_start):
             """, (survey_date, end_date, site))[0][0]
             coal_tons_actual += (coal_after or 0) * COAL_CONVERSION
         else:
-            coal_tons_actual = get_coal_from_hourly(month_start, end_date, site, COAL_CONVERSION)
+            coal_tons_actual = get_coal_from_hourly(month_start, end_dt, site, COAL_CONVERSION)
     else:
-        coal_tons_actual = get_coal_from_hourly(month_start, end_date, site, COAL_CONVERSION)
+        coal_tons_actual = get_coal_from_hourly(month_start, end_dt, site, COAL_CONVERSION)
 
     return coal_tons_actual
 
 
 def get_coal_from_hourly(start_date, end_date, site, COAL_CONVERSION):
-    """Fetch total Coal BCMs from Hourly Production and convert to Tons."""
     coal_bcm = frappe.db.sql("""
         SELECT COALESCE(SUM(tl.bcms),0)
         FROM `tabHourly Production` hp
@@ -398,7 +463,7 @@ def get_daily_productivity(site, date, shift=None):
         if not name:
             continue
         output = r.bcm_output or 0
-        
+
         hours = hours_map.get(name, 0)
         prod = round(output / hours, 2) if hours > 0 else 0
         excavator_data.append({"asset_name": name, "hours": hours, "output": output, "productivity": prod})
@@ -408,7 +473,7 @@ def get_daily_productivity(site, date, shift=None):
         if not name:
             continue
         output = r.bcm_output or 0
-    
+
         hours = hours_map.get(name, 0)
         prod = round(output / hours, 2) if hours > 0 else 0
         dozer_data.append({"asset_name": name, "hours": hours, "output": output, "productivity": prod})
@@ -417,12 +482,13 @@ def get_daily_productivity(site, date, shift=None):
 
 
 # ---------------------------------------------------------
-# ✅ HTML Layout
+# ✅ HTML Layout (order + label changes)
 # ---------------------------------------------------------
 def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
                mtd_coal, mtd_waste,
                actual_ts_day, actual_dozer_day, mtd_actual_bcms,
-               excavator_prod, dozer_prod):
+               excavator_prod, dozer_prod,
+               daily_coal, daily_hards, daily_softs):
     dark_blue = "#003366"
     light_blue = "#EAF3FA"
     gray_border = "#CCCCCC"
@@ -460,9 +526,11 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
     th = f"border:1px solid {gray_border}; padding:5px; background-color:{light_blue}; font-weight:bold; color:{dark_blue};"
     td = f"border:1px solid {gray_border}; padding:5px; font-weight:bold;"
 
-    shift_color = "#006600" if shift.lower() == "day" else "#003366" if shift.lower() == "night" else "#000000"
+    shift_color = "#006600" if (shift or "").lower() == "day" else "#003366" if (shift or "").lower() == "night" else "#000000"
     shift_label = shift if shift else "Full Day"
     shift_html = f"<span style='font-style:italic; color:{shift_color}; font-weight:bold;'> - {shift_label}</span>"
+
+    daily_achieved = (actual_ts_day or 0) + (actual_dozer_day or 0)
 
     summary_html = f"""
     <div class="left-section">
@@ -473,13 +541,21 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
             <tr><td style="{td}">MTD Coal (TONS)</td><td style="{td}">{fmt(mtd_coal)}</td></tr>
             <tr><td style="{td}">MTD Waste</td><td style="{td}">{fmt(mtd_waste)}</td></tr>
             <tr><td style="{td}">MTD Actual BCM's</td><td style="{td}">{fmt(mtd_actual_bcms)}</td></tr>
-            <tr><td style="{td}">Remaining Volumes</td><td style="{td}">{fmt((mpp.monthly_target_bcm if mpp else 0) - mtd_actual_bcms)}</td></tr>
+            <tr><td style="{td}">Remaining Volumes</td><td style="{td}">{fmt((mpp.monthly_target_bcm if mpp else 0) - (mtd_actual_bcms or 0))}</td></tr>
             <tr><td style="{td}">Forecast</td><td style="{td}">{fmt(mpp.month_forecated_bcm if mpp else 0)}</td></tr>
             <tr><td style="{td}">Daily Target</td><td style="{td}">{fmt(mpp.target_bcm_day if mpp else 0)}</td></tr>
-            <tr><td style="{td}">Daily TS BCMs</td><td style="{td}">{fmt(actual_ts_day)}</td></tr>
+
+            <!-- ✅ ORDER REQUESTED -->
+            <tr><td style="{td}">Daily Achieved</td><td style="{td}">{fmt(daily_achieved)}</td></tr>
             <tr><td style="{td}">Daily Dozing BCMs</td><td style="{td}">{fmt(actual_dozer_day)}</td></tr>
-            <tr><td style="{td}">Daily Achieved</td><td style="{td}">{fmt(actual_ts_day + actual_dozer_day)}</td></tr>
-            <tr><td style="{td}">Daily Average BCM per Hour</td><td style="{td}" contenteditable="true"></td></tr>
+            <tr><td style="{td}">Daily TS BCMs</td><td style="{td}">{fmt(actual_ts_day)}</td></tr>
+
+            <!-- ✅ LABELS REQUESTED -->
+            <tr><td style="{td}">Daily Coal BCMs TS</td><td style="{td}">{fmt(daily_coal)}</td></tr>
+            <tr><td style="{td}">Daily Hards BCMs</td><td style="{td}">{fmt(daily_hards)}</td></tr>
+            <tr><td style="{td}">Daily Softs BCMs TS</td><td style="{td}">{fmt(daily_softs)}</td></tr>
+
+            <tr><td style="{td}">Daily Average BCM per Hour</td><td style="{td}" contenteditable="true" class="comment-cell"></td></tr>
         </table>
     </div>
     """
