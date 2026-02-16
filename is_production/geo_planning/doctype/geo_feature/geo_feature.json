@@ -1,0 +1,67 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "{geo_project}-{feature_type}-####",
+ "creation": "2026-02-14 20:37:31.182398",
+ "description": "Purpose: DXF polylines stored as GeoJSON (faults, pit limits, subcrops)",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "geo_project",
+  "layer_name",
+  "feature_type",
+  "geometry_geojson"
+ ],
+ "fields": [
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "layer_name",
+   "fieldtype": "Data",
+   "label": "Layer Name"
+  },
+  {
+   "fieldname": "feature_type",
+   "fieldtype": "Select",
+   "label": "Feature Type",
+   "options": "Fault\nnOutline\nnSubcrop\nnContour\nnOther"
+  },
+  {
+   "fieldname": "geometry_geojson",
+   "fieldtype": "Long Text",
+   "label": "Geometry Geo Json"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-02-14 20:55:18.500288",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Feature",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

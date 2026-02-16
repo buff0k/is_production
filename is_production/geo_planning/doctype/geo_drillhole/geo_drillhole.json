@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "{hole_id}",
+ "creation": "2026-02-14 15:20:07.508421",
+ "description": "Purpose: Drillhole collars + child intervals",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_luhv",
+  "geo_project",
+  "hole_id",
+  "latitude",
+  "longitude",
+  "rl_m",
+  "total_depth_m",
+  "seam_intervals"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_luhv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "hole_id",
+   "fieldtype": "Data",
+   "label": "Hole Id",
+   "unique": 1
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "label": "Latitude"
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "label": "Longitude"
+  },
+  {
+   "fieldname": "rl_m",
+   "fieldtype": "Float",
+   "label": "Reduced Level"
+  },
+  {
+   "fieldname": "total_depth_m",
+   "fieldtype": "Float",
+   "label": "Total Depth"
+  },
+  {
+   "fieldname": "seam_intervals",
+   "fieldtype": "Table",
+   "label": "Seam Intervals",
+   "options": "Geo Seam Interval"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-02-14 20:33:27.523549",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Drillhole",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

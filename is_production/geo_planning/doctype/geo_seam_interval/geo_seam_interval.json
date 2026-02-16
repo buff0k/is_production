@@ -1,0 +1,57 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-14 15:13:33.616254",
+ "description": "Purpose: Drillhole seam/ply intervals (from Minex seams_plies.csv)",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_8a1i",
+  "from_depth_m",
+  "to_depth_m",
+  "seam",
+  "ply"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_8a1i",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "from_depth_m",
+   "fieldtype": "Float",
+   "label": "From Depth"
+  },
+  {
+   "fieldname": "to_depth_m",
+   "fieldtype": "Data",
+   "label": "To Depth"
+  },
+  {
+   "fieldname": "seam",
+   "fieldtype": "Data",
+   "label": "Seam"
+  },
+  {
+   "fieldname": "ply",
+   "fieldtype": "Data",
+   "label": "Ply"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-14 15:18:57.921644",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Seam Interval",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

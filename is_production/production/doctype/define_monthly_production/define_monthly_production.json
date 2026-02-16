@@ -41,7 +41,7 @@
    "fieldname": "complex",
    "fieldtype": "Select",
    "label": "Complex",
-   "options": "\nMiddelburg\nErmelo\nGraphs\nHourly"
+   "options": "\nMiddelburg\nErmelo\nGraphs\nHourly\nKoppie\nUitgevallen\nBankfontein\nKriel Rehabilitation\nKlipfontein\nWitbank South\nGwab"
   },
   {
    "fieldname": "type",
@@ -53,8 +53,8 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-02 17:13:25.929201",
- "modified_by": "eben@isambane.co.za",
+ "modified": "2026-02-16 07:55:00.975015",
+ "modified_by": "Administrator",
  "module": "Production",
  "name": "Define Monthly Production",
  "naming_rule": "Expression (old style)",

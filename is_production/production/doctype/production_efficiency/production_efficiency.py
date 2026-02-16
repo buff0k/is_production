@@ -98,10 +98,6 @@ def _to_date(d):
 
 
 def _current_week_range_auto():
-    """
-    Current week is Monday -> Sunday for today's date.
-    Example: today=2026-02-10 (Tue) => 2026-02-09 .. 2026-02-15
-    """
     today = _to_date(now_datetime().date())
     monday = add_days(today, -today.weekday())
     sunday = add_days(monday, 6)
@@ -145,10 +141,6 @@ def _get_slot_fields_for_day(day_field: str) -> list[str]:
 
 
 def _fetch_hourly_bcms(site: str, start_date, end_date):
-    """
-    Returns:
-      data[prod_date][excavator][slot_number] = int(bcm)
-    """
     rows = frappe.db.sql(
         """
         SELECT
@@ -184,10 +176,6 @@ def _fetch_hourly_bcms(site: str, start_date, end_date):
 
 
 def _populate_child_tables(pe_doc: Document, day_data: dict):
-    """
-    Clears and repopulates Monday..Sunday child tables on this document.
-    Uses exact fieldnames (no guessing).
-    """
     # clear
     for _, day_field in DAY_TABLE_FIELDS.items():
         if pe_doc.meta.has_field(day_field):
@@ -218,11 +206,6 @@ def _populate_child_tables(pe_doc: Document, day_data: dict):
 
 
 def _update_single_pe_doc(doc: Document):
-    """
-    Core logic used by BOTH:
-      - Manual "Run" button
-      - Scheduler jobs at 07:00 and 19:00
-    """
     if not doc.site or not doc.start_date or not doc.end_date:
         return
 
@@ -230,10 +213,8 @@ def _update_single_pe_doc(doc: Document):
     end_date = _to_date(doc.end_date)
 
     day_data = _fetch_hourly_bcms(doc.site, start_date, end_date)
-
     _populate_child_tables(doc, day_data)
 
-    # Optional marker in HTML field if it exists
     if doc.meta.has_field("hourly_report"):
         doc.set(
             "hourly_report",
@@ -243,9 +224,6 @@ def _update_single_pe_doc(doc: Document):
     doc.save(ignore_permissions=True)
 
 
-# -------------------------
-# Manual button endpoint
-# -------------------------
 @frappe.whitelist()
 def run_update(docname: str):
     doc = frappe.get_doc("Production Efficiency", docname)
@@ -259,10 +237,40 @@ def run_update(docname: str):
     return {"ok": True, "message": "Updated and child tables repopulated."}
 
 
-# -------------------------
-# Weekly create/close jobs
-# (kept from your original approach)
-# -------------------------
+@frappe.whitelist()
+def get_hourly_site_control_excavators(site: str) -> dict:
+    """
+    Returns the production excavator count for a site from the latest Hourly Site Control doc.
+    Looks inside the child table rows (commonly fieldname 'sites') for matching row.site == site.
+    """
+    site = (site or "").strip()
+    if not site:
+        return {"site": site, "production_excavators": 0}
+
+    name = frappe.db.get_value(
+        "Hourly Site Control",
+        filters={},
+        fieldname="name",
+        order_by="creation desc",
+    )
+    if not name:
+        return {"site": site, "production_excavators": 0}
+
+    doc = frappe.get_doc("Hourly Site Control", name)
+
+    for row in (doc.get("sites") or []):
+        if (row.get("site") or "").strip() == site:
+            try:
+                return {
+                    "site": site,
+                    "production_excavators": int(row.get("production_excavators") or 0),
+                }
+            except Exception:
+                return {"site": site, "production_excavators": 0}
+
+    return {"site": site, "production_excavators": 0}
+
+
 def get_sites_from_hourly_site_control() -> list[str]:
     name = frappe.db.get_value(
         "Hourly Site Control",
@@ -301,7 +309,6 @@ def upsert_production_efficiency(site: str, start_date, end_date) -> str:
             doc.end_date = end_date
         doc.insert(ignore_permissions=True)
 
-    # keep consistent
     if doc.meta.has_field("site"):
         doc.site = site
     if doc.meta.has_field("start_date"):
@@ -314,10 +321,6 @@ def upsert_production_efficiency(site: str, start_date, end_date) -> str:
 
 
 def close_off_weekly_records():
-    """
-    Monday 05:00:
-    Close previous week's records (Mon->Sun).
-    """
     start_date, end_date = _previous_week_range_auto()
 
     names = frappe.get_all(
@@ -329,7 +332,6 @@ def close_off_weekly_records():
     for name in names:
         try:
             doc = frappe.get_doc("Production Efficiency", name)
-            # Try common close fields if they exist
             if doc.meta.has_field("status"):
                 doc.status = "Closed"
             if doc.meta.has_field("workflow_state"):
@@ -344,10 +346,6 @@ def close_off_weekly_records():
 
 
 def create_weekly_records():
-    """
-    Monday 05:30:
-    Create current week's records (Mon->Sun) for all sites from Hourly Site Control.
-    """
     start_date, end_date = _current_week_range_auto()
     sites = get_sites_from_hourly_site_control()
 
@@ -362,21 +360,9 @@ def create_weekly_records():
             frappe.log_error(frappe.get_traceback(), f"PE create failed ({site})")
 
 
-# -------------------------
-# Scheduler job (07:00 + 19:00)
-# -------------------------
 def update_weekly_records():
-    """
-    Runs at 07:00 and 19:00 via hooks.py cron.
-    IMPORTANT: Updates ONLY current-week records (Mon->Sun containing today).
-
-    Example:
-      if today is 2026-02-10 -> updates only docs for 2026-02-09..2026-02-15
-      and does NOT touch 2026-02-02..2026-02-08
-    """
     start_date, end_date = _current_week_range_auto()
 
-    # Safety: ensure weekly docs exist (if Monday create didn't run for some reason)
     try:
         create_weekly_records()
     except Exception:

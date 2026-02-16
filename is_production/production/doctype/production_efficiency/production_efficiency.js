@@ -90,13 +90,13 @@ frappe.ui.form.on("Production Efficiency", {
     frm.trigger("render_hourly_report");
   },
 
-  render_graph(frm) {
+  async render_graph(frm) {
     const targetField =
       frm.fields_dict.graph
         ? frm.fields_dict.graph
         : frm.fields_dict.hourly_report
-          ? frm.fields_dict.hourly_report
-          : null;
+        ? frm.fields_dict.hourly_report
+        : null;
 
     if (!targetField) return;
 
@@ -108,9 +108,26 @@ frappe.ui.form.on("Production Efficiency", {
     }
 
     try {
-      const html = build_graph_html(frm);
+      const computed = compute_metrics_from_doc(frm);
+
+      let hsc_excavators = 0;
+      try {
+        const r = await frappe.call({
+          method:
+            "is_production.production.doctype.production_efficiency.production_efficiency.get_hourly_site_control_excavators",
+          args: { site: frm.doc.site },
+        });
+        hsc_excavators = flt(r?.message?.production_excavators || 0);
+      } catch (e) {
+        hsc_excavators = 0;
+      }
+
+      computed.hsc_excavators = trunc0(hsc_excavators);
+
+      const html = build_graph_html(frm, computed);
       targetField.$wrapper.html(html);
-      render_graph_charts(frm);
+
+      render_graph_charts(frm, computed);
     } catch (e) {
       console.error(e);
       targetField.$wrapper.html(
@@ -160,30 +177,36 @@ const DAILY_THRESHOLD_DASH = "4 4";
 const WTD_THRESHOLD_COLOR = "#ef4444";
 const WTD_THRESHOLD_DASH = "4 0";
 
-// Graph/KPI tab uses 18 divisor (requested). Hourly report remains 24.
 const GRAPH_HOURS_PER_DAY = 18;
 const REPORT_HOURS_PER_DAY = 24;
 
-/**
- * ✅ PRODUCTION DISPLAY FIXES (LAB vs PROD):
- * 1) Force Y-axis to include 0 (some frappe-charts builds auto-start above 0)
- *    -> add a hidden "zero floor" dataset (all zeros) so minY becomes 0.
- * 2) Prevent X-axis excavator labels from being suppressed
- *    -> force xAxisMode="tick" and give extra chart height + padding.
- */
 const FORCE_Y_AXIS_ZERO = true;
 const EXTRA_CHART_HEIGHT = 50;
 
-function build_graph_html(frm) {
+const FLOOR_DATASET_NAME = "Floor";
+const FLOOR_HEX = "#FFFFFF00";
+
+function build_graph_html(frm, computed) {
   const site = escape_html(frm.doc.site || "");
   const start = escape_html(frm.doc.start_date || "");
   const end = escape_html(frm.doc.end_date || "");
 
-  const computed = compute_metrics_from_doc(frm);
+  const hourlyTarget = trunc0(asNumber(PE_THRESHOLD) * asNumber(computed.hsc_excavators || 0));
 
-  // KPI boxes: removed "Week avg / Excavator" and "Latest day avg / Excavator" (requested)
   const kpis = [
     { label: "Threshold", value: PE_THRESHOLD, tone: "neutral", sub: "BCM/hr target" },
+    {
+      label: "Hourly Target",
+      value: hourlyTarget,
+      tone: "neutral",
+      sub: computed.hsc_excavators ? `${computed.hsc_excavators} excavators (Hourly Site Control)` : "No excavators found",
+    },
+    {
+      label: "Hourly Achieved",
+      value: computed.week_site_hourly_achieved ?? 0,
+      tone: kpiTone(computed.week_site_hourly_achieved),
+      sub: computed.days_with_data ? `Across ${computed.days_with_data} day(s)` : "No week data",
+    },
     {
       label: "Week site avg / hr",
       value: computed.week_site_avg ?? 0,
@@ -205,8 +228,9 @@ function build_graph_html(frm) {
     .pe-dash-head h3 { margin:0; }
     .pe-dash-meta { color:#6b7280; font-size:12px; }
 
-    .pe-kpis { display:grid; grid-template-columns: repeat(3, minmax(160px, 1fr)); gap:10px; margin: 10px 0 14px; }
-    @media (max-width: 1200px) { .pe-kpis { grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
+    .pe-kpis { display:grid; grid-template-columns: repeat(5, minmax(160px, 1fr)); gap:10px; margin: 10px 0 14px; }
+    @media (max-width: 1400px) { .pe-kpis { grid-template-columns: repeat(3, minmax(160px, 1fr)); } }
+    @media (max-width: 900px) { .pe-kpis { grid-template-columns: repeat(2, minmax(160px, 1fr)); } }
 
     .pe-kpi { border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; background: #fff; box-shadow: 0 1px 1px rgba(0,0,0,.03); }
     .pe-kpi .lbl { font-size: 12px; color:#6b7280; margin-bottom: 6px; }
@@ -227,7 +251,6 @@ function build_graph_html(frm) {
     .pe-chart { width: 100%; min-height: 300px; }
     .pe-chart-sm { width: 100%; min-height: 280px; }
 
-    /* Extra room so PROD doesn't suppress x-axis labels (excavator names) */
     .pe-panel-b .chart-container { padding-bottom: 14px; }
   </style>
 
@@ -243,7 +266,7 @@ function build_graph_html(frm) {
           (k) => `
         <div class="pe-kpi pe-tone-${escape_html(k.tone)}">
           <div class="lbl">${escape_html(k.label)}</div>
-          <div class="val">${escape_html(formatKpiNumber(k.value))}</div>
+          <div class="val">${escape_html(formatNumber0(k.value))}</div>
           <div class="sub">${escape_html(k.sub || "")}</div>
         </div>
       `
@@ -261,7 +284,7 @@ function build_graph_html(frm) {
         <div class="pe-panel-b">
           <div id="pe_week_hourly_chart" class="pe-chart-sm"></div>
           <div class="pe-note">
-            Line shows average BCM/hr per excavator at the site for each hour (averaged across days).
+            Line shows the <b>average of the site total BCM/hr</b> for each hour (sum of all excavators per day, averaged across days).
           </div>
         </div>
       </div>
@@ -299,23 +322,17 @@ function build_graph_html(frm) {
   `;
 }
 
-function render_graph_charts(frm) {
-  const computed = compute_metrics_from_doc(frm);
-
-  // A) Week hourly chart
+function render_graph_charts(frm, computed) {
   const elA = document.getElementById("pe_week_hourly_chart");
   if (elA) {
     if (!computed.days_with_data) {
       elA.innerHTML = `<div class="text-muted" style="padding:8px;">No week-to-date data to chart.</div>`;
     } else {
-      const labels = hourShortLabels();
-      const values = computed.week_site_hourly_avg || new Array(24).fill(0);
+      const labels = hourRangeLabels();
+      const values = computed.week_site_hourly_total_avg || new Array(24).fill(0);
 
-      let datasets = [
-        { name: "Site avg / hr (per excavator)", values, chartType: "line" },
-      ];
-
-      if (FORCE_Y_AXIS_ZERO) datasets = add_zero_floor_dataset(labels, datasets);
+      let datasets = [{ name: "Site total avg / hr", values, chartType: "line" }];
+      if (FORCE_Y_AXIS_ZERO) datasets = add_floor_dataset(labels, datasets);
 
       new frappe.Chart("#pe_week_hourly_chart", {
         title: "",
@@ -326,11 +343,13 @@ function render_graph_charts(frm) {
         lineOptions: { dotSize: 2, regionFill: 0 },
       });
 
-      if (FORCE_Y_AXIS_ZERO) strip_zero_floor_legend("#pe_week_hourly_chart");
+      if (FORCE_Y_AXIS_ZERO) {
+        style_floor_line("#pe_week_hourly_chart");
+        strip_floor_legend("#pe_week_hourly_chart");
+      }
     }
   }
 
-  // B) Week excavator daily chart
   const elB = document.getElementById("pe_week_excavator_daily_chart");
   if (elB) {
     if (!computed.excavator_labels.length || !computed.days_with_data) {
@@ -348,18 +367,12 @@ function render_graph_charts(frm) {
         chartType: "line",
       };
 
-      // IMPORTANT: keep Threshold as the LAST line-ish dataset for style_threshold_line()
       let datasets = [...dayDatasets, thresholdLine];
-
-      // Add zero floor FIRST so Threshold still stays last
-      if (FORCE_Y_AXIS_ZERO) datasets = add_zero_floor_dataset(computed.excavator_labels, datasets);
+      if (FORCE_Y_AXIS_ZERO) datasets = add_floor_dataset(computed.excavator_labels, datasets);
 
       new frappe.Chart("#pe_week_excavator_daily_chart", {
         title: "",
-        data: {
-          labels: computed.excavator_labels,
-          datasets,
-        },
+        data: { labels: computed.excavator_labels, datasets },
         type: "axis-mixed",
         height: 300 + EXTRA_CHART_HEIGHT,
         axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
@@ -368,11 +381,14 @@ function render_graph_charts(frm) {
       });
 
       style_threshold_line("#pe_week_excavator_daily_chart", DAILY_THRESHOLD_COLOR, DAILY_THRESHOLD_DASH);
-      if (FORCE_Y_AXIS_ZERO) strip_zero_floor_legend("#pe_week_excavator_daily_chart");
+
+      if (FORCE_Y_AXIS_ZERO) {
+        style_floor_line("#pe_week_excavator_daily_chart");
+        strip_floor_legend("#pe_week_excavator_daily_chart");
+      }
     }
   }
 
-  // C) WTD excavator chart
   const elC = document.getElementById("pe_wtd_excavator_chart");
   if (elC) {
     if (!computed.excavator_labels.length || !computed.days_with_data) {
@@ -388,17 +404,14 @@ function render_graph_charts(frm) {
 
       let datasets = [
         { name: "WTD rate / hr", values: bars, chartType: "bar" },
-        thresholdLine, // keep last line-ish
+        thresholdLine,
       ];
 
-      if (FORCE_Y_AXIS_ZERO) datasets = add_zero_floor_dataset(computed.excavator_labels, datasets);
+      if (FORCE_Y_AXIS_ZERO) datasets = add_floor_dataset(computed.excavator_labels, datasets);
 
       new frappe.Chart("#pe_wtd_excavator_chart", {
         title: "",
-        data: {
-          labels: computed.excavator_labels,
-          datasets,
-        },
+        data: { labels: computed.excavator_labels, datasets },
         type: "axis-mixed",
         height: 300 + EXTRA_CHART_HEIGHT,
         axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
@@ -407,51 +420,73 @@ function render_graph_charts(frm) {
       });
 
       style_threshold_line("#pe_wtd_excavator_chart", WTD_THRESHOLD_COLOR, WTD_THRESHOLD_DASH);
-      if (FORCE_Y_AXIS_ZERO) strip_zero_floor_legend("#pe_wtd_excavator_chart");
+
+      if (FORCE_Y_AXIS_ZERO) {
+        style_floor_line("#pe_wtd_excavator_chart");
+        strip_floor_legend("#pe_wtd_excavator_chart");
+      }
     }
   }
 }
 
-/**
- * Adds a dummy dataset that is all zeros.
- * This forces the computed y-axis min to be 0 across chart versions.
- * We insert it FIRST so your threshold line remains the last "line-ish" path.
- */
-function add_zero_floor_dataset(labels, datasets) {
-  const zeroFloor = {
-    name: "__zero_floor__",
+/* ---------- Floor dataset ---------- */
+
+function add_floor_dataset(labels, datasets) {
+  const floor = {
+    name: FLOOR_DATASET_NAME,
     values: new Array(labels.length).fill(0),
     chartType: "line",
   };
-  return [zeroFloor, ...datasets];
+  return [floor, ...datasets];
 }
 
-/**
- * Remove legend entry for the dummy dataset so users never see it.
- * No-ops safely if DOM differs.
- */
-function strip_zero_floor_legend(containerSelector) {
+function strip_floor_legend(containerSelector) {
   setTimeout(() => {
     try {
       const root = document.querySelector(containerSelector);
       if (!root) return;
 
-      // Frappe Charts legend class commonly includes .chart-legend
       const legend = root.querySelector(".chart-legend");
       if (!legend) return;
 
-      // Remove the legend item containing our dummy name
       const items = Array.from(legend.querySelectorAll("*"));
       for (const el of items) {
         const t = (el.textContent || "").trim();
-        if (t === "__zero_floor__") {
+        if (t === FLOOR_DATASET_NAME) {
           const li = el.closest("li") || el.closest(".legend-item") || el;
           li.remove();
         }
       }
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
+  }, 0);
+}
+
+function style_floor_line(containerSelector) {
+  setTimeout(() => {
+    try {
+      const root = document.querySelector(containerSelector);
+      if (!root) return;
+
+      const svgs = root.querySelectorAll("svg");
+      if (!svgs.length) return;
+
+      svgs.forEach((svg) => {
+        const paths = Array.from(svg.querySelectorAll("path"));
+        if (!paths.length) return;
+
+        const lineish = paths.filter((p) => {
+          const sw = parseFloat(p.getAttribute("stroke-width") || "0");
+          const fill = p.getAttribute("fill");
+          return sw >= 2 && (!fill || fill === "none");
+        });
+
+        if (lineish.length) {
+          const p = lineish[0];
+          p.setAttribute("stroke", FLOOR_HEX);
+          p.setAttribute("stroke-opacity", "1");
+        }
+      });
+    } catch (e) {}
   }, 0);
 }
 
@@ -475,7 +510,6 @@ function style_threshold_line(containerSelector, strokeHex, dashArray) {
         });
 
         if (lineish.length) {
-          // Because we add the zero-floor line FIRST, the last line-ish remains your threshold line.
           const p = lineish[lineish.length - 1];
           p.setAttribute("stroke", strokeHex);
           if (dashArray) p.setAttribute("stroke-dasharray", dashArray);
@@ -486,6 +520,8 @@ function style_threshold_line(containerSelector, strokeHex, dashArray) {
     }
   }, 0);
 }
+
+/* -------------------- METRICS (ALL INTS) -------------------- */
 
 function compute_metrics_from_doc(frm) {
   const days = [
@@ -524,6 +560,7 @@ function compute_metrics_from_doc(frm) {
     const excavatorCount = excavatorNames.length || 1;
 
     const totalsByHour = new Array(24).fill(0);
+
     const excavatorDailyAvgs = [];
     const excavatorDailyTotals = [];
 
@@ -536,20 +573,18 @@ function compute_metrics_from_doc(frm) {
         totalsByHour[i] += v;
       }
 
-      excavatorDailyTotals.push(total);
-
-      // Graph divisor requested: 18
-      excavatorDailyAvgs.push(total / GRAPH_HOURS_PER_DAY);
+      excavatorDailyTotals.push(trunc0(total));
+      excavatorDailyAvgs.push(trunc0(total / GRAPH_HOURS_PER_DAY));
 
       wtd_total_bcm[ex] = (wtd_total_bcm[ex] || 0) + total;
       wtd_days_present[ex] = (wtd_days_present[ex] || 0) + 1;
     }
 
     const siteTotal = totalsByHour.reduce((a, b) => a + b, 0);
-    const siteHourlyAvg = totalsByHour.map((v) => v / excavatorCount);
+    const siteHourlyTotal = totalsByHour.map((v) => trunc0(v));
 
-    // Graph divisor requested: 18
-    const siteDailyAvg = siteTotal / (excavatorCount * GRAPH_HOURS_PER_DAY);
+    const siteDailyAvg = trunc0(siteTotal / (excavatorCount * GRAPH_HOURS_PER_DAY));
+    const dailyHourlyAchieved = trunc0(siteTotal / GRAPH_HOURS_PER_DAY);
 
     daySummaries.push({
       label: d.label,
@@ -558,23 +593,26 @@ function compute_metrics_from_doc(frm) {
       excavator_names: excavatorNames,
       excavator_daily_avgs: excavatorDailyAvgs,
       excavator_daily_totals: excavatorDailyTotals,
-      daily_site_total: siteTotal,
-      daily_site_hourly_avg: siteHourlyAvg,
+      daily_site_total: trunc0(siteTotal),
+      daily_site_hourly_total: siteHourlyTotal,
       daily_site_avg: siteDailyAvg,
+      daily_hourly_achieved: dailyHourlyAchieved,
     });
   }
 
   const focus_day = daySummaries.length ? daySummaries[daySummaries.length - 1] : null;
   const days_with_data = daySummaries.length;
 
-  let week_site_hourly_avg = new Array(24).fill(0);
+  let week_site_hourly_total_avg = new Array(24).fill(0);
   let week_site_avg = 0;
+  let week_site_hourly_achieved = 0;
 
   if (days_with_data) {
     for (let i = 0; i < 24; i++) {
-      week_site_hourly_avg[i] = avg(daySummaries.map((d) => d.daily_site_hourly_avg[i] || 0));
+      week_site_hourly_total_avg[i] = trunc0(avg(daySummaries.map((d) => d.daily_site_hourly_total[i] || 0)));
     }
-    week_site_avg = avg(daySummaries.map((d) => d.daily_site_avg || 0));
+    week_site_avg = trunc0(avg(daySummaries.map((d) => d.daily_site_avg || 0)));
+    week_site_hourly_achieved = trunc0(avg(daySummaries.map((d) => d.daily_hourly_achieved || 0)));
   }
 
   const excavator_labels_all = Array.from(allExcavatorsSet)
@@ -582,7 +620,6 @@ function compute_metrics_from_doc(frm) {
     .filter((x) => !!x)
     .sort((a, b) => a.localeCompare(b));
 
-  // Key fix (kept): only show excavators that have real WTD BCM (>0) to prevent label suppression in prod
   const excavator_labels = excavator_labels_all.filter((ex) => asNumber(wtd_total_bcm[ex] || 0) > 0);
 
   const week_excavator_daily_matrix = daySummaries.map((d) => {
@@ -592,7 +629,7 @@ function compute_metrics_from_doc(frm) {
     }
     return {
       day_label: d.label,
-      values: excavator_labels.map((ex) => asNumber(map[ex] || 0)),
+      values: excavator_labels.map((ex) => trunc0(asNumber(map[ex] || 0))),
     };
   });
 
@@ -600,59 +637,63 @@ function compute_metrics_from_doc(frm) {
     const total = asNumber(wtd_total_bcm[ex] || 0);
     const daysPresent = asNumber(wtd_days_present[ex] || 0);
     const hours = daysPresent > 0 ? daysPresent * GRAPH_HOURS_PER_DAY : 0;
-    return hours > 0 ? total / hours : 0;
+    return trunc0(hours > 0 ? total / hours : 0);
   });
 
   return {
     focus_day,
     days_with_data,
-    week_site_hourly_avg,
+    week_site_hourly_total_avg,
     week_site_avg,
+    week_site_hourly_achieved,
     excavator_labels,
     week_excavator_daily_matrix,
     wtd_excavator_rate_per_hour,
   };
 }
 
-function hourShortLabels() {
-  const startHours = [];
-  for (let h = 6; h <= 23; h++) startHours.push(h);
-  for (let h = 0; h <= 5; h++) startHours.push(h);
-  return startHours.map((h) => to12hNumber(h));
-}
+/* -------------------- Hour labels -------------------- */
 
-function to12hNumber(h) {
-  const n = (h % 12) === 0 ? 12 : (h % 12);
-  return String(n);
+function hourRangeLabels() {
+  const starts = [];
+  for (let h = 6; h <= 23; h++) starts.push(h);
+  for (let h = 0; h <= 5; h++) starts.push(h);
+
+  return starts.map((h) => {
+    const next = (h + 1) % 24;
+    const a = String(h);
+    const b = next === 0 ? "00" : String(next);
+    return `${a}-${b}`;
+  });
 }
 
 function get_field_map_for_day(day) {
-  const short = hourShortLabels();
+  const labels = hourRangeLabels();
   const display = [
-    { label: short[0], norm: "06_07" },
-    { label: short[1], norm: "07_08" },
-    { label: short[2], norm: "08_09" },
-    { label: short[3], norm: "09_10" },
-    { label: short[4], norm: "10_11" },
-    { label: short[5], norm: "11_12" },
-    { label: short[6], norm: "12_13" },
-    { label: short[7], norm: "13_14" },
-    { label: short[8], norm: "14_15" },
-    { label: short[9], norm: "15_16" },
-    { label: short[10], norm: "16_17" },
-    { label: short[11], norm: "17_18" },
-    { label: short[12], norm: "18_19" },
-    { label: short[13], norm: "19_20" },
-    { label: short[14], norm: "20_21" },
-    { label: short[15], norm: "21_22" },
-    { label: short[16], norm: "22_23" },
-    { label: short[17], norm: "23_00" },
-    { label: short[18], norm: "00_01" },
-    { label: short[19], norm: "01_02" },
-    { label: short[20], norm: "02_03" },
-    { label: short[21], norm: "03_04" },
-    { label: short[22], norm: "04_05" },
-    { label: short[23], norm: "05_06" },
+    { label: labels[0], norm: "06_07" },
+    { label: labels[1], norm: "07_08" },
+    { label: labels[2], norm: "08_09" },
+    { label: labels[3], norm: "09_10" },
+    { label: labels[4], norm: "10_11" },
+    { label: labels[5], norm: "11_12" },
+    { label: labels[6], norm: "12_13" },
+    { label: labels[7], norm: "13_14" },
+    { label: labels[8], norm: "14_15" },
+    { label: labels[9], norm: "15_16" },
+    { label: labels[10], norm: "16_17" },
+    { label: labels[11], norm: "17_18" },
+    { label: labels[12], norm: "18_19" },
+    { label: labels[13], norm: "19_20" },
+    { label: labels[14], norm: "20_21" },
+    { label: labels[15], norm: "21_22" },
+    { label: labels[16], norm: "22_23" },
+    { label: labels[17], norm: "23_00" },
+    { label: labels[18], norm: "00_01" },
+    { label: labels[19], norm: "01_02" },
+    { label: labels[20], norm: "02_03" },
+    { label: labels[21], norm: "03_04" },
+    { label: labels[22], norm: "04_05" },
+    { label: labels[23], norm: "05_06" },
   ];
 
   const variants = {
@@ -772,7 +813,7 @@ function get_field_map_for_day(day) {
   return display.map((d) => ({ label: d.label, key: v[d.norm] }));
 }
 
-/* -------------------- HOURLY REPORT (UNCHANGED) -------------------- */
+/* -------------------- HOURLY REPORT -------------------- */
 
 function build_report_html(frm) {
   const days = [
@@ -801,49 +842,50 @@ function build_report_html(frm) {
     .pe-day-head b { font-size: 13px; }
     .pe-badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; background: #eef2ff; color:#3730a3; }
 
-    .pe-scroll { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
-    .pe-scroll::-webkit-scrollbar { height: 0px; }
-    .pe-scroll { scrollbar-width: none; }
+    .pe-scroll { overflow-x: auto; overflow-y: hidden; max-width: 100%; padding-bottom: 6px; }
+    .pe-scroll::-webkit-scrollbar { height: 10px; }
+    .pe-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+    .pe-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 999px; }
 
-    .pe-table { border-collapse: collapse; table-layout: fixed; width: max(100%, 1200px); }
+    .pe-table { border-collapse: collapse; table-layout: fixed; width: max(100%, 1400px); }
 
     .pe-table th, .pe-table td {
       border-bottom: 1px solid #f1f5f9;
-      padding: 4px 4px;
+      padding: 6px 6px;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 600;
       text-align: right;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      overflow: visible;
+      text-overflow: clip;
     }
 
-    .pe-table thead th { background: #f8fafc; font-weight: 700; font-size: 11px; }
+    .pe-table thead th { background: #f8fafc; font-weight: 800; font-size: 11px; }
 
     .pe-table th:first-child, .pe-table td:first-child {
       text-align: left;
       position: sticky; left: 0;
       background: inherit;
       z-index: 1;
-      min-width: 120px;
-      max-width: 160px;
-      font-weight: 700;
+      min-width: 140px;
+      max-width: 220px;
+      font-weight: 800;
     }
 
     .pe-table th:not(:first-child):not(:last-child),
     .pe-table td:not(:first-child):not(:last-child) {
-      width: 34px;
-      max-width: 34px;
+      width: 44px;
+      max-width: 44px;
     }
 
-    .pe-table th:last-child, .pe-table td:last-child { min-width: 70px; font-weight: 700; }
-    .pe-table .pe-avgcol { min-width: 70px; font-weight: 700; }
-    .pe-table tfoot td { background: #fafafa; font-weight: 800; }
+    .pe-table th:last-child, .pe-table td:last-child { min-width: 90px; font-weight: 800; }
+    .pe-table .pe-avgcol { min-width: 90px; font-weight: 800; }
+    .pe-table tfoot td { background: #fafafa; font-weight: 900; }
 
-    .pe-red    { background: #fee2e2; color: #991b1b; font-weight: 800; }
-    .pe-yellow { background: #fef9c3; color: #92400e; font-weight: 800; }
-    .pe-green  { background: #dcfce7; color: #065f46; font-weight: 800; }
-    .pe-zero   { background: #ffffff; color: inherit; font-weight: 500; }
+    .pe-red    { background: #fee2e2; color: #991b1b; font-weight: 900; }
+    .pe-yellow { background: #fef9c3; color: #92400e; font-weight: 900; }
+    .pe-green  { background: #dcfce7; color: #065f46; font-weight: 900; }
+    .pe-zero   { background: #ffffff; color: inherit; font-weight: 600; }
 
     .pe-empty { padding: 10px 12px; color: #6b7280; }
 
@@ -914,19 +956,19 @@ function render_day_table(dayLabel, rows, map) {
       exTotal += sum;
       totalsByHour[k] += sum;
     }
-    excavatorTotals[ex] = exTotal;
-    excavatorAvgs[ex] = exTotal / REPORT_HOURS_PER_DAY;
+    excavatorTotals[ex] = trunc0(exTotal);
+    excavatorAvgs[ex] = trunc0(exTotal / REPORT_HOURS_PER_DAY);
   }
 
-  const dayGrandTotal = hourKeys.reduce((acc, k) => acc + totalsByHour[k], 0);
+  const dayGrandTotal = trunc0(hourKeys.reduce((acc, k) => acc + totalsByHour[k], 0));
   const exCount = excavatorNames.length || 1;
-  const siteAvg = dayGrandTotal / (exCount * REPORT_HOURS_PER_DAY);
+  const siteAvg = trunc0(dayGrandTotal / (exCount * REPORT_HOURS_PER_DAY));
 
   let html = `
     <div class="pe-day">
       <div class="pe-day-head">
         <b>${escape_html(dayLabel)}</b>
-        <span class="pe-badge">${rows.length} row${rows.length === 1 ? "" : "s"} · Site avg/hr: <b>${formatNumber(siteAvg)}</b></span>
+        <span class="pe-badge">${rows.length} row${rows.length === 1 ? "" : "s"} · Site avg/hr: <b>${formatNumber0(siteAvg)}</b></span>
       </div>
       <div class="pe-scroll">
         <table class="pe-table">
@@ -945,14 +987,14 @@ function render_day_table(dayLabel, rows, map) {
     html += `<tr><td>${escape_html(ex)}</td>`;
 
     for (const k of hourKeys) {
-      const v = grouped[ex].reduce((acc, r) => acc + asNumber(r[k]), 0);
+      const v = trunc0(grouped[ex].reduce((acc, r) => acc + asNumber(r[k]), 0));
       const cls = cellClass(v);
-      html += `<td class="${cls}">${formatNumberOrBlank(v)}</td>`;
+      html += `<td class="${cls}">${formatNumberOrBlank0(v)}</td>`;
     }
 
     const avgHr = excavatorAvgs[ex];
-    html += `<td class="${cellClass(avgHr)} pe-avgcol"><b>${formatNumber(avgHr)}</b></td>`;
-    html += `<td><b>${formatNumberOrBlank(excavatorTotals[ex])}</b></td></tr>`;
+    html += `<td class="${cellClass(avgHr)} pe-avgcol"><b>${formatNumber0(avgHr)}</b></td>`;
+    html += `<td><b>${formatNumberOrBlank0(excavatorTotals[ex])}</b></td></tr>`;
   }
 
   html += `
@@ -962,13 +1004,13 @@ function render_day_table(dayLabel, rows, map) {
               <td><b>Site avg/hr</b></td>
               ${hourKeys
                 .map((k) => {
-                  const v = totalsByHour[k] / exCount;
+                  const v = trunc0(totalsByHour[k] / exCount);
                   const cls = cellClass(v);
-                  return `<td class="${cls}">${formatNumber(v)}</td>`;
+                  return `<td class="${cls}">${formatNumber0(v)}</td>`;
                 })
                 .join("")}
-              <td class="${cellClass(siteAvg)} pe-avgcol"><b>${formatNumber(siteAvg)}</b></td>
-              <td><b>${formatNumberOrBlank(dayGrandTotal)}</b></td>
+              <td class="${cellClass(siteAvg)} pe-avgcol"><b>${formatNumber0(siteAvg)}</b></td>
+              <td><b>${formatNumberOrBlank0(dayGrandTotal)}</b></td>
             </tr>
           </tfoot>
         </table>
@@ -978,6 +1020,8 @@ function render_day_table(dayLabel, rows, map) {
 
   return html;
 }
+
+/* -------------------- child summaries unchanged -------------------- */
 
 function render_child_table_summaries(frm) {
   const comments = frm.doc.comment || [];
@@ -1062,10 +1106,18 @@ function format_child_value(raw, df) {
   if (["Int", "Float", "Currency", "Percent"].includes(df.fieldtype)) {
     const n = flt(raw);
     if (isNaN(n)) return escape_html(String(raw));
-    return escape_html(frappe.format(n, df) || String(n));
+    // show without decimals
+    return escape_html(String(trunc0(n)));
   }
 
   return escape_html(String(raw));
+}
+
+/* -------------------- formatting / helpers -------------------- */
+
+function trunc0(v) {
+  const n = asNumber(v);
+  return Math.floor(n);
 }
 
 function cellClass(value) {
@@ -1089,22 +1141,15 @@ function asNumber(v) {
   return isNaN(n) ? 0 : n;
 }
 
-function formatNumberOrBlank(v) {
-  const n = asNumber(v);
+function formatNumberOrBlank0(v) {
+  const n = trunc0(v);
   if (n <= 0) return "";
-  return formatNumber(n);
+  return String(n);
 }
 
-function formatNumber(v) {
-  const n = asNumber(v);
-  if (!n) return "0";
-  return String(Math.round(n));
-}
-
-function formatKpiNumber(v) {
-  const n = asNumber(v);
-  if (!n) return "0";
-  return (Math.round(n * 10) / 10).toString();
+function formatNumber0(v) {
+  const n = trunc0(v);
+  return String(n);
 }
 
 function avg(arr) {

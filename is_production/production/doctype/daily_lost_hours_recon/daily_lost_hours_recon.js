@@ -1,3 +1,5 @@
+// daily_lost_hours_recon.js
+
 frappe.ui.form.on("Daily Lost Hours Recon", {
 
     setup(frm) {
@@ -20,8 +22,24 @@ frappe.ui.form.on("Daily Lost Hours Recon", {
         });
     },
 
+    refresh(frm) {
+        // Ensure shift options are correct when opening/editing a doc
+        if (frm.doc.shift_system) {
+            update_shift_options(frm, frm.doc.shift_system);
+        }
+
+        // If location + date exist and monthly plan is empty, try auto-set
+        auto_set_monthly_production_planning(frm);
+    },
+
     shift_date(frm) {
         set_day_of_week(frm);
+
+        // Reset dependent fields when shift_date changes
+        frm.set_value("monthly_production_planning", null);
+        frm.set_value("shift_system", null);
+
+        auto_set_monthly_production_planning(frm);
     },
 
     location(frm) {
@@ -30,6 +48,7 @@ frappe.ui.form.on("Daily Lost Hours Recon", {
         frm.set_value("shift_system", null);
 
         fetch_assets(frm);
+        auto_set_monthly_production_planning(frm);
     },
 
     monthly_production_planning(frm) {
@@ -168,6 +187,45 @@ function recalculate_total_plant_specific_lost_hours(frm, cdt, cdn) {
 
 
 // ------------------------------------------------------------------
+// AUTO-POPULATE MONTHLY PLAN
+// ------------------------------------------------------------------
+
+function auto_set_monthly_production_planning(frm) {
+    // Need both fields
+    if (!frm.doc.location || !frm.doc.shift_date) return;
+
+    // Don't overwrite if already chosen/set
+    if (frm.doc.monthly_production_planning) return;
+
+    frappe.call({
+        method: "is_production.production.doctype.daily_lost_hours_recon.daily_lost_hours_recon.get_monthly_production_planning",
+        args: {
+            location: frm.doc.location,
+            shift_date: frm.doc.shift_date
+        },
+        callback(response) {
+            if (response.message) {
+                frm.set_value("monthly_production_planning", response.message);
+                // monthly_production_planning trigger fires -> fetch_shift_system
+            } else {
+                frm.set_value("monthly_production_planning", null);
+                frm.set_value("shift_system", null);
+
+                frappe.msgprint({
+                    title: __("Monthly Plan Not Found"),
+                    message: __(
+                        "No Monthly Production Planning record found for Site <b>{0}</b> covering Shift Date <b>{1}</b>.",
+                        [frm.doc.location, frm.doc.shift_date]
+                    ),
+                    indicator: "orange"
+                });
+            }
+        }
+    });
+}
+
+
+// ------------------------------------------------------------------
 // SERVER CALLS
 // ------------------------------------------------------------------
 
@@ -183,6 +241,9 @@ function fetch_shift_system(frm) {
             if (response.message) {
                 frm.set_value("shift_system", response.message);
                 update_shift_options(frm, response.message);
+            } else {
+                frm.set_value("shift_system", null);
+                update_shift_options(frm, null);
             }
         }
     });
@@ -195,6 +256,9 @@ function update_shift_options(frm, shift_system) {
         options = ["Morning", "Afternoon", "Night"];
     } else if (shift_system === "2x12Hour") {
         options = ["Day", "Night"];
+    } else {
+        // fallback to original select options
+        options = ["Day", "Morning", "Afternoon", "Night"];
     }
 
     frm.set_df_property("shift", "options", options.join("\n"));
@@ -220,6 +284,9 @@ function fetch_assets(frm) {
                 });
 
                 frm.refresh_field("daily_lost_hours_assets_table");
+
+                // push current general hours into the table after loading assets
+                update_child_general_lost_hours(frm);
             }
         }
     });
