@@ -9,7 +9,7 @@
  "for_user": "",
  "hide_custom": 0,
  "icon": "arrow-up-right",
- "idx": 2,
+ "idx": 3,
  "indicator_color": "green",
  "is_hidden": 0,
  "label": "Production",
@@ -156,154 +156,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Reporting",
-   "link_count": 9,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Pre-Use Report",
-   "link_count": 0,
-   "link_to": "Pre-Use Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Weekly Report",
-   "link_count": 0,
-   "link_to": "Weekly Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Rates per Hour",
-   "link_count": 0,
-   "link_to": "Productivity",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Support Equipment Machine Hours",
-   "link_count": 0,
-   "link_to": "Rental Equipment Hours",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Avail and Util Full Version",
-   "link_count": 0,
-   "link_to": "Avail and Util report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Team Production",
-   "link_count": 0,
-   "link_to": "Production Shift Teams",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Avail and Util Summary",
-   "link_count": 0,
-   "link_to": "Avail and Util summary",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Diesel Reconciliation",
-   "link_count": 0,
-   "link_to": "Diesel Reconciliation",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Worked Hours vs Prod Hours",
-   "link_count": 0,
-   "link_to": "Total Worked Hours vs Production Hours",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Breakdowns and Lost Hours",
-   "link_count": 4,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Breakdowns",
-   "link_count": 0,
-   "link_to": "Plant Breakdown or Maintenance",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Breakdown Records",
-   "link_count": 0,
-   "link_to": "Breakdown History",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Other Lost Hours",
-   "link_count": 0,
-   "link_to": "Daily Lost Hours Recon",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Ceo Dashboard",
-   "link_count": 0,
-   "link_to": "CEO Dashboard 1",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Planning",
    "link_count": 5,
    "link_type": "DocType",
@@ -398,9 +250,157 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reporting",
+   "link_count": 10,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Pre-Use Report",
+   "link_count": 0,
+   "link_to": "Pre-Use Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Daily Reporting",
+   "link_count": 0,
+   "link_to": "Daily Reporting",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Weekly Report",
+   "link_count": 0,
+   "link_to": "Weekly Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Rates per Hour",
+   "link_count": 0,
+   "link_to": "Productivity",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Support Equipment Machine Hours",
+   "link_count": 0,
+   "link_to": "Rental Equipment Hours",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Avail and Util Full Version",
+   "link_count": 0,
+   "link_to": "Avail and Util report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Team Production",
+   "link_count": 0,
+   "link_to": "Production Shift Teams",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Avail and Util Summary",
+   "link_count": 0,
+   "link_to": "Avail and Util summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diesel Reconciliation",
+   "link_count": 0,
+   "link_to": "Diesel Reconciliation",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Worked Hours vs Prod Hours",
+   "link_count": 0,
+   "link_to": "Total Worked Hours vs Production Hours",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Breakdowns and Lost Hours",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Breakdowns",
+   "link_count": 0,
+   "link_to": "Plant Breakdown or Maintenance",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Breakdown Records",
+   "link_count": 0,
+   "link_to": "Breakdown History",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Other Lost Hours",
+   "link_count": 0,
+   "link_to": "Daily Lost Hours Recon",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-02-17 05:12:31.740204",
+ "modified": "2026-02-18 07:35:19.025111",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
