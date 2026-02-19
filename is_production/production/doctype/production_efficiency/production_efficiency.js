@@ -27,6 +27,9 @@ frappe.ui.form.on("Production Efficiency", {
         await frm.reload_doc();
         frm.trigger("render_graph");
         frm.trigger("render_hourly_report");
+        frm.trigger("render_au_graph");
+        frm.trigger("render_au_report");
+
       } catch (e) {
         console.error(e);
         frappe.msgprint({
@@ -39,11 +42,16 @@ frappe.ui.form.on("Production Efficiency", {
 
     frm.trigger("render_graph");
     frm.trigger("render_hourly_report");
+    frm.trigger("render_au_graph");
+    frm.trigger("render_au_report");
+
   },
 
   start_date(frm) {
     frm.trigger("render_graph");
     frm.trigger("render_hourly_report");
+    frm.trigger("render_au_graph");
+    frm.trigger("render_au_report");
   },
   end_date(frm) {
     frm.trigger("render_graph");
@@ -159,6 +167,65 @@ frappe.ui.form.on("Production Efficiency", {
       );
     }
   },
+
+  render_au_report(frm) {
+    // A&U report field (last tab)
+    if (!frm.fields_dict.html_report_b) return;
+
+    if (frm.is_new()) {
+      frm.fields_dict.html_report_b.$wrapper.html(
+        `<div class="text-muted" style="padding:10px;">Save the document to generate the A&amp;U report.</div>`
+      );
+      return;
+    }
+
+    try {
+      const html = build_au_report_html(frm);
+      frm.fields_dict.html_report_b.$wrapper.html(html);
+    } catch (e) {
+      console.error(e);
+      frm.fields_dict.html_report_b.$wrapper.html(
+        `<div class="text-danger" style="padding:10px;">
+          Failed to render A&amp;U report.<br>
+          <pre style="white-space:pre-wrap;">${frappe.utils.escape_html(
+            e?.stack || e?.message || String(e)
+          )}</pre>
+        </div>`
+      );
+    }
+  },
+
+  render_au_graph(frm) {
+    // A&U graph field (last tab)
+    if (!frm.fields_dict.html_graph_b) return;
+
+    if (frm.is_new()) {
+      frm.fields_dict.html_graph_b.$wrapper.html(
+        `<div class="text-muted" style="padding:10px;">Save the document to generate the A&amp;U graph.</div>`
+      );
+      return;
+    }
+
+    try {
+      const computed = compute_au_from_doc(frm);
+      const html = build_au_graph_html(frm, computed);
+      frm.fields_dict.html_graph_b.$wrapper.html(html);
+      render_au_graph_charts(computed);
+    } catch (e) {
+      console.error(e);
+      frm.fields_dict.html_graph_b.$wrapper.html(
+        `<div class="text-danger" style="padding:10px;">
+          Failed to render A&amp;U graph.<br>
+          <pre style="white-space:pre-wrap;">${frappe.utils.escape_html(
+            e?.stack || e?.message || String(e)
+          )}</pre>
+        </div>`
+      );
+    }
+  },
+
+
+
 });
 
 const PE_THRESHOLD = 220;
@@ -1240,4 +1307,195 @@ function avg(arr) {
 
 function escape_html(s) {
   return frappe.utils.escape_html(s == null ? "" : String(s));
+}
+
+/* ==================== A&U REPORT + GRAPH (ADD ONLY) ==================== */
+
+const AU_CATS = ["ADT", "Excavator", "Dozer"];
+const AU_AVAIL_COLOR = "#f59e0b"; // orange
+const AU_UTIL_COLOR = "#6b7280";  // grey
+
+function compute_au_from_doc(frm) {
+  const availRows = (frm.doc.availability_b || []).map((r) => ({ ...r }));
+  const utilRows = (frm.doc.utilisation_b || []).map((r) => ({ ...r }));
+
+  // map date -> {ADT:x, Excavator:y, Dozer:z}
+  const availByDate = {};
+  const utilByDate = {};
+
+  for (const r of availRows) {
+    const d = String(r.date_b || "");
+    if (!d) continue;
+    availByDate[d] = {
+      ADT: asNumber(r.adt_b),
+      Excavator: asNumber(r.excavator_b),
+      Dozer: asNumber(r.dozer_b),
+    };
+  }
+
+  for (const r of utilRows) {
+    const d = String(r.date_b_b || "");
+    if (!d) continue;
+    utilByDate[d] = {
+      ADT: asNumber(r.adt_b_b),
+      Excavator: asNumber(r.excavator_b_b),
+      Dozer: asNumber(r.dozer_b_b),
+    };
+  }
+
+  // dates = union
+  const dates = Array.from(new Set([...Object.keys(availByDate), ...Object.keys(utilByDate)])).sort();
+
+  // per category datasets
+  const byCat = {};
+  for (const cat of AU_CATS) {
+    byCat[cat] = {
+      labels: dates.map((d) => d.slice(-2)), // day of month like dashboard
+      dates,
+      availability: dates.map((d) => trunc2((availByDate[d] || {})[cat] ?? 0)),
+      utilisation: dates.map((d) => trunc2((utilByDate[d] || {})[cat] ?? 0)),
+    };
+  }
+
+  // KPIs (simple averages across visible dates)
+  const kpis = {};
+  for (const cat of AU_CATS) {
+    const a = byCat[cat].availability;
+    const u = byCat[cat].utilisation;
+    kpis[cat] = {
+      avail_avg: trunc1(avg(a)),
+      util_avg: trunc1(avg(u)),
+    };
+  }
+
+  return { dates, byCat, kpis };
+}
+
+function build_au_report_html(frm) {
+  const site = escape_html(frm.doc.site_b || frm.doc.site || "");
+  const start = escape_html(frm.doc.start_date_b || "");
+  const end = escape_html(frm.doc.end_date_b || "");
+
+  const a = (frm.doc.availability_b || []).length;
+  const u = (frm.doc.utilisation_b || []).length;
+
+  return `
+    <div style="padding:10px;">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+        <h3 style="margin:0;">A&amp;U Report</h3>
+        <div style="color:#6b7280;font-size:12px;">${site} · ${start} → ${end}</div>
+      </div>
+
+      <div style="margin-top:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;overflow:hidden;">
+        <div style="padding:10px 12px;background:#f9fafb;border-bottom:1px solid #e5e7eb;">
+          <b>Rows loaded</b>
+          <div style="color:#6b7280;font-size:12px;margin-top:4px;">
+            Availability rows: <b>${a}</b> · Utilisation rows: <b>${u}</b>
+          </div>
+        </div>
+
+        <div style="padding:10px 12px;">
+          <div class="text-muted" style="font-size:12px;">
+            This tab is driven from the “Availability and Utilisation” child tables (Availability_B / Utilisation_B).
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function build_au_graph_html(frm, computed) {
+  const site = escape_html(frm.doc.site_b || frm.doc.site || "");
+  const start = escape_html(frm.doc.start_date_b || "");
+  const end = escape_html(frm.doc.end_date_b || "");
+
+  const k = computed.kpis;
+
+  return `
+  <style>
+    .au-wrap { padding:10px; }
+    .au-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px; }
+    .au-meta { color:#6b7280; font-size:12px; }
+
+    .au-block { border:1px solid #e5e7eb; border-radius:12px; background:#fff; overflow:hidden; margin-bottom:12px; }
+    .au-block-h { padding:10px 12px; background:#eef7ff; border-bottom:1px solid #e5e7eb; }
+    .au-kpis { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+    .au-pill { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; font-size:12px; background:#fff; border:1px solid #e5e7eb; }
+    .au-dot { width:10px; height:10px; border-radius:999px; display:inline-block; }
+    .au-dot-av { background:${AU_AVAIL_COLOR}; }
+    .au-dot-ut { background:${AU_UTIL_COLOR}; }
+
+    .au-charts { padding:10px 12px; }
+    .au-chart { min-height:260px; }
+  </style>
+
+  <div class="au-wrap">
+    <div class="au-head">
+      <h3 style="margin:0;">A&amp;U Dashboard</h3>
+      <div class="au-meta">${site} · ${start} → ${end}</div>
+    </div>
+
+    ${AU_CATS.map((cat, idx) => {
+      const bg = idx === 0 ? "#eaf4ff" : idx === 1 ? "#f3e8ff" : "#eaf4ff";
+      return `
+        <div class="au-block">
+          <div class="au-block-h" style="background:${bg};">
+            <b>${escape_html(cat)}'s (AVG)</b>
+            <div class="au-kpis">
+              <span class="au-pill"><span class="au-dot au-dot-av"></span>Availability <b>${formatPercent1(k[cat].avail_avg)}</b></span>
+              <span class="au-pill"><span class="au-dot au-dot-ut"></span>Utilisation <b>${formatPercent1(k[cat].util_avg)}</b></span>
+            </div>
+          </div>
+          <div class="au-charts">
+            <div id="au_chart_${escape_html(cat)}" class="au-chart"></div>
+          </div>
+        </div>
+      `;
+    }).join("")}
+  </div>
+  `;
+}
+
+function render_au_graph_charts(computed) {
+  for (const cat of AU_CATS) {
+    const el = document.getElementById(`au_chart_${cat}`);
+    if (!el) continue;
+
+    const info = computed.byCat[cat];
+    if (!info || !info.labels.length) {
+      el.innerHTML = `<div class="text-muted" style="padding:8px;">No data to chart.</div>`;
+      continue;
+    }
+
+    new frappe.Chart(`#au_chart_${cat}`, {
+      title: "",
+      data: {
+        labels: info.labels,
+        datasets: [
+          { name: "Availability", values: info.availability, chartType: "bar" },
+          { name: "Utilisation", values: info.utilisation, chartType: "bar" },
+        ],
+      },
+      type: "bar",
+      height: 260,
+      axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
+      barOptions: { stacked: false, spaceRatio: 0.55 },
+      colors: [AU_AVAIL_COLOR, AU_UTIL_COLOR],
+    });
+  }
+}
+
+function trunc1(v) {
+  const n = asNumber(v);
+  return Math.round(n * 10) / 10;
+}
+
+function trunc2(v) {
+  const n = asNumber(v);
+  return Math.round(n * 100) / 100;
+}
+
+function formatPercent1(v) {
+  const n = trunc1(v);
+  return `${n}%`;
 }

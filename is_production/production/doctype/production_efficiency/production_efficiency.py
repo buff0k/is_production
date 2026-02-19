@@ -36,6 +36,28 @@ HOUR_SLOT_MAP = {
     "5:00-6:00": 24,
 }
 
+# -------------------------------------------------------------------
+# A&U weekly engine (same query concept as engineering dashboard)
+# -------------------------------------------------------------------
+AU_DT = "Availability and Utilisation"
+AU_DB_CATEGORIES = ["ADT", "Excavator", "Dozer"]
+
+
+def _get_submitted_asset_categories() -> list[str]:
+    """
+    Return which of AU_DB_CATEGORIES actually exist as SUBMITTED Assets (docstatus=1).
+    A&U docs can be any status, but we only include categories that have submitted Assets.
+    """
+    rows = frappe.get_all(
+        "Asset",
+        filters={"docstatus": 1, "asset_category": ["in", AU_DB_CATEGORIES]},
+        pluck="asset_category",
+        limit_page_length=5000,
+    )
+    return [c for c in AU_DB_CATEGORIES if c in set(rows)]
+
+
+
 DAY_TABLE_FIELDS = {
     0: "monday",
     1: "tuesday",
@@ -138,6 +160,132 @@ def _get_slot_fields_for_day(day_field: str) -> list[str]:
     if isinstance(v, str):
         return SLOT_FIELDS[v]
     return v
+
+
+def _fetch_au_rows(site: str, start_date, end_date):
+    # Same concept as weekly_availability_and_utilisation_dashboard.py:fetch_site_rows
+    # Day + Night only (per requirement)
+    # A&U docs can be any status, but we only include categories that have submitted Assets (docstatus=1)
+    allowed_cats = _get_submitted_asset_categories()
+    if not allowed_cats:
+        return []
+
+    return frappe.get_all(
+        AU_DT,
+        filters={
+            "location": site,
+            "shift_date": ["between", [start_date, end_date]],
+            "shift": ["in", ["Day", "Night"]],
+            "asset_category": ["in", allowed_cats],
+            # NOTE: no docstatus filter on A&U docs
+        },
+        fields=[
+            "shift_date",
+            "shift",
+            "asset_category",
+            "plant_shift_availability",
+            "plant_shift_utilisation",
+            "docstatus",
+        ],
+        order_by="shift_date asc",
+        limit_page_length=5000,
+    )
+
+
+def _compute_au_daily_averages(rows: list[dict]) -> dict:
+    """
+    Returns:
+      {
+        "YYYY-MM-DD": {
+          "ADT": {"avail": float|None, "util": float|None},
+          "Excavator": {...},
+          "Dozer": {...}
+        },
+        ...
+      }
+    Logic matches dashboard: average all values found for that day+category.
+    (If both day+night exist, they are included in the same average naturally.)
+    """
+    bucket = {}
+    for r in rows:
+        day = str(r.get("shift_date"))
+        cat = r.get("asset_category")
+        if cat not in AU_DB_CATEGORIES:
+            continue
+
+        bucket.setdefault(day, {}).setdefault(cat, {"avail": [], "util": []})
+
+        av = r.get("plant_shift_availability")
+        ut = r.get("plant_shift_utilisation")
+        if av is not None:
+            bucket[day][cat]["avail"].append(float(av))
+        if ut is not None:
+            bucket[day][cat]["util"].append(float(ut))
+
+    out = {}
+    for day, cats in bucket.items():
+        out[day] = {}
+        for cat in AU_DB_CATEGORIES:
+            avs = cats.get(cat, {}).get("avail", [])
+            uts = cats.get(cat, {}).get("util", [])
+            out[day][cat] = {
+                "avail": (sum(avs) / len(avs)) if avs else None,
+                "util": (sum(uts) / len(uts)) if uts else None,
+            }
+    return out
+
+
+def _weekday_label(d) -> str:
+    labels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    return labels[_to_date(d).weekday()]
+
+
+def _populate_au_tables(pe_doc: Document, au_daily: dict, start_date, end_date):
+    """
+    Parent tables:
+      - availability_b (Availability Day Entry)
+      - utilisation_b (Utilisation Day Entry)
+
+    Child fieldnames (exact from your JSON):
+      Availability Day Entry:
+        date_b, weekday_b, adt_b, excavator_b, dozer_b
+      Utilisation Day Entry:
+        date_b_b, weekday_b_b, adt_b_b, excavator_b_b, dozer_b_b
+    """
+    start_date = _to_date(start_date)
+    end_date = _to_date(end_date)
+
+    if pe_doc.meta.has_field("availability_b"):
+        pe_doc.set("availability_b", [])
+    if pe_doc.meta.has_field("utilisation_b"):
+        pe_doc.set("utilisation_b", [])
+
+    d = start_date
+    while d <= end_date:
+        day_key = str(d)
+        day_payload = au_daily.get(day_key, {}) or {}
+
+        # Availability row
+        if pe_doc.meta.has_field("availability_b"):
+            r1 = pe_doc.append("availability_b", {})
+            r1.set("date_b", d)
+            r1.set("weekday_b", _weekday_label(d))
+            r1.set("adt_b", (day_payload.get("ADT", {}) or {}).get("avail"))
+            r1.set("excavator_b", (day_payload.get("Excavator", {}) or {}).get("avail"))
+            r1.set("dozer_b", (day_payload.get("Dozer", {}) or {}).get("avail"))
+
+        # Utilisation row
+        if pe_doc.meta.has_field("utilisation_b"):
+            r2 = pe_doc.append("utilisation_b", {})
+            r2.set("date_b_b", d)
+            r2.set("weekday_b_b", _weekday_label(d))
+            r2.set("adt_b_b", (day_payload.get("ADT", {}) or {}).get("util"))
+            r2.set("excavator_b_b", (day_payload.get("Excavator", {}) or {}).get("util"))
+            r2.set("dozer_b_b", (day_payload.get("Dozer", {}) or {}).get("util"))
+
+        d = add_days(d, 1)
+
+
 
 
 def _fetch_hourly_bcms(site: str, start_date, end_date):
@@ -254,6 +402,34 @@ def _update_single_pe_doc(doc: Document):
             "hourly_report",
             f"<div class='text-muted' style='padding:8px;'>Updated by server at: {frappe.utils.now()}</div>",
         )
+
+
+    # -----------------------------
+    # A&U weekly update (current week Mon->Sun)
+    # -----------------------------
+    if doc.meta.has_field("site_b") or doc.meta.has_field("availability_b") or doc.meta.has_field("utilisation_b"):
+        # default A&U header fields if present (do NOT affect production fields)
+        au_monday, au_sunday = _current_week_range_auto()
+
+        if doc.meta.has_field("site_b") and not doc.get("site_b") and doc.get("site"):
+            doc.set("site_b", doc.get("site"))
+        if doc.meta.has_field("start_date_b"):
+            doc.set("start_date_b", au_monday)
+        if doc.meta.has_field("end_date_b"):
+            doc.set("end_date_b", au_sunday)
+
+        au_site = (doc.get("site_b") or "").strip()
+        if au_site:
+            au_rows = _fetch_au_rows(au_site, au_monday, au_sunday)
+            au_daily = _compute_au_daily_averages(au_rows)
+
+            _populate_au_tables(doc, au_daily, au_monday, au_sunday)
+
+            if doc.meta.has_field("html_report_b"):
+                doc.set(
+                    "html_report_b",
+                    f"<div class='text-muted' style='padding:8px;'>A&amp;U updated at: {frappe.utils.now()}</div>",
+                )
 
     doc.save(ignore_permissions=True)
 

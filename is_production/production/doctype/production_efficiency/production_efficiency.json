@@ -29,7 +29,20 @@
   "hourly_report",
   "graph_tab",
   "graphs",
-  "graph"
+  "graph",
+  "information_b_tab",
+  "site_b",
+  "start_date_b",
+  "end_date_b",
+  "availability_b",
+  "utilisation_b",
+  "comments_b_tab",
+  "table_comments_b",
+  "table_improvements_b",
+  "report_b_tab",
+  "html_report_b",
+  "graph_b_tab",
+  "html_graph_b"
  ],
  "fields": [
   {
@@ -104,12 +117,12 @@
   {
    "fieldname": "information_tab",
    "fieldtype": "Tab Break",
-   "label": "Information"
+   "label": "Information (Production)"
   },
   {
    "fieldname": "comments_tab",
    "fieldtype": "Tab Break",
-   "label": "Comments"
+   "label": "Comments (Production)"
   },
   {
    "fieldname": "comment_section",
@@ -131,7 +144,7 @@
   {
    "fieldname": "report",
    "fieldtype": "Tab Break",
-   "label": "Report"
+   "label": "Report (Production)"
   },
   {
    "fieldname": "reports",
@@ -146,7 +159,7 @@
   {
    "fieldname": "graph_tab",
    "fieldtype": "Tab Break",
-   "label": "Graph"
+   "label": "Graph (Production)"
   },
   {
    "fieldname": "graphs",
@@ -163,12 +176,82 @@
    "fieldtype": "Float",
    "label": "Production Excavators",
    "precision": "0"
+  },
+  {
+   "fieldname": "information_b_tab",
+   "fieldtype": "Tab Break",
+   "label": "Information (A&U)"
+  },
+  {
+   "fieldname": "comments_b_tab",
+   "fieldtype": "Tab Break",
+   "label": "Comments B (A&U)"
+  },
+  {
+   "fieldname": "report_b_tab",
+   "fieldtype": "Tab Break",
+   "label": "Report B (A&U)"
+  },
+  {
+   "fieldname": "graph_b_tab",
+   "fieldtype": "Tab Break",
+   "label": "Graph B (A&U)"
+  },
+  {
+   "fieldname": "site_b",
+   "fieldtype": "Link",
+   "label": "Site ",
+   "options": "Location"
+  },
+  {
+   "fieldname": "table_comments_b",
+   "fieldtype": "Table",
+   "label": "Comments on Past 7 Days",
+   "options": "Availability and Utilisation Efficiency Comments"
+  },
+  {
+   "fieldname": "table_improvements_b",
+   "fieldtype": "Table",
+   "label": "Improvement/Recommendation For Next 7 Days",
+   "options": "Availability and Utilisation Efficiency Improvements"
+  },
+  {
+   "fieldname": "html_report_b",
+   "fieldtype": "HTML",
+   "label": "Report"
+  },
+  {
+   "fieldname": "html_graph_b",
+   "fieldtype": "HTML",
+   "label": "Graph"
+  },
+  {
+   "fieldname": "start_date_b",
+   "fieldtype": "Date",
+   "label": "Start Date"
+  },
+  {
+   "fieldname": "end_date_b",
+   "fieldtype": "Date",
+   "label": "End Date"
+  },
+  {
+   "fieldname": "availability_b",
+   "fieldtype": "Table",
+   "label": "Daily Performance (Availability)",
+   "options": "Availability Day Entry"
+  },
+  {
+   "fieldname": "utilisation_b",
+   "fieldtype": "Table",
+   "label": "Daily Performance (Utilisation)",
+   "options": "Utilisation Day Entry"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-16 12:01:13.060182",
+ "modified": "2026-02-19 10:51:30.999427",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Efficiency",

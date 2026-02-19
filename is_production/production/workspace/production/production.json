@@ -400,7 +400,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-02-18 07:35:19.025111",
+ "modified": "2026-02-18 10:39:23.148803",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
@@ -443,17 +443,17 @@
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Production Equipment Hours",
-   "link_to": "Pre-Use Report",
-   "report_ref_doctype": "Pre-Use Hours",
-   "type": "Report"
+   "label": "Site Volume Page",
+   "link_to": "ceo-dashboard-1",
+   "type": "Page"
   },
   {
    "color": "Grey",
    "doc_view": "List",
-   "label": "Site Volume Page",
-   "link_to": "ceo-dashboard-1",
-   "type": "Page"
+   "label": "Production Equipment Hours",
+   "link_to": "Pre-Use Report",
+   "report_ref_doctype": "Pre-Use Hours",
+   "type": "Report"
   },
   {
    "color": "Grey",
