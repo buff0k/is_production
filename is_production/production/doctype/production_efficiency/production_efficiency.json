@@ -34,8 +34,8 @@
   "site_b",
   "start_date_b",
   "end_date_b",
-  "availability_b",
   "utilisation_b",
+  "availability_b",
   "comments_b_tab",
   "table_comments_b",
   "table_improvements_b",
@@ -245,13 +245,13 @@
    "fieldname": "utilisation_b",
    "fieldtype": "Table",
    "label": "Daily Performance (Utilisation)",
-   "options": "Utilisation Day Entry 1"
+   "options": "Utilisation Day Entry"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-20 05:51:13.025047",
+ "modified": "2026-02-20 06:56:21.541644",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Efficiency",
