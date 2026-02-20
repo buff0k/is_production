@@ -239,19 +239,19 @@
    "fieldname": "availability_b",
    "fieldtype": "Table",
    "label": "Daily Performance (Availability)",
-   "options": "Availability Day Entry"
+   "options": "Availability Day Entry 1"
   },
   {
    "fieldname": "utilisation_b",
    "fieldtype": "Table",
    "label": "Daily Performance (Utilisation)",
-   "options": "Utilisation Day Entry"
+   "options": "Utilisation Day Entry 1"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-19 10:51:30.999427",
+ "modified": "2026-02-20 05:51:13.025047",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Efficiency",
