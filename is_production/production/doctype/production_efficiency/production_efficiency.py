@@ -861,6 +861,121 @@ def get_hourly_site_control_excavators(site: str) -> dict:
     return {"site": site, "production_excavators": int(_get_hsc_production_excavators(site) or 0)}
 
 
+
+@frappe.whitelist()
+def get_latest_wearcheck_statuses(site: str | None = None) -> dict:
+    """
+    Latest WearCheck Results per Asset (machine), filtered by Location if provided.
+    Only returns rows where the LATEST status for that asset is 3 or 4.
+
+    Output:
+      { "status_3": [...], "status_4": [...] }
+    """
+    site = (site or "").strip() or None
+
+    meta = frappe.get_meta("WearCheck Results")
+
+    # Always-present fields (from your console): asset, location, status
+    asset_field = "asset"
+    location_field = "location"
+    status_field = "status"
+
+    # Detect optional fields safely
+    sample_field = None
+    for cand in ("sampledate", "sample_date", "sample_date_", "sample_datetime", "sample_dt"):
+        if meta.has_field(cand):
+            sample_field = cand
+            break
+
+    component_field = "component" if meta.has_field("component") else None
+
+    action_field = None
+    for cand in ("actiontext", "action_text", "action", "action_taken", "action_required"):
+        if meta.has_field(cand):
+            action_field = cand
+            break
+
+    feedback_field = None
+    for cand in ("feedbacktext", "feedback_text", "feedback", "feedback_notes"):
+        if meta.has_field(cand):
+            feedback_field = cand
+            break
+
+    # Inner select: real table columns -> stable aliases used by JS
+    inner_cols = [
+        f"`{asset_field}` AS machine",
+        f"`{location_field}` AS location",
+        f"`{status_field}` AS status",
+        (f"`{sample_field}` AS sampledate" if sample_field else "NULL AS sampledate"),
+        (f"`{component_field}` AS component" if component_field else "NULL AS component"),
+        (f"`{action_field}` AS actiontext" if action_field else "NULL AS actiontext"),
+        (f"`{feedback_field}` AS feedbacktext" if feedback_field else "NULL AS feedbacktext"),
+    ]
+
+    # Outer select: only the aliases from the subquery (NOT raw columns)
+    outer_cols = ["machine", "location", "status", "sampledate", "component", "actiontext", "feedbacktext"]
+
+    # "Latest" ordering within each asset
+    order_expr = []
+    if sample_field:
+        order_expr.append(f"`{sample_field}` DESC")
+    order_expr.append("creation DESC")
+    order_by_latest = ", ".join(order_expr)
+
+    where_site = ""
+    params = []
+    if site:
+        where_site = f" AND `{location_field}` = %s "
+        params.append(site)
+
+    rows = frappe.db.sql(
+        f"""
+        SELECT
+            {", ".join(outer_cols)}
+        FROM (
+            SELECT
+                {", ".join(inner_cols)},
+                ROW_NUMBER() OVER (
+                    PARTITION BY `{asset_field}`
+                    ORDER BY {order_by_latest}
+                ) AS rn
+            FROM `tabWearCheck Results`
+            WHERE `{asset_field}` IS NOT NULL
+              AND `{asset_field}` != ''
+              {where_site}
+        ) t
+        WHERE t.rn = 1
+          AND t.status IN (3, 4)
+        ORDER BY t.status DESC, t.sampledate DESC, t.machine ASC
+        """,
+        tuple(params),
+        as_dict=True,
+    )
+
+    out = {"status_3": [], "status_4": []}
+    for r in (rows or []):
+        try:
+            st = int(r.get("status") or 0)
+        except Exception:
+            st = 0
+
+        item = {
+            "machine": r.get("machine"),
+            "location": r.get("location"),
+            "status": st,
+            "sampledate": r.get("sampledate"),
+            "component": r.get("component"),
+            "actiontext": r.get("actiontext"),
+            "feedbacktext": r.get("feedbacktext"),
+        }
+
+        if st == 3:
+            out["status_3"].append(item)
+        elif st == 4:
+            out["status_4"].append(item)
+
+    return out
+
 def get_sites_from_hourly_site_control() -> list[str]:
     name = frappe.db.get_value(
         "Hourly Site Control",

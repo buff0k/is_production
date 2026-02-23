@@ -223,7 +223,7 @@ frappe.ui.form.on("Production Efficiency", {
     }
   },
 
-  render_au_report(frm) {
+  async render_au_report(frm) {
     // A&U report field (last tab)
     if (!frm.fields_dict.html_report_b) return;
 
@@ -241,6 +241,10 @@ frappe.ui.form.on("Production Efficiency", {
 
       // IMPORTANT: charts must be rendered AFTER the HTML is in the DOM
       render_au_graph_charts(computed);
+        await render_wearcheck_latest_statuses(frm, {
+        el3_id: "wc_report_status_3",
+        el4_id: "wc_report_status_4",
+      });
     } catch (e) {
       console.error(e);
       frm.fields_dict.html_report_b.$wrapper.html(
@@ -1500,6 +1504,173 @@ function escape_html(s) {
   return frappe.utils.escape_html(s == null ? "" : String(s));
 }
 
+
+// -------------------- WearCheck popup (View buttons) --------------------
+
+function pe_wc_ensure_popup_css() {
+  if (document.getElementById("pe_wc_popup_css")) return;
+
+  const css = document.createElement("style");
+  css.id = "pe_wc_popup_css";
+  css.textContent = `
+    /* hide default dialog header, we render our own */
+    .pe-wc-pop .modal-header { display: none !important; }
+
+    .pe-wc-pop .modal-content {
+      border-radius: 14px !important;
+      overflow: hidden !important;
+      border: 0 !important;
+    }
+
+    .pe-wc-popcard { background: #fff; }
+    .pe-wc-pophead{
+      background: #4f46e5; /* matches your screenshot */
+      color: #fff;
+      padding: 10px 14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      font-weight: 800;
+    }
+    .pe-wc-pophead .pe-wc-x{
+      cursor:pointer;
+      font-size: 18px;
+      line-height: 1;
+      opacity: .95;
+      padding: 0 6px;
+    }
+    .pe-wc-popbody{ padding: 14px; }
+    .pe-wc-chip{
+      display:inline-block;
+      padding: 6px 10px;
+      border-radius: 12px;
+      background: #f8fafc;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .pe-wc-text{ color:#0f172a; }
+    .pe-wc-popfoot{ padding: 12px 14px; display:flex; justify-content:flex-end; }
+
+    .pe-wc-view.btn.btn-xs {
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    
+     /* flagged X-axis labels */
+    .pe-wc-flag { fill: #b91c1c !important; font-weight: 900 !important; }
+    .pe-wc-flag tspan { fill: #b91c1c !important; font-weight: 900 !important; }
+  `;
+  document.head.appendChild(css);
+}
+
+function pe_wc_open_popup(title, body_text) {
+  pe_wc_ensure_popup_css();
+
+  const d = new frappe.ui.Dialog({
+    title: "",
+    fields: [{ fieldtype: "HTML", fieldname: "body" }],
+    size: "large",
+  });
+
+  d.$wrapper.addClass("pe-wc-pop");
+
+  const esc = frappe.utils.escape_html;
+  const raw = (body_text || "").trim();
+  const txt = esc(raw || "No text.").replace(/\n/g, "<br>");
+
+  d.fields_dict.body.$wrapper.html(`
+    <div class="pe-wc-popcard">
+      <div class="pe-wc-pophead">
+        <div>${esc(title || "Details")}</div>
+        <div class="pe-wc-x" role="button" tabindex="0">×</div>
+      </div>
+      <div class="pe-wc-popbody">
+        <div class="pe-wc-chip">${esc(title || "Details")}</div>
+        <div class="pe-wc-text">${txt}</div>
+      </div>
+      <div class="pe-wc-popfoot">
+        <button class="btn btn-primary btn-sm pe-wc-close">Close</button>
+      </div>
+    </div>
+  `);
+
+  d.$wrapper.find(".pe-wc-close, .pe-wc-x").on("click", () => d.hide());
+  d.show();
+}
+
+function pe_wc_view_btn(label, value) {
+  const v = (value || "").trim();
+  if (!v) return "";
+  const esc = frappe.utils.escape_html;
+  // put value in data-attr safely (escaped)
+  return `<button class="btn btn-default btn-xs pe-wc-view" data-label="${esc(label)}" data-value="${esc(v)}">View</button>`;
+}
+
+function pe_wc_flag_assets_on_charts(flaggedSet) {
+  try {
+    if (!flaggedSet || !flaggedSet.size) return;
+
+    const norm = (s) => (s == null ? "" : String(s)).replace(/\s+/g, "").trim().toUpperCase();
+
+    const FORCE_COLOR = "#b91c1c";
+
+    const apply_to_root = (root) => {
+      if (!root) return;
+      const svg = root.querySelector("svg");
+      if (!svg) return;
+
+      // Frappe charts sometimes don't tag x-axis text with helpful classes.
+      // So: scan ALL text nodes, but keep it bounded.
+      const nodes = Array.from(svg.querySelectorAll("text")).slice(0, 450);
+
+      for (const node of nodes) {
+        const txt = norm(node.textContent);
+        if (!txt) continue;
+        if (!flaggedSet.has(txt)) continue;
+
+        // Force via inline style (wins vs re-renders better than class only)
+        node.classList.add("pe-wc-flag");
+        node.setAttribute("fill", FORCE_COLOR);
+        node.style.fill = FORCE_COLOR;
+        node.style.fontWeight = "900";
+
+        const tspans = node.querySelectorAll ? node.querySelectorAll("tspan") : [];
+        tspans.forEach((ts) => {
+          ts.classList.add("pe-wc-flag");
+          ts.setAttribute("fill", FORCE_COLOR);
+          ts.style.fill = FORCE_COLOR;
+          ts.style.fontWeight = "900";
+        });
+      }
+    };
+
+    const apply_all = () => {
+      for (const cat of (typeof AU_CATS !== "undefined" ? AU_CATS : [])) {
+        apply_to_root(document.querySelector(`#au_b_chart_${cat}`));
+      }
+    };
+
+    // Apply several times because charts paint in stages
+    setTimeout(apply_all, 0);
+    setTimeout(apply_all, 200);
+    setTimeout(apply_all, 600);
+    setTimeout(apply_all, 1200);
+  } catch (e) {}
+}
+
+// Bind once (event delegation)
+if (!window.__pe_wc_view_bound) {
+  window.__pe_wc_view_bound = true;
+  document.addEventListener("click", (ev) => {
+    const btn = ev.target && ev.target.closest ? ev.target.closest(".pe-wc-view") : null;
+    if (!btn) return;
+    const label = btn.getAttribute("data-label") || "Details";
+    const value = btn.getAttribute("data-value") || "";
+    pe_wc_open_popup(label, value);
+  });
+}
+
 /* ==================== A&U REPORT + GRAPH (ADD ONLY) ==================== */
 
 const AU_CATS = ["ADT", "Excavator", "Dozer"];
@@ -1507,14 +1678,22 @@ const AU_AVAIL_COLOR = "#f59e0b"; // orange
 const AU_UTIL_COLOR = "#6b7280";  // grey
 
 
-const AU_CEIL_NAME = "Ceil120";
-const AU_CEIL_HEX = "rgba(0,0,0,0)"; // invisible
+const AU_FORCE_MIN = 0;
+const AU_FORCE_MAX = 100;
+const AU_INVIS_HEX = "rgba(0,0,0,0)"; // invisible dataset (scale only)
 
+// targets
 const AU_TARGET_AVAIL = 85;
 const AU_TARGET_UTIL = 80;
-const AU_TARGET_HEX = "#111827"; // target line color
+const AU_TARGET_LINE_HEX = "#9ca3af"; // grey like screenshot
 
 function build_au_graph_b_html(frm) {
+  const AU_B_HEAD_BG = {
+  ADT: "linear-gradient(90deg, #0f766e 0%, #14b8a6 55%, #99f6e4 100%)",          // teal
+  Excavator: "linear-gradient(90deg, #5b21b6 0%, #8b5cf6 55%, #c4b5fd 100%)",     // purple
+  Dozer: "linear-gradient(90deg, #9a3412 0%, #fb923c 55%, #fde68a 100%)",         // amber
+  DEFAULT: "linear-gradient(90deg, #0f172a 0%, #1e293b 55%, #334155 100%)",
+};
   const site = escape_html(frm.doc.site_b || frm.doc.site || "");
   const start = escape_html(frm.doc.start_date_b || "");
   const end = escape_html(frm.doc.end_date_b || "");
@@ -1529,6 +1708,9 @@ function build_au_graph_b_html(frm) {
       .aub-h { padding:10px 12px; background:#0f172a; color:#fff; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
       .aub-h b { font-size:14px; }
       .aub-note { color: rgba(255,255,255,0.85); font-size:12px; }
+      /* WearCheck block: red header */
+      .aub-h-wc { background:#b91c1c; }            /* red */
+      .aub-h-wc b { color:#fff; }
 
       .aub-b { padding:10px 12px; }
       .aub-chart { min-height: 320px; }
@@ -1537,6 +1719,18 @@ function build_au_graph_b_html(frm) {
       .aub-dot { width:10px; height:10px; border-radius:999px; display:inline-block; }
       .aub-dot-av { background:${AU_AVAIL_COLOR}; }
       .aub-dot-ut { background:${AU_UTIL_COLOR}; }
+      .pe-scroll { overflow-x: auto; overflow-y: hidden; max-width: 100%; padding-bottom: 6px; }
+      .pe-scroll::-webkit-scrollbar { height: 10px; }
+      .pe-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+      .pe-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 999px; }
+      /* WearCheck columns: red shades */
+      .wc-col { border-radius: 12px; padding: 10px; }
+      .wc-col-3 { background: #fee2e2; }  /* light red */
+      .wc-col-4 { background: #fca5a5; color: #111827; } /* darker red (lighter than before) */
+      .wc-col-4 h4 { color: #7f1d1d; }
+      .wc-col-4 .text-muted { color: rgba(255,255,255,0.85) !important; }
+      .wc-col table { background: transparent !important; }
+      .wc-col-4 table { color: #0f172a; } /* keep table text readable if any renders */
     </style>
 
     <div class="aub-wrap">
@@ -1547,7 +1741,7 @@ function build_au_graph_b_html(frm) {
 
       ${AU_CATS.map((cat) => `
         <div class="aub-block">
-          <div class="aub-h">
+          <div class="aub-h" style="background:${AU_B_HEAD_BG[cat] || AU_B_HEAD_BG.DEFAULT};">
             <b>${escape_html(cat)}</b>
           </div>
           <div class="aub-b">
@@ -1559,6 +1753,9 @@ function build_au_graph_b_html(frm) {
           </div>
         </div>
       `).join("")}
+
+
+
     </div>
   `;
 }
@@ -1671,31 +1868,22 @@ async function render_au_graph_b_charts(frm) {
     const availVals = items.map((a) => availByAsset[a] || 0);
     const utilVals = items.map((a) => utilByAsset[a] || 0);
 
-    // Force Y-axis to at least 120%.
-    // Only expand above 120 when actual data exceeds 120.
-    const maxVal = Math.max(
-      ...availVals.map((x) => asNumber(x)),
-      ...utilVals.map((x) => asNumber(x)),
-      0
-    );
+    const floorLabel = "__floor__";
+    const ceilLabel = "__ceil__";
+    const target85Label = "__target_85__";
+    const target80Label = "__target_80__";
 
-    let ceil = 120;
-    if (maxVal > 120) {
-      ceil = Math.ceil(maxVal / 10) * 10; // 121 -> 130, 168 -> 170, etc.
-    }
-
-    const targetAvailLabel = `Availability Target ${AU_TARGET_AVAIL}%`;
-    const targetUtilLabel = `Utilisation Target ${AU_TARGET_UTIL}%`;
-
-    // Put Ceil120 FIRST so we can reliably hide the first line path
+    // Invisible min/max datasets to force 0–100 scale
     const datasets = [
-      { name: AU_CEIL_NAME, values: new Array(labels.length).fill(ceil), chartType: "line" },
+      { name: floorLabel, values: new Array(labels.length).fill(AU_FORCE_MIN), chartType: "line" },
+      { name: ceilLabel, values: new Array(labels.length).fill(AU_FORCE_MAX), chartType: "line" },
 
       { name: "Availability %", values: availVals, chartType: "bar" },
       { name: "Utilisation %", values: utilVals, chartType: "bar" },
 
-      { name: targetAvailLabel, values: new Array(labels.length).fill(AU_TARGET_AVAIL), chartType: "line" },
-      { name: targetUtilLabel, values: new Array(labels.length).fill(AU_TARGET_UTIL), chartType: "line" },
+      // visible target lines (grey), but we will strip legend + tooltip
+      { name: target85Label, values: new Array(labels.length).fill(AU_TARGET_AVAIL), chartType: "line" },
+      { name: target80Label, values: new Array(labels.length).fill(AU_TARGET_UTIL), chartType: "line" },
     ];
 
     new frappe.Chart(`#au_b_chart_${cat}`, {
@@ -1706,23 +1894,45 @@ async function render_au_graph_b_charts(frm) {
       axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
       barOptions: { stacked: false, spaceRatio: 0.55 },
       lineOptions: { dotSize: 0, regionFill: 0 },
-      colors: [AU_CEIL_HEX, AU_AVAIL_COLOR, AU_UTIL_COLOR, AU_AVAIL_COLOR, AU_UTIL_COLOR],
+      colors: [
+        AU_INVIS_HEX,           // floor (invisible)
+        AU_INVIS_HEX,           // ceil (invisible)
+        AU_AVAIL_COLOR,         // Availability bars
+        AU_UTIL_COLOR,          // Utilisation bars
+        AU_AVAIL_COLOR,         // 85% target = orange (Availability)
+        AU_TARGET_LINE_HEX,     // 80% target = grey
+      ],
     });
 
-    // remove legends + tooltip rows we don't want
-    strip_legend_item(`#au_b_chart_${cat}`, targetAvailLabel);
-    strip_legend_item(`#au_b_chart_${cat}`, targetUtilLabel);
-    strip_legend_item(`#au_b_chart_${cat}`, AU_CEIL_NAME);
+    // Graph B: we use our own pills legend, so remove the chart legend completely
+    remove_chart_legend(`#au_b_chart_${cat}`);
+    setTimeout(() => remove_chart_legend(`#au_b_chart_${cat}`), 80);
 
-    strip_tooltip_item(`#au_b_chart_${cat}`, targetAvailLabel);
-    strip_tooltip_item(`#au_b_chart_${cat}`, targetUtilLabel);
-    strip_tooltip_item(`#au_b_chart_${cat}`, AU_CEIL_NAME);
+    // Remove legends + tooltips for invisible scale + target lines
+    strip_legend_item(`#au_b_chart_${cat}`, floorLabel);
+    strip_legend_item(`#au_b_chart_${cat}`, ceilLabel);
+    strip_legend_item(`#au_b_chart_${cat}`, target85Label);
+    strip_legend_item(`#au_b_chart_${cat}`, target80Label);
 
-    // hide Ceil120 line (first line dataset)
-    // hide Ceil120 line (sometimes it draws after a tick)
-    style_invisible_first_line(`#au_b_chart_${cat}`);
-    setTimeout(() => style_invisible_first_line(`#au_b_chart_${cat}`), 80);
-    setTimeout(() => style_invisible_first_line(`#au_b_chart_${cat}`), 200);
+    strip_tooltip_item(`#au_b_chart_${cat}`, floorLabel);
+    strip_tooltip_item(`#au_b_chart_${cat}`, ceilLabel);
+    strip_tooltip_item(`#au_b_chart_${cat}`, target85Label);
+    strip_tooltip_item(`#au_b_chart_${cat}`, target80Label);
+
+    // Add % suffix to left axis ticks
+    suffix_y_axis_percent(`#au_b_chart_${cat}`);
+    setTimeout(() => suffix_y_axis_percent(`#au_b_chart_${cat}`), 80);
+    setTimeout(() => suffix_y_axis_percent(`#au_b_chart_${cat}`), 200);
+    // Make the 2 target lines thin grey like screenshot
+    style_last_n_lines(`#au_b_chart_${cat}`, 2, AU_TARGET_LINE_HEX, "3");
+    setTimeout(() => style_last_n_lines(`#au_b_chart_${cat}`, 2, AU_TARGET_LINE_HEX, "3"), 120);
+  }
+
+  await render_wearcheck_latest_statuses(frm);
+
+  // re-apply label flags after charts are fully painted
+  if (window.__pe_wc_flagged_assets && window.__pe_wc_flagged_assets.size) {
+    pe_wc_flag_assets_on_charts(window.__pe_wc_flagged_assets);
   }
 }
 
@@ -1791,39 +2001,154 @@ function strip_tooltip_item(containerSelector, labelToRemove) {
   }, 0);
 }
 
-function style_invisible_first_line(containerSelector) {
-  // Hide the FIRST "line-ish" path (Ceil120 dataset is first)
+function suffix_y_axis_percent(containerSelector) {
+  try {
+    const root = document.querySelector(containerSelector);
+    if (!root) return;
+
+    const svg = root.querySelector("svg");
+    if (!svg) return;
+
+    const ticks = svg.querySelectorAll(".y.axis text");
+    ticks.forEach((t) => {
+      const s = (t.textContent || "").trim();
+      if (!s) return;
+      if (s.endsWith("%")) return;
+      if (!isNaN(Number(s))) t.textContent = `${s}%`;
+    });
+  } catch (e) {}
+}
+
+function remove_chart_legend(containerSelector) {
+  try {
+    const root = document.querySelector(containerSelector);
+    if (!root) return;
+
+    const legend = root.querySelector(".chart-legend");
+    if (legend) legend.remove();
+  } catch (e) {}
+}
+
+function style_last_n_lines(containerSelector, n, strokeHex, strokeWidth) {
   setTimeout(() => {
     try {
       const root = document.querySelector(containerSelector);
       if (!root) return;
 
-      const svgs = root.querySelectorAll("svg");
-      if (!svgs.length) return;
+      const svg = root.querySelector("svg");
+      if (!svg) return;
 
-      svgs.forEach((svg) => {
-        const paths = Array.from(svg.querySelectorAll("path"));
-        if (!paths.length) return;
+      const paths = Array.from(svg.querySelectorAll("path"));
+      const lineish = paths.filter((p) => {
+        const sw = parseFloat(p.getAttribute("stroke-width") || "0");
+        const fill = p.getAttribute("fill");
+        return sw >= 2 && (!fill || fill === "none");
+      });
 
-        const lineish = paths.filter((p) => {
-          const sw = parseFloat(p.getAttribute("stroke-width") || "0");
-          const fill = p.getAttribute("fill");
-          return sw >= 2 && (!fill || fill === "none");
-        });
+      if (!lineish.length) return;
 
-        if (!lineish.length) return;
-
-        const p = lineish[0];
-        p.setAttribute("stroke", "transparent");
-        p.setAttribute("stroke-opacity", "0");
-        p.setAttribute("stroke-width", "0");
+      const take = lineish.slice(Math.max(0, lineish.length - n));
+      take.forEach((p) => {
+        p.setAttribute("stroke", strokeHex);
+        p.setAttribute("stroke-width", String(strokeWidth || "3"));
+        p.setAttribute("stroke-dasharray", ""); // solid
       });
     } catch (e) {}
   }, 0);
 }
 
 
+async function render_wearcheck_latest_statuses(frm, opts) {
+  opts = opts || {};
+  const el3 = document.getElementById(opts.el3_id || "wc_status_3");
+  const el4 = document.getElementById(opts.el4_id || "wc_status_4");
+  // NOTE: do NOT return if missing elements (Graph B removed); we still want chart flagging
 
+  const site = (frm.doc.site_b || frm.doc.site || "").trim();
+
+  const mkTable = (rows) => {
+    if (!rows || !rows.length) return `<div class="text-muted" style="padding:6px 0;">No machines.</div>`;
+
+    const esc = escape_html;
+
+    const trunc = (s, n) => {
+      s = (s == null ? "" : String(s)).trim();
+      if (!s) return "";
+      return s.length > n ? `${s.slice(0, n)}…` : s;
+    };
+
+    return `
+      <table class="table table-bordered" style="width:100%; background:#fff;">
+        <thead>
+          <tr>
+            <th style="width:120px;">Machine</th>
+            <th style="width:110px;">Sample Date</th>
+            <th style="width:140px;">Component</th>
+            <th>Action</th>
+            <th>Feedback</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r) => {
+            const a = (r.actiontext || "");
+            const f = (r.feedbacktext || "");
+            return `
+              <tr>
+                <td><b>${esc(r.machine || "")}</b></td>
+                <td>${esc(r.sampledate ? frappe.datetime.str_to_user(r.sampledate) : "")}</td>
+                <td>${esc(r.component || "")}</td>
+                <td>${pe_wc_view_btn("Actions", a)}</td>
+                <td>${pe_wc_view_btn("Comments", f)}</td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    `;
+  };
+
+  try {
+    const resp = await frappe.call({
+      method: "is_production.production.doctype.production_efficiency.production_efficiency.get_latest_wearcheck_statuses",
+      args: { site: site || null },
+    });
+
+    const msg = resp && resp.message ? resp.message : {};
+
+    if (el3) el3.innerHTML = mkTable(msg.status_3 || []);
+    if (el4) el4.innerHTML = mkTable(msg.status_4 || []);
+
+    // Always flag charts (even if this block is rendered in Report tab only)
+    // Graph B labels come from Asset name (assets_c). Prefer r.asset / r.assets_c if present.
+    const pick_label = (r) => {
+      if (!r) return "";
+      const v =
+        r.asset != null ? r.asset :
+        r.assets_c != null ? r.assets_c :
+        r.machine != null ? r.machine :
+        "";
+      return String(v).replace(/\s+/g, "").trim().toUpperCase();
+    };
+
+    const flagged = new Set(
+      []
+        .concat(msg.status_3 || [], msg.status_4 || [])
+        .map(pick_label)
+        .filter(Boolean)
+    );
+
+    // keep globally so charts can re-apply after re-render
+    window.__pe_wc_flagged_assets = flagged;
+
+    // apply styling to chart x-axis labels
+    pe_wc_flag_assets_on_charts(flagged);
+  } catch (e) {
+    console.error(e);
+    const m = frappe.utils.escape_html(e?.message || String(e));
+    if (el3) el3.innerHTML = `<div class="text-danger">Failed to load WearCheck: ${m}</div>`;
+    if (el4) el4.innerHTML = `<div class="text-danger">Failed to load WearCheck: ${m}</div>`;
+  }
+}
 
 
 function compute_au_from_doc(frm) {
@@ -2095,6 +2420,15 @@ function build_au_report_html(frm, computed) {
       .peau-report .pe-mini tbody tr:nth-child(even) { background: #f8fafc; }
       .peau-report .pe-mini tbody tr:hover { background: #eef2ff; }
 
+
+      /* WearCheck block (Report B) */
+      .wc-col { border-radius: 12px; padding: 10px; }
+      .wc-col-3 { background: #fee2e2; }
+      .wc-col-4 { background: #fca5a5; color: #111827; }
+      .wc-col-4 h4 { color: #111827 !important; }
+      .wc-col-4 .text-muted { color: #111827 !important; }
+
+
       .peau-report .pe-empty {
         padding: 10px 12px;
         color: #64748b;
@@ -2124,7 +2458,7 @@ function build_au_report_html(frm, computed) {
       }
 
 
-    </style>
+</style>
 
     <div class="peau-wrap">
       <div class="peau-report">
@@ -2157,6 +2491,37 @@ function build_au_report_html(frm, computed) {
             </table>
           </div>
         </div>
+
+        <div class="peau-section">
+          <div class="peau-section-body">
+            <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; background:#fff;">
+              <div style="background:#f87171; color:#fff; padding:10px 12px; font-weight:900;">
+                WearCheck — Latest Status per Machine
+              </div>
+
+              <div style="padding:12px;">
+                <div class="pe-scroll">
+                  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start;">
+                    <div class="wc-col wc-col-3">
+                      <h4 style="margin:0 0 8px 0;">Urgent</h4>
+                      <div id="wc_report_status_3"></div>
+                    </div>
+
+                    <div class="wc-col wc-col-4">
+                      <h4 style="margin:0 0 8px 0; color:#fff;">Critical</h4>
+                      <div id="wc_report_status_4"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="text-muted" style="margin-top:8px; font-size:12px;">
+                  Machine · Sample Date · Component · Action · Feedback
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="peau-section">
           <div class="peau-section-head"><h4>Daily Performance — Availability</h4></div>
           <div class="peau-section-body">
