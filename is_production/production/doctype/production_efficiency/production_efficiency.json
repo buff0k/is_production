@@ -36,6 +36,8 @@
   "end_date_b",
   "utilisation_b",
   "availability_b",
+  "per_asset_availability",
+  "per_asset_utilisation",
   "comments_b_tab",
   "table_comments_b",
   "table_improvements_b",
@@ -246,12 +248,24 @@
    "fieldtype": "Table",
    "label": "Daily Performance (Utilisation)",
    "options": "Utilisation Day Entry"
+  },
+  {
+   "fieldname": "per_asset_availability",
+   "fieldtype": "Table",
+   "label": "Per Asset Availability",
+   "options": "Availability Child"
+  },
+  {
+   "fieldname": "per_asset_utilisation",
+   "fieldtype": "Table",
+   "label": "Per Asset Utilization",
+   "options": "Utilisation Child"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-20 06:56:21.541644",
+ "modified": "2026-02-20 15:55:48.849621",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Efficiency",

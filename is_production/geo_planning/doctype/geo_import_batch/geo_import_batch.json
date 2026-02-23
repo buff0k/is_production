@@ -5,18 +5,40 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "section_break_a3uy"
+  "geo_batch",
+  "geo_project",
+  "source",
+  "version_tag"
  ],
  "fields": [
   {
-   "fieldname": "section_break_a3uy",
-   "fieldtype": "Section Break"
+   "fieldname": "geo_batch",
+   "fieldtype": "Section Break",
+   "label": "Geo Batch"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "default": "Minex",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "\nMinex"
+  },
+  {
+   "fieldname": "version_tag",
+   "fieldtype": "Data",
+   "label": "Version Tag"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-14 14:55:21.363776",
+ "modified": "2026-02-23 05:30:56.264623",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Import Batch",

@@ -39,6 +39,26 @@ HOUR_SLOT_MAP = {
 # -------------------------------------------------------------------
 # A&U weekly engine (same query concept as engineering dashboard)
 # -------------------------------------------------------------------
+
+
+def _fetch_submitted_assets(site: str) -> list[dict]:
+    """Return submitted (docstatus=1) Assets for a site in AU_DB_CATEGORIES."""
+    site = (site or "").strip()
+    if not site:
+        return []
+
+    return frappe.get_all(
+        "Asset",
+        filters={
+            "docstatus": 1,
+            "location": site,
+            "asset_category": ["in", AU_DB_CATEGORIES],
+        },
+        fields=["name", "asset_name", "asset_category"],
+        order_by="asset_category asc, asset_name asc",
+        limit_page_length=5000,
+    )
+
 AU_DT = "Availability and Utilisation"
 AU_DB_CATEGORIES = ["ADT", "Excavator", "Dozer"]
 
@@ -162,35 +182,42 @@ def _get_slot_fields_for_day(day_field: str) -> list[str]:
     return v
 
 
-def _fetch_au_rows(site: str, start_date, end_date):
-    # Same concept as weekly_availability_and_utilisation_dashboard.py:fetch_site_rows
-    # Day + Night only (per requirement)
-    # A&U docs can be any status, but we only include categories that have submitted Assets (docstatus=1)
-    allowed_cats = _get_submitted_asset_categories()
-    if not allowed_cats:
+def _fetch_au_rows(site: str, start_date, end_date, asset_names: list[str] | None = None):
+    """
+    Fetch Availability & Utilisation rows for a site/date-range.
+
+    Notes:
+      - No docstatus filter on A&U docs (engine may leave them as Draft).
+      - No shift filter (supports both 2x12 (Day/Night) and 3x8 (Morning/Afternoon/Night)).
+      - If asset_names is provided, only those assets are included.
+    """
+    site = (site or "").strip()
+    if not site:
         return []
+
+    filters = {
+        "location": site,
+        "shift_date": ["between", [start_date, end_date]],
+        "asset_category": ["in", AU_DB_CATEGORIES],
+    }
+    if asset_names:
+        filters["asset_name"] = ["in", asset_names]
 
     return frappe.get_all(
         AU_DT,
-        filters={
-            "location": site,
-            "shift_date": ["between", [start_date, end_date]],
-            "shift": ["in", ["Day", "Night"]],
-            "asset_category": ["in", allowed_cats],
-            # NOTE: no docstatus filter on A&U docs
-        },
+        filters=filters,
         fields=[
             "shift_date",
             "shift",
             "asset_category",
+            "asset_name",
             "plant_shift_availability",
             "plant_shift_utilisation",
             "docstatus",
         ],
-        order_by="shift_date asc",
-        limit_page_length=5000,
+        order_by="shift_date asc, asset_category asc, asset_name asc, shift asc",
+        limit_page_length=50000,
     )
-
 
 def _compute_au_daily_averages(rows: list[dict]) -> dict:
     """
@@ -233,6 +260,273 @@ def _compute_au_daily_averages(rows: list[dict]) -> dict:
                 "util": (sum(uts) / len(uts)) if uts else None,
             }
     return out
+
+
+AU_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+def _norm(s: str | None) -> str:
+    return (s or "").strip().lower()
+
+def _avg(vals: list[float]) -> float | None:
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
+def _compute_au_asset_weekday_averages(rows: list[dict]) -> dict:
+    """
+    Keyed by asset_name (plant no):
+      { "<plant_no>": { "monday": {"avail":..., "util":...}, ... } }
+    """
+    bucket: dict[str, dict[str, dict[str, list[float]]]] = {}
+
+    for r in rows:
+        asset = (r.get("asset_name") or "").strip()
+        if not asset:
+            continue
+
+        try:
+            d = _to_date(r.get("shift_date"))
+        except Exception:
+            continue
+
+        day_field = DAY_TABLE_FIELDS.get(d.weekday())
+        if not day_field:
+            continue
+
+        rec = bucket.setdefault(asset, {}).setdefault(day_field, {"avail": [], "util": []})
+
+        av = r.get("plant_shift_availability")
+        ut = r.get("plant_shift_utilisation")
+        if av is not None:
+            try:
+                rec["avail"].append(float(av))
+            except Exception:
+                pass
+        if ut is not None:
+            try:
+                rec["util"].append(float(ut))
+            except Exception:
+                pass
+
+    out: dict[str, dict[str, dict[str, float | None]]] = {}
+    for asset, days in bucket.items():
+        out[asset] = {}
+        for day in AU_WEEKDAYS:
+            avs = (days.get(day, {}) or {}).get("avail", []) or []
+            uts = (days.get(day, {}) or {}).get("util", []) or []
+            out[asset][day] = {"avail": _avg(avs), "util": _avg(uts)}
+
+    return out
+
+def _detect_weekday_fields(child_meta) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+
+    # Prefer exact fieldnames first
+    for day in AU_WEEKDAYS:
+        if child_meta.has_field(day):
+            mapping[day] = day
+
+    # Fallback: match by label / abbreviations
+    for df in (child_meta.fields or []):
+        fn = _norm(df.fieldname)
+        lbl = _norm(df.label)
+
+        for day in AU_WEEKDAYS:
+            if day in mapping:
+                continue
+            abbr = day[:3]
+            if fn == day or lbl == day:
+                mapping[day] = df.fieldname
+            elif fn == abbr or lbl == abbr:
+                mapping[day] = df.fieldname
+            elif (fn.startswith(abbr) and len(fn) <= 5) or (lbl.startswith(abbr) and len(lbl) <= 5):
+                mapping[day] = df.fieldname
+
+    return mapping
+
+def _detect_asset_fields(child_meta) -> tuple[str | None, bool, str | None, str | None]:
+    """
+    Returns:
+      (asset_field, asset_is_link_to_asset, asset_name_field, asset_category_field)
+    """
+    best_asset = None
+    best_score = -1
+
+    asset_name_field = None
+    asset_category_field = None
+
+    for df in (child_meta.fields or []):
+        fn = _norm(df.fieldname)
+        lbl = _norm(df.label)
+
+        if not asset_name_field:
+            if fn in ("asset_name", "plant_no", "plant", "equipment_no", "equipment"):
+                asset_name_field = df.fieldname
+            elif "plant" in fn and df.fieldtype in ("Data", "Link"):
+                asset_name_field = df.fieldname
+            elif lbl in ("asset name", "plant", "plant no", "equipment", "equipment no"):
+                asset_name_field = df.fieldname
+
+        if not asset_category_field:
+            if fn in ("asset_category", "category"):
+                asset_category_field = df.fieldname
+            elif "category" in fn and df.fieldtype in ("Data", "Select", "Link"):
+                asset_category_field = df.fieldname
+            elif lbl in ("asset category", "category"):
+                asset_category_field = df.fieldname
+
+        score = 0
+        if df.fieldtype == "Link" and _norm(df.options) == "asset":
+            score += 100
+        if fn == "asset":
+            score += 90
+        if fn == "asset_name":
+            score += 80
+        if fn in ("plant_no", "plant", "equipment", "equipment_no"):
+            score += 70
+        if "asset" in fn:
+            score += 60
+        if "plant" in fn:
+            score += 50
+        if lbl in ("asset", "asset name", "plant", "plant no", "equipment", "equipment no"):
+            score += 40
+
+        if score > best_score and df.fieldtype in ("Link", "Data"):
+            best_score = score
+            best_asset = df
+
+    if not best_asset:
+        return None, False, asset_name_field, asset_category_field
+
+    return (
+        best_asset.fieldname,
+        bool(best_asset.fieldtype == "Link" and _norm(best_asset.options) == "asset"),
+        asset_name_field,
+        asset_category_field,
+    )
+
+def _weekday_label_from_date(d) -> str:
+    labels = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    return labels[_to_date(d).weekday()]
+
+
+def _compute_au_asset_date_averages(rows: list[dict]) -> dict:
+    """
+    Returns:
+      {
+        "<asset_name>": {
+          "YYYY-MM-DD": {"avail": float|None, "util": float|None},
+          ...
+        },
+        ...
+      }
+    Averages across all shifts found for that asset+date.
+    """
+    bucket: dict[str, dict[str, dict[str, list[float]]]] = {}
+
+    for r in rows:
+        asset = (r.get("asset_name") or "").strip()
+        if not asset:
+            continue
+
+        day = str(_to_date(r.get("shift_date")))
+        bucket.setdefault(asset, {}).setdefault(day, {"avail": [], "util": []})
+
+        av = r.get("plant_shift_availability")
+        ut = r.get("plant_shift_utilisation")
+
+        if av is not None:
+            try:
+                bucket[asset][day]["avail"].append(float(av))
+            except Exception:
+                pass
+
+        if ut is not None:
+            try:
+                bucket[asset][day]["util"].append(float(ut))
+            except Exception:
+                pass
+
+    out: dict[str, dict[str, dict[str, float | None]]] = {}
+    for asset, days in bucket.items():
+        out[asset] = {}
+        for day, vals in days.items():
+            avs = vals.get("avail", []) or []
+            uts = vals.get("util", []) or []
+            out[asset][day] = {
+                "avail": (sum(avs) / len(avs)) if avs else None,
+                "util": (sum(uts) / len(uts)) if uts else None,
+            }
+
+    return out
+
+
+def _populate_availability_child_rows(pe_doc: Document, assets: list[dict], asset_date: dict, start_date, end_date):
+    """
+    per_asset_availability (Availability Child):
+      date_ (reqd), weekdays_c (reqd), assets_c (Link Asset), availability_c
+    """
+    if not pe_doc.meta.has_field("per_asset_availability"):
+        return
+
+    pe_doc.set("per_asset_availability", [])
+
+    d = _to_date(start_date)
+    end_date = _to_date(end_date)
+
+    while d <= end_date:
+        day_key = str(d)
+        weekday_lbl = _weekday_label_from_date(d)
+
+        for a in (assets or []):
+            asset_docname = a.get("name")        # Asset docname (Link)
+            plant_no = a.get("asset_name") or "" # used in A&U rows
+
+            v = (asset_date.get(plant_no, {}) or {}).get(day_key, {}) or {}
+            row = pe_doc.append("per_asset_availability", {})
+            row.set("date_", d)
+            row.set("weekdays_c", weekday_lbl)
+            row.set("assets_c", asset_docname)
+            row.set("availability_c", v.get("avail"))
+
+        d = add_days(d, 1)
+
+
+def _populate_utilisation_child_rows(pe_doc: Document, assets: list[dict], asset_date: dict, start_date, end_date):
+    """
+    per_asset_utilisation (Utilisation Child):
+      date_d (reqd), weekdays_c (reqd), assets_c (Link Asset), utilasazation_c
+    """
+    if not pe_doc.meta.has_field("per_asset_utilisation"):
+        return
+
+    pe_doc.set("per_asset_utilisation", [])
+
+    d = _to_date(start_date)
+    end_date = _to_date(end_date)
+
+    while d <= end_date:
+        day_key = str(d)
+        weekday_lbl = _weekday_label_from_date(d)
+
+        for a in (assets or []):
+            asset_docname = a.get("name")        # Asset docname (Link)
+            plant_no = a.get("asset_name") or "" # used in A&U rows
+
+            v = (asset_date.get(plant_no, {}) or {}).get(day_key, {}) or {}
+            row = pe_doc.append("per_asset_utilisation", {})
+            row.set("date_d", d)
+            row.set("weekdays_c", weekday_lbl)
+            row.set("assets_c", asset_docname)
+            row.set("utilasazation_c", v.get("util"))
+
+        d = add_days(d, 1)
+
+
+def _populate_per_asset_tables(pe_doc: Document, assets: list[dict], au_rows: list[dict], start_date, end_date):
+    asset_date = _compute_au_asset_date_averages(au_rows)
+    _populate_availability_child_rows(pe_doc, assets, asset_date, start_date, end_date)
+    _populate_utilisation_child_rows(pe_doc, assets, asset_date, start_date, end_date)
 
 
 def _weekday_label(d) -> str:
@@ -377,53 +671,66 @@ def _get_hsc_production_excavators(site: str) -> int:
 
 
 def _update_single_pe_doc(doc: Document):
-    if not doc.site or not doc.start_date or not doc.end_date:
-        return
-
-    if doc.meta.has_field("production_excavators"):
-        try:
-            current_val = float(doc.get("production_excavators") or 0)
-        except Exception:
-            current_val = 0
-
-        if current_val <= 0:
-            default_val = _get_hsc_production_excavators(doc.site)
-            if default_val and default_val > 0:
-                doc.set("production_excavators", int(default_val))
-
-    start_date = _to_date(doc.start_date)
-    end_date = _to_date(doc.end_date)
-
-    day_data = _fetch_hourly_bcms(doc.site, start_date, end_date)
-    _populate_child_tables(doc, day_data)
-
-    if doc.meta.has_field("hourly_report"):
-        doc.set(
-            "hourly_report",
-            f"<div class='text-muted' style='padding:8px;'>Updated by server at: {frappe.utils.now()}</div>",
-        )
-
+    # -----------------------------
+    # Hourly Production -> day child tables
+    # -----------------------------
+    if doc.site and doc.start_date and doc.end_date:
+        hourly = _fetch_hourly_bcms(doc.site, doc.start_date, doc.end_date)
+        _populate_child_tables(doc, hourly)
 
     # -----------------------------
-    # A&U weekly update (current week Mon->Sun)
+    # A&U update (Information (A&U) tab drives the filters)
     # -----------------------------
-    if doc.meta.has_field("site_b") or doc.meta.has_field("availability_b") or doc.meta.has_field("utilisation_b"):
-        # default A&U header fields if present (do NOT affect production fields)
-        au_monday, au_sunday = _current_week_range_auto()
-
+    if (
+        doc.meta.has_field("site_b")
+        or doc.meta.has_field("availability_b")
+        or doc.meta.has_field("utilisation_b")
+        or doc.meta.has_field("per_asset_availability")
+        or doc.meta.has_field("per_asset_utilisation")
+    ):
+        # Site defaults: site_b -> site
         if doc.meta.has_field("site_b") and not doc.get("site_b") and doc.get("site"):
             doc.set("site_b", doc.get("site"))
+
+        au_site = (doc.get("site_b") or doc.get("site") or "").strip()
+
+        # Use start_date_b/end_date_b if set, else default to current Mon..Sun
+        au_start = doc.get("start_date_b")
+        au_end = doc.get("end_date_b")
+
+        if not au_start and not au_end:
+            au_start, au_end = _current_week_range_auto()
+        elif au_start and not au_end:
+            au_start = _to_date(au_start)
+            au_end = add_days(au_start, 6)
+        elif au_end and not au_start:
+            au_end = _to_date(au_end)
+            au_start = add_days(au_end, -6)
+
+        au_start = _to_date(au_start)
+        au_end = _to_date(au_end)
+        if au_start > au_end:
+            au_start, au_end = au_end, au_start
+
         if doc.meta.has_field("start_date_b"):
-            doc.set("start_date_b", au_monday)
+            doc.set("start_date_b", au_start)
         if doc.meta.has_field("end_date_b"):
-            doc.set("end_date_b", au_sunday)
+            doc.set("end_date_b", au_end)
 
-        au_site = (doc.get("site_b") or "").strip()
         if au_site:
-            au_rows = _fetch_au_rows(au_site, au_monday, au_sunday)
-            au_daily = _compute_au_daily_averages(au_rows)
+            # Y-axis: submitted assets only
+            assets = _fetch_submitted_assets(au_site)
+            asset_names = [a.get("asset_name") for a in (assets or []) if a.get("asset_name")]
 
-            _populate_au_tables(doc, au_daily, au_monday, au_sunday)
+            # Pull A&U values for those assets within the filtered range
+            au_rows = _fetch_au_rows(au_site, au_start, au_end, asset_names=asset_names) if asset_names else []
+
+            # Existing daily category tables
+            au_daily = _compute_au_daily_averages(au_rows)
+            _populate_au_tables(doc, au_daily, au_start, au_end)
+
+            # New: per-asset rows (Asset x Date)
+            _populate_per_asset_tables(doc, assets, au_rows, au_start, au_end)
 
             if doc.meta.has_field("html_report_b"):
                 doc.set(
@@ -445,6 +752,104 @@ def run_update(docname: str):
     frappe.db.commit()
 
     return {"ok": True, "message": "Updated and child tables repopulated."}
+
+
+
+@frappe.whitelist()
+def enqueue_run_update(docname: str):
+    """UI-safe: returns immediately, does the heavy work in background."""
+    frappe.enqueue(
+        method=_run_update_job,
+        queue="default",      # use default so it runs even if you don't have a "long" worker
+        timeout=1800,         # 30 min
+        docname=docname,
+        user=frappe.session.user,
+        job_name=f"pe_update::{docname}",
+    )
+    return {"ok": True, "queued": True}
+
+
+def _run_update_job(docname: str, user: str | None = None):
+    try:
+        doc = frappe.get_doc("Production Efficiency", docname)
+        _update_single_pe_doc(doc)
+        frappe.db.commit()
+
+        if user:
+            frappe.publish_realtime(
+                "production_efficiency_update_done",
+                {"docname": docname},
+                user=user,
+            )
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), f"PE update failed: {docname}")
+        if user:
+            frappe.publish_realtime(
+                "production_efficiency_update_done",
+                {"docname": docname, "error": "Update failed. Check Error Log."},
+                user=user,
+            )
+        raise
+
+@frappe.whitelist()
+def debug_au_graph_kpis(docname: str) -> dict:
+    """
+    Mirrors the Graph (A&U) KPI rules:
+      - If avail==0 and util==0 for a date => exclude that date entirely.
+      - If one has value, the other may be 0 => include the date.
+    Returns averages + the exact dates counted per category.
+    """
+    doc = frappe.get_doc("Production Efficiency", docname)
+
+    avail_by_date = {}
+    for r in (doc.get("availability_b") or []):
+        d = str(r.get("date_b") or "")
+        if not d:
+            continue
+        avail_by_date[d] = {
+            "ADT": float(r.get("adt_b") or 0),
+            "Excavator": float(r.get("excavator_b") or 0),
+            "Dozer": float(r.get("dozer_b") or 0),
+        }
+
+    util_by_date = {}
+    for r in (doc.get("utilisation_b") or []):
+        d = str(r.get("date_b_b") or "")
+        if not d:
+            continue
+        util_by_date[d] = {
+            "ADT": float(r.get("adt_b_b") or 0),
+            "Excavator": float(r.get("excavator_b_b") or 0),
+            "Dozer": float(r.get("dozer_b_b") or 0),
+        }
+
+    dates = sorted(set(list(avail_by_date.keys()) + list(util_by_date.keys())))
+
+    out = {}
+    for cat in AU_DB_CATEGORIES:
+        av_vals = []
+        ut_vals = []
+        used_dates = []
+
+        for d in dates:
+            a = float((avail_by_date.get(d, {}) or {}).get(cat) or 0)
+            u = float((util_by_date.get(d, {}) or {}).get(cat) or 0)
+
+            if a == 0 and u == 0:
+                continue
+
+            used_dates.append(d)
+            av_vals.append(a)
+            ut_vals.append(u)
+
+        out[cat] = {
+            "points": len(used_dates),
+            "dates_used": used_dates,
+            "avail_avg": (sum(av_vals) / len(av_vals)) if av_vals else 0,
+            "util_avg": (sum(ut_vals) / len(ut_vals)) if ut_vals else 0,
+        }
+
+    return out
 
 
 @frappe.whitelist()

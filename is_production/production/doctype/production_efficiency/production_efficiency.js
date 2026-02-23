@@ -1,7 +1,37 @@
 // is_production/production/doctype/production_efficiency/production_efficiency.js
 
+
+
+
+
 frappe.ui.form.on("Production Efficiency", {
   refresh(frm) {
+
+
+    if (!frm.__pe_rt_hooked) {
+      frm.__pe_rt_hooked = true;
+
+      frappe.realtime.on("production_efficiency_update_done", async (data) => {
+        if (!data || data.docname !== frm.doc.name) return;
+
+        if (data.error) {
+          frappe.msgprint({ title: "Run failed", indicator: "red", message: data.error });
+          return;
+        }
+
+        frappe.show_alert({ message: "Updated ✅", indicator: "green" });
+
+        await frm.reload_doc();
+        frm.trigger("render_graph");
+        frm.trigger("render_hourly_report");
+        frm.trigger("render_au_graph");
+        frm.trigger("render_au_report");
+      });
+    }
+
+
+
+
     frm.add_custom_button("Run", async () => {
       if (frm.is_new()) {
         frappe.msgprint("Please save the document first.");
@@ -16,19 +46,13 @@ frappe.ui.form.on("Production Efficiency", {
       try {
         await frappe.call({
           method:
-            "is_production.production.doctype.production_efficiency.production_efficiency.run_update",
+            "is_production.production.doctype.production_efficiency.production_efficiency.enqueue_run_update",
           args: { docname: frm.doc.name },
           freeze: true,
           freeze_message: "Updating Production Efficiency…",
         });
 
-        frappe.show_alert({ message: "Updated ✅", indicator: "green" });
-
-        await frm.reload_doc();
-        frm.trigger("render_graph");
-        frm.trigger("render_hourly_report");
-        frm.trigger("render_au_graph");
-        frm.trigger("render_au_report");
+        frappe.show_alert({ message: "Update queued…", indicator: "blue" });
 
       } catch (e) {
         console.error(e);
@@ -57,6 +81,37 @@ frappe.ui.form.on("Production Efficiency", {
     frm.trigger("render_graph");
     frm.trigger("render_hourly_report");
   },
+
+
+  // A&U fields should re-render A&U report/graph when edited
+  site_b(frm) {
+    frm.trigger("render_au_graph");
+    frm.trigger("render_au_report");
+  },
+  start_date_b(frm) {
+    frm.trigger("render_au_graph");
+    frm.trigger("render_au_report");
+  },
+  end_date_b(frm) {
+    frm.trigger("render_au_graph");
+    frm.trigger("render_au_report");
+  },
+  availability_b(frm) {
+    frm.trigger("render_au_graph");
+    frm.trigger("render_au_report");
+  },
+  utilisation_b(frm) {
+    frm.trigger("render_au_graph");
+    frm.trigger("render_au_report");
+  },
+  table_comments_b(frm) {
+    frm.trigger("render_au_report");
+  },
+  table_improvements_b(frm) {
+    frm.trigger("render_au_report");
+  },
+
+
   site(frm) {
     frm.trigger("render_graph");
     frm.trigger("render_hourly_report");
@@ -1253,6 +1308,137 @@ function format_child_value(raw, df) {
   return escape_html(String(raw));
 }
 
+
+function render_generic_child_table_precise(frm, child_doctype, rows) {
+  if (!rows || !rows.length) return `<div class="pe-empty">No rows.</div>`;
+
+  const meta = frappe.get_meta(child_doctype);
+  if (!meta) return `<div class="pe-empty">Could not load meta for ${escape_html(child_doctype)}.</div>`;
+
+  const cols = (meta.fields || []).filter((df) => {
+    if (!df.fieldname) return false;
+    if (df.hidden) return false;
+    if (["Section Break", "Column Break", "Tab Break", "HTML", "Button"].includes(df.fieldtype)) return false;
+    if (
+      ["parent", "parenttype", "parentfield", "idx", "doctype", "name", "owner", "creation", "modified", "modified_by"].includes(
+        df.fieldname
+      )
+    )
+      return false;
+    return true;
+  });
+
+  if (!cols.length) return `<div class="pe-empty">No displayable columns found.</div>`;
+
+  const head = cols.map((c) => `<th>${escape_html(c.label || c.fieldname)}</th>`).join("");
+
+  const body = rows
+    .map((r) => {
+      const tds = cols
+        .map((c) => {
+          const raw = r[c.fieldname];
+          const val = format_child_value_precise(raw, c);
+          return `<td>${val}</td>`;
+        })
+        .join("");
+      return `<tr>${tds}</tr>`;
+    })
+    .join("");
+
+  return `
+    <div class="pe-scroll">
+      <table class="pe-mini">
+        <thead><tr>${head}</tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function format_child_value_precise(raw, df) {
+  if (raw == null || raw === "") return "";
+
+  if (df.fieldtype === "Link") return escape_html(String(raw));
+  if (df.fieldtype === "Date") return escape_html(frappe.datetime.str_to_user(raw));
+  if (df.fieldtype === "Datetime") return escape_html(frappe.datetime.str_to_user(raw));
+
+  if (df.fieldtype === "Int") {
+    const n = flt(raw);
+    if (isNaN(n)) return escape_html(String(raw));
+    return escape_html(String(Math.trunc(n)));
+  }
+
+  if (["Float", "Currency", "Percent"].includes(df.fieldtype)) {
+    const n = flt(raw);
+    if (isNaN(n)) return escape_html(String(raw));
+
+    const precRaw = parseInt(df.precision, 10);
+    const prec = Number.isFinite(precRaw) ? precRaw : df.fieldtype === "Percent" ? 1 : 2;
+
+    const f = Math.pow(10, prec);
+    const r = Math.round(n * f) / f;
+
+    return escape_html(df.fieldtype === "Percent" ? `${r}%` : String(r));
+  }
+
+  return escape_html(String(raw));
+}
+
+function render_generic_child_table_precise_threshold(frm, child_doctype, rows, threshold) {
+  if (!rows || !rows.length) return `<div class="pe-empty">No rows.</div>`;
+
+  const meta = frappe.get_meta(child_doctype);
+  if (!meta) return `<div class="pe-empty">Could not load meta for ${escape_html(child_doctype)}.</div>`;
+
+  const cols = (meta.fields || []).filter((df) => {
+    if (!df.fieldname) return false;
+    if (df.hidden) return false;
+    if (["Section Break", "Column Break", "Tab Break", "HTML", "Button"].includes(df.fieldtype)) return false;
+    if (
+      ["parent", "parenttype", "parentfield", "idx", "doctype", "name", "owner", "creation", "modified", "modified_by"].includes(
+        df.fieldname
+      )
+    )
+      return false;
+    return true;
+  });
+
+  if (!cols.length) return `<div class="pe-empty">No displayable columns found.</div>`;
+
+  const head = cols.map((c) => `<th>${escape_html(c.label || c.fieldname)}</th>`).join("");
+
+  const body = rows
+    .map((r) => {
+      const tds = cols
+        .map((c) => {
+          const raw = r[c.fieldname];
+          const val = format_child_value_precise(raw, c);
+
+          // Highlight ONLY Percent cells
+          let cls = "";
+          if (c.fieldtype === "Percent") {
+            const n = flt(raw);
+            if (!isNaN(n)) cls = n >= threshold ? "peau-cell-good" : "peau-cell-bad";
+          }
+
+          return `<td class="${cls}">${val}</td>`;
+        })
+        .join("");
+      return `<tr>${tds}</tr>`;
+    })
+    .join("");
+
+  return `
+    <div class="pe-scroll">
+      <table class="pe-mini">
+        <thead><tr>${head}</tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+
 /* -------------------- formatting / helpers -------------------- */
 
 function trunc0(v) {
@@ -1343,21 +1529,40 @@ function compute_au_from_doc(frm) {
     };
   }
 
-  // dates = union
+  // dates = union (chronological)
   const dates = Array.from(new Set([...Object.keys(availByDate), ...Object.keys(utilByDate)])).sort();
 
-  // per category datasets
+  // per category datasets (ONLY keep points that appear on graph):
+  // - if (avail==0 && util==0) => drop the date entirely (not plotted, not averaged)
+  // - if one has value and the other is missing => keep date; missing side stays 0
   const byCat = {};
   for (const cat of AU_CATS) {
+    const labels = [];
+    const keptDates = [];
+    const availability = [];
+    const utilisation = [];
+
+    for (const d of dates) {
+      const a = trunc2((availByDate[d] || {})[cat] ?? 0);
+      const u = trunc2((utilByDate[d] || {})[cat] ?? 0);
+
+      if (a <= 0 && u <= 0) continue;
+
+      keptDates.push(d);
+      labels.push(d.slice(-2)); // day of month like dashboard
+      availability.push(a);
+      utilisation.push(u);
+    }
+
     byCat[cat] = {
-      labels: dates.map((d) => d.slice(-2)), // day of month like dashboard
-      dates,
-      availability: dates.map((d) => trunc2((availByDate[d] || {})[cat] ?? 0)),
-      utilisation: dates.map((d) => trunc2((utilByDate[d] || {})[cat] ?? 0)),
+      labels,
+      dates: keptDates,
+      availability,
+      utilisation,
     };
   }
 
-  // KPIs (simple averages across visible dates)
+  // KPIs (averages only across kept/plotted points)
   const kpis = {};
   for (const cat of AU_CATS) {
     const a = byCat[cat].availability;
@@ -1376,29 +1581,295 @@ function build_au_report_html(frm) {
   const start = escape_html(frm.doc.start_date_b || "");
   const end = escape_html(frm.doc.end_date_b || "");
 
-  const a = (frm.doc.availability_b || []).length;
-  const u = (frm.doc.utilisation_b || []).length;
+  const availRows = frm.doc.availability_b || [];
+  const utilRows = frm.doc.utilisation_b || [];
+
+  const commentRows = frm.doc.table_comments_b || [];
+  const improveRows = frm.doc.table_improvements_b || [];
 
   return `
-    <div style="padding:10px;">
-      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-        <h3 style="margin:0;">A&amp;U Report</h3>
-        <div style="color:#6b7280;font-size:12px;">${site} · ${start} → ${end}</div>
-      </div>
+    <style>
+      .peau-wrap {
+        padding: 16px;
+        background: #f1f5f9;
+      }
 
-      <div style="margin-top:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;overflow:hidden;">
-        <div style="padding:10px 12px;background:#f9fafb;border-bottom:1px solid #e5e7eb;">
-          <b>Rows loaded</b>
-          <div style="color:#6b7280;font-size:12px;margin-top:4px;">
-            Availability rows: <b>${a}</b> · Utilisation rows: <b>${u}</b>
+      .peau-report {
+        border: 2px solid #cbd5e1;
+        border-radius: 14px;
+        background: #ffffff;
+        overflow: hidden;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.10);
+      }
+
+      .peau-head {
+        padding: 14px 16px;
+        background: linear-gradient(90deg, #0f172a 0%, #1e293b 55%, #334155 100%);
+        color: #ffffff;
+      }
+
+      .peau-head h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 900;
+        letter-spacing: 0.2px;
+        color: #ffffff !important;
+      }
+
+      .peau-badges {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .peau-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.12);
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.95);
+      }
+
+      .peau-section {
+        border-top: 1px solid #e2e8f0;
+      }
+
+      .peau-section-head {
+        padding: 10px 16px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .peau-section-head h4 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 900;
+        color: #0f172a;
+      }
+
+      .peau-section-body {
+        padding: 12px 16px;
+      }
+
+      .peau-kv {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .peau-kv th,
+      .peau-kv td {
+        border: 1px solid #e2e8f0;
+        padding: 9px 10px;
+        font-size: 12px;
+        vertical-align: top;
+      }
+
+      /* Information (A&U): horizontal headings */
+      .peau-kv-h th {
+        width: auto !important;
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .peau-kv-h td {
+        text-align: center;
+        font-weight: 800;
+        background: #ffffff;
+      }
+
+
+      .peau-kv th {
+        width: 220px;
+        background: #eef2ff;
+        color: #0f172a;
+        font-weight: 900;
+      }
+
+      .peau-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .peau-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #ffffff;
+      }
+
+      .peau-card-head {
+        padding: 10px 12px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .peau-card-head h4 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 900;
+        color: #0f172a;
+      }
+
+      .peau-card-body {
+        padding: 12px;
+      }
+
+      /* Scope table styling ONLY to the A&U report container */
+      .peau-report .pe-scroll {
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-width: 100%;
+        padding-bottom: 6px;
+      }
+
+      .peau-report .pe-scroll::-webkit-scrollbar { height: 10px; }
+      .peau-report .pe-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 999px; }
+      .peau-report .pe-scroll::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 999px; }
+
+      .peau-report .pe-mini {
+        width: 100%;
+        min-width: 720px;
+        border-collapse: separate;
+        border-spacing: 0;
+      }
+
+      .peau-report .pe-mini th,
+      .peau-report .pe-mini td {
+        border: 1px solid #e2e8f0;
+        padding: 8px 10px;
+        font-size: 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .peau-report .pe-mini thead th {
+        background: #e2e8f0;
+        font-weight: 900;
+        color: #0f172a;
+      }
+
+      /* A&U % cell highlighting (cells only, light colors) */
+      .peau-report .peau-cell-good {
+        background: #dcfce7 !important;
+        color: #14532d !important;
+        font-weight: 900;
+      }
+
+      .peau-report .peau-cell-bad {
+        background: #fee2e2 !important;
+        color: #7f1d1d !important;
+        font-weight: 900;
+      }      
+
+      .peau-report .pe-mini tbody tr:nth-child(even) { background: #f8fafc; }
+      .peau-report .pe-mini tbody tr:hover { background: #eef2ff; }
+
+      .peau-report .pe-empty {
+        padding: 10px 12px;
+        color: #64748b;
+        font-size: 12px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 10px;
+        background: #f8fafc;
+      }
+
+      /* Notes tables: fit container, wrap text, no horizontal scrollbar */
+      .peau-noscr .pe-scroll {
+        overflow-x: visible !important;
+        padding-bottom: 0 !important;
+      }
+
+      .peau-noscr .pe-mini {
+        min-width: 0 !important;
+        width: 100% !important;
+        table-layout: fixed;
+      }
+
+      .peau-noscr .pe-mini th,
+      .peau-noscr .pe-mini td {
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+
+    </style>
+
+    <div class="peau-wrap">
+      <div class="peau-report">
+        <div class="peau-head">
+          <h3>A&amp;U Report</h3>
+          <div class="peau-badges">
+            ${site ? `<span class="peau-badge"><b>Site</b>: ${site}</span>` : ``}
+            ${(start || end) ? `<span class="peau-badge"><b>Period</b>: ${start || "—"} → ${end || "—"}</span>` : ``}
           </div>
         </div>
 
-        <div style="padding:10px 12px;">
-          <div class="text-muted" style="font-size:12px;">
-            This tab is driven from the “Availability and Utilisation” child tables (Availability_B / Utilisation_B).
+        <div class="peau-section">
+          <div class="peau-section-head"><h4>Information (A&amp;U)</h4></div>
+          <div class="peau-section-body">
+            <table class="peau-kv peau-kv-h">
+              <thead>
+                <tr>
+                  <th>Site</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>${site || "—"}</td>
+                  <td>${start || "—"}</td>
+                  <td>${end || "—"}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
+        <div class="peau-section">
+          <div class="peau-section-head"><h4>Daily Performance — Availability</h4></div>
+          <div class="peau-section-body">
+            ${render_generic_child_table_precise_threshold(frm, "Availability Day Entry 1", availRows, 85)}
+          </div>
+        </div>
+
+        <div class="peau-section">
+          <div class="peau-section-head"><h4>Daily Performance — Utilisation</h4></div>
+          <div class="peau-section-body">
+            ${render_generic_child_table_precise_threshold(frm, "Utilisation Day Entry", utilRows, 80)}
+          </div>
+        </div>
+
+        <div class="peau-section">
+          <div class="peau-section-body">
+            <div class="peau-grid">
+              <div class="peau-card">
+                <div class="peau-card-head"><h4>Comments on Past 7 Days</h4></div>
+                <div class="peau-card-body">
+                  <div class="peau-noscr">
+                    ${render_generic_child_table(frm, "Availability and Utilisation Efficiency Comments", commentRows)}
+                  </div>
+                </div>
+              </div>
+
+              <div class="peau-card">
+                <div class="peau-card-head"><h4>Improvement / Recommendation for Next 7 Days</h4></div>
+                <div class="peau-card-body">
+                  <div class="peau-noscr">
+                    ${render_generic_child_table(frm, "Availability and Utilisation Efficiency Improvements", improveRows)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   `;
