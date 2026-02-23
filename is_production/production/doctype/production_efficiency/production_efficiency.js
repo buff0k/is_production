@@ -235,8 +235,12 @@ frappe.ui.form.on("Production Efficiency", {
     }
 
     try {
-      const html = build_au_report_html(frm);
+      const computed = compute_au_from_doc(frm);
+      const html = build_au_report_html(frm, computed);
       frm.fields_dict.html_report_b.$wrapper.html(html);
+
+      // IMPORTANT: charts must be rendered AFTER the HTML is in the DOM
+      render_au_graph_charts(computed);
     } catch (e) {
       console.error(e);
       frm.fields_dict.html_report_b.$wrapper.html(
@@ -251,26 +255,27 @@ frappe.ui.form.on("Production Efficiency", {
   },
 
   render_au_graph(frm) {
-    // A&U graph field (last tab)
+    // Graph B (A&U): Per-asset graphs (fleet on X-axis)
     if (!frm.fields_dict.html_graph_b) return;
 
     if (frm.is_new()) {
       frm.fields_dict.html_graph_b.$wrapper.html(
-        `<div class="text-muted" style="padding:10px;">Save the document to generate the A&amp;U graph.</div>`
+        `<div class="text-muted" style="padding:10px;">Save the document to generate the A&amp;U per-asset graphs.</div>`
       );
       return;
     }
 
     try {
-      const computed = compute_au_from_doc(frm);
-      const html = build_au_graph_html(frm, computed);
+      const html = build_au_graph_b_html(frm);
       frm.fields_dict.html_graph_b.$wrapper.html(html);
-      render_au_graph_charts(computed);
+
+      // charts after HTML is inserted
+      render_au_graph_b_charts(frm);
     } catch (e) {
       console.error(e);
       frm.fields_dict.html_graph_b.$wrapper.html(
         `<div class="text-danger" style="padding:10px;">
-          Failed to render A&amp;U graph.<br>
+          Failed to render Graph B (A&amp;U).<br>
           <pre style="white-space:pre-wrap;">${frappe.utils.escape_html(
             e?.stack || e?.message || String(e)
           )}</pre>
@@ -1501,6 +1506,241 @@ const AU_CATS = ["ADT", "Excavator", "Dozer"];
 const AU_AVAIL_COLOR = "#f59e0b"; // orange
 const AU_UTIL_COLOR = "#6b7280";  // grey
 
+
+const AU_CAP100_NAME = "Cap100";
+const AU_CAP100_HEX = "rgba(0,0,0,0)"; // invisible
+
+function build_au_graph_b_html(frm) {
+  const site = escape_html(frm.doc.site_b || frm.doc.site || "");
+  const start = escape_html(frm.doc.start_date_b || "");
+  const end = escape_html(frm.doc.end_date_b || "");
+
+  return `
+    <style>
+      .aub-wrap { padding: 12px; }
+      .aub-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px; }
+      .aub-meta { color:#6b7280; font-size:12px; }
+
+      .aub-block { border:1px solid #e2e8f0; border-radius:12px; background:#fff; overflow:hidden; margin-bottom:12px; }
+      .aub-h { padding:10px 12px; background:#0f172a; color:#fff; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+      .aub-h b { font-size:14px; }
+      .aub-note { color: rgba(255,255,255,0.85); font-size:12px; }
+
+      .aub-b { padding:10px 12px; }
+      .aub-chart { min-height: 320px; }
+      .aub-legend { margin-top:8px; font-size:12px; color:#6b7280; display:flex; gap:12px; flex-wrap:wrap; }
+      .aub-pill { display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border:1px solid #e2e8f0; border-radius:999px; background:#fff; }
+      .aub-dot { width:10px; height:10px; border-radius:999px; display:inline-block; }
+      .aub-dot-av { background:${AU_AVAIL_COLOR}; }
+      .aub-dot-ut { background:${AU_UTIL_COLOR}; }
+    </style>
+
+    <div class="aub-wrap">
+      <div class="aub-head">
+        <h3 style="margin:0;">Graph B (A&amp;U) — Per Asset</h3>
+        <div class="aub-meta">${site} · ${start || "—"} → ${end || "—"}</div>
+      </div>
+
+      ${AU_CATS.map((cat) => `
+        <div class="aub-block">
+          <div class="aub-h">
+            <b>${escape_html(cat)}</b>
+          </div>
+          <div class="aub-b">
+            <div id="au_b_chart_${escape_html(cat)}" class="aub-chart"></div>
+            <div class="aub-legend">
+              <span class="aub-pill"><span class="aub-dot aub-dot-av"></span>Availability %</span>
+              <span class="aub-pill"><span class="aub-dot aub-dot-ut"></span>Utilisation %</span>
+            </div>
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+async function render_au_graph_b_charts(frm) {
+  const aRows = (frm.doc.per_asset_availability || []).map((r) => ({ ...r }));
+  const uRows = (frm.doc.per_asset_utilisation || []).map((r) => ({ ...r }));
+
+  const start = frm.doc.start_date_b || null;
+  const end = frm.doc.end_date_b || null;
+
+  const inRange = (d) => {
+    if (!d) return true;
+    if (start && d < start) return false;
+    if (end && d > end) return false;
+    return true;
+  };
+
+  const aFilt = aRows.filter((r) => inRange(r.date_));
+  const uFilt = uRows.filter((r) => inRange(r.date_d));
+
+  const assets = Array.from(
+    new Set([
+      ...aFilt.map((r) => (r.assets_c == null ? "" : String(r.assets_c)).trim()).filter(Boolean),
+      ...uFilt.map((r) => (r.assets_c == null ? "" : String(r.assets_c)).trim()).filter(Boolean),
+    ])
+  );
+
+  if (!assets.length) {
+    for (const cat of AU_CATS) {
+      const el = document.getElementById(`au_b_chart_${cat}`);
+      if (el) el.innerHTML = `<div class="text-muted" style="padding:8px;">No per-asset rows to chart.</div>`;
+    }
+    return;
+  }
+
+  const assetMeta = await frappe.call({
+    method: "frappe.client.get_list",
+    args: {
+      doctype: "Asset",
+      fields: ["name", "asset_category"],
+      filters: [["name", "in", assets]],
+      limit_page_length: assets.length,
+    },
+  });
+
+  const rows = (assetMeta && assetMeta.message) ? assetMeta.message : [];
+  const catByAsset = {};
+  for (const r of rows) {
+    const n = (r.name == null ? "" : String(r.name)).trim();
+    const c = (r.asset_category == null ? "" : String(r.asset_category)).trim();
+    if (n) catByAsset[n] = c;
+  }
+
+  const bucketCat = (assetCategory) => {
+    const s = (assetCategory || "").toLowerCase();
+    if (s.includes("adt")) return "ADT";
+    if (s.includes("excav")) return "Excavator";
+    if (s.includes("dozer")) return "Dozer";
+    return null;
+  };
+
+  const avgFrom = (vals) => (vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0);
+
+  const availByAsset = {};
+  const utilByAsset = {};
+
+  for (const a of assets) {
+    const aVals = [];
+    const uVals = [];
+
+    const days = new Set([
+      ...aFilt.filter((r) => String(r.assets_c || "").trim() === a).map((r) => r.date_),
+      ...uFilt.filter((r) => String(r.assets_c || "").trim() === a).map((r) => r.date_d),
+    ]);
+
+    for (const d of Array.from(days).filter(Boolean).sort()) {
+      const ar = aFilt.find((r) => String(r.assets_c || "").trim() === a && r.date_ === d);
+      const ur = uFilt.find((r) => String(r.assets_c || "").trim() === a && r.date_d === d);
+
+      const av = trunc2(asNumber(ar ? ar.availability_c : 0));
+      const ut = trunc2(asNumber(ur ? ur.utilasazation_c : 0));
+
+      if (av <= 0 && ut <= 0) continue;
+
+      aVals.push(av);
+      uVals.push(ut);
+    }
+
+    availByAsset[a] = trunc2(avgFrom(aVals));
+    utilByAsset[a] = trunc2(avgFrom(uVals));
+  }
+
+  for (const cat of AU_CATS) {
+    const el = document.getElementById(`au_b_chart_${cat}`);
+    if (!el) continue;
+
+    const items = assets
+      .map((a) => ({ a, bucket: bucketCat(catByAsset[a] || "") }))
+      .filter((x) => x.bucket === cat)
+      .map((x) => x.a)
+      .sort((a, b) => a.localeCompare(b));
+
+    if (!items.length) {
+      el.innerHTML = `<div class="text-muted" style="padding:8px;">No ${escape_html(cat)} assets found in per-asset rows.</div>`;
+      continue;
+    }
+
+    const labels = items;
+    const availVals = items.map((a) => availByAsset[a] || 0);
+    const utilVals = items.map((a) => utilByAsset[a] || 0);
+
+    const datasets = [
+      { name: "Availability %", values: availVals, chartType: "bar" },
+      { name: "Utilisation %", values: utilVals, chartType: "bar" },
+      { name: AU_CAP100_NAME, values: new Array(labels.length).fill(100), chartType: "line" },
+    ];
+
+    new frappe.Chart(`#au_b_chart_${cat}`, {
+      title: "",
+      data: { labels, datasets },
+      type: "axis-mixed",
+      height: 320,
+      axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
+      barOptions: { stacked: false, spaceRatio: 0.55 },
+      lineOptions: { dotSize: 0, regionFill: 0 },
+      colors: [AU_AVAIL_COLOR, AU_UTIL_COLOR, AU_CAP100_HEX],
+    });
+
+    strip_legend_item(`#au_b_chart_${cat}`, AU_CAP100_NAME);
+    style_invisible_last_line(`#au_b_chart_${cat}`);
+  }
+}
+
+function strip_legend_item(containerSelector, labelToRemove) {
+  setTimeout(() => {
+    try {
+      const root = document.querySelector(containerSelector);
+      if (!root) return;
+      const legend = root.querySelector(".chart-legend");
+      if (!legend) return;
+
+      const items = Array.from(legend.querySelectorAll("*"));
+      for (const el of items) {
+        const t = (el.textContent || "").trim();
+        if (t === labelToRemove) {
+          const li = el.closest("li") || el.closest(".legend-item") || el;
+          li.remove();
+        }
+      }
+    } catch (e) {}
+  }, 0);
+}
+
+function style_invisible_last_line(containerSelector) {
+  setTimeout(() => {
+    try {
+      const root = document.querySelector(containerSelector);
+      if (!root) return;
+
+      const svgs = root.querySelectorAll("svg");
+      if (!svgs.length) return;
+
+      svgs.forEach((svg) => {
+        const paths = Array.from(svg.querySelectorAll("path"));
+        if (!paths.length) return;
+
+        const lineish = paths.filter((p) => {
+          const sw = parseFloat(p.getAttribute("stroke-width") || "0");
+          const fill = p.getAttribute("fill");
+          return sw >= 2 && (!fill || fill === "none");
+        });
+
+        if (lineish.length) {
+          const p = lineish[lineish.length - 1];
+          p.setAttribute("stroke", "transparent");
+          p.setAttribute("stroke-opacity", "0");
+          p.setAttribute("stroke-width", "0");
+        }
+      });
+    } catch (e) {}
+  }, 0);
+}
+
+
+
 function compute_au_from_doc(frm) {
   const availRows = (frm.doc.availability_b || []).map((r) => ({ ...r }));
   const utilRows = (frm.doc.utilisation_b || []).map((r) => ({ ...r }));
@@ -1576,7 +1816,7 @@ function compute_au_from_doc(frm) {
   return { dates, byCat, kpis };
 }
 
-function build_au_report_html(frm) {
+function build_au_report_html(frm, computed) {
   const site = escape_html(frm.doc.site_b || frm.doc.site || "");
   const start = escape_html(frm.doc.start_date_b || "");
   const end = escape_html(frm.doc.end_date_b || "");
@@ -1866,6 +2106,45 @@ function build_au_report_html(frm) {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="peau-section">
+          <div class="peau-section-head"><h4>A&amp;U Dashboard</h4></div>
+          <div class="peau-section-body">
+            <style>
+              .peau-auwrap { padding: 2px 0; }
+              .peau-aublock { border: 1px solid #e2e8f0; border-radius: 12px; background:#fff; overflow:hidden; margin-bottom: 12px; }
+              .peau-auh { padding: 10px 12px; background:#f8fafc; border-bottom: 1px solid #e2e8f0; }
+              .peau-auh b { font-size: 13px; }
+              .peau-aukpis { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
+              .peau-aupill { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; font-size:12px; background:#fff; border:1px solid #e2e8f0; }
+              .peau-audot { width:10px; height:10px; border-radius:999px; display:inline-block; }
+              .peau-audot-av { background:${AU_AVAIL_COLOR}; }
+              .peau-audot-ut { background:${AU_UTIL_COLOR}; }
+              .peau-aucharts { padding: 10px 12px; }
+              .peau-auchart { min-height: 260px; }
+            </style>
+
+            <div class="peau-auwrap">
+              ${AU_CATS.map((cat, idx) => {
+                const bg = idx === 0 ? "#eaf4ff" : idx === 1 ? "#f3e8ff" : "#eaf4ff";
+                return `
+                  <div class="peau-aublock">
+                    <div class="peau-auh" style="background:${bg};">
+                      <b>${escape_html(cat)}'s (AVG)</b>
+                      <div class="peau-aukpis">
+                        <span class="peau-aupill"><span class="peau-audot peau-audot-av"></span>Availability <b>${formatPercent1(computed.kpis[cat].avail_avg)}</b></span>
+                        <span class="peau-aupill"><span class="peau-audot peau-audot-ut"></span>Utilisation <b>${formatPercent1(computed.kpis[cat].util_avg)}</b></span>
+                      </div>
+                    </div>
+                    <div class="peau-aucharts">
+                      <div id="au_chart_${escape_html(cat)}" class="peau-auchart"></div>
+                    </div>
+                  </div>
+                `;
+              }).join("")}
             </div>
           </div>
         </div>
