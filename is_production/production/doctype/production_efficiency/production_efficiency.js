@@ -1419,9 +1419,9 @@ function render_generic_child_table_precise_threshold(frm, child_doctype, rows, 
           const raw = r[c.fieldname];
           const val = format_child_value_precise(raw, c);
 
-          // Highlight ONLY Percent cells
+          // Highlight ONLY % columns (your A&U tables are Float, not Percent)
           let cls = "";
-          if (c.fieldtype === "Percent") {
+          if (c.fieldtype === "Percent" || c.fieldtype === "Float") {
             const n = flt(raw);
             if (!isNaN(n)) cls = n >= threshold ? "peau-cell-good" : "peau-cell-bad";
           }
@@ -1507,8 +1507,12 @@ const AU_AVAIL_COLOR = "#f59e0b"; // orange
 const AU_UTIL_COLOR = "#6b7280";  // grey
 
 
-const AU_CAP100_NAME = "Cap100";
-const AU_CAP100_HEX = "rgba(0,0,0,0)"; // invisible
+const AU_CEIL_NAME = "Ceil120";
+const AU_CEIL_HEX = "rgba(0,0,0,0)"; // invisible
+
+const AU_TARGET_AVAIL = 85;
+const AU_TARGET_UTIL = 80;
+const AU_TARGET_HEX = "#111827"; // target line color
 
 function build_au_graph_b_html(frm) {
   const site = escape_html(frm.doc.site_b || frm.doc.site || "");
@@ -1667,10 +1671,31 @@ async function render_au_graph_b_charts(frm) {
     const availVals = items.map((a) => availByAsset[a] || 0);
     const utilVals = items.map((a) => utilByAsset[a] || 0);
 
+    // Force Y-axis to at least 120%.
+    // Only expand above 120 when actual data exceeds 120.
+    const maxVal = Math.max(
+      ...availVals.map((x) => asNumber(x)),
+      ...utilVals.map((x) => asNumber(x)),
+      0
+    );
+
+    let ceil = 120;
+    if (maxVal > 120) {
+      ceil = Math.ceil(maxVal / 10) * 10; // 121 -> 130, 168 -> 170, etc.
+    }
+
+    const targetAvailLabel = `Availability Target ${AU_TARGET_AVAIL}%`;
+    const targetUtilLabel = `Utilisation Target ${AU_TARGET_UTIL}%`;
+
+    // Put Ceil120 FIRST so we can reliably hide the first line path
     const datasets = [
+      { name: AU_CEIL_NAME, values: new Array(labels.length).fill(ceil), chartType: "line" },
+
       { name: "Availability %", values: availVals, chartType: "bar" },
       { name: "Utilisation %", values: utilVals, chartType: "bar" },
-      { name: AU_CAP100_NAME, values: new Array(labels.length).fill(100), chartType: "line" },
+
+      { name: targetAvailLabel, values: new Array(labels.length).fill(AU_TARGET_AVAIL), chartType: "line" },
+      { name: targetUtilLabel, values: new Array(labels.length).fill(AU_TARGET_UTIL), chartType: "line" },
     ];
 
     new frappe.Chart(`#au_b_chart_${cat}`, {
@@ -1681,16 +1706,32 @@ async function render_au_graph_b_charts(frm) {
       axisOptions: { xAxisMode: "tick", yAxisMode: "span" },
       barOptions: { stacked: false, spaceRatio: 0.55 },
       lineOptions: { dotSize: 0, regionFill: 0 },
-      colors: [AU_AVAIL_COLOR, AU_UTIL_COLOR, AU_CAP100_HEX],
+      colors: [AU_CEIL_HEX, AU_AVAIL_COLOR, AU_UTIL_COLOR, AU_AVAIL_COLOR, AU_UTIL_COLOR],
     });
 
-    strip_legend_item(`#au_b_chart_${cat}`, AU_CAP100_NAME);
-    style_invisible_last_line(`#au_b_chart_${cat}`);
+    // remove legends + tooltip rows we don't want
+    strip_legend_item(`#au_b_chart_${cat}`, targetAvailLabel);
+    strip_legend_item(`#au_b_chart_${cat}`, targetUtilLabel);
+    strip_legend_item(`#au_b_chart_${cat}`, AU_CEIL_NAME);
+
+    strip_tooltip_item(`#au_b_chart_${cat}`, targetAvailLabel);
+    strip_tooltip_item(`#au_b_chart_${cat}`, targetUtilLabel);
+    strip_tooltip_item(`#au_b_chart_${cat}`, AU_CEIL_NAME);
+
+    // hide Ceil120 line (first line dataset)
+    // hide Ceil120 line (sometimes it draws after a tick)
+    style_invisible_first_line(`#au_b_chart_${cat}`);
+    setTimeout(() => style_invisible_first_line(`#au_b_chart_${cat}`), 80);
+    setTimeout(() => style_invisible_first_line(`#au_b_chart_${cat}`), 200);
   }
 }
 
 function strip_legend_item(containerSelector, labelToRemove) {
-  setTimeout(() => {
+  // Removes legend items even when Frappe truncates text to "Availability Ta..."
+  const want = (labelToRemove || "").trim();
+  if (!want) return;
+
+  const run = () => {
     try {
       const root = document.querySelector(containerSelector);
       if (!root) return;
@@ -1700,16 +1741,58 @@ function strip_legend_item(containerSelector, labelToRemove) {
       const items = Array.from(legend.querySelectorAll("*"));
       for (const el of items) {
         const t = (el.textContent || "").trim();
-        if (t === labelToRemove) {
+        if (!t) continue;
+
+        // exact or prefix match (handles truncation)
+        if (t === want || want.startsWith(t) || t.startsWith(want)) {
           const li = el.closest("li") || el.closest(".legend-item") || el;
           li.remove();
         }
       }
     } catch (e) {}
+  };
+
+  // run twice (legend often renders after a tick)
+  setTimeout(run, 0);
+  setTimeout(run, 80);
+}
+
+
+function strip_tooltip_item(containerSelector, labelToRemove) {
+  const want = (labelToRemove || "").trim();
+  if (!want) return;
+
+  setTimeout(() => {
+    try {
+      const root = document.querySelector(containerSelector);
+      if (!root) return;
+
+      const obs = new MutationObserver(() => {
+        try {
+          const tips = document.querySelectorAll(".graph-svg-tip");
+          tips.forEach((tip) => {
+            const nodes = Array.from(tip.querySelectorAll("*"));
+            nodes.forEach((n) => {
+              const t = (n.textContent || "").trim();
+              if (!t) return;
+
+              if (t === want || want.startsWith(t) || t.startsWith(want)) {
+                const row = n.closest("li") || n.closest(".tooltip-row") || n.parentElement;
+                if (row) row.remove();
+              }
+            });
+          });
+        } catch (e) {}
+      });
+
+      obs.observe(root, { subtree: true, childList: true });
+      setTimeout(() => obs.disconnect(), 1500);
+    } catch (e) {}
   }, 0);
 }
 
-function style_invisible_last_line(containerSelector) {
+function style_invisible_first_line(containerSelector) {
+  // Hide the FIRST "line-ish" path (Ceil120 dataset is first)
   setTimeout(() => {
     try {
       const root = document.querySelector(containerSelector);
@@ -1728,16 +1811,18 @@ function style_invisible_last_line(containerSelector) {
           return sw >= 2 && (!fill || fill === "none");
         });
 
-        if (lineish.length) {
-          const p = lineish[lineish.length - 1];
-          p.setAttribute("stroke", "transparent");
-          p.setAttribute("stroke-opacity", "0");
-          p.setAttribute("stroke-width", "0");
-        }
+        if (!lineish.length) return;
+
+        const p = lineish[0];
+        p.setAttribute("stroke", "transparent");
+        p.setAttribute("stroke-opacity", "0");
+        p.setAttribute("stroke-width", "0");
       });
     } catch (e) {}
   }, 0);
 }
+
+
 
 
 

@@ -67,6 +67,7 @@ def execute(filters=None):
     mtd_waste = mtd_actual_bcms - (mtd_coal / 1.5) if mtd_coal else (mtd_actual_bcms or 0)
 
     # ===== Daily Productivity =====
+    # NOTE: We are ONLY changing the Excavator Productivity table output/columns.
     excavator_prod, dozer_prod = get_daily_productivity(site, getdate(end_date), shift)
 
     # ===== Build HTML =====
@@ -407,6 +408,65 @@ def get_actual_dozer_for_day(site, date, shift=None):
 
 
 # ---------------------------------------------------------
+# ✅ Non-Production Worked Hours map (for SAME day) -> Equipment Breakdown
+# (Used ONLY for Excavator Productivity table adjustments)
+# ---------------------------------------------------------
+def get_non_prod_hours_for_day(site, date, shift=None):
+    """
+    Returns dict: {machine_name: non_prod_hours}
+    Doctype: Non-Production Worked Hours (parent) + Equipment Breakdown (child)
+    Matches the logic pattern from 'Total Worked Hours vs Production Hours' report.
+    """
+    if not date:
+        return {}
+
+    parent_dt = "Non-Production Worked Hours"
+    child_dt = "Equipment Breakdown"
+
+    params = []
+    conds = ["p.docstatus < 2", "p.shift_date = %s"]
+    params.append(date)
+
+    # Site/Shift field detection (same defensive logic as your other report)
+    parent_meta = frappe.get_meta(parent_dt)
+    site_field = "location" if parent_meta.has_field("location") else ("site" if parent_meta.has_field("site") else None)
+    shift_field = "shift" if parent_meta.has_field("shift") else None
+
+    if site and site_field:
+        conds.append(f"p.`{site_field}` = %s")
+        params.append(site)
+
+    if shift and shift_field:
+        conds.append("p.shift = %s")
+        params.append(shift)
+
+    where_sql = " AND ".join(conds)
+
+    rows = frappe.db.sql(
+        f"""
+        SELECT
+            c.machine AS machine,
+            COALESCE(SUM(COALESCE(c.hours, 0)), 0) AS non_prod_hours
+        FROM `tab{parent_dt}` p
+        INNER JOIN `tab{child_dt}` c ON c.parent = p.name
+        WHERE {where_sql}
+        GROUP BY c.machine
+        """,
+        params,
+        as_dict=True,
+    )
+
+    out = {}
+    for r in rows or []:
+        m = (r.get("machine") or "").strip()
+        if not m:
+            continue
+        out[m] = out.get(m, 0) + (r.get("non_prod_hours") or 0)
+
+    return out
+
+
+# ---------------------------------------------------------
 # ✅ Daily Productivity (summarized)
 # ---------------------------------------------------------
 def get_daily_productivity(site, date, shift=None):
@@ -456,18 +516,35 @@ def get_daily_productivity(site, date, shift=None):
 
     hours_map = {(r.asset_name or "").strip(): r.working_hours or 0 for r in preuse_rows if r.asset_name}
 
+    # NEW: non-production hours map for this day (used ONLY for excavators table)
+    non_prod_map = get_non_prod_hours_for_day(site=site, date=date, shift=shift)
+
     excavator_data, dozer_data = [], []
 
+    # ----- Excavators (UPDATED output fields for the table in screenshot) -----
     for r in truck_rows:
         name = (r.excavator or "").strip()
         if not name:
             continue
-        output = r.bcm_output or 0
 
-        hours = hours_map.get(name, 0)
-        prod = round(output / hours, 2) if hours > 0 else 0
-        excavator_data.append({"asset_name": name, "hours": hours, "output": output, "productivity": prod})
+        bcm = r.bcm_output or 0
+        preuse_hours = hours_map.get(name, 0) or 0
+        non_prod_hours = non_prod_map.get(name, 0) or 0
+        prod_hours = preuse_hours - non_prod_hours
 
+        # Match the other report: rate = BCMs / Production Hours
+        rate = round(bcm / prod_hours, 2) if prod_hours else 0
+
+        excavator_data.append({
+            "asset_name": name,
+            "preuse_hours": preuse_hours,
+            "non_prod_hours": non_prod_hours,
+            "prod_hours": prod_hours,
+            "output": bcm,
+            "productivity": rate
+        })
+
+    # ----- Dozers (UNCHANGED) -----
     for r in dozer_rows:
         name = (r.dozer or "").strip()
         if not name:
@@ -569,11 +646,12 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
     </div>
     """
 
+    # ✅ ONLY Excavator Productivity table changed. Dozer Productivity stays untouched.
     bottom_html = f"""
     <hr class='full-line'>
     <div class='bottom-prod'>
         <div class='prod-table'>
-            {build_prod_table("Excavator Productivity (Day Tallies)", excavator_prod, fmt, td, th, section, table, red, green)}
+            {build_excavator_prod_table("Excavator Productivity (Day Tallies)", excavator_prod, fmt, td, th, section, table)}
         </div>
         <div class='prod-table'>
             {build_prod_table("Dozer Productivity (Day Tallies)", dozer_prod, fmt, td, th, section, table, red, green)}
@@ -631,6 +709,97 @@ def build_machine_tables(excavators, dozers, fmt, td, th, section, table):
     return exc_table, dozer_table
 
 
+# ---------------------------------------------------------
+# ✅ Excavator Productivity table (UPDATED to match the other report logic)
+# ---------------------------------------------------------
+def build_excavator_prod_table(title, rows, fmt, td, th, section, table):
+    """
+    Columns required:
+      - Machine
+      - Pre-Use Hours
+      - Non-Production Worked Hours
+      - Production Hours
+      - BCM's  (unchanged)
+      - BCM per Hour = BCM's / Production Hours
+    """
+    if not rows:
+        return f"""
+        <div style="{section} margin-top:10px;">{title}</div>
+        <table style="{table}">
+            <tr>
+                <th style="{th}">Machine</th>
+                <th style="{th}">Pre-Use Hours</th>
+                <th style="{th}">Non-Production Worked Hours</th>
+                <th style="{th}">Production Hours</th>
+                <th style="{th}">BCM's</th>
+                <th style="{th}">BCM per Hour</th>
+            </tr>
+            <tr><td colspan="6" style="{td}">No data found</td></tr>
+        </table>
+        """
+
+    prod_rows = ""
+    total_preuse = 0
+    total_nonprod = 0
+    total_prod = 0
+    total_bcm = 0
+
+    for r in rows:
+        name = r.get("asset_name") or ""
+        preuse = r.get("preuse_hours") or 0
+        nonprod = r.get("non_prod_hours") or 0
+        prodh = r.get("prod_hours") or 0
+        bcm = r.get("output") or 0
+
+        rate = round(bcm / prodh, 2) if prodh else 0
+
+        total_preuse += preuse
+        total_nonprod += nonprod
+        total_prod += prodh
+        total_bcm += bcm
+
+        prod_rows += (
+            f"<tr>"
+            f"<td style='{td}'>{name}</td>"
+            f"<td style='{td}'>{fmt(preuse)}</td>"
+            f"<td style='{td}'>{fmt(nonprod)}</td>"
+            f"<td style='{td}'>{fmt(prodh)}</td>"
+            f"<td style='{td}'>{fmt(bcm)}</td>"
+            f"<td style='{td}'>{fmt(rate)}</td>"
+            f"</tr>"
+        )
+
+    total_rate = round(total_bcm / total_prod, 2) if total_prod else 0
+    prod_rows += (
+        f"<tr style='background-color:#f2f2f2;font-weight:bold;'>"
+        f"<td style='{td}'>Total</td>"
+        f"<td style='{td}'>{fmt(total_preuse)}</td>"
+        f"<td style='{td}'>{fmt(total_nonprod)}</td>"
+        f"<td style='{td}'>{fmt(total_prod)}</td>"
+        f"<td style='{td}'>{fmt(total_bcm)}</td>"
+        f"<td style='{td}'>{fmt(total_rate)}</td>"
+        f"</tr>"
+    )
+
+    return f"""
+    <div style="{section} margin-top:10px;">{title}</div>
+    <table style="{table}">
+        <tr>
+            <th style="{th}">Machine</th>
+            <th style="{th}">Pre-Use Hours</th>
+            <th style="{th}">Non-Production Worked Hours</th>
+            <th style="{th}">Production Hours</th>
+            <th style="{th}">BCM's</th>
+            <th style="{th}">BCM per Hour</th>
+        </tr>
+        {prod_rows}
+    </table>
+    """
+
+
+# ---------------------------------------------------------
+# Dozer Productivity table (UNCHANGED)
+# ---------------------------------------------------------
 def build_prod_table(title, rows, fmt, td, th, section, table, red, green):
     prod_rows = "".join(
         f"<tr><td style='{td}'>{r['asset_name']}</td>"
