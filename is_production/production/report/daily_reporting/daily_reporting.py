@@ -67,7 +67,7 @@ def execute(filters=None):
     mtd_waste = mtd_actual_bcms - (mtd_coal / 1.5) if mtd_coal else (mtd_actual_bcms or 0)
 
     # ===== Daily Productivity =====
-    # NOTE: We are ONLY changing the Excavator Productivity table output/columns.
+    # NOTE: Only the Excavator Productivity table output/columns are changed.
     excavator_prod, dozer_prod = get_daily_productivity(site, getdate(end_date), shift)
 
     # ===== Build HTML =====
@@ -186,12 +186,6 @@ def _classify_material(mat_type: str) -> str:
 
 
 def get_daily_bcms_by_material(site, date, shift=None):
-    """
-    Returns dict like {'Coal': x, 'Hards': y, 'Softs': z, 'Other': a, 'Unassigned': b}
-    Uses the SAME fields as Production Shift Material:
-      - Truck Loads: tl.mat_type
-      - Dozer Production: dp.dozer_geo_mat_layer (treated as mat_type)
-    """
     if not site or not date:
         return {}
 
@@ -408,15 +402,10 @@ def get_actual_dozer_for_day(site, date, shift=None):
 
 
 # ---------------------------------------------------------
-# ✅ Non-Production Worked Hours map (for SAME day) -> Equipment Breakdown
-# (Used ONLY for Excavator Productivity table adjustments)
+# ✅ Non-Production Worked Hours (day) -> Equipment Breakdown
+# (Used ONLY for Excavator Productivity table columns)
 # ---------------------------------------------------------
 def get_non_prod_hours_for_day(site, date, shift=None):
-    """
-    Returns dict: {machine_name: non_prod_hours}
-    Doctype: Non-Production Worked Hours (parent) + Equipment Breakdown (child)
-    Matches the logic pattern from 'Total Worked Hours vs Production Hours' report.
-    """
     if not date:
         return {}
 
@@ -427,7 +416,6 @@ def get_non_prod_hours_for_day(site, date, shift=None):
     conds = ["p.docstatus < 2", "p.shift_date = %s"]
     params.append(date)
 
-    # Site/Shift field detection (same defensive logic as your other report)
     parent_meta = frappe.get_meta(parent_dt)
     site_field = "location" if parent_meta.has_field("location") else ("site" if parent_meta.has_field("site") else None)
     shift_field = "shift" if parent_meta.has_field("shift") else None
@@ -516,12 +504,12 @@ def get_daily_productivity(site, date, shift=None):
 
     hours_map = {(r.asset_name or "").strip(): r.working_hours or 0 for r in preuse_rows if r.asset_name}
 
-    # NEW: non-production hours map for this day (used ONLY for excavators table)
+    # Only used for excavator productivity additional columns
     non_prod_map = get_non_prod_hours_for_day(site=site, date=date, shift=shift)
 
     excavator_data, dozer_data = [], []
 
-    # ----- Excavators (UPDATED output fields for the table in screenshot) -----
+    # ----- Excavators (UPDATED fields for screenshot table) -----
     for r in truck_rows:
         name = (r.excavator or "").strip()
         if not name:
@@ -532,8 +520,8 @@ def get_daily_productivity(site, date, shift=None):
         non_prod_hours = non_prod_map.get(name, 0) or 0
         prod_hours = preuse_hours - non_prod_hours
 
-        # Match the other report: rate = BCMs / Production Hours
-        rate = round(bcm / prod_hours, 2) if prod_hours else 0
+        # BCM per Hour = BCMs / Production Hours
+        rate = round((bcm / prod_hours), 2) if prod_hours else 0
 
         excavator_data.append({
             "asset_name": name,
@@ -559,7 +547,7 @@ def get_daily_productivity(site, date, shift=None):
 
 
 # ---------------------------------------------------------
-# ✅ HTML Layout (order + label changes)
+# ✅ HTML Layout
 # ---------------------------------------------------------
 def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
                mtd_coal, mtd_waste,
@@ -622,12 +610,10 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
             <tr><td style="{td}">Forecast</td><td style="{td}">{fmt(mpp.month_forecated_bcm if mpp else 0)}</td></tr>
             <tr><td style="{td}">Daily Target</td><td style="{td}">{fmt(mpp.target_bcm_day if mpp else 0)}</td></tr>
 
-            <!-- ✅ ORDER REQUESTED -->
             <tr><td style="{td}">Daily Achieved</td><td style="{td}">{fmt(daily_achieved)}</td></tr>
             <tr><td style="{td}">Daily Dozing BCMs</td><td style="{td}">{fmt(actual_dozer_day)}</td></tr>
             <tr><td style="{td}">Daily TS BCMs</td><td style="{td}">{fmt(actual_ts_day)}</td></tr>
 
-            <!-- ✅ LABELS REQUESTED -->
             <tr><td style="{td}">Daily Coal BCMs TS</td><td style="{td}">{fmt(daily_coal)}</td></tr>
             <tr><td style="{td}">Daily Hards BCMs</td><td style="{td}">{fmt(daily_hards)}</td></tr>
             <tr><td style="{td}">Daily Softs BCMs TS</td><td style="{td}">{fmt(daily_softs)}</td></tr>
@@ -651,7 +637,7 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
     <hr class='full-line'>
     <div class='bottom-prod'>
         <div class='prod-table'>
-            {build_excavator_prod_table("Excavator Productivity (Day Tallies)", excavator_prod, fmt, td, th, section, table)}
+            {build_excavator_prod_table("Excavator Productivity (Day Tallies)", excavator_prod, td, th, section, table)}
         </div>
         <div class='prod-table'>
             {build_prod_table("Dozer Productivity (Day Tallies)", dozer_prod, fmt, td, th, section, table, red, green)}
@@ -710,78 +696,61 @@ def build_machine_tables(excavators, dozers, fmt, td, th, section, table):
 
 
 # ---------------------------------------------------------
-# ✅ Excavator Productivity table (UPDATED to match the other report logic)
+# ✅ Excavator Productivity table (ONLY table changed)
 # ---------------------------------------------------------
-def build_excavator_prod_table(title, rows, fmt, td, th, section, table):
+def build_excavator_prod_table(title, rows, td, th, section, table):
     """
-    Columns required:
+    Columns:
       - Machine
       - Pre-Use Hours
       - Non-Production Worked Hours
       - Production Hours
-      - BCM's  (unchanged)
-      - BCM per Hour = BCM's / Production Hours
+      - BCM's
+      - BCM per Hour (BCM's / Production Hours)
+    BCM per Hour color rules:
+      - 0 => red
+      - 200-219.999.. => orange
+      - >= 220 => green
+      - else => red
     """
-    if not rows:
-        return f"""
-        <div style="{section} margin-top:10px;">{title}</div>
-        <table style="{table}">
-            <tr>
-                <th style="{th}">Machine</th>
-                <th style="{th}">Pre-Use Hours</th>
-                <th style="{th}">Non-Production Worked Hours</th>
-                <th style="{th}">Production Hours</th>
-                <th style="{th}">BCM's</th>
-                <th style="{th}">BCM per Hour</th>
-            </tr>
-            <tr><td colspan="6" style="{td}">No data found</td></tr>
-        </table>
-        """
 
-    prod_rows = ""
-    total_preuse = 0
-    total_nonprod = 0
-    total_prod = 0
-    total_bcm = 0
+    def fmt_hours(x):
+        # show decimals for hours (e.g. 0.45), but keep clean for whole numbers
+        try:
+            val = float(x or 0)
+        except Exception:
+            return "0"
+        if abs(val - round(val)) < 1e-9:
+            return f"{int(round(val))}"
+        return f"{val:.2f}"
 
-    for r in rows:
-        name = r.get("asset_name") or ""
-        preuse = r.get("preuse_hours") or 0
-        nonprod = r.get("non_prod_hours") or 0
-        prodh = r.get("prod_hours") or 0
-        bcm = r.get("output") or 0
+    def fmt_bcm(x):
+        try:
+            val = float(x or 0)
+        except Exception:
+            return "0"
+        # BCMs usually whole in your UI; keep integer formatting
+        return f"{int(round(val)):,}"
 
-        rate = round(bcm / prodh, 2) if prodh else 0
+    def fmt_rate(x):
+        try:
+            val = float(x or 0)
+        except Exception:
+            val = 0.0
+        # show 2 decimals for rate
+        return f"{val:.2f}"
 
-        total_preuse += preuse
-        total_nonprod += nonprod
-        total_prod += prodh
-        total_bcm += bcm
+    def rate_color(rate):
+        # exact rules requested
+        if rate == 0:
+            return "#b30000"  # red
+        if 200 <= rate < 220:
+            return "#ff8c00"  # orange
+        if rate >= 220:
+            return "#006600"  # green
+        return "#b30000"      # red for anything below 200 but not 0
 
-        prod_rows += (
-            f"<tr>"
-            f"<td style='{td}'>{name}</td>"
-            f"<td style='{td}'>{fmt(preuse)}</td>"
-            f"<td style='{td}'>{fmt(nonprod)}</td>"
-            f"<td style='{td}'>{fmt(prodh)}</td>"
-            f"<td style='{td}'>{fmt(bcm)}</td>"
-            f"<td style='{td}'>{fmt(rate)}</td>"
-            f"</tr>"
-        )
-
-    total_rate = round(total_bcm / total_prod, 2) if total_prod else 0
-    prod_rows += (
-        f"<tr style='background-color:#f2f2f2;font-weight:bold;'>"
-        f"<td style='{td}'>Total</td>"
-        f"<td style='{td}'>{fmt(total_preuse)}</td>"
-        f"<td style='{td}'>{fmt(total_nonprod)}</td>"
-        f"<td style='{td}'>{fmt(total_prod)}</td>"
-        f"<td style='{td}'>{fmt(total_bcm)}</td>"
-        f"<td style='{td}'>{fmt(total_rate)}</td>"
-        f"</tr>"
-    )
-
-    return f"""
+    header = f"""
     <div style="{section} margin-top:10px;">{title}</div>
     <table style="{table}">
         <tr>
@@ -792,9 +761,60 @@ def build_excavator_prod_table(title, rows, fmt, td, th, section, table):
             <th style="{th}">BCM's</th>
             <th style="{th}">BCM per Hour</th>
         </tr>
-        {prod_rows}
-    </table>
     """
+
+    if not rows:
+        return header + f"<tr><td colspan='6' style='{td}'>No data found</td></tr></table>"
+
+    total_preuse = 0.0
+    total_nonprod = 0.0
+    total_prod = 0.0
+    total_bcm = 0.0
+
+    body_rows = ""
+    for r in rows:
+        name = (r.get("asset_name") or "").strip()
+        preuse = float(r.get("preuse_hours") or 0)
+        nonprod = float(r.get("non_prod_hours") or 0)
+        prodh = float(r.get("prod_hours") or 0)
+        bcm = float(r.get("output") or 0)
+
+        # BCM per Hour = BCMs / Production Hours
+        rate = (bcm / prodh) if prodh else 0.0
+
+        total_preuse += preuse
+        total_nonprod += nonprod
+        total_prod += prodh
+        total_bcm += bcm
+
+        color = rate_color(rate)
+
+        body_rows += (
+            f"<tr>"
+            f"<td style='{td}'>{name}</td>"
+            f"<td style='{td}'>{fmt_hours(preuse)}</td>"
+            f"<td style='{td}'>{fmt_hours(nonprod)}</td>"
+            f"<td style='{td}'>{fmt_hours(prodh)}</td>"
+            f"<td style='{td}'>{fmt_bcm(bcm)}</td>"
+            f"<td style='{td}'><span style='color:{color};'>{fmt_rate(rate)}</span></td>"
+            f"</tr>"
+        )
+
+    total_rate = (total_bcm / total_prod) if total_prod else 0.0
+    total_color = rate_color(total_rate)
+
+    body_rows += (
+        f"<tr style='background-color:#f2f2f2;font-weight:bold;'>"
+        f"<td style='{td}'>Total</td>"
+        f"<td style='{td}'>{fmt_hours(total_preuse)}</td>"
+        f"<td style='{td}'>{fmt_hours(total_nonprod)}</td>"
+        f"<td style='{td}'>{fmt_hours(total_prod)}</td>"
+        f"<td style='{td}'>{fmt_bcm(total_bcm)}</td>"
+        f"<td style='{td}'><span style='color:{total_color};'>{fmt_rate(total_rate)}</span></td>"
+        f"</tr>"
+    )
+
+    return header + body_rows + "</table>"
 
 
 # ---------------------------------------------------------
