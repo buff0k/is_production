@@ -1740,6 +1740,18 @@ function pe_wc_view_btn(label, value) {
   return `<button class="btn btn-default btn-xs pe-wc-view" data-label="${esc(label)}" data-value="${esc(v)}">View</button>`;
 }
 
+
+function pe_wc_view_btn_html(label, html_body) {
+  const raw = (html_body || "").trim();
+  if (!raw) return "";
+  const esc = frappe.utils.escape_html;
+
+  // base64 encode to safely carry HTML through data-attrs
+  const b64 = btoa(unescape(encodeURIComponent(raw)));
+
+  return `<button class="btn btn-default btn-xs pe-wc-view-html" data-label="${esc(label)}" data-html="${esc(b64)}">View</button>`;
+}
+
 function pe_wc_flag_assets_on_charts(flaggedSet) {
   try {
     if (!flaggedSet || !flaggedSet.size) return;
@@ -1795,14 +1807,35 @@ function pe_wc_flag_assets_on_charts(flaggedSet) {
 // Bind once (event delegation) - WearCheck View buttons
 if (!window.__pe_wc_view_bound) {
   window.__pe_wc_view_bound = true;
-  document.addEventListener("click", (ev) => {
-    const btn = ev.target && ev.target.closest ? ev.target.closest(".pe-wc-view") : null;
-    if (!btn) return;
-    ev.preventDefault();
 
-    const label = btn.getAttribute("data-label") || "Details";
-    const value = btn.getAttribute("data-value") || "";
-    pe_wc_open_popup(label, value);
+  document.addEventListener("click", (ev) => {
+    // Plain-text popup
+    const btnText = ev.target && ev.target.closest ? ev.target.closest(".pe-wc-view") : null;
+    if (btnText) {
+      ev.preventDefault();
+      const label = btnText.getAttribute("data-label") || "Details";
+      const value = btnText.getAttribute("data-value") || "";
+      pe_wc_open_popup(label, value);
+      return;
+    }
+
+    // HTML popup (grouped actions by component)
+    const btnHtml = ev.target && ev.target.closest ? ev.target.closest(".pe-wc-view-html") : null;
+    if (btnHtml) {
+      ev.preventDefault();
+      const label = btnHtml.getAttribute("data-label") || "Details";
+      const b64 = btnHtml.getAttribute("data-html") || "";
+
+      let html = "";
+      try {
+        html = decodeURIComponent(escape(atob(b64)));
+      } catch (e) {
+        html = "<div class='pe-wc-text'>Could not load details.</div>";
+      }
+
+      pe_wc_open_popup_html(label, html);
+      return;
+    }
   });
 }
 
@@ -1850,15 +1883,24 @@ function pe_au_pick_person_name(rows) {
   return "";
 }
 
-function pe_au_build_notes_popup_html(title, rows) {
+function pe_au_build_notes_popup_html(title, rows, textField) {
   const esc = frappe.utils.escape_html;
 
   if (!rows || !rows.length) {
     return `<div class="pe-wc-text">No rows.</div>`;
   }
 
+  const field = (textField || "").trim();
+
   const pickText = (r) => {
     if (!r) return "";
+
+    // Explicit fieldnames (from your bench console)
+    if (field && r[field] != null && String(r[field]).trim().length) {
+      return String(r[field]).trim();
+    }
+
+    // Fallback: old heuristic
     const k = Object.keys(r || {})
       .filter((x) => typeof r[x] === "string" && String(r[x]).trim().length)
       .sort((a, b) => String(r[b] || "").length - String(r[a] || "").length)[0];
@@ -1867,7 +1909,6 @@ function pe_au_build_notes_popup_html(title, rows) {
 
   const txt = rows.map(pickText).filter(Boolean).join("\n\n");
 
-  // ONLY the comment text
   return `<div class="pe-wc-text" style="white-space:pre-wrap;">${esc(txt || "—")}</div>`;
 }
 
@@ -1888,14 +1929,14 @@ if (!window.__pe_au_notes_bound) {
 
     if (key === "comments") {
       const rows = frm.doc.table_comments_b || [];
-      const html = pe_au_build_notes_popup_html("Comments on Past 7 Days", rows);
+      const html = pe_au_build_notes_popup_html("Comments on Past 7 Days", rows, "comments_b");
       pe_wc_open_popup_html("Comments on Past 7 Days", html);
       return;
     }
 
     if (key === "improvements") {
       const rows = frm.doc.table_improvements_b || [];
-      const html = pe_au_build_notes_popup_html("Improvement for Next 7 Days", rows);
+      const html = pe_au_build_notes_popup_html("Improvement for Next 7 Days", rows, "improve_b");
       pe_wc_open_popup_html("Improvement for Next 7 Days", html);
       return;
     }
@@ -2480,12 +2521,6 @@ async function render_wearcheck_latest_statuses(frm, opts) {
 
     const esc = escape_html;
 
-    const trunc = (s, n) => {
-      s = (s == null ? "" : String(s)).trim();
-      if (!s) return "";
-      return s.length > n ? `${s.slice(0, n)}…` : s;
-    };
-
     return `
       <table class="table table-bordered" style="width:100%; background:#fff;">
         <thead>
@@ -2493,23 +2528,21 @@ async function render_wearcheck_latest_statuses(frm, opts) {
             <th style="width:120px;">Machine</th>
             <th style="width:110px;">Register Date</th>
             <th style="width:110px;">Sample Date</th>
-            <th style="width:140px;">Component</th>
+            <th style="width:220px;">Components</th>
             <th>Action</th>
-            <th>Feedback</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map((r) => {
-            const a = (r.action_text || "");
-            const f = (r.feedback_text || "");
+            const comps = (r.components || []).map((x) => String(x || "").trim()).filter(Boolean);
+            const actionsHtml = (r.actions_html || "").trim();
             return `
               <tr>
                 <td><b>${esc(r.asset || "")}</b></td>
                 <td>${esc(r.register_date ? frappe.datetime.str_to_user(r.register_date) : "")}</td>
                 <td>${esc(r.sample_date ? frappe.datetime.str_to_user(r.sample_date) : "")}</td>
-                <td>${esc(r.component || "")}</td>
-                <td>${pe_wc_view_btn("Actions", a)}</td>
-                <td>${pe_wc_view_btn("Comments", f)}</td>
+                <td>${esc(comps.join(", "))}</td>
+                <td>${pe_wc_view_btn_html("Actions", actionsHtml)}</td>
               </tr>
             `;
           }).join("")}
@@ -2525,8 +2558,9 @@ async function render_wearcheck_latest_statuses(frm, opts) {
     // -----------------------------
     const snap = (frm.doc.sample_child || []).map((r) => ({ ...r }));
 
-    // de-dupe per asset (worst status wins, latest register_date wins)
-    const best = {};
+    // Group by (asset + status bucket), list components; asset can appear in BOTH buckets
+    const grouped = {}; // key = `${asset}||${status}` -> {asset,status,register_date,sample_date,components:Set, actions:[]}
+
     for (const r of snap) {
       const asset = (r.asset == null ? "" : String(r.asset)).trim();
       if (!asset) continue;
@@ -2534,25 +2568,57 @@ async function render_wearcheck_latest_statuses(frm, opts) {
       const st = parseInt(r.status || 0, 10) || 0;
       if (st !== 3 && st !== 4) continue;
 
-      const rd = r.register_date || "";
-
-      if (!best[asset]) {
-        best[asset] = r;
-        continue;
+      const key = `${asset}||${st}`;
+      if (!grouped[key]) {
+        grouped[key] = {
+          asset,
+          status: st,
+          register_date: r.register_date || "",
+          sample_date: r.sample_date || "",
+          components: new Set(),
+          actions: [],
+        };
       }
 
-      const cur = best[asset];
-      const curSt = parseInt(cur.status || 0, 10) || 0;
-      const curRd = cur.register_date || "";
+      // latest register_date/sample_date per bucket (best-effort)
+      const rd = r.register_date || "";
+      if (rd && rd > (grouped[key].register_date || "")) {
+        grouped[key].register_date = rd;
+        grouped[key].sample_date = r.sample_date || grouped[key].sample_date;
+      }
 
-      if (st > curSt) best[asset] = r;
-      else if (st === curSt && rd > curRd) best[asset] = r;
+      const comp = (r.component == null ? "" : String(r.component)).trim();
+      if (comp) grouped[key].components.add(comp);
+
+      const act = (r.action_text == null ? "" : String(r.action_text)).trim();
+      if (act) grouped[key].actions.push({ component: comp || "(No component)", text: act });
     }
 
-    const picked = Object.values(best);
+    const picked = Object.values(grouped).map((g) => {
+      const actionsHtml = (g.actions || [])
+        .map((x) => {
+          const c = escape_html(x.component || "");
+          const t = escape_html(x.text || "").replace(/\n/g, "<br>");
+          return `<div style="margin-bottom:10px;"><b>${c}</b><div>${t}</div></div>`;
+        })
+        .join("");
+
+      return {
+        asset: g.asset,
+        status: g.status,
+        register_date: g.register_date,
+        sample_date: g.sample_date,
+        components: Array.from(g.components || []),
+        actions_html: actionsHtml,
+      };
+    });
 
     const status_4 = picked.filter((r) => (parseInt(r.status || 0, 10) || 0) === 4);
     const status_3 = picked.filter((r) => (parseInt(r.status || 0, 10) || 0) === 3);
+
+    // stable ordering
+    status_3.sort((a, b) => String(b.register_date || "").localeCompare(String(a.register_date || "")) || String(a.asset || "").localeCompare(String(b.asset || "")));
+    status_4.sort((a, b) => String(b.register_date || "").localeCompare(String(a.register_date || "")) || String(a.asset || "").localeCompare(String(b.asset || "")));
 
     if (el3) el3.innerHTML = mkTable(status_3);
     if (el4) el4.innerHTML = mkTable(status_4);
@@ -2918,6 +2984,23 @@ function build_au_report_html(frm, computed) {
         padding: 6px 12px !important;
         line-height: 1 !important;
       }
+
+
+
+      /* keep the new html button class looking the same as the old one */
+      .peau-report .pe-wc-view-html.btn.btn-xs {
+        border: 0 !important;
+        background: linear-gradient(90deg, #0f172a 0%, #1f2937 55%, #475569 100%) !important;
+        color: #fff !important;
+        box-shadow: 0 6px 16px rgba(15,23,42,.18);
+        font-weight: 900 !important;
+        border-radius: 999px !important;
+        padding: 6px 12px !important;
+        line-height: 1 !important;
+      }
+
+
+
 
       .peau-oil-link:hover,
       .peau-report .pe-wc-view.btn.btn-xs:hover {
