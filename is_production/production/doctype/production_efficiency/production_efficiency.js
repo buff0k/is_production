@@ -3110,10 +3110,26 @@ function build_au_report_html(frm, computed) {
               .peau-auh { padding: 10px 12px; background:#f8fafc; border-bottom: 1px solid #e2e8f0; }
               .peau-auh b { font-size: 13px; }
               .peau-aukpis { display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; }
-              .peau-aupill { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; font-size:12px; background:#fff; border:1px solid #e2e8f0; }
+
+              /* pills sit on a white background, so force dark text */
+              .peau-aupill {
+                display:inline-flex;
+                gap:8px;
+                align-items:center;
+                padding:6px 10px;
+                border-radius:999px;
+                font-size:12px;
+                background:#fff;
+                border:1px solid #e2e8f0;
+                color:#0f172a !important;
+                font-weight: 800;
+              }
+              .peau-aupill b { color:#0f172a !important; }
+
               .peau-audot { width:10px; height:10px; border-radius:999px; display:inline-block; }
               .peau-audot-av { background:${AU_AVAIL_COLOR}; }
               .peau-audot-ut { background:${AU_UTIL_COLOR}; }
+
               .peau-aucharts { padding: 10px 12px; }
               .peau-auchart { min-height: 260px; }
 
