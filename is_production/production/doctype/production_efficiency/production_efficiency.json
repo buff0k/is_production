@@ -38,6 +38,7 @@
   "availability_b",
   "per_asset_availability",
   "per_asset_utilisation",
+  "sample_child",
   "comments_b_tab",
   "table_comments_b",
   "table_improvements_b",
@@ -260,12 +261,18 @@
    "fieldtype": "Table",
    "label": "Per Asset Utilization",
    "options": "Utilisation Child"
+  },
+  {
+   "fieldname": "sample_child",
+   "fieldtype": "Table",
+   "label": "Sample Efficiency Child",
+   "options": "Sample Efficiency Child"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-20 15:55:48.849621",
+ "modified": "2026-02-26 11:11:50.287802",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production Efficiency",

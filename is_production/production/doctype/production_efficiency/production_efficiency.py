@@ -738,6 +738,19 @@ def _update_single_pe_doc(doc: Document):
                     f"<div class='text-muted' style='padding:8px;'>A&amp;U updated at: {frappe.utils.now()}</div>",
                 )
 
+
+    # -----------------------------
+    # WearCheck snapshot (last 10 days by register_date)
+    # -----------------------------
+    wc_site = None
+    if doc.meta.has_field("site_b") and doc.get("site_b"):
+        wc_site = doc.get("site_b")
+    elif doc.get("site"):
+        wc_site = doc.get("site")
+
+    _populate_wearcheck_snapshot(doc, wc_site, days_back=10)
+
+
     doc.save(ignore_permissions=True)
 
 
@@ -859,6 +872,151 @@ def get_hourly_site_control_excavators(site: str) -> dict:
         return {"site": site, "production_excavators": 0}
 
     return {"site": site, "production_excavators": int(_get_hsc_production_excavators(site) or 0)}
+
+
+# -------------------- WearCheck Snapshot (last N days) --------------------
+
+def _detect_wearcheck_register_field(meta) -> str | None:
+    for cand in ("registerdate", "register_date", "register_dt", "register_datetime", "registration_date"):
+        if meta.has_field(cand):
+            return cand
+    return None
+
+
+def _fetch_wearcheck_flagged_window(site: str | None, days_back: int = 10) -> list[dict]:
+    """
+    Returns 1 row per asset for last N days (inclusive):
+      - only statuses 3/4
+      - worst status wins (4 over 3)
+      - within same status, latest register_date wins, then creation desc
+    """
+    site = (site or "").strip() or None
+    meta = frappe.get_meta("WearCheck Results")
+
+    asset_field = "asset"
+    location_field = "location"
+    status_field = "status"
+
+    register_field = _detect_wearcheck_register_field(meta)
+    if not register_field:
+        # fail safe: no register field, return empty so we don't break update
+        return []
+
+    # optional fields
+    sample_field = None
+    for cand in ("sampledate", "sample_date", "sample_date_", "sample_datetime", "sample_dt"):
+        if meta.has_field(cand):
+            sample_field = cand
+            break
+
+    component_field = "component" if meta.has_field("component") else None
+
+    action_field = None
+    for cand in ("actiontext", "action_text", "action", "action_taken", "action_required"):
+        if meta.has_field(cand):
+            action_field = cand
+            break
+
+    feedback_field = None
+    for cand in ("feedbacktext", "feedback_text", "feedback", "feedback_notes"):
+        if meta.has_field(cand):
+            feedback_field = cand
+            break
+
+    start_date = add_days(_to_date(now_datetime().date()), -int(days_back))
+    end_date = _to_date(now_datetime().date())
+
+    where_site = ""
+    params = [start_date, end_date]
+    if site:
+        where_site = f" AND wc.`{location_field}` = %s "
+        params.append(site)
+
+    # Pull ALL rows in window, then pick 1 per asset in python (portable + simple).
+    rows = frappe.db.sql(
+        f"""
+        SELECT
+            wc.name AS wearcheck_result,
+            wc.`{asset_field}` AS asset,
+            wc.`{location_field}` AS location,
+            wc.`{status_field}` AS status,
+            wc.`{register_field}` AS register_date,
+            {f"wc.`{sample_field}` AS sample_date" if sample_field else "NULL AS sample_date"},
+            {f"wc.`{component_field}` AS component" if component_field else "NULL AS component"},
+            {f"wc.`{action_field}` AS action_text" if action_field else "NULL AS action_text"},
+            {f"wc.`{feedback_field}` AS feedback_text" if feedback_field else "NULL AS feedback_text"},
+            wc.creation AS creation
+        FROM `tabWearCheck Results` wc
+        WHERE wc.`{asset_field}` IS NOT NULL
+          AND wc.`{asset_field}` != ''
+          AND wc.`{register_field}` BETWEEN %s AND %s
+          AND wc.`{status_field}` IN (3,4)
+          {where_site}
+        ORDER BY
+          wc.`{asset_field}` ASC,
+          wc.`{status_field}` DESC,
+          wc.`{register_field}` DESC,
+          wc.creation DESC
+        """,
+        tuple(params),
+        as_dict=True,
+    ) or []
+
+    # best row per asset
+    best_by_asset: dict[str, dict] = {}
+    for r in rows:
+        a = (r.get("asset") or "").strip()
+        if not a:
+            continue
+        if a not in best_by_asset:
+            best_by_asset[a] = r
+            continue
+        # rows already ordered by (status desc, register_date desc, creation desc), so first wins
+        # but keep explicit safety comparison
+        cur = best_by_asset[a]
+        if int(r.get("status") or 0) > int(cur.get("status") or 0):
+            best_by_asset[a] = r
+        elif int(r.get("status") or 0) == int(cur.get("status") or 0):
+            if (r.get("register_date") or "") > (cur.get("register_date") or ""):
+                best_by_asset[a] = r
+
+    return list(best_by_asset.values())
+
+
+def _populate_wearcheck_snapshot(pe_doc: Document, site: str | None, days_back: int = 10):
+    """
+    Writes snapshot rows into the PE Table field that points to 'Sample Efficiency Child'.
+    Child fields: asset,status,register_date,sample_date,component,wearcheck_result,action_text,feedback_text
+    """
+
+    # 1) find the PE table fieldname (don't assume it)
+    table_field = None
+    if pe_doc.meta.has_field("wearcheck_snapshot"):
+        table_field = "wearcheck_snapshot"
+    else:
+        for df in (pe_doc.meta.fields or []):
+            if df.fieldtype == "Table" and (df.options or "").strip() == "Sample Efficiency Child":
+                table_field = df.fieldname
+                break
+
+    if not table_field:
+        return
+
+    # 2) populate
+    pe_doc.set(table_field, [])
+
+    rows = _fetch_wearcheck_flagged_window(site, days_back=days_back)
+
+    for r in (rows or []):
+        row = pe_doc.append(table_field, {})
+        row.set("asset", r.get("asset"))
+        row.set("status", str(int(r.get("status") or 0)))
+        row.set("register_date", r.get("register_date"))
+        row.set("sample_date", r.get("sample_date"))
+        row.set("component", r.get("component"))
+        row.set("wearcheck_result", r.get("wearcheck_result"))
+        row.set("action_text", r.get("action_text"))
+        row.set("feedback_text", r.get("feedback_text"))
 
 
 

@@ -2491,6 +2491,7 @@ async function render_wearcheck_latest_statuses(frm, opts) {
         <thead>
           <tr>
             <th style="width:120px;">Machine</th>
+            <th style="width:110px;">Register Date</th>
             <th style="width:110px;">Sample Date</th>
             <th style="width:140px;">Component</th>
             <th>Action</th>
@@ -2499,12 +2500,13 @@ async function render_wearcheck_latest_statuses(frm, opts) {
         </thead>
         <tbody>
           ${rows.map((r) => {
-            const a = (r.actiontext || "");
-            const f = (r.feedbacktext || "");
+            const a = (r.action_text || "");
+            const f = (r.feedback_text || "");
             return `
               <tr>
-                <td><b>${esc(r.machine || "")}</b></td>
-                <td>${esc(r.sampledate ? frappe.datetime.str_to_user(r.sampledate) : "")}</td>
+                <td><b>${esc(r.asset || "")}</b></td>
+                <td>${esc(r.register_date ? frappe.datetime.str_to_user(r.register_date) : "")}</td>
+                <td>${esc(r.sample_date ? frappe.datetime.str_to_user(r.sample_date) : "")}</td>
                 <td>${esc(r.component || "")}</td>
                 <td>${pe_wc_view_btn("Actions", a)}</td>
                 <td>${pe_wc_view_btn("Comments", f)}</td>
@@ -2517,15 +2519,43 @@ async function render_wearcheck_latest_statuses(frm, opts) {
   };
 
   try {
-    const resp = await frappe.call({
-      method: "is_production.production.doctype.production_efficiency.production_efficiency.get_latest_wearcheck_statuses",
-      args: { site: site || null },
-    });
+    // -----------------------------
+    // SNAPSHOT SOURCE (stored on PE doc)
+    // Table fieldname on PE: sample_child (options = Sample Efficiency Child)
+    // -----------------------------
+    const snap = (frm.doc.sample_child || []).map((r) => ({ ...r }));
 
-    const msg = resp && resp.message ? resp.message : {};
+    // de-dupe per asset (worst status wins, latest register_date wins)
+    const best = {};
+    for (const r of snap) {
+      const asset = (r.asset == null ? "" : String(r.asset)).trim();
+      if (!asset) continue;
 
-    if (el3) el3.innerHTML = mkTable(msg.status_3 || []);
-    if (el4) el4.innerHTML = mkTable(msg.status_4 || []);
+      const st = parseInt(r.status || 0, 10) || 0;
+      if (st !== 3 && st !== 4) continue;
+
+      const rd = r.register_date || "";
+
+      if (!best[asset]) {
+        best[asset] = r;
+        continue;
+      }
+
+      const cur = best[asset];
+      const curSt = parseInt(cur.status || 0, 10) || 0;
+      const curRd = cur.register_date || "";
+
+      if (st > curSt) best[asset] = r;
+      else if (st === curSt && rd > curRd) best[asset] = r;
+    }
+
+    const picked = Object.values(best);
+
+    const status_4 = picked.filter((r) => (parseInt(r.status || 0, 10) || 0) === 4);
+    const status_3 = picked.filter((r) => (parseInt(r.status || 0, 10) || 0) === 3);
+
+    if (el3) el3.innerHTML = mkTable(status_3);
+    if (el4) el4.innerHTML = mkTable(status_4);
 
     // Always flag charts (even if this block is rendered in Report tab only)
     // Graph B labels come from Asset name (assets_c). Prefer r.asset / r.assets_c if present.
@@ -2539,12 +2569,7 @@ async function render_wearcheck_latest_statuses(frm, opts) {
       return String(v).replace(/\s+/g, "").trim().toUpperCase();
     };
 
-    const flagged = new Set(
-      []
-        .concat(msg.status_3 || [], msg.status_4 || [])
-        .map(pick_label)
-        .filter(Boolean)
-    );
+    const flagged = new Set([].concat(status_3 || [], status_4 || []).map(pick_label).filter(Boolean));
 
     // keep globally so charts can re-apply after re-render
     window.__pe_wc_flagged_assets = flagged;
