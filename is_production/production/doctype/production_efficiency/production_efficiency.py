@@ -885,10 +885,13 @@ def _detect_wearcheck_register_field(meta) -> str | None:
 
 def _fetch_wearcheck_flagged_window(site: str | None, days_back: int = 10) -> list[dict]:
     """
-    Returns 1 row per asset for last N days (inclusive):
-      - only statuses 3/4
-      - worst status wins (4 over 3)
-      - within same status, latest register_date wins, then creation desc
+    Returns rows for last N days (inclusive), filtered by register_date:
+      - ONLY statuses 3/4 (so NOT all records for an asset)
+      - include ALL flagged components for an asset
+      - de-dupe to 1 row per (asset + component) in the window:
+          worst status wins (4 over 3),
+          then latest register_date,
+          then creation desc
     """
     site = (site or "").strip() or None
     meta = frappe.get_meta("WearCheck Results")
@@ -899,7 +902,6 @@ def _fetch_wearcheck_flagged_window(site: str | None, days_back: int = 10) -> li
 
     register_field = _detect_wearcheck_register_field(meta)
     if not register_field:
-        # fail safe: no register field, return empty so we don't break update
         return []
 
     # optional fields
@@ -923,8 +925,9 @@ def _fetch_wearcheck_flagged_window(site: str | None, days_back: int = 10) -> li
             feedback_field = cand
             break
 
-    start_date = add_days(_to_date(now_datetime().date()), -int(days_back))
+    # inclusive window: today and previous N-1 days
     end_date = _to_date(now_datetime().date())
+    start_date = add_days(end_date, -(int(days_back) - 1))
 
     where_site = ""
     params = [start_date, end_date]
@@ -932,7 +935,6 @@ def _fetch_wearcheck_flagged_window(site: str | None, days_back: int = 10) -> li
         where_site = f" AND wc.`{location_field}` = %s "
         params.append(site)
 
-    # Pull ALL rows in window, then pick 1 per asset in python (portable + simple).
     rows = frappe.db.sql(
         f"""
         SELECT
@@ -954,6 +956,7 @@ def _fetch_wearcheck_flagged_window(site: str | None, days_back: int = 10) -> li
           {where_site}
         ORDER BY
           wc.`{asset_field}` ASC,
+          {f"wc.`{component_field}` ASC," if component_field else ""}
           wc.`{status_field}` DESC,
           wc.`{register_field}` DESC,
           wc.creation DESC
@@ -962,25 +965,48 @@ def _fetch_wearcheck_flagged_window(site: str | None, days_back: int = 10) -> li
         as_dict=True,
     ) or []
 
-    # best row per asset
-    best_by_asset: dict[str, dict] = {}
+    best: dict[tuple[str, str], dict] = {}
     for r in rows:
         a = (r.get("asset") or "").strip()
         if not a:
             continue
-        if a not in best_by_asset:
-            best_by_asset[a] = r
-            continue
-        # rows already ordered by (status desc, register_date desc, creation desc), so first wins
-        # but keep explicit safety comparison
-        cur = best_by_asset[a]
-        if int(r.get("status") or 0) > int(cur.get("status") or 0):
-            best_by_asset[a] = r
-        elif int(r.get("status") or 0) == int(cur.get("status") or 0):
-            if (r.get("register_date") or "") > (cur.get("register_date") or ""):
-                best_by_asset[a] = r
 
-    return list(best_by_asset.values())
+        c = (r.get("component") or "").strip() if component_field else ""
+        key = (a, c)
+
+        if key not in best:
+            best[key] = r
+            continue
+
+        cur = best[key]
+        rs = int(r.get("status") or 0)
+        cs = int(cur.get("status") or 0)
+
+        if rs > cs:
+            best[key] = r
+            continue
+
+        if rs == cs:
+            rd = r.get("register_date") or ""
+            cd = cur.get("register_date") or ""
+            if rd > cd:
+                best[key] = r
+                continue
+            if rd == cd:
+                if (r.get("creation") or "") > (cur.get("creation") or ""):
+                    best[key] = r
+
+    out = list(best.values())
+    out.sort(
+        key=lambda x: (
+            (x.get("asset") or ""),
+            (x.get("component") or ""),
+            -int(x.get("status") or 0),
+            str(x.get("register_date") or ""),
+            str(x.get("creation") or ""),
+        )
+    )
+    return out
 
 
 def _populate_wearcheck_snapshot(pe_doc: Document, site: str | None, days_back: int = 10):
