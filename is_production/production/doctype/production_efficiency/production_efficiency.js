@@ -239,6 +239,8 @@ frappe.ui.form.on("Production Efficiency", {
       const html = build_au_report_html(frm, computed);
       frm.fields_dict.html_report_b.$wrapper.html(html);
 
+      render_au_per_asset_tables(frm);
+
       // IMPORTANT: charts must be rendered AFTER the HTML is in the DOM
       render_au_graph_charts(computed);
         await render_wearcheck_latest_statuses(frm, {
@@ -1301,6 +1303,66 @@ function render_generic_child_table(frm, child_doctype, rows) {
   `;
 }
 
+
+function render_generic_child_table_with_view_btn(frm, child_doctype, rows) {
+  if (!rows || !rows.length) return `<div class="pe-empty">No rows.</div>`;
+
+  const meta = frappe.get_meta(child_doctype);
+  if (!meta) return `<div class="pe-empty">Could not load meta for ${escape_html(child_doctype)}.</div>`;
+
+  // show normal columns, but replace long-text cells with a View button popup (same as WearCheck)
+  const cols = (meta.fields || []).filter((df) => {
+    if (!df.fieldname) return false;
+    if (df.hidden) return false;
+    if (["Section Break", "Column Break", "Tab Break", "HTML", "Button"].includes(df.fieldtype)) return false;
+    if (
+      ["parent", "parenttype", "parentfield", "idx", "doctype", "name", "owner", "creation", "modified", "modified_by"].includes(
+        df.fieldname
+      )
+    )
+      return false;
+    return true;
+  });
+
+  if (!cols.length) return `<div class="pe-empty">No displayable columns found.</div>`;
+
+  const isLongText = (df) =>
+    ["Text", "Small Text", "Long Text", "Text Editor", "Code"].includes(df.fieldtype);
+
+  const head = cols.map((c) => `<th>${escape_html(c.label || c.fieldname)}</th>`).join("");
+
+  const body = rows
+    .map((r) => {
+      const tds = cols
+        .map((c) => {
+          const raw = r[c.fieldname];
+
+          if (isLongText(c)) {
+            const v = raw == null ? "" : String(raw);
+            return `<td>${pe_wc_view_btn(c.label || c.fieldname, v)}</td>`;
+          }
+
+          const val = format_child_value(raw, c);
+          return `<td>${val}</td>`;
+        })
+        .join("");
+
+      return `<tr>${tds}</tr>`;
+    })
+    .join("");
+
+  return `
+    <div class="pe-scroll">
+      <table class="pe-mini">
+        <thead><tr>${head}</tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+
+
 function format_child_value(raw, df) {
   if (raw == null || raw === "") return "";
 
@@ -1346,7 +1408,17 @@ function render_generic_child_table_precise(frm, child_doctype, rows) {
       const tds = cols
         .map((c) => {
           const raw = r[c.fieldname];
-          const val = format_child_value_precise(raw, c);
+          let val = format_child_value_precise(raw, c);
+
+          // Bold Date + Weekday columns (match screenshot)
+          const lbl = (c.label || c.fieldname || "").toLowerCase();
+          const fn = (c.fieldname || "").toLowerCase();
+          const isDateCol = c.fieldtype === "Date" || lbl.includes("date") || fn.includes("date");
+          const isWeekdayCol = lbl.includes("weekday") || fn.includes("weekday");
+
+          if (isDateCol || isWeekdayCol) {
+            val = `<b>${val}</b>`;
+          }
           return `<td>${val}</td>`;
         })
         .join("");
@@ -1414,25 +1486,54 @@ function render_generic_child_table_precise_threshold(frm, child_doctype, rows, 
 
   if (!cols.length) return `<div class="pe-empty">No displayable columns found.</div>`;
 
-  const head = cols.map((c) => `<th>${escape_html(c.label || c.fieldname)}</th>`).join("");
+  const catClassFor = (c) => {
+    const lbl = (c.label || c.fieldname || "").toLowerCase();
+    const fn = (c.fieldname || "").toLowerCase();
+
+    // catch common fieldnames/labels for your A&U day tables
+    if (lbl.includes("adt") || fn.includes("adt")) return "peau-th-adt";
+    if (lbl.includes("excav") || fn.includes("excav")) return "peau-th-exc";
+    if (lbl.includes("dozer") || fn.includes("dozer")) return "peau-th-doz";
+    return "";
+  };
+
+  const head = cols
+    .map((c) => {
+      const cc = catClassFor(c);
+      return `<th class="${cc}">${escape_html(c.label || c.fieldname)}</th>`;
+    })
+    .join("");
 
   const body = rows
     .map((r) => {
       const tds = cols
         .map((c) => {
           const raw = r[c.fieldname];
-          const val = format_child_value_precise(raw, c);
+          let val = format_child_value_precise(raw, c);
 
-          // Highlight ONLY % columns (your A&U tables are Float, not Percent)
-          let cls = "";
+          // Bold Date + Weekday columns (match screenshot)
+          const lbl = (c.label || c.fieldname || "").toLowerCase();
+          const fn = (c.fieldname || "").toLowerCase();
+          const isDateCol = c.fieldtype === "Date" || lbl.includes("date") || fn.includes("date");
+          const isWeekdayCol = lbl.includes("weekday") || fn.includes("weekday");
+
+          if (isDateCol || isWeekdayCol) {
+            val = `<b>${val}</b>`;
+          }
+
+          const catCls = catClassFor(c);
+
+          // Highlight ONLY % columns
+          let cls = catCls || "";
           if (c.fieldtype === "Percent" || c.fieldtype === "Float") {
             const n = flt(raw);
-            if (!isNaN(n)) cls = n >= threshold ? "peau-cell-good" : "peau-cell-bad";
+            if (!isNaN(n)) cls = `${cls} ${n >= threshold ? "peau-cell-good" : "peau-cell-bad"}`.trim();
           }
 
           return `<td class="${cls}">${val}</td>`;
         })
         .join("");
+
       return `<tr>${tds}</tr>`;
     })
     .join("");
@@ -1599,6 +1700,38 @@ function pe_wc_open_popup(title, body_text) {
   d.show();
 }
 
+function pe_wc_open_popup_html(title, html_body) {
+  pe_wc_ensure_popup_css();
+
+  const d = new frappe.ui.Dialog({
+    title: "",
+    fields: [{ fieldtype: "HTML", fieldname: "body" }],
+    size: "large",
+  });
+
+  d.$wrapper.addClass("pe-wc-pop");
+
+  const esc = frappe.utils.escape_html;
+
+  d.fields_dict.body.$wrapper.html(`
+    <div class="pe-wc-popcard">
+      <div class="pe-wc-pophead">
+        <div>${esc(title || "Details")}</div>
+        <div class="pe-wc-x" role="button" tabindex="0">×</div>
+      </div>
+      <div class="pe-wc-popbody">
+        ${html_body || ""}
+      </div>
+      <div class="pe-wc-popfoot">
+        <button class="btn btn-primary btn-sm pe-wc-close">Close</button>
+      </div>
+    </div>
+  `);
+
+  d.$wrapper.find(".pe-wc-close, .pe-wc-x").on("click", () => d.hide());
+  d.show();
+}
+
 function pe_wc_view_btn(label, value) {
   const v = (value || "").trim();
   if (!v) return "";
@@ -1659,15 +1792,113 @@ function pe_wc_flag_assets_on_charts(flaggedSet) {
   } catch (e) {}
 }
 
-// Bind once (event delegation)
+// Bind once (event delegation) - WearCheck View buttons
 if (!window.__pe_wc_view_bound) {
   window.__pe_wc_view_bound = true;
   document.addEventListener("click", (ev) => {
     const btn = ev.target && ev.target.closest ? ev.target.closest(".pe-wc-view") : null;
     if (!btn) return;
+    ev.preventDefault();
+
     const label = btn.getAttribute("data-label") || "Details";
     const value = btn.getAttribute("data-value") || "";
     pe_wc_open_popup(label, value);
+  });
+}
+
+
+function pe_au_pick_person_name(rows) {
+  if (!rows || !rows.length) return "";
+  const r = rows[0] || {};
+  const keys = Object.keys(r || {});
+
+  // never use the child row ID field "name"
+  const banned = new Set([
+    "name",
+    "doctype",
+    "parent",
+    "parenttype",
+    "parentfield",
+    "owner",
+    "creation",
+    "modified",
+    "modified_by",
+    "idx",
+  ]);
+
+  // Prefer any key that contains "name" but is not the banned "name"
+  const nameKey =
+    keys
+      .filter((k) => {
+        if (banned.has(k)) return false;
+        const kk = String(k).toLowerCase();
+        if (!kk.includes("name")) return false;
+        const v = r[k];
+        return typeof v === "string" && String(v).trim().length > 0;
+      })
+      .sort((a, b) => a.length - b.length)[0] || "";
+
+  if (nameKey) return String(r[nameKey] || "").trim();
+
+  // fallback: first string containing a space (looks like a full name)
+  for (const k of keys) {
+    if (banned.has(k)) continue;
+    const v = r[k];
+    if (typeof v === "string" && v.trim().includes(" ")) return v.trim();
+  }
+
+  return "";
+}
+
+function pe_au_build_notes_popup_html(title, rows) {
+  const esc = frappe.utils.escape_html;
+
+  if (!rows || !rows.length) {
+    return `<div class="pe-wc-text">No rows.</div>`;
+  }
+
+  const pickText = (r) => {
+    if (!r) return "";
+    const k = Object.keys(r || {})
+      .filter((x) => typeof r[x] === "string" && String(r[x]).trim().length)
+      .sort((a, b) => String(r[b] || "").length - String(r[a] || "").length)[0];
+    return k ? String(r[k] || "").trim() : "";
+  };
+
+  const txt = rows.map(pickText).filter(Boolean).join("\n\n");
+
+  // ONLY the comment text
+  return `<div class="pe-wc-text" style="white-space:pre-wrap;">${esc(txt || "—")}</div>`;
+}
+
+// Bind once for A&U note popups (Comments / Improvements)
+if (!window.__pe_au_notes_bound) {
+  window.__pe_au_notes_bound = true;
+
+  document.addEventListener("click", (ev) => {
+    const btn = ev.target && ev.target.closest ? ev.target.closest("[data-au-popup]") : null;
+    if (!btn) return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const key = btn.getAttribute("data-au-popup");
+    const frm = window.cur_frm;
+    if (!frm || !frm.doc) return;
+
+    if (key === "comments") {
+      const rows = frm.doc.table_comments_b || [];
+      const html = pe_au_build_notes_popup_html("Comments on Past 7 Days", rows);
+      pe_wc_open_popup_html("Comments on Past 7 Days", html);
+      return;
+    }
+
+    if (key === "improvements") {
+      const rows = frm.doc.table_improvements_b || [];
+      const html = pe_au_build_notes_popup_html("Improvement for Next 7 Days", rows);
+      pe_wc_open_popup_html("Improvement for Next 7 Days", html);
+      return;
+    }
   });
 }
 
@@ -1690,7 +1921,7 @@ const AU_TARGET_LINE_HEX = "#9ca3af"; // grey like screenshot
 function build_au_graph_b_html(frm) {
   const AU_B_HEAD_BG = {
   ADT: "linear-gradient(90deg, #0f766e 0%, #14b8a6 55%, #99f6e4 100%)",          // teal
-  Excavator: "linear-gradient(90deg, #5b21b6 0%, #8b5cf6 55%, #c4b5fd 100%)",     // purple
+  Excavator: "linear-gradient(90deg, #1d4ed8 0%, #3b82f6 55%, #93c5fd 100%)",     // blue
   Dozer: "linear-gradient(90deg, #9a3412 0%, #fb923c 55%, #fde68a 100%)",         // amber
   DEFAULT: "linear-gradient(90deg, #0f172a 0%, #1e293b 55%, #334155 100%)",
 };
@@ -1933,6 +2164,184 @@ async function render_au_graph_b_charts(frm) {
   // re-apply label flags after charts are fully painted
   if (window.__pe_wc_flagged_assets && window.__pe_wc_flagged_assets.size) {
     pe_wc_flag_assets_on_charts(window.__pe_wc_flagged_assets);
+  }
+}
+
+async function render_au_per_asset_tables(frm) {
+  const aRows = (frm.doc.per_asset_availability || []).map((r) => ({ ...r }));
+  const uRows = (frm.doc.per_asset_utilisation || []).map((r) => ({ ...r }));
+
+  const start = frm.doc.start_date_b || null;
+  const end = frm.doc.end_date_b || null;
+
+  const inRange = (d) => {
+    if (!d) return true;
+    if (start && d < start) return false;
+    if (end && d > end) return false;
+    return true;
+  };
+
+  const aFilt = aRows.filter((r) => inRange(r.date_));
+  const uFilt = uRows.filter((r) => inRange(r.date_d));
+
+  const assets = Array.from(
+    new Set([
+      ...aFilt.map((r) => (r.assets_c == null ? "" : String(r.assets_c)).trim()).filter(Boolean),
+      ...uFilt.map((r) => (r.assets_c == null ? "" : String(r.assets_c)).trim()).filter(Boolean),
+    ])
+  );
+
+  const setSlot = (id, html) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  };
+
+  const emptyBox = (msg) =>
+    `<div class="peau-report"><div class="pe-empty">${escape_html(msg)}</div></div>`;
+
+  if (!assets.length) {
+    for (const cat of AU_CATS) {
+      setSlot(`au_per_asset_av_${cat}`, emptyBox("No per-asset rows."));
+      setSlot(`au_per_asset_ut_${cat}`, emptyBox("No per-asset rows."));
+    }
+    return;
+  }
+
+  const assetMeta = await frappe.call({
+    method: "frappe.client.get_list",
+    args: {
+      doctype: "Asset",
+      fields: ["name", "asset_category"],
+      filters: [["name", "in", assets]],
+      limit_page_length: assets.length,
+    },
+  });
+
+  const rows = assetMeta && assetMeta.message ? assetMeta.message : [];
+  const catByAsset = {};
+  for (const r of rows) {
+    const n = (r.name == null ? "" : String(r.name)).trim();
+    const c = (r.asset_category == null ? "" : String(r.asset_category)).trim();
+    if (n) catByAsset[n] = c;
+  }
+
+  const bucketCat = (assetCategory) => {
+    const s = (assetCategory || "").toLowerCase();
+    if (s.includes("adt")) return "ADT";
+    if (s.includes("excav")) return "Excavator";
+    if (s.includes("dozer")) return "Dozer";
+    return null;
+  };
+
+  const avgFrom = (vals) => (vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0);
+
+  const availByAsset = {};
+  const utilByAsset = {};
+
+  for (const a of assets) {
+    const aVals = [];
+    const uVals = [];
+
+    const days = new Set([
+      ...aFilt.filter((r) => String(r.assets_c || "").trim() === a).map((r) => r.date_),
+      ...uFilt.filter((r) => String(r.assets_c || "").trim() === a).map((r) => r.date_d),
+    ]);
+
+    for (const d of Array.from(days).filter(Boolean).sort()) {
+      const ar = aFilt.find((r) => String(r.assets_c || "").trim() === a && r.date_ === d);
+      const ur = uFilt.find((r) => String(r.assets_c || "").trim() === a && r.date_d === d);
+
+      const av = trunc2(asNumber(ar ? ar.availability_c : 0));
+      const ut = trunc2(asNumber(ur ? ur.utilasazation_c : 0));
+
+      if (av <= 0 && ut <= 0) continue;
+
+      aVals.push(av);
+      uVals.push(ut);
+    }
+
+    availByAsset[a] = trunc2(avgFrom(aVals));
+    utilByAsset[a] = trunc2(avgFrom(uVals));
+  }
+
+  const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  const buildWeekdayMatrix = (rows, valueField) => {
+    // returns: { [asset]: { [weekday]: avgValue } }
+    const buckets = {}; // asset -> weekday -> {sum,count}
+
+    for (const r of (rows || [])) {
+      const asset = (r.assets_c == null ? "" : String(r.assets_c)).trim();
+      const wd = (r.weekdays_c == null ? "" : String(r.weekdays_c)).trim();
+      if (!asset || !wd) continue;
+
+      const v = trunc2(asNumber(r[valueField] || 0));
+      if (!buckets[asset]) buckets[asset] = {};
+      if (!buckets[asset][wd]) buckets[asset][wd] = { sum: 0, count: 0 };
+
+      // keep zeros too (so we can show 0% in red)
+      buckets[asset][wd].sum += v;
+      buckets[asset][wd].count += 1;
+    }
+
+    const out = {};
+    for (const asset of Object.keys(buckets)) {
+      out[asset] = {};
+      for (const wd of Object.keys(buckets[asset])) {
+        const b = buckets[asset][wd];
+        out[asset][wd] = trunc2(b.count ? b.sum / b.count : 0);
+      }
+    }
+    return out;
+  };
+
+  const renderWeekdayTable = (items, rows, valueField, threshold) => {
+    if (!items.length) return `<div class="pe-empty">No assets found.</div>`;
+
+    const matrix = buildWeekdayMatrix(rows, valueField);
+
+    return `
+      <div class="pe-scroll">
+        <table class="pe-mini" style="table-layout:fixed;">
+          <thead>
+            <tr>
+              <th style="min-width:140px;">Asset</th>
+              ${WEEKDAYS.map((d) => `<th style="min-width:90px; text-align:center;">${escape_html(d.slice(0, 3))}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((a) => {
+              const row = matrix[a] || {};
+              return `
+                <tr>
+                  <td><b>${escape_html(a)}</b></td>
+                  ${WEEKDAYS.map((wd) => {
+                    const v = asNumber(row[wd] ?? 0);
+                    const show = formatPercent1(v);
+                    const cls = (v >= threshold) ? "peau-cell-good" : "peau-cell-bad";
+                    return `<td class="${cls}" style="text-align:center;">${escape_html(show)}</td>`;
+                  }).join("")}
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+  };
+
+  for (const cat of AU_CATS) {
+    const items = assets
+      .map((a) => ({ a, bucket: bucketCat(catByAsset[a] || "") }))
+      .filter((x) => x.bucket === cat)
+      .map((x) => x.a)
+      .sort((a, b) => a.localeCompare(b));
+
+    const aCatRows = aFilt.filter((r) => bucketCat(catByAsset[String(r.assets_c || "").trim()] || "") === cat);
+    const uCatRows = uFilt.filter((r) => bucketCat(catByAsset[String(r.assets_c || "").trim()] || "") === cat);
+
+    setSlot(`au_per_asset_av_${cat}`, renderWeekdayTable(items, aCatRows, "availability_c", AU_TARGET_AVAIL));
+    setSlot(`au_per_asset_ut_${cat}`, renderWeekdayTable(items, uCatRows, "utilasazation_c", AU_TARGET_UTIL));
   }
 }
 
@@ -2237,6 +2646,29 @@ function build_au_report_html(frm, computed) {
   const commentRows = frm.doc.table_comments_b || [];
   const improveRows = frm.doc.table_improvements_b || [];
 
+  // pick the "Name" field value from the child row (NOT the row id)
+  const pick_person_name = (rows) => {
+    const r = (rows && rows.length) ? rows[0] : null;
+    if (!r) return "—";
+
+    // prefer fields that look like a human name, and avoid the child-row id key "name"
+    const keys = Object.keys(r || {});
+    const candidates = keys
+      .filter((k) => k && k.toLowerCase().includes("name") && k !== "name")
+      .map((k) => ({ k, v: (r[k] == null ? "" : String(r[k])).trim() }))
+      .filter((x) => x.v && x.v.length >= 3);
+
+    // prefer values with spaces (e.g. "Sipho Simelane")
+    const best =
+      candidates.find((x) => x.v.includes(" ")) ||
+      candidates[0];
+
+    return best ? best.v : "—";
+  };
+
+  const commentName = pick_person_name(commentRows);
+  const improveName = pick_person_name(improveRows);
+
   return `
     <style>
       .peau-wrap {
@@ -2306,6 +2738,46 @@ function build_au_report_html(frm, computed) {
         padding: 12px 16px;
       }
 
+      /* ===== Category gradients (match Graph B) ===== */
+      .peau-grad-adt { background: linear-gradient(90deg, #0f766e 0%, #14b8a6 55%, #99f6e4 100%) !important; color:#fff !important; }
+      .peau-grad-exc { background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 55%, #93c5fd 100%) !important; color:#fff !important; }
+      .peau-grad-doz { background: linear-gradient(90deg, #9a3412 0%, #fb923c 55%, #fde68a 100%) !important; color:#fff !important; }
+
+      /* Section heads: allow gradient */
+      .peau-section-head.peau-grad-adt h4,
+      .peau-section-head.peau-grad-exc h4,
+      .peau-section-head.peau-grad-doz h4 { color:#fff !important; }
+
+      /* Column header coloring (ADT/Excavator/Dozer columns) */
+      .peau-report .pe-mini thead th.peau-th-adt { background: linear-gradient(90deg, #0f766e 0%, #14b8a6 55%, #99f6e4 100%) !important; color:#fff !important; }
+      .peau-report .pe-mini thead th.peau-th-exc { background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 55%, #93c5fd 100%) !important; color:#fff !important; }
+      .peau-report .pe-mini thead th.peau-th-doz { background: linear-gradient(90deg, #9a3412 0%, #fb923c 55%, #fde68a 100%) !important; color:#fff !important; }
+
+      /* Per-asset subheads become gradient bars */
+      .peau-subhead {
+        padding: 8px 10px;
+        border-radius: 10px;
+        margin: 12px 0 8px;
+      }
+
+      /* Oil link button */
+      .peau-oil-link{
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        padding:4px 10px;
+        border-radius:999px;
+        border:1px solid rgba(255,255,255,0.35);
+        background: rgba(255,255,255,0.18);
+        color:#fff !important;
+        font-size:12px;
+        font-weight:900;
+        text-decoration:none !important;
+        white-space:nowrap;
+      }
+      .peau-oil-link:hover{ background: rgba(255,255,255,0.28); }
+
+
       .peau-kv {
         width: 100%;
         border-collapse: collapse;
@@ -2366,6 +2838,74 @@ function build_au_report_html(frm, computed) {
         color: #0f172a;
       }
 
+      .peau-name-pill{
+        display:inline-flex;
+        margin-left:8px;
+        padding:2px 8px;
+        border-radius:999px;
+        background:#eef2ff;
+        border:1px solid #e2e8f0;
+        font-size:11px;
+        font-weight:900;
+        color:#0f172a;
+        vertical-align:middle;
+      }
+
+      .peau-card-head-row{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+      }
+
+      /* nicer View pills */
+      .peau-pillbtn{
+        border:0;
+        cursor:pointer;
+        user-select:none;
+        padding:6px 12px;
+        border-radius:999px;
+        font-size:12px;
+        font-weight:900;
+        color:#fff;
+        box-shadow: 0 6px 16px rgba(15,23,42,.15);
+        transform: translateY(0);
+        transition: transform .08s ease, filter .12s ease;
+      }
+      .peau-pillbtn:hover{ filter: brightness(1.05); }
+      .peau-pillbtn:active{ transform: translateY(1px); }
+
+      .peau-pillbtn-blue,
+      .peau-pillbtn-amber{
+        background: linear-gradient(90deg, #0f172a 0%, #1f2937 55%, #475569 100%);
+        color:#fff;
+      }
+
+      /* black pill buttons (match screenshot) */
+      .peau-oil-link,
+      .peau-report .pe-wc-view.btn.btn-xs {
+        border: 0 !important;
+        background: linear-gradient(90deg, #0f172a 0%, #1f2937 55%, #475569 100%) !important;
+        color: #fff !important;
+        box-shadow: 0 6px 16px rgba(15,23,42,.18);
+        font-weight: 900 !important;
+        border-radius: 999px !important;
+        padding: 6px 12px !important;
+        line-height: 1 !important;
+      }
+
+      .peau-oil-link:hover,
+      .peau-report .pe-wc-view.btn.btn-xs:hover {
+        filter: brightness(1.06);
+      }
+
+      .peau-oil-link:active,
+      .peau-report .pe-wc-view.btn.btn-xs:active {
+        transform: translateY(1px);
+      }
+
+
+
       .peau-card-body {
         padding: 12px;
       }
@@ -2402,6 +2942,7 @@ function build_au_report_html(frm, computed) {
         background: #e2e8f0;
         font-weight: 900;
         color: #0f172a;
+        .peau-report .peau-boldcell { font-weight: 900 !important; }
       }
 
       /* A&U % cell highlighting (cells only, light colors) */
@@ -2464,10 +3005,6 @@ function build_au_report_html(frm, computed) {
       <div class="peau-report">
         <div class="peau-head">
           <h3>A&amp;U Report</h3>
-          <div class="peau-badges">
-            ${site ? `<span class="peau-badge"><b>Site</b>: ${site}</span>` : ``}
-            ${(start || end) ? `<span class="peau-badge"><b>Period</b>: ${start || "—"} → ${end || "—"}</span>` : ``}
-          </div>
         </div>
 
         <div class="peau-section">
@@ -2495,8 +3032,14 @@ function build_au_report_html(frm, computed) {
         <div class="peau-section">
           <div class="peau-section-body">
             <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; background:#fff;">
-              <div style="background:#f87171; color:#fff; padding:10px 12px; font-weight:900;">
-                WearCheck — Latest Status per Machine
+              <div style="background:#f87171; color:#fff; padding:10px 12px; font-weight:900; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <span>Latest Oil Sample Flagged Machines</span>
+                <a
+                  href="https://oilandwear.com/tribology/web/main/main.php"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="peau-oil-link"
+                >Detailed Oil Report</a>
               </div>
 
               <div style="padding:12px;">
@@ -2513,24 +3056,20 @@ function build_au_report_html(frm, computed) {
                     </div>
                   </div>
                 </div>
-
-                <div class="text-muted" style="margin-top:8px; font-size:12px;">
-                  Machine · Sample Date · Component · Action · Feedback
-                </div>
               </div>
             </div>
           </div>
         </div>
 
         <div class="peau-section">
-          <div class="peau-section-head"><h4>Daily Performance — Availability</h4></div>
+          <div class="peau-section-head"><h4>Availability Daily Category Average</h4></div>
           <div class="peau-section-body">
             ${render_generic_child_table_precise_threshold(frm, "Availability Day Entry 1", availRows, 85)}
           </div>
         </div>
 
         <div class="peau-section">
-          <div class="peau-section-head"><h4>Daily Performance — Utilisation</h4></div>
+          <div class="peau-section-head"><h4>Utilisation Daily Category Average</h4></div>
           <div class="peau-section-body">
             ${render_generic_child_table_precise_threshold(frm, "Utilisation Day Entry", utilRows, 80)}
           </div>
@@ -2540,20 +3079,22 @@ function build_au_report_html(frm, computed) {
           <div class="peau-section-body">
             <div class="peau-grid">
               <div class="peau-card">
-                <div class="peau-card-head"><h4>Comments on Past 7 Days</h4></div>
-                <div class="peau-card-body">
-                  <div class="peau-noscr">
-                    ${render_generic_child_table(frm, "Availability and Utilisation Efficiency Comments", commentRows)}
-                  </div>
+                <div class="peau-card-head peau-card-head-row">
+                <h4>
+                  Comments on Past 7 Days
+                  <span class="peau-name-pill">${escape_html(commentName || "—")}</span>
+                </h4>
+                  <button type="button" class="peau-pillbtn peau-pillbtn-blue" data-au-popup="comments">View</button>
                 </div>
               </div>
 
               <div class="peau-card">
-                <div class="peau-card-head"><h4>Improvement / Recommendation for Next 7 Days</h4></div>
-                <div class="peau-card-body">
-                  <div class="peau-noscr">
-                    ${render_generic_child_table(frm, "Availability and Utilisation Efficiency Improvements", improveRows)}
-                  </div>
+                <div class="peau-card-head peau-card-head-row">
+                <h4>
+                  Improvement for Next 7 Days
+                  <span class="peau-name-pill">${escape_html(improveName || "—")}</span>
+                </h4>
+                  <button type="button" class="peau-pillbtn peau-pillbtn-amber" data-au-popup="improvements">View</button>
                 </div>
               </div>
             </div>
@@ -2561,7 +3102,7 @@ function build_au_report_html(frm, computed) {
         </div>
 
         <div class="peau-section">
-          <div class="peau-section-head"><h4>A&amp;U Dashboard</h4></div>
+          <div class="peau-section-head"><h4>Category Average Graphs</h4></div>
           <div class="peau-section-body">
             <style>
               .peau-auwrap { padding: 2px 0; }
@@ -2575,14 +3116,27 @@ function build_au_report_html(frm, computed) {
               .peau-audot-ut { background:${AU_UTIL_COLOR}; }
               .peau-aucharts { padding: 10px 12px; }
               .peau-auchart { min-height: 260px; }
+
+              /* per-asset table sub headings */
+              .peau-subhead {
+                margin: 12px 0 8px;
+                font-size: 12px;
+                font-weight: 900;
+                color: #0f172a;
+              }
             </style>
 
             <div class="peau-auwrap">
               ${AU_CATS.map((cat, idx) => {
-                const bg = idx === 0 ? "#eaf4ff" : idx === 1 ? "#f3e8ff" : "#eaf4ff";
+                const bgMap = {
+                  ADT: "linear-gradient(90deg, #0f766e 0%, #14b8a6 55%, #99f6e4 100%)",
+                  Excavator: "linear-gradient(90deg, #1d4ed8 0%, #3b82f6 55%, #93c5fd 100%)",
+                  Dozer: "linear-gradient(90deg, #9a3412 0%, #fb923c 55%, #fde68a 100%)",
+                };
+                const bg = bgMap[cat] || "#f8fafc";
                 return `
                   <div class="peau-aublock">
-                    <div class="peau-auh" style="background:${bg};">
+                    <div class="peau-auh" style="background:${bg}; color:#fff;">
                       <b>${escape_html(cat)}'s (AVG)</b>
                       <div class="peau-aukpis">
                         <span class="peau-aupill"><span class="peau-audot peau-audot-av"></span>Availability <b>${formatPercent1(computed.kpis[cat].avail_avg)}</b></span>
@@ -2596,6 +3150,35 @@ function build_au_report_html(frm, computed) {
                 `;
               }).join("")}
             </div>
+          </div>
+        </div>
+
+        <!-- NEW: Per-asset tables at the bottom -->
+        <div class="peau-section">
+          <div class="peau-section-head"><h4>Asset Daily Performance (Availability)</h4></div>
+          <div class="peau-section-body">
+            <div class="peau-subhead peau-grad-adt">ADT</div>
+            <div id="au_per_asset_av_ADT" class="peau-per-asset-slot"></div>
+
+            <div class="peau-subhead peau-grad-doz">Dozer</div>
+            <div id="au_per_asset_av_Dozer" class="peau-per-asset-slot"></div>
+
+            <div class="peau-subhead peau-grad-exc">Excavator</div>
+            <div id="au_per_asset_av_Excavator" class="peau-per-asset-slot"></div>
+          </div>
+        </div>
+
+        <div class="peau-section">
+          <div class="peau-section-head"><h4>Asset Daily Performance (Utilisation)</h4></div>
+          <div class="peau-section-body">
+            <div class="peau-subhead peau-grad-adt">ADT</div>
+            <div id="au_per_asset_ut_ADT" class="peau-per-asset-slot"></div>
+
+            <div class="peau-subhead peau-grad-doz">Dozer</div>
+            <div id="au_per_asset_ut_Dozer" class="peau-per-asset-slot"></div>
+
+            <div class="peau-subhead peau-grad-exc">Excavator</div>
+            <div id="au_per_asset_ut_Excavator" class="peau-per-asset-slot"></div>
           </div>
         </div>
 
