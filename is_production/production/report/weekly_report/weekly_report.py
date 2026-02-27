@@ -28,7 +28,27 @@ def execute(filters=None):
         "mtd_actual_bcms": 0,
         "mtd_prog_actual_coal": 0,
         "mtd_prog_actual_waste": 0,
+        "mtd_prog_target_waste": 0,
+        "short_over_waste": 0,
+        "mtd_prog_target_coal": 0,
+        "short_over_coal": 0,
+        "remaining_volume": 0,
+        "daily_required": 0,
+        "actual_daily": 0,
+        "days_left": 0,
+        "forecast": 0,
+        "short_over_forecast": 0,
+        "strip_ratio": 0,
     }
+
+    # ✅ Actual Daily Achieved (EXACTLY like Daily Reporting "Daily Achieved")
+    # daily_achieved = SUM(total_ts_bcm) + SUM(total_dozing_bcm)
+    actual_ts_day = get_actual_ts_for_day(site, end_date)
+    actual_dozer_day = get_actual_dozer_for_day(site, end_date)
+    daily_achieved = (actual_ts_day or 0) + (actual_dozer_day or 0)
+
+    # Always populate this field for the HTML row
+    data["actual_daily"] = daily_achieved
 
     if mpp:
         # --- Base plan values ---
@@ -101,9 +121,6 @@ def execute(filters=None):
 
         data["daily_required"] = (
             data["remaining_volume"] / max((data["month_remaining_prod_days"], 1))
-        )
-        data["actual_daily"] = (
-            data["mtd_actual_bcms"] / max((data["num_prod_days_completed"], 1))
         )
 
         data["days_left"] = remaining_days
@@ -274,6 +291,39 @@ def get_coal_from_hourly(start_date, end_date, site, COAL_CONVERSION):
           AND LOWER(tl.mat_type) LIKE '%%coal%%'
     """, (start_date, end_date, site))[0][0]
     return (coal_bcm or 0) * COAL_CONVERSION
+
+
+# ----------------------------------------------------------
+# ✅ Daily Achieved components (MATCH Daily Reporting logic)
+# ----------------------------------------------------------
+def get_actual_ts_for_day(site, date):
+    if not site or not date:
+        return 0
+    result = frappe.db.sql(
+        """
+        SELECT SUM(total_ts_bcm) AS total_bcm
+        FROM `tabHourly Production`
+        WHERE location = %s AND prod_date = %s
+        """,
+        (site, date),
+        as_dict=True
+    )
+    return result[0].total_bcm or 0
+
+
+def get_actual_dozer_for_day(site, date):
+    if not site or not date:
+        return 0
+    result = frappe.db.sql(
+        """
+        SELECT SUM(total_dozing_bcm) AS total_bcm
+        FROM `tabHourly Production`
+        WHERE location = %s AND prod_date = %s
+        """,
+        (site, date),
+        as_dict=True
+    )
+    return result[0].total_bcm or 0
 
 
 # ----------------------------------------------------------
