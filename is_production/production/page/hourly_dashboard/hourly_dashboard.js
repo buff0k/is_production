@@ -101,6 +101,32 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   }
 
   // -------------------------
+  // Get selected Define Monthly Production doc order
+  // -------------------------
+  function get_site_order_map(docname) {
+    if (!docname) return Promise.resolve({});
+
+    return frappe.db.get_doc("Define Monthly Production", docname)
+      .then((doc) => {
+        const rows = Array.isArray(doc.define) ? doc.define : [];
+        const orderMap = {};
+
+        rows.forEach((row, idx) => {
+          const site = (row.site || "").trim();
+          if (site && !(site in orderMap)) {
+            orderMap[site] = idx;
+          }
+        });
+
+        return orderMap;
+      })
+      .catch((e) => {
+        console.error("Could not read Define Monthly Production order:", e);
+        return {};
+      });
+  }
+
+  // -------------------------
   // Helpers
   // -------------------------
   function escape_html(text) {
@@ -126,11 +152,45 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     return "";
   }
 
-  function render_dashboard(payload) {
+  function extract_site_name_from_block(el) {
+    const headerText = $(el).find(".isd-site-header").first().text().trim();
+    const match = headerText.match(/Site:\s*(.+)/i);
+    return match ? match[1].trim() : "";
+  }
+
+  function reorder_hourly_sites(siteOrderMap) {
+    const $grid = $dash.find(".isd-hourly-dashboard .isd-grid").first();
+    if (!$grid.length) return;
+
+    const blocks = $grid.children(".isd-site").get();
+    if (!blocks.length) return;
+
+    blocks.sort((a, b) => {
+      const aSite = extract_site_name_from_block(a);
+      const bSite = extract_site_name_from_block(b);
+
+      const aHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, aSite);
+      const bHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, bSite);
+
+      if (aHasOrder && bHasOrder) {
+        return siteOrderMap[aSite] - siteOrderMap[bSite];
+      }
+
+      if (aHasOrder) return -1;
+      if (bHasOrder) return 1;
+
+      return aSite.localeCompare(bSite);
+    });
+
+    blocks.forEach((block) => $grid.append(block));
+  }
+
+  function render_dashboard(payload, siteOrderMap) {
     const html = extract_report_html(payload);
 
     if (html) {
       $dash.html(html);
+      reorder_hourly_sites(siteOrderMap);
       return;
     }
 
@@ -157,10 +217,13 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
 
     $status.text(is_auto ? "Refreshing…" : "Loading…");
 
-    return run_report({ define_monthly_production: val })
-      .then((res) => {
+    return Promise.all([
+      run_report({ define_monthly_production: val }),
+      get_site_order_map(val)
+    ])
+      .then(([res, siteOrderMap]) => {
         const payload = res.message || {};
-        render_dashboard(payload);
+        render_dashboard(payload, siteOrderMap);
 
         const time = new Date().toLocaleTimeString([], {
           hour: "2-digit",

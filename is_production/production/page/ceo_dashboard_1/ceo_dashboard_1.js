@@ -109,6 +109,32 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
   }
 
   // -------------------------
+  // Get selected Define Monthly Production doc order
+  // -------------------------
+  function get_site_order_map(docname) {
+    if (!docname) return Promise.resolve({});
+
+    return frappe.db.get_doc("Define Monthly Production", docname)
+      .then((doc) => {
+        const rows = Array.isArray(doc.define) ? doc.define : [];
+        const orderMap = {};
+
+        rows.forEach((row, idx) => {
+          const site = (row.site || "").trim();
+          if (site && !(site in orderMap)) {
+            orderMap[site] = idx;
+          }
+        });
+
+        return orderMap;
+      })
+      .catch((e) => {
+        console.error("Could not read Define Monthly Production order:", e);
+        return {};
+      });
+  }
+
+  // -------------------------
   // Helpers (formatting)
   // -------------------------
   function fmt_int(n) {
@@ -173,7 +199,7 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
   }
 
   // -------------------------
-  // THINNER BORDER TABLE (inline styles override your thick CSS)
+  // THINNER BORDER TABLE
   // -------------------------
   const BORDER_BLACK = "#000000";
   const OUTER_BORDER_PX = 2;
@@ -269,8 +295,6 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
     const site = (r.site || "").trim();
     const start = r.prod_start ? frappe.datetime.str_to_user(r.prod_start) : "";
     const end = r.prod_end ? frappe.datetime.str_to_user(r.prod_end) : "";
-
-    // Use Hourly Dashboard colours first, then fallback to backend site_colour, then default
     const bg = SITE_HEADER_COLOURS[site] || r.site_colour || "#EEF4FB";
 
     const forecast_var = Number(r.forecast_var || 0);
@@ -301,13 +325,29 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
     `;
   }
 
-  function render_dashboard(rows) {
+  function render_dashboard(rows, siteOrderMap) {
     if (!rows || !rows.length) {
       $dash.html(`<div class="text-muted">No data for the selected filter.</div>`);
       return;
     }
 
-    const sorted = [...rows].sort((a, b) => String(a.site || "").localeCompare(String(b.site || "")));
+    const sorted = [...rows].sort((a, b) => {
+      const aSite = String(a.site || "").trim();
+      const bSite = String(b.site || "").trim();
+
+      const aHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, aSite);
+      const bHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, bSite);
+
+      if (aHasOrder && bHasOrder) {
+        return siteOrderMap[aSite] - siteOrderMap[bSite];
+      }
+
+      if (aHasOrder) return -1;
+      if (bHasOrder) return 1;
+
+      return aSite.localeCompare(bSite);
+    });
+
     $dash.html(sorted.map(build_site_card).join(""));
   }
 
@@ -320,11 +360,14 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
 
     $status.text(is_auto ? "Refreshing…" : "Loading…");
 
-    return run_report({ define_monthly_production: val })
-      .then((res) => {
+    return Promise.all([
+      run_report({ define_monthly_production: val }),
+      get_site_order_map(val)
+    ])
+      .then(([res, siteOrderMap]) => {
         const payload = res.message || {};
         const rows = payload.result || [];
-        render_dashboard(rows);
+        render_dashboard(rows, siteOrderMap);
 
         const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         $status.text(`Last updated: ${time} (refreshes at :10 and :30)`);
