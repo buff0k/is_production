@@ -23,14 +23,15 @@
   {
    "fieldname": "meters",
    "fieldtype": "Float",
-   "label": "Meters"
+   "label": "Meters",
+   "precision": "1"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-22 07:08:26.058961",
+ "modified": "2026-03-03 11:19:28.649366",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Drilling Hole",

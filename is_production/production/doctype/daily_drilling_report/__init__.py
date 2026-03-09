@@ -1,26 +1,31 @@
-import frappe
-from frappe.model.document import Document
-from frappe.utils import flt
+# Helper: safe float conversion
+def to_float(v):
+    try:
+        return float(v or 0)
+    except Exception:
+        return 0.0
 
+# Helper: round to 1 decimal place
+def r1(v):
+    return round(to_float(v), 1)
 
-class DailyDrillingReport(Document):
-    def validate(self):
-        self.set_totals()
+# Force 1 decimal on opening & closing (store normalized values)
+doc.opening_drilling_hrs = r1(doc.get("opening_drilling_hrs"))
+doc.closing_drilling_hrs = r1(doc.get("closing_drilling_hrs"))
 
-    def before_save(self):
-        # extra safety
-        self.set_totals()
+# Calculate total drilling hours (also 1 decimal)
+doc.total_drilling_hrs = r1(doc.closing_drilling_hrs - doc.opening_drilling_hrs)
 
-    def set_totals(self):
-        # (closing - opening)
-        self.total_drilling_hrs = flt(self.closing_drilling_hrs) - flt(self.opening_drilling_hrs)
+# Sum child table
+total_meters = 0.0
+total_holes = 0.0
 
-        total_meters = 0.0
-        total_holes = 0.0
+for row in (doc.get("holes_and_meter") or []):
+    total_meters += to_float(row.get("meters"))
+    total_holes += to_float(row.get("no_of_holes"))
 
-        for row in (self.get("holes_and_meter") or []):
-            total_meters += flt(row.meters)
-            total_holes += flt(row.no_of_holes)
+# Force 1 decimal on total_meters
+doc.total_meters = r1(total_meters)
 
-        self.total_meters = total_meters
-        self.total_holes = total_holes
+# Holes are normally whole numbers; keep as float-safe
+doc.total_holes = total_holes
