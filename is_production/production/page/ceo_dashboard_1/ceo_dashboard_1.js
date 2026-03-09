@@ -2,6 +2,16 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
   const REPORT_NAME = "CEO DASHBOARD";
   const STORAGE_KEY = "ceo_dash_define_monthly_production";
 
+  // Match Hourly Dashboard site header colours exactly
+  const SITE_HEADER_COLOURS = {
+    "Klipfontein": "#EBF9FF",
+    "Gwab": "#f7d8ff",
+    "Kriel Rehabilitation": "#E6D3B1",
+    "Koppie": "#feff8d",
+    "Uitgevallen": "#ffd37f",
+    "Bankfontein": "#e3e3e3"
+  };
+
   const page = frappe.ui.make_app_page({
     parent: wrapper,
     title: "Site Volume Tracking",
@@ -166,13 +176,12 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
   // THINNER BORDER TABLE (inline styles override your thick CSS)
   // -------------------------
   const BORDER_BLACK = "#000000";
-  const OUTER_BORDER_PX = 2;   // thinner outer border
-  const GRID_PX = 1;           // thin cell grid lines
-  const SEP_PX = 2;            // thinner group separator
-  const SUBSEP_PX = 1;         // thin within-group separator
+  const OUTER_BORDER_PX = 2;
+  const GRID_PX = 1;
+  const SEP_PX = 2;
+  const SUBSEP_PX = 1;
 
   function th(text, cls = "") {
-    // Base cell border
     let style = `border:${GRID_PX}px solid ${BORDER_BLACK};padding:6px 6px;text-align:center;`;
 
     if (cls === "sep") style += `border-right:${SEP_PX}px solid ${BORDER_BLACK};`;
@@ -202,7 +211,6 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
     const waste_var = Number(r.mtd_waste_var_bcm || 0);
     const day_var = Number(r.day_var_bcm || 0);
 
-    // Explicit outer border + collapse to keep it compact
     const tableStyle = `
       width:100%;
       border-collapse:collapse;
@@ -258,10 +266,12 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
   }
 
   function build_site_card(r) {
-    const site = r.site || "";
+    const site = (r.site || "").trim();
     const start = r.prod_start ? frappe.datetime.str_to_user(r.prod_start) : "";
     const end = r.prod_end ? frappe.datetime.str_to_user(r.prod_end) : "";
-    const bg = r.site_colour || "#EEF4FB";
+
+    // Use Hourly Dashboard colours first, then fallback to backend site_colour, then default
+    const bg = SITE_HEADER_COLOURS[site] || r.site_colour || "#EEF4FB";
 
     const forecast_var = Number(r.forecast_var || 0);
 

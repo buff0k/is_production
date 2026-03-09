@@ -215,45 +215,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Management Dashboards",
-   "link_count": 3,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Site Volume Tracking",
-   "link_count": 0,
-   "link_to": "CEO Dashboard 1",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Hourly Dashboard",
-   "link_count": 0,
-   "link_to": "Hourly Dashboard",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Site Volume Graphs",
-   "link_count": 0,
-   "link_to": "CEO Dashboard One Graphs",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Reporting",
    "link_count": 10,
    "link_type": "DocType",
@@ -398,9 +359,48 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Management Dashboards",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Site Volume Tracking",
+   "link_count": 0,
+   "link_to": "ceo-dashboard-1",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Hourly Dashboard",
+   "link_count": 0,
+   "link_to": "hourly-dashboard",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Site Volume Graphs",
+   "link_count": 0,
+   "link_to": "CEO Dashboard One Graphs",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-02-23 12:01:04.260093",
+ "modified": "2026-03-09 10:20:55.660136",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
