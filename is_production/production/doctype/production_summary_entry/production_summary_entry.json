@@ -1,0 +1,123 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "autoname": "hash",
+  "creation": "2026-03-10 00:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "site",
+    "report_date",
+    "monthly_target_bcm",
+    "forecast_bcm",
+    "waste_variance_bcm",
+    "coal_variance_tons",
+    "daily_required_bcm",
+    "daily_achieved_bcm",
+    "days_worked",
+    "days_left",
+    "strip_ratio",
+    "actual_bcm",
+    "actual_coal_tons"
+  ],
+  "fields": [
+    {
+      "fieldname": "site",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "Site",
+      "reqd": 1
+    },
+    {
+      "fieldname": "report_date",
+      "fieldtype": "Date",
+      "in_list_view": 1,
+      "label": "Report Date",
+      "reqd": 1
+    },
+    {
+      "fieldname": "monthly_target_bcm",
+      "fieldtype": "Float",
+      "label": "Monthly Target BCM"
+    },
+    {
+      "fieldname": "forecast_bcm",
+      "fieldtype": "Float",
+      "label": "Forecast BCM"
+    },
+    {
+      "fieldname": "waste_variance_bcm",
+      "fieldtype": "Float",
+      "label": "Waste Variance BCM"
+    },
+    {
+      "fieldname": "coal_variance_tons",
+      "fieldtype": "Float",
+      "label": "Coal Variance Tons"
+    },
+    {
+      "fieldname": "daily_required_bcm",
+      "fieldtype": "Float",
+      "label": "Daily Required BCM"
+    },
+    {
+      "fieldname": "daily_achieved_bcm",
+      "fieldtype": "Float",
+      "label": "Daily Achieved BCM"
+    },
+    {
+      "fieldname": "days_worked",
+      "fieldtype": "Int",
+      "label": "Days Worked"
+    },
+    {
+      "fieldname": "days_left",
+      "fieldtype": "Int",
+      "label": "Days Left"
+    },
+    {
+      "fieldname": "strip_ratio",
+      "fieldtype": "Float",
+      "label": "Strip Ratio"
+    },
+    {
+      "fieldname": "actual_bcm",
+      "fieldtype": "Float",
+      "label": "Actual BCM"
+    },
+    {
+      "fieldname": "actual_coal_tons",
+      "fieldtype": "Float",
+      "label": "Actual Coal Tons"
+    }
+  ],
+  "grid_page_length": 50,
+  "index_web_pages_for_search": 1,
+  "is_submittable": 0,
+  "issingle": 0,
+  "links": [],
+  "modified": "2026-03-10 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Production",
+  "name": "Production Summary Entry",
+  "owner": "Administrator",
+  "permissions": [
+    {
+      "create": 1,
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
+    }
+  ],
+  "search_fields": "site,report_date",
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": [],
+  "track_changes": 1
+}
