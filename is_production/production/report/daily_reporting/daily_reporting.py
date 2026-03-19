@@ -27,18 +27,20 @@ def execute(filters=None):
     # ✅ MTD Coal (guard month_start!)
     mtd_coal = get_mtd_coal_dynamic(site, getdate(end_date), month_start) if month_start else 0
 
-    # ✅ Actual TS & Dozing for the Day
-    actual_ts_day = get_actual_ts_for_day(site, end_date, shift)
+    # ✅ Daily Dozing for the Day
     actual_dozer_day = get_actual_dozer_for_day(site, end_date, shift)
 
-    # ✅ Daily Achieved = TS + Dozing
-    daily_achieved = (actual_ts_day or 0) + (actual_dozer_day or 0)
+    # ✅ Daily TS split by material category (TRUCK / SHOVEL ONLY)
+    daily_ts_by_material = get_daily_ts_bcms_by_material(site, end_date, shift)
+    daily_coal_ts = daily_ts_by_material.get("Coal", 0)
+    daily_hards_ts = daily_ts_by_material.get("Hards", 0)
+    daily_softs_ts = daily_ts_by_material.get("Softs", 0)
 
-    # ✅ Daily TS split by material category (Coal/Hards/Softs)
-    daily_by_material = get_daily_bcms_by_material(site, end_date, shift)
-    daily_coal = daily_by_material.get("Coal", 0)
-    daily_hards = daily_by_material.get("Hards", 0)
-    daily_softs = daily_by_material.get("Softs", 0)
+    # ✅ Daily TS BCMs = Coal TS + Hards TS + Softs TS
+    actual_ts_day = (daily_coal_ts or 0) + (daily_hards_ts or 0) + (daily_softs_ts or 0)
+
+    # ✅ Daily Achieved = Daily TS BCMs + Daily Dozing BCMs
+    daily_achieved = (actual_ts_day or 0) + (actual_dozer_day or 0)
 
     # ===== Target Hours per shift/day type =====
     day_type = date_obj.strftime("%A") if date_obj else ""
@@ -67,7 +69,6 @@ def execute(filters=None):
     mtd_waste = mtd_actual_bcms - (mtd_coal / 1.5) if mtd_coal else (mtd_actual_bcms or 0)
 
     # ===== Daily Productivity =====
-    # NOTE: Only the Excavator Productivity table output/columns are changed.
     excavator_prod, dozer_prod = get_daily_productivity(site, getdate(end_date), shift)
 
     # ===== Build HTML =====
@@ -78,9 +79,9 @@ def execute(filters=None):
         site, shift, formatted_date, mpp,
         excavators, dozers, fmt,
         mtd_coal, mtd_waste,
-        actual_ts_day, actual_dozer_day, mtd_actual_bcms,
+        actual_ts_day, actual_dozer_day, daily_achieved, mtd_actual_bcms,
         excavator_prod, dozer_prod,
-        daily_coal, daily_hards, daily_softs
+        daily_coal_ts, daily_hards_ts, daily_softs_ts
     )
     return [], [], html
 
@@ -170,7 +171,7 @@ def get_mtd_hours(site, asset_name, month_start, end_date, category):
 
 
 # ---------------------------------------------------------
-# ✅ Daily BCM split by material category (Coal/Hards/Softs)
+# ✅ TS material classification (Truck / Shovel only)
 # ---------------------------------------------------------
 def _classify_material(mat_type: str) -> str:
     if not mat_type:
@@ -185,7 +186,11 @@ def _classify_material(mat_type: str) -> str:
     return "Other"
 
 
-def get_daily_bcms_by_material(site, date, shift=None):
+def get_daily_ts_bcms_by_material(site, date, shift=None):
+    """
+    Truck / Shovel only.
+    Dozer material must NOT be included here.
+    """
     if not site or not date:
         return {}
 
@@ -200,24 +205,13 @@ def get_daily_bcms_by_material(site, date, shift=None):
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.location = %(site)s
           AND hp.prod_date = %(date)s
+          AND hp.docstatus < 2
           {shift_cond}
         GROUP BY tl.mat_type
     """, values, as_dict=True)
 
-    dozer = frappe.db.sql(f"""
-        SELECT
-            dp.dozer_geo_mat_layer AS mat_type,
-            COALESCE(SUM(dp.bcm_hour), 0) AS bcm
-        FROM `tabHourly Production` hp
-        JOIN `tabDozer Production` dp ON dp.parent = hp.name
-        WHERE hp.location = %(site)s
-          AND hp.prod_date = %(date)s
-          {shift_cond}
-        GROUP BY dp.dozer_geo_mat_layer
-    """, values, as_dict=True)
-
     totals = {"Coal": 0, "Hards": 0, "Softs": 0, "Other": 0, "Unassigned": 0}
-    for r in (truck or []) + (dozer or []):
+    for r in truck or []:
         cat = _classify_material(r.get("mat_type"))
         totals[cat] = (totals.get(cat, 0) or 0) + (r.get("bcm") or 0)
 
@@ -263,6 +257,7 @@ def get_actual_bcms_for_date(site, end_date, month_start):
                 JOIN `tabTruck Loads` tl ON tl.parent = hp.name
                 WHERE hp.prod_date > %s AND hp.prod_date <= %s
                   AND hp.location = %s
+                  AND hp.docstatus < 2
             """, (survey_date, end_date, site))[0][0]
 
             dozing_after = frappe.db.sql("""
@@ -271,6 +266,7 @@ def get_actual_bcms_for_date(site, end_date, month_start):
                 JOIN `tabDozer Production` dp ON dp.parent = hp.name
                 WHERE hp.prod_date > %s AND hp.prod_date <= %s
                   AND hp.location = %s
+                  AND hp.docstatus < 2
             """, (survey_date, end_date, site))[0][0]
 
             ts_actual_bcm += ts_after or 0
@@ -290,6 +286,7 @@ def get_hourly_bcms(start_date, end_date, site):
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.prod_date BETWEEN %s AND %s
           AND hp.location = %s
+          AND hp.docstatus < 2
     """, (start_date, end_date, site))[0][0]
 
     dozing = frappe.db.sql("""
@@ -298,6 +295,7 @@ def get_hourly_bcms(start_date, end_date, site):
         JOIN `tabDozer Production` dp ON dp.parent = hp.name
         WHERE hp.prod_date BETWEEN %s AND %s
           AND hp.location = %s
+          AND hp.docstatus < 2
     """, (start_date, end_date, site))[0][0]
 
     return ts or 0, dozing or 0
@@ -341,6 +339,7 @@ def get_mtd_coal_dynamic(site, end_date, month_start):
                 JOIN `tabTruck Loads` tl ON tl.parent = hp.name
                 WHERE hp.prod_date > %s AND hp.prod_date <= %s
                   AND hp.location = %s
+                  AND hp.docstatus < 2
                   AND LOWER(tl.mat_type) LIKE '%%coal%%'
             """, (survey_date, end_date, site))[0][0]
             coal_tons_actual += (coal_after or 0) * COAL_CONVERSION
@@ -359,31 +358,15 @@ def get_coal_from_hourly(start_date, end_date, site, COAL_CONVERSION):
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.prod_date BETWEEN %s AND %s
           AND hp.location = %s
+          AND hp.docstatus < 2
           AND LOWER(tl.mat_type) LIKE '%%coal%%'
     """, (start_date, end_date, site))[0][0]
     return (coal_bcm or 0) * COAL_CONVERSION
 
 
 # ---------------------------------------------------------
-# ✅ Actual TS and Dozing for the Day
+# ✅ Actual Dozing for the Day
 # ---------------------------------------------------------
-def get_actual_ts_for_day(site, date, shift=None):
-    if not site or not date:
-        return 0
-    shift_condition = "AND shift = %s" if shift else ""
-    shift_params = (shift,) if shift else ()
-    result = frappe.db.sql(
-        f"""
-        SELECT SUM(total_ts_bcm) AS total_bcm
-        FROM `tabHourly Production`
-        WHERE location = %s AND prod_date = %s {shift_condition}
-        """,
-        (site, date, *shift_params),
-        as_dict=True
-    )
-    return result[0].total_bcm or 0
-
-
 def get_actual_dozer_for_day(site, date, shift=None):
     if not site or not date:
         return 0
@@ -393,7 +376,7 @@ def get_actual_dozer_for_day(site, date, shift=None):
         f"""
         SELECT SUM(total_dozing_bcm) AS total_bcm
         FROM `tabHourly Production`
-        WHERE location = %s AND prod_date = %s {shift_condition}
+        WHERE location = %s AND prod_date = %s AND docstatus < 2 {shift_condition}
         """,
         (site, date, *shift_params),
         as_dict=True
@@ -469,12 +452,12 @@ def get_daily_productivity(site, date, shift=None):
     truck_rows = frappe.db.sql(f"""
         SELECT
             tl.asset_name_shoval AS excavator,
-            SUM(tl.bcms) AS bcm_output,
-            GROUP_CONCAT(DISTINCT tl.mat_type) AS mat_types
+            SUM(tl.bcms) AS bcm_output
         FROM `tabHourly Production` hp
         JOIN `tabTruck Loads` tl ON tl.parent = hp.name
         WHERE hp.prod_date = %(date)s
           AND hp.location = %(site)s
+          AND hp.docstatus < 2
           {shift_condition_hp}
         GROUP BY tl.asset_name_shoval
     """, values, as_dict=True)
@@ -482,12 +465,12 @@ def get_daily_productivity(site, date, shift=None):
     dozer_rows = frappe.db.sql(f"""
         SELECT
             dp.asset_name AS dozer,
-            SUM(dp.bcm_hour) AS bcm_output,
-            GROUP_CONCAT(DISTINCT dp.dozer_geo_mat_layer) AS mat_types
+            SUM(dp.bcm_hour) AS bcm_output
         FROM `tabHourly Production` hp
         JOIN `tabDozer Production` dp ON dp.parent = hp.name
         WHERE hp.prod_date = %(date)s
           AND hp.location = %(site)s
+          AND hp.docstatus < 2
           {shift_condition_hp}
         GROUP BY dp.asset_name
     """, values, as_dict=True)
@@ -498,6 +481,7 @@ def get_daily_productivity(site, date, shift=None):
         JOIN `tabPre-use Assets` pa ON pa.parent = pu.name
         WHERE pu.shift_date = %(date)s
           AND pu.location = %(site)s
+          AND pu.docstatus < 2
           {shift_condition_pu}
         GROUP BY pa.asset_name, pa.asset_category
     """, values, as_dict=True)
@@ -509,7 +493,7 @@ def get_daily_productivity(site, date, shift=None):
 
     excavator_data, dozer_data = [], []
 
-    # ----- Excavators (UPDATED fields for screenshot table) -----
+    # ----- Excavators -----
     for r in truck_rows:
         name = (r.excavator or "").strip()
         if not name:
@@ -518,10 +502,9 @@ def get_daily_productivity(site, date, shift=None):
         bcm = r.bcm_output or 0
         preuse_hours = hours_map.get(name, 0) or 0
         non_prod_hours = non_prod_map.get(name, 0) or 0
-        prod_hours = preuse_hours - non_prod_hours
+        prod_hours = max((preuse_hours - non_prod_hours), 0)
 
-        # BCM per Hour = BCMs / Production Hours
-        rate = round((bcm / prod_hours), 2) if prod_hours else 0
+        rate = round((bcm / prod_hours), 2) if prod_hours > 0 else 0
 
         excavator_data.append({
             "asset_name": name,
@@ -532,7 +515,7 @@ def get_daily_productivity(site, date, shift=None):
             "productivity": rate
         })
 
-    # ----- Dozers (UNCHANGED) -----
+    # ----- Dozers -----
     for r in dozer_rows:
         name = (r.dozer or "").strip()
         if not name:
@@ -551,9 +534,9 @@ def get_daily_productivity(site, date, shift=None):
 # ---------------------------------------------------------
 def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
                mtd_coal, mtd_waste,
-               actual_ts_day, actual_dozer_day, mtd_actual_bcms,
+               actual_ts_day, actual_dozer_day, daily_achieved, mtd_actual_bcms,
                excavator_prod, dozer_prod,
-               daily_coal, daily_hards, daily_softs):
+               daily_coal_ts, daily_hards_ts, daily_softs_ts):
     dark_blue = "#003366"
     light_blue = "#EAF3FA"
     gray_border = "#CCCCCC"
@@ -595,8 +578,6 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
     shift_label = shift if shift else "Full Day"
     shift_html = f"<span style='font-style:italic; color:{shift_color}; font-weight:bold;'> - {shift_label}</span>"
 
-    daily_achieved = (actual_ts_day or 0) + (actual_dozer_day or 0)
-
     summary_html = f"""
     <div class="left-section">
         <div style="{section}">Summary</div>
@@ -614,9 +595,9 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
             <tr><td style="{td}">Daily Dozing BCMs</td><td style="{td}">{fmt(actual_dozer_day)}</td></tr>
             <tr><td style="{td}">Daily TS BCMs</td><td style="{td}">{fmt(actual_ts_day)}</td></tr>
 
-            <tr><td style="{td}">Daily Coal BCMs TS</td><td style="{td}">{fmt(daily_coal)}</td></tr>
-            <tr><td style="{td}">Daily Hards BCMs</td><td style="{td}">{fmt(daily_hards)}</td></tr>
-            <tr><td style="{td}">Daily Softs BCMs TS</td><td style="{td}">{fmt(daily_softs)}</td></tr>
+            <tr><td style="{td}">Daily Coal BCMs TS</td><td style="{td}">{fmt(daily_coal_ts)}</td></tr>
+            <tr><td style="{td}">Daily Hards BCMs TS</td><td style="{td}">{fmt(daily_hards_ts)}</td></tr>
+            <tr><td style="{td}">Daily Softs BCMs TS</td><td style="{td}">{fmt(daily_softs_ts)}</td></tr>
 
             <tr><td style="{td}">Daily Average BCM per Hour</td><td style="{td}" contenteditable="true" class="comment-cell"></td></tr>
         </table>
@@ -632,7 +613,6 @@ def build_html(site, shift, formatted_date, mpp, excavators, dozers, fmt,
     </div>
     """
 
-    # ✅ ONLY Excavator Productivity table changed. Dozer Productivity stays untouched.
     bottom_html = f"""
     <hr class='full-line'>
     <div class='bottom-prod'>
@@ -696,26 +676,10 @@ def build_machine_tables(excavators, dozers, fmt, td, th, section, table):
 
 
 # ---------------------------------------------------------
-# ✅ Excavator Productivity table (ONLY table changed)
+# ✅ Excavator Productivity table
 # ---------------------------------------------------------
 def build_excavator_prod_table(title, rows, td, th, section, table):
-    """
-    Columns:
-      - Machine
-      - Pre-Use Hours
-      - Non-Production Worked Hours
-      - Production Hours
-      - BCM's
-      - BCM per Hour (BCM's / Production Hours)
-    BCM per Hour color rules:
-      - 0 => red
-      - 200-219.999.. => orange
-      - >= 220 => green
-      - else => red
-    """
-
     def fmt_hours(x):
-        # show decimals for hours (e.g. 0.45), but keep clean for whole numbers
         try:
             val = float(x or 0)
         except Exception:
@@ -729,7 +693,6 @@ def build_excavator_prod_table(title, rows, td, th, section, table):
             val = float(x or 0)
         except Exception:
             return "0"
-        # BCMs usually whole in your UI; keep integer formatting
         return f"{int(round(val)):,}"
 
     def fmt_rate(x):
@@ -737,18 +700,16 @@ def build_excavator_prod_table(title, rows, td, th, section, table):
             val = float(x or 0)
         except Exception:
             val = 0.0
-        # show 2 decimals for rate
         return f"{val:.2f}"
 
     def rate_color(rate):
-        # exact rules requested
         if rate == 0:
-            return "#b30000"  # red
+            return "#b30000"
         if 200 <= rate < 220:
-            return "#ff8c00"  # orange
+            return "#ff8c00"
         if rate >= 220:
-            return "#006600"  # green
-        return "#b30000"      # red for anything below 200 but not 0
+            return "#006600"
+        return "#b30000"
 
     header = f"""
     <div style="{section} margin-top:10px;">{title}</div>
@@ -779,7 +740,6 @@ def build_excavator_prod_table(title, rows, td, th, section, table):
         prodh = float(r.get("prod_hours") or 0)
         bcm = float(r.get("output") or 0)
 
-        # BCM per Hour = BCMs / Production Hours
         rate = (bcm / prodh) if prodh else 0.0
 
         total_preuse += preuse
@@ -818,14 +778,20 @@ def build_excavator_prod_table(title, rows, td, th, section, table):
 
 
 # ---------------------------------------------------------
-# Dozer Productivity table (UNCHANGED)
+# Dozer Productivity table
 # ---------------------------------------------------------
 def build_prod_table(title, rows, fmt, td, th, section, table, red, green):
+    def fmt_rate(x):
+        try:
+            return f"{float(x or 0):.2f}"
+        except Exception:
+            return "0.00"
+
     prod_rows = "".join(
         f"<tr><td style='{td}'>{r['asset_name']}</td>"
         f"<td style='{td}'>{fmt(r['hours'])}</td>"
         f"<td style='{td}'>{fmt(r['output'])}</td>"
-        f"<td style='{td};color:{green if r['productivity']>=220 else red};'>{fmt(r['productivity'])}</td></tr>"
+        f"<td style='{td};color:{green if r['productivity']>=220 else red};'>{fmt_rate(r['productivity'])}</td></tr>"
         for r in rows
     )
 
@@ -834,7 +800,7 @@ def build_prod_table(title, rows, fmt, td, th, section, table, red, green):
         total_output = sum(r["output"] for r in rows)
         avg_prod = round(total_output / total_hours, 2) if total_hours else 0
         color = green if avg_prod >= 220 else red
-        prod_rows += f"<tr style='background-color:#f2f2f2;font-weight:bold;'><td style='{td}'>Total</td><td style='{td}'>{fmt(total_hours)}</td><td style='{td}'>{fmt(total_output)}</td><td style='{td};color:{color};'>{fmt(avg_prod)}</td></tr>"
+        prod_rows += f"<tr style='background-color:#f2f2f2;font-weight:bold;'><td style='{td}'>Total</td><td style='{td}'>{fmt(total_hours)}</td><td style='{td}'>{fmt(total_output)}</td><td style='{td};color:{color};'>{fmt_rate(avg_prod)}</td></tr>"
     else:
         prod_rows = f"<tr><td colspan='4' style='{td}'>No data found</td></tr>"
 

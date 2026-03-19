@@ -26,11 +26,13 @@ frappe.query_reports["Daily Reporting"] = {
     ],
 
     onload: function (report) {
-        // UI enhancement for editable comment cells
-        $(document).on('focus', '.comment-cell', function () {
-            $(this).css({ "background-color": "#ffffcc", "outline": "1px solid #ccc" });
-        }).on('blur', '.comment-cell', function () {
-            $(this).css({ "background-color": "", "outline": "none" });
-        });
+        $(document)
+            .off("focus.daily_reporting blur.daily_reporting", ".comment-cell")
+            .on("focus.daily_reporting", ".comment-cell", function () {
+                $(this).css({ "background-color": "#ffffcc", "outline": "1px solid #ccc" });
+            })
+            .on("blur.daily_reporting", ".comment-cell", function () {
+                $(this).css({ "background-color": "", "outline": "none" });
+            });
     }
 };
