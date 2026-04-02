@@ -1150,45 +1150,35 @@ function render_day_table(dayLabel, rows, map) {
 
   const excavatorNames = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
 
-  const totalsByHour = {};
-  const activeExcavatorsByHour = {};
+const totalsByHour = {};
+for (const k of hourKeys) {
+  totalsByHour[k] = 0;
+}
+
+const excavatorTotals = {};
+const excavatorAvgs = {};
+const productionExcavators = Math.max(1, asNumber(cur_frm?.doc?.production_excavators || frm?.doc?.production_excavators || 0));
+
+for (const ex of excavatorNames) {
+  let exTotal = 0;
+
   for (const k of hourKeys) {
-    totalsByHour[k] = 0;
-    activeExcavatorsByHour[k] = 0;
+    const sum = grouped[ex].reduce((acc, r) => acc + asNumber(r[k]), 0);
+
+    exTotal += sum;
+    totalsByHour[k] += sum;
   }
 
-  const excavatorTotals = {};
-  const excavatorAvgs = {};
+  excavatorTotals[ex] = trunc0(exTotal);
+  excavatorAvgs[ex] = trunc0(exTotal / REPORT_HOURS_PER_DAY);
+}
 
-  for (const ex of excavatorNames) {
-    let exTotal = 0;
+const dayGrandTotal = trunc0(hourKeys.reduce((acc, k) => acc + totalsByHour[k], 0));
 
-    for (const k of hourKeys) {
-      const sum = grouped[ex].reduce((acc, r) => acc + asNumber(r[k]), 0);
-
-      exTotal += sum;
-      totalsByHour[k] += sum;
-
-      // Count this excavator in this hour ONLY if it actually worked in that hour
-      if (sum > 0) {
-        activeExcavatorsByHour[k] += 1;
-      }
-    }
-
-    excavatorTotals[ex] = trunc0(exTotal);
-    excavatorAvgs[ex] = trunc0(exTotal / REPORT_HOURS_PER_DAY);
-  }
-
-  const dayGrandTotal = trunc0(hourKeys.reduce((acc, k) => acc + totalsByHour[k], 0));
-
-  // Overall site avg/hr stays as total BCM / total active excavator-hours
-  const totalActiveExcavatorHours = hourKeys.reduce(
-    (acc, k) => acc + activeExcavatorsByHour[k],
-    0
-  );
-  const siteAvg = trunc0(
-    totalActiveExcavatorHours > 0 ? dayGrandTotal / totalActiveExcavatorHours : 0
-  );
+// Site avg/hr now always uses Production Excavators from the parent doctype
+const siteAvg = trunc0(
+  dayGrandTotal / (productionExcavators * REPORT_HOURS_PER_DAY)
+);
 
   let html = `
     <div class="pe-day">
@@ -1230,16 +1220,15 @@ function render_day_table(dayLabel, rows, map) {
               <td><b>Site avg/hr</b></td>
               ${hourKeys
                 .map((k) => {
-                  const activeCount = activeExcavatorsByHour[k];
-                  const v = trunc0(activeCount > 0 ? totalsByHour[k] / activeCount : 0);
+                  const v = trunc0(totalsByHour[k] / productionExcavators);
                   const cls = cellClass(v);
                   return `<td class="${cls}">${formatNumber0(v)}</td>`;
                 })
                 .join("")}
               <td class="${cellClass(siteAvg)} pe-avgcol"><b>${formatNumber0(siteAvg)}</b></td>
               <td><b>${formatNumberOrBlank0(dayGrandTotal)}</b></td>
-            </tr>
-          </tfoot>
+          </tr>
+        </tfoot>
         </table>
       </div>
     </div>
