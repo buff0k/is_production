@@ -73,36 +73,56 @@ class PreUseHours(Document):
             frappe.log_error(message=frappe.get_traceback(), title="Pre-Use Hours Validation Error")
             raise
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     def validate_previous_shift_hours(self):
         """
-        Ensures that when opening a new shift, the calculated working hours for
-        the previous shift (using new eng_hrs_start values) are not negative
-        or greater than 12. If invalid, throw error with asset details.
+        Validate previous shift hours per asset globally (not per site).
+        Uses the current row's start hours to close the previous row for the same asset,
+        regardless of location.
         """
-        prev_doc = get_previous_document(self.location, self.creation)
-        if not prev_doc:
-            return
-
         bad_assets = []
-        current_assets_map = {r.asset_name: r for r in self.pre_use_assets if r.asset_name}
 
-        for pr in prev_doc.pre_use_assets:
-            cr = current_assets_map.get(pr.asset_name)
-            if cr and cr.eng_hrs_start is not None and pr.eng_hrs_start is not None:
-                eng_hrs_end = cr.eng_hrs_start
-                working_hours = round(flt(eng_hrs_end) - flt(pr.eng_hrs_start), 1)
+        for cr in self.pre_use_assets:
+            if not cr.asset_name or cr.eng_hrs_start is None:
+                continue
 
-                if working_hours < 0 or working_hours > 12:
-                    bad_assets.append({
-                        "asset": pr.asset_name,
-                        "prev_start": pr.eng_hrs_start,
-                        "new_start": cr.eng_hrs_start,
-                        "wh": working_hours
-                    })
+            prev_row = get_previous_asset_row(cr.asset_name, self.creation)
+            if not prev_row or prev_row.eng_hrs_start is None:
+                continue
+
+            eng_hrs_end = cr.eng_hrs_start
+            working_hours = round(flt(eng_hrs_end) - flt(prev_row.eng_hrs_start), 1)
+
+            if working_hours < 0 or working_hours > 12:
+                bad_assets.append({
+                    "asset": cr.asset_name,
+                    "prev_start": prev_row.eng_hrs_start,
+                    "new_start": cr.eng_hrs_start,
+                    "wh": working_hours,
+                    "prev_doc": prev_row.parent,
+                })
 
         if bad_assets:
             rows_html = "".join(
-                f"<tr><td>{b['asset']}</td><td>{b['prev_start']}</td>"
+                f"<tr><td>{b['asset']}</td><td>{b['prev_doc']}</td><td>{b['prev_start']}</td>"
                 f"<td>{b['new_start']}</td><td>{b['wh']}</td></tr>"
                 for b in bad_assets
             )
@@ -112,6 +132,7 @@ class PreUseHours(Document):
                 <table class="table table-bordered" style="width:100%; border-collapse: collapse;">
                     <tr>
                         <th>Asset</th>
+                        <th>Previous Document</th>
                         <th>Previous Start</th>
                         <th>Current Start</th>
                         <th>Calculated Hours</th>
@@ -125,53 +146,71 @@ class PreUseHours(Document):
             """
             frappe.throw(table_html)
 
+
+
+
+
+
+
+
+
+
     def update_previous_eng_hrs_end(self):
         """
-        Copy eng_hrs_end/working_hours into the previous record and re-run its integrity.
+        Copy eng_hrs_end/working_hours into the previous row for each asset globally,
+        then re-run integrity on each affected parent document.
         """
         try:
-            prev_name = frappe.db.get_value(
-                "Pre-Use Hours",
-                {"location": self.location, "creation": ["<", self.creation]},
-                "name",
-                order_by="creation desc"
-            )
-            if not prev_name:
-                return
+            touched_parents = set()
 
-            prev = frappe.get_doc("Pre-Use Hours", prev_name)
-            current_assets_map = {r.asset_name: r for r in self.pre_use_assets if r.asset_name}
+            for cr in self.pre_use_assets:
+                if not cr.asset_name or cr.eng_hrs_start is None:
+                    continue
 
-            for pr in prev.pre_use_assets:
-                cr = current_assets_map.get(pr.asset_name)
-                if cr and cr.eng_hrs_start is not None:
-                    pr.eng_hrs_end = cr.eng_hrs_start
-                    if pr.eng_hrs_start is not None:
-                        pr.working_hours = round(flt(pr.eng_hrs_end) - flt(pr.eng_hrs_start), 1)
-                    frappe.db.set_value(
-                        "Pre-use Assets", pr.name,
-                        {
-                            "eng_hrs_end": pr.eng_hrs_end,
-                            "working_hours": pr.working_hours
-                        },
-                        update_modified=False
-                    )
+                prev_row = get_previous_asset_row(cr.asset_name, self.creation)
+                if not prev_row:
+                    continue
 
-            prev.evaluate_data_integrity()
-            frappe.db.set_value(
-                "Pre-Use Hours", prev.name,
-                {
-                    "data_integrity_summary": prev.data_integrity_summary,
-                    "data_integ_indicator": prev.data_integ_indicator
-                },
-                update_modified=False
-            )
+                prev_row.eng_hrs_end = cr.eng_hrs_start
+                if prev_row.eng_hrs_start is not None:
+                    prev_row.working_hours = round(flt(prev_row.eng_hrs_end) - flt(prev_row.eng_hrs_start), 1)
 
-            frappe.publish_realtime("preuse:reload_doc", {
-                "doctype": "Pre-Use Hours", "name": prev.name
-            })
+                frappe.db.set_value(
+                    "Pre-use Assets",
+                    prev_row.name,
+                    {
+                        "eng_hrs_end": prev_row.eng_hrs_end,
+                        "working_hours": prev_row.working_hours
+                    },
+                    update_modified=False
+                )
 
-            # Merge summaries
+                touched_parents.add(prev_row.parent)
+
+            previous_html_parts = []
+
+            for parent_name in touched_parents:
+                prev_doc = frappe.get_doc("Pre-Use Hours", parent_name)
+                prev_doc.evaluate_data_integrity()
+
+                frappe.db.set_value(
+                    "Pre-Use Hours",
+                    prev_doc.name,
+                    {
+                        "data_integrity_summary": prev_doc.data_integrity_summary,
+                        "data_integ_indicator": prev_doc.data_integ_indicator
+                    },
+                    update_modified=False
+                )
+
+                frappe.publish_realtime("preuse:reload_doc", {
+                    "doctype": "Pre-Use Hours", "name": prev_doc.name
+                })
+
+                previous_html_parts.append(
+                    f"<h4>Previous Shift Integrity: {prev_doc.name}</h4>{prev_doc.data_integrity_summary or '<p><b>No issues in previous shift.</b></p>'}"
+                )
+
             nav_buttons = """
                 <div style="margin-bottom:10px;">
                   <button class="btn btn-sm btn-secondary" id="prev_record_top">⬅️ Previous</button>
@@ -180,7 +219,7 @@ class PreUseHours(Document):
             """
 
             current_html = self.data_integrity_summary or "<p><b>No issues in current shift.</b></p>"
-            previous_html = prev.data_integrity_summary or "<p><b>No issues in previous shift.</b></p>"
+            previous_html = "".join(previous_html_parts) or "<p><b>No previous shift updates.</b></p>"
 
             legend = """
                 <hr>
@@ -201,7 +240,6 @@ class PreUseHours(Document):
                     {current_html}
                   </div>
                   <div style="flex:1; padding-left:10px;">
-                    <h4>Previous Shift Integrity</h4>
                     {previous_html}
                   </div>
                 </div>
@@ -214,6 +252,16 @@ class PreUseHours(Document):
         except Exception as e:
             frappe.log_error(message=frappe.get_traceback(), title="Engine Hours Update Error")
             frappe.throw(_("Error updating previous engine hours: {0}").format(e))
+
+
+
+
+
+
+
+
+
+
 
     def evaluate_data_integrity(self):
         errors = []
@@ -336,3 +384,23 @@ def get_previous_document(location, creation_dt):
     if not prev_name:
         return None
     return frappe.get_doc("Pre-Use Hours", prev_name)
+
+
+
+
+def get_previous_asset_row(asset_name, creation_dt):
+    """
+    Get the previous Pre-use Assets row for the same asset globally
+    across all sites, based on parent Pre-Use Hours creation timestamp.
+    """
+    row = frappe.db.sql("""
+        SELECT pa.name, pa.parent, pa.asset_name, pa.eng_hrs_start, pa.eng_hrs_end, pa.working_hours
+        FROM `tabPre-use Assets` pa
+        INNER JOIN `tabPre-Use Hours` puh ON puh.name = pa.parent
+        WHERE pa.asset_name = %s
+          AND puh.creation < %s
+        ORDER BY puh.creation DESC
+        LIMIT 1
+    """, (asset_name, creation_dt), as_dict=True)
+
+    return frappe._dict(row[0]) if row else None

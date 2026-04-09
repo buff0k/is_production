@@ -29,7 +29,7 @@ def execute(filters=None):
                 "group_value": group_value,
                 "litres_issued": total,
                 "asset_category": None,
-                "docstatus": "Draft + Submitted"
+                "docstatus": "Draft + Submitted + Cancelled"
             }
             for group_value, total in grouped_totals.items()
         ]
@@ -41,7 +41,7 @@ def execute(filters=None):
                 "group_value": group_value,
                 "litres_issued": total,
                 "asset_category": None,
-                "docstatus": "Draft + Submitted"
+                "docstatus": "Draft + Submitted + Cancelled"
             })
 
     # Append grand total row always
@@ -106,7 +106,7 @@ def get_data(filters):
         `tabAsset` AS a ON dde.asset_name = a.name
     WHERE
         dds.daily_sheet_date IS NOT NULL
-        AND dds.docstatus IN (0, 1)  -- ✅ Draft (0) + Submitted (1) only
+        AND dds.docstatus IN (0, 1, 2)  -- Draft (0) + Submitted (1) + Cancelled (2)
     """
 
     # Apply filters dynamically
@@ -140,7 +140,7 @@ def get_data(filters):
     data = frappe.db.sql(query, filters, as_dict=True)
 
     # Map docstatus numbers to readable labels
-    status_map = {0: "Draft", 1: "Submitted"}
+    status_map = {0: "Draft", 1: "Submitted", 2: "Cancelled"}
 
     formatted_data = [
         {
