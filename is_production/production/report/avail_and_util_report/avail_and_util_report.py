@@ -24,6 +24,7 @@ def get_columns():
         {"label": "Work Hrs", "fieldname": "shift_working_hours", "fieldtype": "Float", "width": 75, "precision": 1},
         {"label": "Mechanical Downtime", "fieldname": "shift_breakdown_hours", "fieldtype": "Float", "width": 125, "precision": 1},
         {"label": "Planned Downtime", "fieldname": "planned_downtime", "fieldtype": "Float", "width": 115, "precision": 1},
+        {"label": "Actual Hours", "fieldname": "actual_hours", "fieldtype": "Float", "width": 100, "precision": 1},
         {"label": "Actual Service Time", "fieldname": "actual_service_time", "fieldtype": "Float", "width": 130, "precision": 1},
         {"label": "Actual Breakdown Time", "fieldname": "actual_breakdown_time", "fieldtype": "Float", "width": 145, "precision": 1},
         {"label": "Actual Planned Maintenance Time", "fieldname": "actual_planned_maintenance_time", "fieldtype": "Float", "width": 190, "precision": 1},
@@ -42,7 +43,6 @@ def get_columns():
 
 
 MSR_TIME_FIELDS = [
-    "planned_downtime",
     "actual_service_time",
     "actual_breakdown_time",
     "actual_planned_maintenance_time",
@@ -54,6 +54,7 @@ SUM_FIELDS = [
     "shift_working_hours",
     "shift_breakdown_hours",
     "planned_downtime",
+    "actual_hours",
     "actual_service_time",
     "actual_breakdown_time",
     "actual_planned_maintenance_time",
@@ -115,6 +116,62 @@ def get_overlap_hours(start1, end1, start2, end2):
     return (overlap_end - overlap_start).total_seconds() / 3600.0
 
 
+
+
+def get_planned_downtime_value(location, shift_date, indent):
+    site = (location or "").strip().lower()
+    day_of_week = frappe.utils.getdate(shift_date).weekday()  # Mon=0 ... Sun=6
+
+    saturday_special_sites = {"koppie", "uitgevallen", "bankfontein", "kriel"}
+
+    if day_of_week == 6:  # Sunday
+        return 0.0
+
+    if day_of_week == 5:  # Saturday
+        if site in saturday_special_sites:
+            return 4.0 if indent in (0, 1, 2) else 2.0
+        return 6.0 if indent in (0, 1, 2) else 3.0
+
+    # Weekdays
+    return 6.0 if indent in (0, 1, 2) else 3.0
+
+
+def get_actual_hours_value(location, shift_date, indent):
+    site = (location or "").strip().lower()
+    day_of_week = frappe.utils.getdate(shift_date).weekday()  # Mon=0 ... Sun=6
+
+    saturday_special_sites = {"koppie", "uitgevallen", "bankfontein", "kriel"}
+
+    if day_of_week == 6:  # Sunday
+        return 0.0
+
+    if day_of_week == 5:  # Saturday
+        if site in saturday_special_sites:
+            return 18.0 if indent in (0, 1, 2) else 9.0
+        return 24.0 if indent in (0, 1, 2) else 12.0
+
+    # Weekdays
+    return 24.0 if indent in (0, 1, 2) else 12.0
+
+
+def attach_planned_and_actual_hours(data):
+    for row in data:
+        if not row.get("shift_date"):
+            row["planned_downtime"] = 0.0
+            row["actual_hours"] = 0.0
+            continue
+
+        row["planned_downtime"] = r1(
+            get_planned_downtime_value(row.get("location"), row.get("shift_date"), row.get("indent"))
+        )
+        row["actual_hours"] = r1(
+            get_actual_hours_value(row.get("location"), row.get("shift_date"), row.get("indent"))
+        )
+
+
+
+
+
 def get_msr_time_map(filters):
     conditions = ["msr.service_date >= %(start_date)s", "msr.service_date <= %(end_date)s"]
     args = {
@@ -168,9 +225,6 @@ def get_msr_time_map(filters):
 
             key = (row.location, str(row.service_date), row.asset_name, shift)
             bucket = time_map.setdefault(key, {field: 0.0 for field in MSR_TIME_FIELDS})
-
-            if total_hours > 0 and unavailable_hours > 0:
-                bucket["planned_downtime"] += unavailable_hours * (overlap_hours / total_hours)
 
             if row.service_breakdown == "Service":
                 bucket["actual_service_time"] += overlap_hours
@@ -375,6 +429,12 @@ def get_grouped_data(filters):
                         "shift_required_hours",
                         "shift_working_hours",
                         "shift_breakdown_hours",
+                        "planned_downtime",
+                        "actual_hours",
+                        "actual_service_time",
+                        "actual_breakdown_time",
+                        "actual_planned_maintenance_time",
+                        "actual_inspection_time",
                         "shift_available_hours",
                         "shift_other_lost_hours",
                         "plant_shift_availability",
@@ -386,6 +446,7 @@ def get_grouped_data(filters):
 
     attach_reasons(data, filters)
     attach_msr_actuals(data, filters)
+    attach_planned_and_actual_hours(data)
     recalculate_summary_rows(data)
 
     return data
@@ -417,6 +478,7 @@ def combine_shifts(rows):
         "shift_working_hours",
         "shift_breakdown_hours",
         "planned_downtime",
+        "actual_hours",
         "actual_service_time",
         "actual_breakdown_time",
         "actual_planned_maintenance_time",
@@ -468,6 +530,7 @@ def summary_row(rows, indent, sum_hours=False, **extra_fields):
         "shift_working_hours": r1(h_fn("shift_working_hours")),
         "shift_breakdown_hours": r1(h_fn("shift_breakdown_hours")),
         "planned_downtime": r1(h_fn("planned_downtime")),
+        "actual_hours": r1(h_fn("actual_hours")),
         "actual_service_time": r1(h_fn("actual_service_time")),
         "actual_breakdown_time": r1(h_fn("actual_breakdown_time")),
         "actual_planned_maintenance_time": r1(h_fn("actual_planned_maintenance_time")),

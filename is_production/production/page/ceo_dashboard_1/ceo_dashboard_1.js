@@ -109,6 +109,23 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
   }
 
   // -------------------------
+  // Generic list helper
+  // -------------------------
+  function get_list(doctype, args = {}) {
+    return frappe.call({
+      method: "frappe.client.get_list",
+      args: {
+        doctype,
+        fields: args.fields || ["name"],
+        filters: args.filters || {},
+        order_by: args.order_by,
+        limit_page_length: args.limit_page_length || 20
+      },
+      freeze: false
+    }).then((r) => r.message || []);
+  }
+
+  // -------------------------
   // Get selected Define Monthly Production doc order
   // -------------------------
   function get_site_order_map(docname) {
@@ -142,6 +159,14 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
     return Math.round(x).toLocaleString();
   }
 
+  function fmt_decimal(n, decimals = 1) {
+    const x = Number(n || 0);
+    return x.toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    });
+  }
+
   function cls_good_bad_from_value(val) {
     const v = Number(val || 0);
     return v >= 0 ? "isd-good" : "isd-bad";
@@ -155,6 +180,8 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
   function kpi_box(label, value, opts = {}) {
     const coloured = !!opts.coloured;
     const showArrow = !!opts.showArrow;
+    const sublabel = opts.sublabel || "";
+    const formatter = typeof opts.formatter === "function" ? opts.formatter : fmt_int;
 
     let extraCls = "";
     let arrow = "";
@@ -167,10 +194,11 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
     return `
       <div class="kpi-box ${extraCls}">
         <div class="label">${frappe.utils.escape_html(label)}</div>
+        ${sublabel ? `<div class="sub-label" style="font-size:11px;opacity:0.85;line-height:1.1;margin-top:2px;">${frappe.utils.escape_html(sublabel)}</div>` : `<div class="sub-label" style="font-size:11px;line-height:1.1;margin-top:2px;">&nbsp;</div>`}
         <div class="value">
           <span class="trend">
             ${arrow ? `<span class="arrow">${arrow}</span>` : ""}
-            <span>${fmt_int(value)}</span>
+            <span>${formatter(value)}</span>
           </span>
         </div>
       </div>
@@ -188,6 +216,7 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
     return `
       <div class="kpi-box ${cls}">
         <div class="label">${frappe.utils.escape_html(label)}</div>
+        <div class="sub-label" style="font-size:11px;line-height:1.1;margin-top:2px;">&nbsp;</div>
         <div class="value">
           <span class="trend">
             <span class="arrow">${arrow}</span>
@@ -196,6 +225,112 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
         </div>
       </div>
     `;
+  }
+
+  // -------------------------
+  // BCM/man helpers
+  // -------------------------
+  function get_active_employee_count(site) {
+    const cleanSite = String(site || "").trim();
+    if (!cleanSite) return Promise.resolve(0);
+
+    // Assumes Employee doctype has:
+    // - status = "Active"
+    // - branch = site name
+    return frappe.db.count("Employee", {
+      filters: {
+        status: "Active",
+        branch: cleanSite
+      }
+    }).then((count) => Number(count || 0))
+      .catch((e) => {
+        console.error(`Could not count active employees for site ${cleanSite}:`, e);
+        return 0;
+      });
+  }
+
+  function get_monthly_actual_bcm(site, prodEnd) {
+    const cleanSite = String(site || "").trim();
+    const cleanProdEnd = prodEnd || null;
+
+    if (!cleanSite) return Promise.resolve(0);
+
+    const tryEndDate = () => {
+      if (!cleanProdEnd) return Promise.resolve([]);
+
+      return get_list("Monthly Production Planning", {
+        fields: ["name", "month_actual_bcm"],
+        filters: {
+          location: cleanSite,
+          prod_month_end_date: cleanProdEnd
+        },
+        order_by: "modified desc",
+        limit_page_length: 1
+      });
+    };
+
+    const tryInvoiceEnd = () => {
+      if (!cleanProdEnd) return Promise.resolve([]);
+
+      return get_list("Monthly Production Planning", {
+        fields: ["name", "month_actual_bcm"],
+        filters: {
+          location: cleanSite,
+          prod_month_end: cleanProdEnd
+        },
+        order_by: "modified desc",
+        limit_page_length: 1
+      });
+    };
+
+    const tryLatestForSite = () => {
+      return get_list("Monthly Production Planning", {
+        fields: ["name", "month_actual_bcm"],
+        filters: {
+          location: cleanSite
+        },
+        order_by: "modified desc",
+        limit_page_length: 1
+      });
+    };
+
+    return tryEndDate()
+      .then((rows) => {
+        if (rows && rows.length) return rows;
+        return tryInvoiceEnd();
+      })
+      .then((rows) => {
+        if (rows && rows.length) return rows;
+        return tryLatestForSite();
+      })
+      .then((rows) => Number((rows && rows[0] && rows[0].month_actual_bcm) || 0))
+      .catch((e) => {
+        console.error(`Could not get month_actual_bcm for site ${cleanSite}:`, e);
+        return 0;
+      });
+  }
+
+  function enrich_row_with_bcm_per_man(row) {
+    const site = String(row.site || "").trim();
+    const prodEnd = row.prod_end || null;
+
+    return Promise.all([
+      get_active_employee_count(site),
+      get_monthly_actual_bcm(site, prodEnd)
+    ]).then(([employeeCount, monthActualBcm]) => {
+      const bcmPerMan = employeeCount > 0 ? (Number(monthActualBcm || 0) / employeeCount) : 0;
+
+      return {
+        ...row,
+        employee_count: employeeCount,
+        month_actual_bcm_source: Number(monthActualBcm || 0),
+        bcm_per_man: bcmPerMan
+      };
+    });
+  }
+
+  function enrich_rows(rows) {
+    return Promise.all((rows || []).map(enrich_row_with_bcm_per_man));
   }
 
   // -------------------------
@@ -315,6 +450,10 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
             ${kpi_box("Original Daily Target", r.original_daily_target)}
             ${kpi_box("Current Avg per Day", r.current_avg_per_day)}
             ${kpi_required_vs_original("Required Daily for Target", r.required_daily, r.original_daily_target)}
+            ${kpi_box("BCM/man", r.bcm_per_man, {
+              sublabel: `Employees: ${fmt_int(r.employee_count || 0)}`,
+              formatter: (v) => fmt_decimal(v, 1)
+            })}
           </div>
         </div>
 
@@ -367,10 +506,13 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
       .then(([res, siteOrderMap]) => {
         const payload = res.message || {};
         const rows = payload.result || [];
-        render_dashboard(rows, siteOrderMap);
 
-        const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-        $status.text(`Last updated: ${time} (refreshes at :10 and :30)`);
+        return enrich_rows(rows).then((enrichedRows) => {
+          render_dashboard(enrichedRows, siteOrderMap);
+
+          const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          $status.text(`Last updated: ${time} (refreshes at :10 and :30)`);
+        });
       })
       .catch((e) => {
         console.error(e);
