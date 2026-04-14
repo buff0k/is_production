@@ -511,10 +511,6 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
             ${kpi_box("Original Daily Target", r.original_daily_target)}
             ${kpi_box("Current Avg per Day", r.current_avg_per_day)}
             ${kpi_required_vs_original("Required Daily for Target", r.required_daily, r.original_daily_target)}
-            ${kpi_threshold_box("BCM/man", r.bcm_per_man, BCM_PER_MAN_THRESHOLD, {
-              sublabel: employeeLabel,
-              formatter: (v) => fmt_decimal(v, 1)
-            })}
             ${kpi_threshold_box("Projected BCM/man", r.projected_bcm_per_man, BCM_PER_MAN_THRESHOLD, {
               sublabel: employeeLabel,
               formatter: (v) => fmt_decimal(v, 1)
