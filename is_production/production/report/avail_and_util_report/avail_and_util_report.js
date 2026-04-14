@@ -27,19 +27,30 @@ frappe.query_reports["Avail and Util report"] = {
         report.page.set_primary_action(__("Refresh"), function() {
             report.refresh();
         });
+
+        // Force column widths AFTER render
+        report.on("render_complete", () => {
+            setTimeout(() => {
+                if (!report.datatable) return;
+
+                report.datatable.columns.forEach(col => {
+                    col.width = Math.max(col.width || 140, 170);
+                });
+
+                report.datatable.refresh();
+            }, 200);
+        });
     },
 
     formatter: function(value, row, column, data, default_formatter) {
         value = default_formatter(value, row, column, data);
 
-        // Breakdown reason = red
         if (column.fieldname === "breakdown_reason" && data.breakdown_reason) {
             value = `<span style="color:#d9534f;font-weight:600;" title="${data.breakdown_reason}">
                         ${data.breakdown_reason}
                      </span>`;
         }
 
-        // Delay reason = orange
         if (column.fieldname === "other_delay_reason" && data.other_delay_reason) {
             value = `<span style="color:#f0ad4e;" title="${data.other_delay_reason}">
                         ${data.other_delay_reason}
