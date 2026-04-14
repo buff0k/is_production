@@ -1,6 +1,7 @@
 frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
   const REPORT_NAME = "CEO DASHBOARD";
   const STORAGE_KEY = "ceo_dash_define_monthly_production";
+  const BCM_PER_MAN_THRESHOLD = 4000;
 
   // Match Hourly Dashboard site header colours exactly
   const SITE_HEADER_COLOURS = {
@@ -177,6 +178,16 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
     return v >= 0 ? "▲" : "▼";
   }
 
+  function cls_good_bad_from_threshold(val, threshold) {
+    const v = Number(val || 0);
+    return v >= threshold ? "isd-good" : "isd-bad";
+  }
+
+  function arrow_up_down_from_threshold(val, threshold) {
+    const v = Number(val || 0);
+    return v >= threshold ? "▲" : "▼";
+  }
+
   function kpi_box(label, value, opts = {}) {
     const coloured = !!opts.coloured;
     const showArrow = !!opts.showArrow;
@@ -194,10 +205,36 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
     return `
       <div class="kpi-box ${extraCls}">
         <div class="label">${frappe.utils.escape_html(label)}</div>
-        ${sublabel ? `<div class="sub-label" style="font-size:11px;opacity:0.85;line-height:1.1;margin-top:2px;">${frappe.utils.escape_html(sublabel)}</div>` : `<div class="sub-label" style="font-size:11px;line-height:1.1;margin-top:2px;">&nbsp;</div>`}
+        ${sublabel
+          ? `<div class="sub-label" style="font-size:11px;opacity:0.85;line-height:1.1;margin-top:2px;">${frappe.utils.escape_html(sublabel)}</div>`
+          : `<div class="sub-label" style="font-size:11px;line-height:1.1;margin-top:2px;">&nbsp;</div>`
+        }
         <div class="value">
           <span class="trend">
             ${arrow ? `<span class="arrow">${arrow}</span>` : ""}
+            <span>${formatter(value)}</span>
+          </span>
+        </div>
+      </div>
+    `;
+  }
+
+  function kpi_threshold_box(label, value, threshold, opts = {}) {
+    const sublabel = opts.sublabel || "";
+    const formatter = typeof opts.formatter === "function" ? opts.formatter : fmt_int;
+    const extraCls = cls_good_bad_from_threshold(value, threshold);
+    const arrow = arrow_up_down_from_threshold(value, threshold);
+
+    return `
+      <div class="kpi-box ${extraCls}">
+        <div class="label">${frappe.utils.escape_html(label)}</div>
+        ${sublabel
+          ? `<div class="sub-label" style="font-size:11px;opacity:0.85;line-height:1.1;margin-top:2px;">${frappe.utils.escape_html(sublabel)}</div>`
+          : `<div class="sub-label" style="font-size:11px;line-height:1.1;margin-top:2px;">&nbsp;</div>`
+        }
+        <div class="value">
+          <span class="trend">
+            <span class="arrow">${arrow}</span>
             <span>${formatter(value)}</span>
           </span>
         </div>
@@ -242,24 +279,32 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
         status: "Active",
         branch: cleanSite
       }
-    }).then((count) => Number(count || 0))
+    })
+      .then((count) => Number(count || 0))
       .catch((e) => {
         console.error(`Could not count active employees for site ${cleanSite}:`, e);
         return 0;
       });
   }
 
-  function get_monthly_actual_bcm(site, prodEnd) {
+  function get_monthly_production_metrics(site, prodEnd) {
     const cleanSite = String(site || "").trim();
     const cleanProdEnd = prodEnd || null;
 
-    if (!cleanSite) return Promise.resolve(0);
+    if (!cleanSite) {
+      return Promise.resolve({
+        month_actual_bcm: 0,
+        month_forecated_bcm: 0
+      });
+    }
+
+    const fields = ["name", "month_actual_bcm", "month_forecated_bcm"];
 
     const tryEndDate = () => {
       if (!cleanProdEnd) return Promise.resolve([]);
 
       return get_list("Monthly Production Planning", {
-        fields: ["name", "month_actual_bcm"],
+        fields,
         filters: {
           location: cleanSite,
           prod_month_end_date: cleanProdEnd
@@ -273,7 +318,7 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
       if (!cleanProdEnd) return Promise.resolve([]);
 
       return get_list("Monthly Production Planning", {
-        fields: ["name", "month_actual_bcm"],
+        fields,
         filters: {
           location: cleanSite,
           prod_month_end: cleanProdEnd
@@ -285,7 +330,7 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
 
     const tryLatestForSite = () => {
       return get_list("Monthly Production Planning", {
-        fields: ["name", "month_actual_bcm"],
+        fields,
         filters: {
           location: cleanSite
         },
@@ -303,34 +348,49 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
         if (rows && rows.length) return rows;
         return tryLatestForSite();
       })
-      .then((rows) => Number((rows && rows[0] && rows[0].month_actual_bcm) || 0))
+      .then((rows) => {
+        const row = (rows && rows[0]) || {};
+        return {
+          month_actual_bcm: Number(row.month_actual_bcm || 0),
+          month_forecated_bcm: Number(row.month_forecated_bcm || 0)
+        };
+      })
       .catch((e) => {
-        console.error(`Could not get month_actual_bcm for site ${cleanSite}:`, e);
-        return 0;
+        console.error(`Could not get monthly production metrics for site ${cleanSite}:`, e);
+        return {
+          month_actual_bcm: 0,
+          month_forecated_bcm: 0
+        };
       });
   }
 
-  function enrich_row_with_bcm_per_man(row) {
+  function enrich_row_with_employee_kpis(row) {
     const site = String(row.site || "").trim();
     const prodEnd = row.prod_end || null;
 
     return Promise.all([
       get_active_employee_count(site),
-      get_monthly_actual_bcm(site, prodEnd)
-    ]).then(([employeeCount, monthActualBcm]) => {
-      const bcmPerMan = employeeCount > 0 ? (Number(monthActualBcm || 0) / employeeCount) : 0;
+      get_monthly_production_metrics(site, prodEnd)
+    ]).then(([employeeCount, monthlyMetrics]) => {
+      const monthActualBcm = Number(monthlyMetrics.month_actual_bcm || 0);
+      const monthForecastedBcm = Number(monthlyMetrics.month_forecated_bcm || 0);
+
+      const bcmPerMan = employeeCount > 0 ? (monthActualBcm / employeeCount) : 0;
+      const projectedBcmPerMan = employeeCount > 0 ? (monthForecastedBcm / employeeCount) : 0;
 
       return {
         ...row,
         employee_count: employeeCount,
-        month_actual_bcm_source: Number(monthActualBcm || 0),
-        bcm_per_man: bcmPerMan
+        month_actual_bcm_source: monthActualBcm,
+        month_forecated_bcm_source: monthForecastedBcm,
+        bcm_per_man: bcmPerMan,
+        projected_bcm_per_man: projectedBcmPerMan
       };
     });
   }
 
   function enrich_rows(rows) {
-    return Promise.all((rows || []).map(enrich_row_with_bcm_per_man));
+    return Promise.all((rows || []).map(enrich_row_with_employee_kpis));
   }
 
   // -------------------------
@@ -433,6 +493,7 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
     const bg = SITE_HEADER_COLOURS[site] || r.site_colour || "#EEF4FB";
 
     const forecast_var = Number(r.forecast_var || 0);
+    const employeeLabel = `Employees: ${fmt_int(r.employee_count || 0)}`;
 
     return `
       <div class="site-section">
@@ -450,8 +511,12 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
             ${kpi_box("Original Daily Target", r.original_daily_target)}
             ${kpi_box("Current Avg per Day", r.current_avg_per_day)}
             ${kpi_required_vs_original("Required Daily for Target", r.required_daily, r.original_daily_target)}
-            ${kpi_box("BCM/man", r.bcm_per_man, {
-              sublabel: `Employees: ${fmt_int(r.employee_count || 0)}`,
+            ${kpi_threshold_box("BCM/man", r.bcm_per_man, BCM_PER_MAN_THRESHOLD, {
+              sublabel: employeeLabel,
+              formatter: (v) => fmt_decimal(v, 1)
+            })}
+            ${kpi_threshold_box("Projected BCM/man", r.projected_bcm_per_man, BCM_PER_MAN_THRESHOLD, {
+              sublabel: employeeLabel,
               formatter: (v) => fmt_decimal(v, 1)
             })}
           </div>
