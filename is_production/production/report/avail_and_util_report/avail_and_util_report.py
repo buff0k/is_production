@@ -22,7 +22,12 @@ def get_columns():
         {"label": "Location", "fieldname": "location", "fieldtype": "Link", "options": "Location", "width": 100},
         {"label": "Req Hrs", "fieldname": "shift_required_hours", "fieldtype": "Float", "width": 75, "precision": 1},
         {"label": "Work Hrs", "fieldname": "shift_working_hours", "fieldtype": "Float", "width": 75, "precision": 1},
-        {"label": "Brkdwn Hrs", "fieldname": "shift_breakdown_hours", "fieldtype": "Float", "width": 75, "precision": 1},
+        {"label": "Mechanical Downtime", "fieldname": "shift_breakdown_hours", "fieldtype": "Float", "width": 125, "precision": 1},
+        {"label": "Planned Downtime", "fieldname": "planned_downtime", "fieldtype": "Float", "width": 115, "precision": 1},
+        {"label": "Actual Service Time", "fieldname": "actual_service_time", "fieldtype": "Float", "width": 130, "precision": 1},
+        {"label": "Actual Breakdown Time", "fieldname": "actual_breakdown_time", "fieldtype": "Float", "width": 145, "precision": 1},
+        {"label": "Actual Planned Maintenance Time", "fieldname": "actual_planned_maintenance_time", "fieldtype": "Float", "width": 190, "precision": 1},
+        {"label": "Actual Inspection Time", "fieldname": "actual_inspection_time", "fieldtype": "Float", "width": 140, "precision": 1},
         {"label": "Avail Hrs", "fieldname": "shift_available_hours", "fieldtype": "Float", "width": 75, "precision": 1},
         {"label": "Other Lost Hrs", "fieldname": "shift_other_lost_hours", "fieldtype": "Float", "width": 90, "precision": 1},
         {"label": "General & Specific Other Lost Hours", "fieldname": "captured_other_lost_hours", "fieldtype": "Float", "width": 180, "precision": 1},
@@ -34,14 +39,264 @@ def get_columns():
     ]
 
 
+
+
+MSR_TIME_FIELDS = [
+    "planned_downtime",
+    "actual_service_time",
+    "actual_breakdown_time",
+    "actual_planned_maintenance_time",
+    "actual_inspection_time",
+]
+
+SUM_FIELDS = [
+    "shift_required_hours",
+    "shift_working_hours",
+    "shift_breakdown_hours",
+    "planned_downtime",
+    "actual_service_time",
+    "actual_breakdown_time",
+    "actual_planned_maintenance_time",
+    "actual_inspection_time",
+    "shift_available_hours",
+    "shift_other_lost_hours",
+    "captured_other_lost_hours",
+    "other_lost_hours_variance",
+]
+
+AVG_FIELDS = [
+    "plant_shift_availability",
+    "plant_shift_utilisation",
+]
+
+
+def r1(v):
+    return round(v or 0, 1)
+
+
+def get_shift_window(shift, shift_date):
+    shift_date = str(shift_date)
+
+    if shift == "Day":
+        return (
+            frappe.utils.get_datetime(f"{shift_date} 06:00:00"),
+            frappe.utils.get_datetime(f"{shift_date} 18:00:00"),
+        )
+
+    if shift == "Night":
+        start = frappe.utils.get_datetime(f"{shift_date} 18:00:00")
+        end = frappe.utils.add_to_date(start, days=1, as_datetime=True, hours=12)
+        return start, end
+
+    if shift == "Morning":
+        return (
+            frappe.utils.get_datetime(f"{shift_date} 06:00:00"),
+            frappe.utils.get_datetime(f"{shift_date} 14:00:00"),
+        )
+
+    if shift == "Afternoon":
+        return (
+            frappe.utils.get_datetime(f"{shift_date} 14:00:00"),
+            frappe.utils.get_datetime(f"{shift_date} 22:00:00"),
+        )
+
+    start = frappe.utils.get_datetime(f"{shift_date} 00:00:00")
+    end = frappe.utils.add_to_date(start, days=1, as_datetime=True)
+    return start, end
+
+
+def get_overlap_hours(start1, end1, start2, end2):
+    overlap_start = max(start1, start2)
+    overlap_end = min(end1, end2)
+
+    if overlap_end <= overlap_start:
+        return 0.0
+
+    return (overlap_end - overlap_start).total_seconds() / 3600.0
+
+
+def get_msr_time_map(filters):
+    conditions = ["msr.service_date >= %(start_date)s", "msr.service_date <= %(end_date)s"]
+    args = {
+        "start_date": filters.get("start_date"),
+        "end_date": filters.get("end_date"),
+    }
+
+    if filters.get("location"):
+        conditions.append("msr.site = %(location)s")
+        args["location"] = filters.get("location")
+
+    msr_rows = frappe.db.sql(f"""
+        SELECT
+            msr.site AS location,
+            msr.service_date,
+            asset.asset_name AS asset_name,
+            msr.start_time,
+            msr.end_time,
+            msr.total_time,
+            msr.total_time_unavailable,
+            msr.service_breakdown
+        FROM `tabMechanical Service Report` msr
+        LEFT JOIN `tabAsset` asset
+            ON asset.name = msr.asset
+        WHERE {' AND '.join(conditions)}
+    """, args, as_dict=True)
+
+    time_map = {}
+
+    for row in msr_rows:
+        if not row.get("location") or not row.get("service_date") or not row.get("asset_name"):
+            continue
+        if not row.get("start_time") or not row.get("end_time"):
+            continue
+
+        start_dt = frappe.utils.get_datetime(row.start_time)
+        end_dt = frappe.utils.get_datetime(row.end_time)
+
+        if end_dt <= start_dt:
+            continue
+
+        total_hours = (row.get("total_time") or 0) / 3600.0
+        unavailable_hours = (row.get("total_time_unavailable") or 0) / 3600.0
+
+        for shift in ("Day", "Night", "Morning", "Afternoon"):
+            shift_start, shift_end = get_shift_window(shift, row.service_date)
+            overlap_hours = get_overlap_hours(start_dt, end_dt, shift_start, shift_end)
+
+            if overlap_hours <= 0:
+                continue
+
+            key = (row.location, str(row.service_date), row.asset_name, shift)
+            bucket = time_map.setdefault(key, {field: 0.0 for field in MSR_TIME_FIELDS})
+
+            if total_hours > 0 and unavailable_hours > 0:
+                bucket["planned_downtime"] += unavailable_hours * (overlap_hours / total_hours)
+
+            if row.service_breakdown == "Service":
+                bucket["actual_service_time"] += overlap_hours
+            elif row.service_breakdown == "Breakdown":
+                bucket["actual_breakdown_time"] += overlap_hours
+            elif row.service_breakdown == "Planned Maintenance":
+                bucket["actual_planned_maintenance_time"] += overlap_hours
+            elif row.service_breakdown == "Inspection":
+                bucket["actual_inspection_time"] += overlap_hours
+
+    return time_map
+
+
+def attach_msr_actuals(data, filters):
+    time_map = get_msr_time_map(filters)
+
+    for row in data:
+        for field in MSR_TIME_FIELDS:
+            row[field] = 0.0
+
+        if row.get("indent") != 3:
+            continue
+
+        key = (
+            row.get("location"),
+            str(row.get("shift_date")),
+            row.get("asset_name"),
+            row.get("shift"),
+        )
+        values = time_map.get(key, {})
+
+        for field in MSR_TIME_FIELDS:
+            row[field] = r1(values.get(field, 0))
+
+
+def recalculate_summary_rows(data):
+    # indent 2 = asset totals from indent 3
+    asset_map = {}
+    for row in data:
+        if row.get("indent") == 3:
+            key = (
+                row.get("asset_category"),
+                str(row.get("shift_date")),
+                row.get("location"),
+                row.get("asset_name"),
+            )
+            asset_map.setdefault(key, []).append(row)
+
+    for row in data:
+        if row.get("indent") == 2:
+            key = (
+                row.get("asset_category"),
+                str(row.get("shift_date")),
+                row.get("location"),
+                row.get("asset_name"),
+            )
+            children = asset_map.get(key, [])
+            if not children:
+                continue
+
+            for field in SUM_FIELDS:
+                row[field] = r1(sum((child.get(field) or 0) for child in children))
+
+            for field in AVG_FIELDS:
+                row[field] = r1(sum((child.get(field) or 0) for child in children) / len(children))
+
+    # indent 1 = date totals from indent 2
+    date_map = {}
+    for row in data:
+        if row.get("indent") == 2:
+            key = (
+                row.get("asset_category"),
+                str(row.get("shift_date")),
+                row.get("location"),
+            )
+            date_map.setdefault(key, []).append(row)
+
+    for row in data:
+        if row.get("indent") == 1:
+            key = (
+                row.get("asset_category"),
+                str(row.get("shift_date")),
+                row.get("location"),
+            )
+            children = date_map.get(key, [])
+            if not children:
+                continue
+
+            for field in SUM_FIELDS:
+                row[field] = r1(sum((child.get(field) or 0) for child in children))
+
+            for field in AVG_FIELDS:
+                row[field] = r1(sum((child.get(field) or 0) for child in children) / len(children))
+
+    # indent 0 = category totals from indent 1
+    category_map = {}
+    for row in data:
+        if row.get("indent") == 1:
+            key = row.get("asset_category")
+            category_map.setdefault(key, []).append(row)
+
+    for row in data:
+        if row.get("indent") == 0:
+            children = category_map.get(row.get("asset_category"), [])
+            if not children:
+                continue
+
+            for field in SUM_FIELDS:
+                row[field] = r1(sum((child.get(field) or 0) for child in children))
+
+            for field in AVG_FIELDS:
+                row[field] = r1(sum((child.get(field) or 0) for child in children) / len(children))
+
+
+
+
 # ---------------------------------------------------
 # Fetch and Group Data
 # ---------------------------------------------------
+
+
 def get_grouped_data(filters):
+    filters = filters or {}
     conditions = []
     args = []
 
-    # Dynamic filters
     if filters.get("start_date"):
         conditions.append("shift_date >= %s")
         args.append(filters["start_date"])
@@ -54,7 +309,6 @@ def get_grouped_data(filters):
 
     condition_str = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-    # Query main Availability and Utilisation data
     records = frappe.db.sql(f"""
         SELECT
             asset_category,
@@ -78,17 +332,15 @@ def get_grouped_data(filters):
         frappe.msgprint("No records found for the selected filters.")
         return []
 
-    def r1(v): return round(v or 0, 1)
-
-    # Grouping: Category → Date → Asset → Shifts
     grouped = {}
-    for r in records:
-        cat = r["asset_category"] or "Uncategorised"
-        date = str(r["shift_date"])
-        asset = r["asset_name"]
-        grouped.setdefault(cat, {}).setdefault(date, {}).setdefault(asset, []).append(r)
+    for record in records:
+        cat = record["asset_category"] or "Uncategorised"
+        date = str(record["shift_date"])
+        asset = record["asset_name"]
+        grouped.setdefault(cat, {}).setdefault(date, {}).setdefault(asset, []).append(record)
 
     data = []
+
     for cat, date_groups in grouped.items():
         cat_rows = [r for d in date_groups.values() for a in d.values() for r in a]
         data.append(summary_row(cat_rows, indent=0, asset_category=cat, sum_hours=False))
@@ -104,11 +356,9 @@ def get_grouped_data(filters):
                 sum_hours=True
             ))
 
-
             for asset, rows in assets.items():
                 combined = combine_shifts(rows)
 
-                # give summary row keys so attach_reasons can map (location, shift_date)
                 data.append(summary_row(
                     [combined],
                     indent=2,
@@ -118,94 +368,39 @@ def get_grouped_data(filters):
                     location=(rows[0].get("location") if rows else None)
                 ))
 
-
                 for row in rows:
                     row["indent"] = 3
-                    # Keep shift_date and asset_name for lookups
-                    for f in [
-                        "shift_required_hours", "shift_working_hours",
-                        "shift_breakdown_hours", "shift_available_hours",
-                        "shift_other_lost_hours", "plant_shift_availability",
-                        "plant_shift_utilisation"
+
+                    for field in [
+                        "shift_required_hours",
+                        "shift_working_hours",
+                        "shift_breakdown_hours",
+                        "shift_available_hours",
+                        "shift_other_lost_hours",
+                        "plant_shift_availability",
+                        "plant_shift_utilisation",
                     ]:
-                        row[f] = r1(row.get(f))
+                        row[field] = r1(row.get(field))
+
                     data.append(row)
 
-    # Attach breakdown and delay reasons
     attach_reasons(data, filters)
-
-    # Recalc DATE totals (indent=1) from ASSET totals (indent=2)
-    def r1(v): return round(v or 0, 1)
-
-    date_totals_map = {}
-    for row in data:
-        if row.get("indent") == 2 and row.get("shift_date") and row.get("asset_category"):
-            k = (row.get("asset_category"), str(row.get("shift_date")), row.get("location"))
-            date_totals_map.setdefault(k, []).append(row)
-
-    for row in data:
-        if row.get("indent") == 1 and row.get("shift_date") and row.get("asset_category"):
-            k = (row.get("asset_category"), str(row.get("shift_date")), row.get("location"))
-            children = date_totals_map.get(k, [])
-            if not children:
-                continue
-
-            def s(field): return sum((c.get(field) or 0) for c in children)
-
-            for f in [
-                "shift_required_hours", "shift_working_hours",
-                "shift_breakdown_hours", "shift_available_hours",
-                "shift_other_lost_hours",
-                "captured_other_lost_hours",
-                "other_lost_hours_variance",
-            ]:
-                row[f] = r1(s(f))
-
-            # keep % as average across asset totals for that date
-            count = len(children)
-            row["plant_shift_availability"] = r1(
-                sum((c.get("plant_shift_availability") or 0) for c in children) / count if count else 0
-            )
-            row["plant_shift_utilisation"] = r1(
-                sum((c.get("plant_shift_utilisation") or 0) for c in children) / count if count else 0
-            )
-
-
-
-    # Recalc category totals (indent=0) from date totals (indent=1)
-    def r1(v): return round(v or 0, 1)
-
-    date_totals_by_cat = {}
-    for row in data:
-        if row.get("indent") == 1 and row.get("asset_category") and row.get("shift_date"):
-            date_totals_by_cat.setdefault(row["asset_category"], []).append(row)
-
-    for row in data:
-        if row.get("indent") == 0 and row.get("asset_category") in date_totals_by_cat:
-            rows = date_totals_by_cat[row["asset_category"]]
-
-            def s(field): return sum((r.get(field) or 0) for r in rows)
-            count = len(rows)
-
-            # sum these across ALL dates
-            for f in [
-                "shift_required_hours", "shift_working_hours",
-                "shift_breakdown_hours", "shift_available_hours",
-                "shift_other_lost_hours",
-                "captured_other_lost_hours",
-                "other_lost_hours_variance",
-            ]:
-                row[f] = r1(s(f))
-
-            # keep % as average across dates
-            row["plant_shift_availability"] = r1(
-                sum((r.get("plant_shift_availability") or 0) for r in rows) / count if count else 0
-            )
-            row["plant_shift_utilisation"] = r1(
-                sum((r.get("plant_shift_utilisation") or 0) for r in rows) / count if count else 0
-            )
+    attach_msr_actuals(data, filters)
+    recalculate_summary_rows(data)
 
     return data
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -218,8 +413,16 @@ def combine_shifts(rows):
 
     # Sum hour fields
     for key in [
-        "shift_required_hours", "shift_working_hours",
-        "shift_breakdown_hours", "shift_available_hours", "shift_other_lost_hours"
+        "shift_required_hours",
+        "shift_working_hours",
+        "shift_breakdown_hours",
+        "planned_downtime",
+        "actual_service_time",
+        "actual_breakdown_time",
+        "actual_planned_maintenance_time",
+        "actual_inspection_time",
+        "shift_available_hours",
+        "shift_other_lost_hours",
     ]:
         total[key] = sum((r.get(key) or 0) for r in rows)
 
@@ -264,6 +467,11 @@ def summary_row(rows, indent, sum_hours=False, **extra_fields):
         "shift_required_hours": r1(h_fn("shift_required_hours")),
         "shift_working_hours": r1(h_fn("shift_working_hours")),
         "shift_breakdown_hours": r1(h_fn("shift_breakdown_hours")),
+        "planned_downtime": r1(h_fn("planned_downtime")),
+        "actual_service_time": r1(h_fn("actual_service_time")),
+        "actual_breakdown_time": r1(h_fn("actual_breakdown_time")),
+        "actual_planned_maintenance_time": r1(h_fn("actual_planned_maintenance_time")),
+        "actual_inspection_time": r1(h_fn("actual_inspection_time")),
         "shift_available_hours": r1(h_fn("shift_available_hours")),
         "shift_other_lost_hours": r1(h_fn("shift_other_lost_hours")),
         "plant_shift_availability": r1(avg("plant_shift_availability")),
