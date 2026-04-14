@@ -11,7 +11,7 @@
  "link_to": "Production",
  "link_type": "Workspace Sidebar",
  "logo_url": "/assets/is_production/images/is-logo.svg",
- "modified": "2026-02-02 15:43:36.671295",
+ "modified": "2026-04-14 06:07:36.392650",
  "modified_by": "Administrator",
  "name": "Production",
  "owner": "Administrator",
@@ -25,6 +25,12 @@
   },
   {
    "role": "Safety User"
+  },
+  {
+   "role": "Production Manager"
+  },
+  {
+   "role": "Production User"
   }
  ],
  "sidebar": "Production",
