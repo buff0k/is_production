@@ -196,6 +196,14 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
 
     let extraCls = "";
     let arrow = "";
+    let inlineStyle = "";
+
+    if (opts.customBackground) {
+      inlineStyle += `background:${opts.customBackground};`;
+    }
+    if (opts.customTextColor) {
+      inlineStyle += `color:${opts.customTextColor};`;
+    }
 
     if (coloured) {
       extraCls = cls_good_bad_from_value(value);
@@ -203,7 +211,7 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
     }
 
     return `
-      <div class="kpi-box ${extraCls}">
+      <div class="kpi-box ${extraCls}" style="${inlineStyle}">
         <div class="label">${frappe.utils.escape_html(label)}</div>
         ${sublabel
           ? `<div class="sub-label" style="font-size:11px;opacity:0.85;line-height:1.1;margin-top:2px;">${frappe.utils.escape_html(sublabel)}</div>`
@@ -511,9 +519,11 @@ frappe.pages["ceo-dashboard-1"].on_page_load = function (wrapper) {
             ${kpi_box("Original Daily Target", r.original_daily_target)}
             ${kpi_box("Current Avg per Day", r.current_avg_per_day)}
             ${kpi_required_vs_original("Required Daily for Target", r.required_daily, r.original_daily_target)}
-            ${kpi_threshold_box("Projected BCM/man", r.projected_bcm_per_man, BCM_PER_MAN_THRESHOLD, {
+            ${kpi_box("Projected BCM/man", r.projected_bcm_per_man, {
               sublabel: employeeLabel,
-              formatter: (v) => fmt_decimal(v, 1)
+              formatter: (v) => fmt_decimal(v, 1),
+              customBackground: "#d9f0ff",
+              customTextColor: "#000000"
             })}
           </div>
         </div>
