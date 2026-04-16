@@ -1,14 +1,33 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format: {batch_id}-{geo_project}",
  "creation": "2026-02-14 14:55:21.363776",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
   "geo_batch",
+  "batch_id",
   "geo_project",
-  "source",
-  "version_tag"
+  "source_system",
+  "source_type",
+  "version_tag",
+  "processing_status",
+  "approval_status",
+  "imported_by",
+  "import_date",
+  "approved_by",
+  "approval_date",
+  "supersedes_batch",
+  "original_file_name",
+  "column_break_aqcd",
+  "raw_file_attachment",
+  "row_count",
+  "success_count",
+  "error_count",
+  "file_hash",
+  "import_log",
+  "comments"
  ],
  "fields": [
   {
@@ -19,29 +38,146 @@
   {
    "fieldname": "geo_project",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Geo Project",
-   "options": "Geo Project"
-  },
-  {
-   "default": "Minex",
-   "fieldname": "source",
-   "fieldtype": "Select",
-   "label": "Source",
-   "options": "\nMinex"
+   "options": "Geo Project",
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "version_tag",
    "fieldtype": "Data",
-   "label": "Version Tag"
+   "label": "Version Tag",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "batch_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch ID",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "source_system",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source System",
+   "options": "Source System Setup",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "source_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source Type",
+   "options": "Source Type Setup",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "processing_status",
+   "fieldtype": "Select",
+   "label": "Processing Status",
+   "options": "\nUploaded\nValidated\nProcessed\nError\nComplete.",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "approval_status",
+   "fieldtype": "Select",
+   "label": "Approval Status",
+   "options": "\nDraft\nApproved\nRejected\nSuperseded",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "imported_by",
+   "fieldtype": "Link",
+   "label": "Imported By",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "import_date",
+   "fieldtype": "Date",
+   "label": "Import Date",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "approval_date",
+   "fieldtype": "Date",
+   "label": "Approval Date"
+  },
+  {
+   "fieldname": "supersedes_batch",
+   "fieldtype": "Link",
+   "label": "Supersedes Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "original_file_name",
+   "fieldtype": "Data",
+   "label": "Original File Name"
+  },
+  {
+   "fieldname": "raw_file_attachment",
+   "fieldtype": "Attach",
+   "label": "Raw File Attachment",
+   "reqd": 1
+  },
+  {
+   "fieldname": "file_hash",
+   "fieldtype": "Data",
+   "label": "File Hash",
+   "search_index": 1
+  },
+  {
+   "fieldname": "row_count",
+   "fieldtype": "Int",
+   "label": "Row Count"
+  },
+  {
+   "fieldname": "success_count",
+   "fieldtype": "Int",
+   "label": "Success Count"
+  },
+  {
+   "fieldname": "error_count",
+   "fieldtype": "Int",
+   "label": "Error Count"
+  },
+  {
+   "fieldname": "import_log",
+   "fieldtype": "Long Text",
+   "label": "Import Log"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  },
+  {
+   "fieldname": "column_break_aqcd",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-23 05:30:56.264623",
+ "modified": "2026-04-16 15:49:38.673599",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Import Batch",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -55,6 +191,26 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
   }
  ],
  "row_format": "Dynamic",

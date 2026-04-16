@@ -9,21 +9,32 @@
  "field_order": [
   "section_break_hsmg",
   "project_code",
-  "model_version",
   "project_name",
+  "project_status",
+  "crs_name",
+  "model_version",
   "base_latitude",
   "base_longitude",
-  "crs_name"
+  "column_break_ssnf",
+  "default_depth_unit",
+  "default_quality_unit_set",
+  "official_model_version",
+  "approved_by",
+  "approval_date",
+  "notes"
  ],
  "fields": [
   {
    "fieldname": "section_break_hsmg",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Project Information"
   },
   {
    "fieldname": "project_code",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Project Code",
+   "reqd": 1,
    "unique": 1
   },
   {
@@ -34,7 +45,10 @@
   {
    "fieldname": "project_name",
    "fieldtype": "Data",
-   "label": "Project Name"
+   "in_list_view": 1,
+   "label": "Project Name",
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "base_latitude",
@@ -49,13 +63,61 @@
   {
    "fieldname": "crs_name",
    "fieldtype": "Data",
-   "label": "Coordinate Reference System"
+   "in_list_view": 1,
+   "label": "Coordinate Reference System",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project_status",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project Status",
+   "options": "Project Status Setup",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "default_depth_unit",
+   "fieldtype": "Select",
+   "label": "Default Depth Unit",
+   "options": "Metres"
+  },
+  {
+   "fieldname": "default_quality_unit_set",
+   "fieldtype": "Data",
+   "label": "Default Quality Unit Set"
+  },
+  {
+   "fieldname": "official_model_version",
+   "fieldtype": "Data",
+   "label": "Official Model Version",
+   "search_index": 1
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "approval_date",
+   "fieldtype": "Date",
+   "label": "Approval Date"
+  },
+  {
+   "fieldname": "column_break_ssnf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-23 05:31:55.708206",
+ "modified": "2026-04-16 15:04:23.224525",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Project",
@@ -86,15 +148,13 @@
    "write": 1
   },
   {
-   "create": 1,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
    "role": "Production User",
-   "share": 1,
-   "write": 1
+   "share": 1
   }
  ],
  "row_format": "Dynamic",
