@@ -1,0 +1,154 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-17 06:50:06.222566",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "geo_project",
+  "geo_import_batch",
+  "model_name",
+  "model_version",
+  "geo_model_output_type",
+  "variable_name",
+  "seam",
+  "ply",
+  "file_format",
+  "raw_file_attachment",
+  "cell_count_point_count",
+  "status",
+  "approved_by",
+  "approal_date",
+  "supersedes_model_output",
+  "remarks_comments"
+ ],
+ "fields": [
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Geo Project",
+   "options": "Geo Project",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "geo_import_batch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Geo Import Batch",
+   "options": "Geo Import Batch",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "model_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Model Name",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "variable_name",
+   "fieldtype": "Data",
+   "label": "Variable Name"
+  },
+  {
+   "fieldname": "model_version",
+   "fieldtype": "Data",
+   "label": "Model Version",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "geo_model_output_type",
+   "fieldtype": "Link",
+   "label": "Geo Model Output Type",
+   "options": "Geo Model Output Type"
+  },
+  {
+   "fieldname": "seam",
+   "fieldtype": "Data",
+   "label": "Seam",
+   "search_index": 1
+  },
+  {
+   "fieldname": "ply",
+   "fieldtype": "Data",
+   "label": "Ply",
+   "search_index": 1
+  },
+  {
+   "fieldname": "file_format",
+   "fieldtype": "Link",
+   "label": "Define File Format",
+   "options": "File Format"
+  },
+  {
+   "fieldname": "raw_file_attachment",
+   "fieldtype": "Attach",
+   "label": "Raw File Attachment "
+  },
+  {
+   "fieldname": "cell_count_point_count",
+   "fieldtype": "Int",
+   "label": "Cell Count / Point Count"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "\nDraft\nApproved\nRejected\nSuperseded"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By : ",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "approal_date",
+   "fieldtype": "Date",
+   "label": "Approval Date :"
+  },
+  {
+   "fieldname": "supersedes_model_output",
+   "fieldtype": "Link",
+   "label": "Supersedes Model Output",
+   "options": "Geo Model Output"
+  },
+  {
+   "fieldname": "remarks_comments",
+   "fieldtype": "Small Text",
+   "label": "Remarks / Comments"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-17 07:13:43.715874",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Model Output",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

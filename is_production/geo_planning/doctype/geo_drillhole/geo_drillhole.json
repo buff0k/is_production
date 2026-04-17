@@ -10,27 +10,45 @@
   "section_break_luhv",
   "geo_project",
   "hole_id",
+  "drillhole_type",
+  "easting",
+  "northing",
   "latitude",
   "longitude",
+  "column_break_bdyu",
   "rl_m",
-  "total_depth_m",
-  "seam_intervals"
+  "end_depth_m",
+  "azimuth",
+  "dip",
+  "logging_date",
+  "source_row_reference",
+  "remarks_comments",
+  "section_break_appj",
+  "geo_material_interval",
+  "geo_quality",
+  "geo_quality_interval"
  ],
  "fields": [
   {
    "fieldname": "section_break_luhv",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Information"
   },
   {
    "fieldname": "geo_project",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Geo Project",
-   "options": "Geo Project"
+   "options": "Geo Project",
+   "reqd": 1,
+   "search_index": 1
   },
   {
    "fieldname": "hole_id",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Hole Id",
+   "reqd": 1,
    "unique": 1
   },
   {
@@ -46,24 +64,87 @@
   {
    "fieldname": "rl_m",
    "fieldtype": "Float",
-   "label": "Reduced Level"
+   "label": "Collar Reduced Level"
   },
   {
-   "fieldname": "total_depth_m",
+   "fieldname": "drillhole_type",
+   "fieldtype": "Link",
+   "label": "Drillhole Type",
+   "options": "Drillhole Type",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "easting",
    "fieldtype": "Float",
-   "label": "Total Depth"
+   "label": "Easting"
   },
   {
-   "fieldname": "seam_intervals",
+   "fieldname": "northing",
+   "fieldtype": "Float",
+   "label": "Northing"
+  },
+  {
+   "fieldname": "end_depth_m",
+   "fieldtype": "Float",
+   "label": "End Depth"
+  },
+  {
+   "fieldname": "azimuth",
+   "fieldtype": "Float",
+   "label": "Azimuth (hole direction)"
+  },
+  {
+   "fieldname": "dip",
+   "fieldtype": "Float",
+   "label": "Dip"
+  },
+  {
+   "fieldname": "logging_date",
+   "fieldtype": "Date",
+   "label": "Logging Date (Optional)"
+  },
+  {
+   "fieldname": "source_row_reference",
+   "fieldtype": "Data",
+   "label": "Source Row Reference"
+  },
+  {
+   "fieldname": "remarks_comments",
+   "fieldtype": "Small Text",
+   "label": "Remarks / Comments"
+  },
+  {
+   "fieldname": "column_break_bdyu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_appj",
+   "fieldtype": "Section Break",
+   "label": "Geo Material Interval"
+  },
+  {
+   "fieldname": "geo_material_interval",
    "fieldtype": "Table",
-   "label": "Seam Intervals",
-   "options": "Geo Seam Interval"
+   "label": "Geo Material Interval",
+   "options": "Geo Material Interval"
+  },
+  {
+   "fieldname": "geo_quality",
+   "fieldtype": "Section Break",
+   "label": "Geo Quality Interval"
+  },
+  {
+   "fieldname": "geo_quality_interval",
+   "fieldtype": "Table",
+   "label": "Geo Quality Interval",
+   "options": "Geo Quality Interval"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-14 20:33:27.523549",
+ "modified": "2026-04-17 06:49:01.995819",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Drillhole",

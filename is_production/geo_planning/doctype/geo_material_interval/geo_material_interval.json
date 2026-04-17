@@ -1,0 +1,155 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-17 05:38:25.399450",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sequence_number",
+  "from_depth",
+  "to_depth",
+  "thickness",
+  "interval_type",
+  "material_type",
+  "seam",
+  "ply",
+  "lithology",
+  "roof_material",
+  "floor_material",
+  "weathering",
+  "density",
+  "description",
+  "source_row_reference",
+  "validation_status",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "sequence_number",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence Number "
+  },
+  {
+   "fieldname": "from_depth",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "From Depth",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "to_depth",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "To Depth",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "thickness",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Thickness",
+   "search_index": 1
+  },
+  {
+   "fieldname": "interval_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Interval Type",
+   "options": "Interval Type",
+   "search_index": 1
+  },
+  {
+   "fieldname": "material_type",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Material Type",
+   "options": "Material Type"
+  },
+  {
+   "fieldname": "seam",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Seam"
+  },
+  {
+   "fieldname": "ply",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Ply"
+  },
+  {
+   "fieldname": "lithology",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Lithology"
+  },
+  {
+   "fieldname": "roof_material",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Roof Material (Above this one)"
+  },
+  {
+   "fieldname": "floor_material",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Floor Material (Below this one)"
+  },
+  {
+   "fieldname": "weathering",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Weathering "
+  },
+  {
+   "fieldname": "density",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Density"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Description"
+  },
+  {
+   "fieldname": "source_row_reference",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Source Row Reference"
+  },
+  {
+   "fieldname": "validation_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Validation Status",
+   "options": "\nValid\nWarning\nError"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Remarks / Comments"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-17 06:45:37.236829",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Material Interval",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

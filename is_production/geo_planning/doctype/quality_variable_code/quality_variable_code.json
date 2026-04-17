@@ -1,0 +1,64 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format: {quality_variable_code}",
+ "creation": "2026-04-17 06:31:12.928228",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "quality_variable_name",
+  "quality_variable_code"
+ ],
+ "fields": [
+  {
+   "fieldname": "quality_variable_name",
+   "fieldtype": "Link",
+   "label": "Quality Variable Name",
+   "options": "Quality Variable Name"
+  },
+  {
+   "fieldname": "quality_variable_code",
+   "fieldtype": "Data",
+   "label": "Quality Variable Code"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-17 06:32:28.312075",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Quality Variable Code",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

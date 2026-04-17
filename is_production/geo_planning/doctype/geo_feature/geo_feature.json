@@ -8,9 +8,13 @@
  "engine": "InnoDB",
  "field_order": [
   "geo_project",
+  "geo_import_batch",
   "layer_name",
   "feature_type",
-  "geometry_geojson"
+  "geometry_geojson",
+  "source_file_attachment",
+  "status",
+  "remarks_comments"
  ],
  "fields": [
   {
@@ -26,20 +30,42 @@
   },
   {
    "fieldname": "feature_type",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "label": "Feature Type",
-   "options": "Fault\nnOutline\nnSubcrop\nnContour\nnOther"
+   "options": "Define Geo Feature Type"
   },
   {
    "fieldname": "geometry_geojson",
    "fieldtype": "Long Text",
    "label": "Geometry Geo Json"
+  },
+  {
+   "fieldname": "geo_import_batch",
+   "fieldtype": "Link",
+   "label": "Geo Import Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "source_file_attachment",
+   "fieldtype": "Attach",
+   "label": "Source File Attachment "
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "\nDraft\nApproved\nRejected\nSuperseded"
+  },
+  {
+   "fieldname": "remarks_comments",
+   "fieldtype": "Small Text",
+   "label": "Remarks / Comments"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-02-14 20:55:18.500288",
+ "modified": "2026-04-17 07:19:52.874451",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Feature",

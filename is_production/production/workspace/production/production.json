@@ -1,7 +1,7 @@
 {
  "app": "is_production",
  "charts": [],
- "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"oLOLs79C1E\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Dashboard\",\"col\":12}},{\"id\":\"kcBx_OD-Kv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Efficiency ( Weekly)\",\"col\":12}},{\"id\":\"YoeOJfxDNK\",\"type\":\"card\",\"data\":{\"card_name\":\"Management Dashboards\",\"col\":4}},{\"id\":\"oMUDY_5KXL\",\"type\":\"card\",\"data\":{\"card_name\":\"Planning\",\"col\":4}},{\"id\":\"otyz_jgqrE\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Drilling and Diesel\",\"col\":4}},{\"id\":\"03mtDZtvFg\",\"type\":\"card\",\"data\":{\"card_name\":\"Breakdowns and Lost Hours\",\"col\":4}},{\"id\":\"obgFqF53Fu\",\"type\":\"card\",\"data\":{\"card_name\":\"Reporting\",\"col\":4}},{\"id\":\"jMZ8cOxpMU\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Site Volume Tracking Page\",\"col\":4}},{\"id\":\"eZYYaHD0Tw\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Equipment Hours\",\"col\":4}},{\"id\":\"m0hxRm_d73\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning \",\"col\":4}},{\"id\":\"QwJ2bqlnHv\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning Setup\",\"col\":4}}]",
+ "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"oLOLs79C1E\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Dashboard\",\"col\":12}},{\"id\":\"kcBx_OD-Kv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Efficiency ( Weekly)\",\"col\":12}},{\"id\":\"YoeOJfxDNK\",\"type\":\"card\",\"data\":{\"card_name\":\"Management Dashboards\",\"col\":4}},{\"id\":\"oMUDY_5KXL\",\"type\":\"card\",\"data\":{\"card_name\":\"Planning\",\"col\":4}},{\"id\":\"otyz_jgqrE\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Drilling and Diesel\",\"col\":4}},{\"id\":\"03mtDZtvFg\",\"type\":\"card\",\"data\":{\"card_name\":\"Breakdowns and Lost Hours\",\"col\":4}},{\"id\":\"obgFqF53Fu\",\"type\":\"card\",\"data\":{\"card_name\":\"Reporting\",\"col\":4}},{\"id\":\"m0hxRm_d73\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning \",\"col\":4}},{\"id\":\"QwJ2bqlnHv\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning Setup\",\"col\":4}}]",
  "creation": "2024-07-29 15:25:05.760313",
  "custom_blocks": [],
  "docstatus": 0,
@@ -9,7 +9,7 @@
  "for_user": "",
  "hide_custom": 0,
  "icon": "arrow-up-right",
- "idx": 3,
+ "idx": 5,
  "indicator_color": "green",
  "is_hidden": 0,
  "label": "Production",
@@ -402,8 +402,57 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Mine Planning ",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Project",
+   "link_count": 0,
+   "link_to": "Geo Project",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Import Batch",
+   "link_count": 0,
+   "link_to": "Geo Import Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Drillhole",
+   "link_count": 0,
+   "link_to": "Geo Drillhole",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Model Output",
+   "link_count": 0,
+   "link_to": "Geo Model Output",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Mine Planning Setup",
-   "link_count": 3,
+   "link_count": 13,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -441,18 +490,9 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Mine Planning ",
-   "link_count": 3,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Project",
+   "label": "Drillhole Type",
    "link_count": 0,
-   "link_to": "Geo Project",
+   "link_to": "Drillhole Type",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -460,9 +500,9 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Geo Import Batch",
+   "label": "Interval Type",
    "link_count": 0,
-   "link_to": "Geo Import Batch",
+   "link_to": "Interval Type",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -470,15 +510,85 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Geo Drillhole",
+   "label": "Material Type",
    "link_count": 0,
-   "link_to": "Geo Drillhole",
+   "link_to": "Material Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Variable Name",
+   "link_count": 0,
+   "link_to": "Quality Variable Name",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Variable Code",
+   "link_count": 0,
+   "link_to": "Quality Variable Code",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Variable Unit",
+   "link_count": 0,
+   "link_to": "Quality Variable Unit",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Quality Domain",
+   "link_count": 0,
+   "link_to": "Quality Domain",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Model Output Type",
+   "link_count": 0,
+   "link_to": "Geo Model Output Type",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "File Format",
+   "link_count": 0,
+   "link_to": "File Format",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Define Geo Feature Type",
+   "link_count": 0,
+   "link_to": "Define Geo Feature Type",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
   }
  ],
- "modified": "2026-04-16 15:50:49.685932",
+ "modified": "2026-04-17 07:20:15.384888",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
@@ -510,21 +620,6 @@
    "link_to": "Production Efficiency",
    "stats_filter": "[]",
    "type": "DocType"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Production Equipment Hours",
-   "link_to": "Pre-Use Report",
-   "report_ref_doctype": "Pre-Use Hours",
-   "type": "Report"
-  },
-  {
-   "color": "Grey",
-   "doc_view": "List",
-   "label": "Site Volume Tracking Page",
-   "link_to": "ceo-dashboard-1",
-   "type": "Page"
   },
   {
    "color": "Grey",

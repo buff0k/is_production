@@ -1,0 +1,130 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-17 06:12:56.075247",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sequence_number",
+  "from_depth",
+  "to_depth",
+  "thickness",
+  "variable_name",
+  "variable_code",
+  "value",
+  "quality_variable_unit",
+  "quality_domain",
+  "assay_method",
+  "source_row_method",
+  "validation_status",
+  "remarks_comments"
+ ],
+ "fields": [
+  {
+   "fieldname": "sequence_number",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence Number"
+  },
+  {
+   "fieldname": "from_depth",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "From Depth",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "to_depth",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "To Depth",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "thickness",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Thickness",
+   "search_index": 1
+  },
+  {
+   "fieldname": "variable_name",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Variable Name",
+   "options": "Quality Variable Name",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "variable_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Variable code ",
+   "options": "Quality Variable Code"
+  },
+  {
+   "fieldname": "value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Value"
+  },
+  {
+   "fieldname": "quality_variable_unit",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Quality Variable Unit",
+   "options": "Quality Variable Unit"
+  },
+  {
+   "fieldname": "quality_domain",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Quality Domain",
+   "options": "Quality Domain"
+  },
+  {
+   "fieldname": "assay_method",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Assay Method"
+  },
+  {
+   "fieldname": "source_row_method",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Source Row Method "
+  },
+  {
+   "fieldname": "validation_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Validation Status",
+   "options": "\nValid\nWarning\nError"
+  },
+  {
+   "fieldname": "remarks_comments",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Remarks /Comments"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-17 06:46:48.802092",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Quality Interval",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
