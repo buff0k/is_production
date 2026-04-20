@@ -2,10 +2,6 @@ import frappe
 
 
 def execute(filters=None):
-    """
-    Main function executed when running the report.
-    Returns columns and data.
-    """
     columns = get_columns()
     data = get_grouped_data(filters)
     return columns, data
@@ -69,20 +65,16 @@ def r1(v):
 def calc_availability(req_hrs, avail_hrs):
     req_hrs = float(req_hrs or 0)
     avail_hrs = float(avail_hrs or 0)
-
     if req_hrs <= 0:
         return 0.0
-
     return r1((avail_hrs / req_hrs) * 100)
 
 
 def calc_utilisation(work_hrs, avail_hrs):
     work_hrs = float(work_hrs or 0)
     avail_hrs = float(avail_hrs or 0)
-
     if avail_hrs <= 0:
         return 0.0
-
     return r1((work_hrs / avail_hrs) * 100)
 
 
@@ -142,7 +134,6 @@ def get_overlap_hours(start1, end1, start2, end2):
 def get_planned_downtime_value(location, shift_date, indent):
     site = (location or "").strip().lower()
     day_of_week = frappe.utils.getdate(shift_date).weekday()
-
     saturday_special_sites = {"koppie", "uitgevallen", "bankfontein", "kriel"}
 
     if day_of_week == 6:
@@ -159,7 +150,6 @@ def get_planned_downtime_value(location, shift_date, indent):
 def get_actual_hours_value(location, shift_date, indent):
     site = (location or "").strip().lower()
     day_of_week = frappe.utils.getdate(shift_date).weekday()
-
     saturday_special_sites = {"koppie", "uitgevallen", "bankfontein", "kriel"}
 
     if day_of_week == 6:
@@ -392,7 +382,9 @@ def get_grouped_data(filters):
         date = str(record["shift_date"])
         asset = record["asset_name"]
 
-        apply_formula_fields(record)
+        # keep engine values on shift rows
+        record["plant_shift_availability"] = r1(record.get("plant_shift_availability"))
+        record["plant_shift_utilisation"] = r1(record.get("plant_shift_utilisation"))
 
         grouped.setdefault(cat, {}).setdefault(date, {}).setdefault(asset, []).append(record)
 
@@ -444,10 +436,12 @@ def get_grouped_data(filters):
                         "shift_other_lost_hours",
                         "captured_other_lost_hours",
                         "other_lost_hours_variance",
-                        "plant_shift_availability",
-                        "plant_shift_utilisation",
                     ]:
                         row[field] = r1(row.get(field))
+
+                    # keep engine values on leaves
+                    row["plant_shift_availability"] = r1(row.get("plant_shift_availability"))
+                    row["plant_shift_utilisation"] = r1(row.get("plant_shift_utilisation"))
 
                     data.append(row)
 
@@ -477,18 +471,21 @@ def combine_shifts(rows):
     ]:
         total[key] = sum((r.get(key) or 0) for r in rows)
 
-    total["captured_other_lost_hours"] = sum((r.get("captured_other_lost_hours") or 0) for r in rows)
+    count = len(rows)
+    total["captured_other_lost_hours"] = (
+        sum((r.get("captured_other_lost_hours") or 0) for r in rows) / count if count else 0
+    )
     total["other_lost_hours_variance"] = (
         (total.get("shift_other_lost_hours") or 0) - (total.get("captured_other_lost_hours") or 0)
     )
 
+    # totals recalc from hours
     apply_formula_fields(total)
     return total
 
 
 def summary_row(rows, indent, **extra_fields):
-    count = len(rows)
-    if count == 0:
+    if not rows:
         return {**extra_fields, "indent": indent}
 
     combined = combine_shifts(rows)
