@@ -1,5 +1,6 @@
 import frappe
 
+
 def execute(filters=None):
     """
     Main function executed when running the report.
@@ -10,36 +11,31 @@ def execute(filters=None):
     return columns, data
 
 
-# ---------------------------------------------------
-# Define Report Columns
-# ---------------------------------------------------
 def get_columns():
     return [
-{"label": "Asset Category", "fieldname": "asset_category", "fieldtype": "Data", "width": 140},
-{"label": "Shift Date", "fieldname": "shift_date", "fieldtype": "Date", "width": 95},
-{"label": "Asset Name", "fieldname": "asset_name", "fieldtype": "Link", "options": "Asset", "width": 120},
-{"label": "Shift", "fieldname": "shift", "fieldtype": "Data", "width": 70},
-{"label": "Location", "fieldname": "location", "fieldtype": "Link", "options": "Location", "width": 110},
-{"label": "Actual Hours", "fieldname": "actual_hours", "fieldtype": "Float", "width": 105, "precision": 1},
-{"label": "Planned Downtime", "fieldname": "planned_downtime", "fieldtype": "Float", "width": 130, "precision": 1},
-{"label": "Req Hrs", "fieldname": "shift_required_hours", "fieldtype": "Float", "width": 80, "precision": 1},
-{"label": "Work Hrs", "fieldname": "shift_working_hours", "fieldtype": "Float", "width": 85, "precision": 1},
-{"label": "Avail Hrs", "fieldname": "shift_available_hours", "fieldtype": "Float", "width": 85, "precision": 1},
-{"label": "Mechanical Downtime", "fieldname": "shift_breakdown_hours", "fieldtype": "Float", "width": 155, "precision": 1},
-{"label": "Actual Breakdown Time", "fieldname": "actual_breakdown_time", "fieldtype": "Float", "width": 165, "precision": 1},
-{"label": "Actual Planned Maintenance Time", "fieldname": "actual_planned_maintenance_time", "fieldtype": "Float", "width": 210, "precision": 1},
-{"label": "Actual Inspection Time", "fieldname": "actual_inspection_time", "fieldtype": "Float", "width": 160, "precision": 1},
-{"label": "Actual Service Time", "fieldname": "actual_service_time", "fieldtype": "Float", "width": 150, "precision": 1},
-{"label": "Other Lost Hrs", "fieldname": "shift_other_lost_hours", "fieldtype": "Float", "width": 110, "precision": 1},
-{"label": "General & Specific Other Lost Hours", "fieldname": "captured_other_lost_hours", "fieldtype": "Float", "width": 235, "precision": 1},
-{"label": "Other Lost Hours Variance", "fieldname": "other_lost_hours_variance", "fieldtype": "Float", "width": 190, "precision": 1},
-{"label": "Avail (%)", "fieldname": "plant_shift_availability", "fieldtype": "Percent", "width": 85, "precision": 1},
-{"label": "Util (%)", "fieldname": "plant_shift_utilisation", "fieldtype": "Percent", "width": 85, "precision": 1},
-{"label": "Breakdown Reason", "fieldname": "breakdown_reason", "fieldtype": "Data", "width": 170},
-{"label": "Other Delay Reason", "fieldname": "other_delay_reason", "fieldtype": "Data", "width": 170},
+        {"label": "Asset Category", "fieldname": "asset_category", "fieldtype": "Data", "width": 140},
+        {"label": "Shift Date", "fieldname": "shift_date", "fieldtype": "Date", "width": 95},
+        {"label": "Asset Name", "fieldname": "asset_name", "fieldtype": "Link", "options": "Asset", "width": 120},
+        {"label": "Shift", "fieldname": "shift", "fieldtype": "Data", "width": 70},
+        {"label": "Location", "fieldname": "location", "fieldtype": "Link", "options": "Location", "width": 110},
+        {"label": "Actual Hours", "fieldname": "actual_hours", "fieldtype": "Float", "width": 105, "precision": 1},
+        {"label": "Planned Downtime", "fieldname": "planned_downtime", "fieldtype": "Float", "width": 130, "precision": 1},
+        {"label": "Req Hrs", "fieldname": "shift_required_hours", "fieldtype": "Float", "width": 80, "precision": 1},
+        {"label": "Work Hrs", "fieldname": "shift_working_hours", "fieldtype": "Float", "width": 85, "precision": 1},
+        {"label": "Avail Hrs", "fieldname": "shift_available_hours", "fieldtype": "Float", "width": 85, "precision": 1},
+        {"label": "Mechanical Downtime", "fieldname": "shift_breakdown_hours", "fieldtype": "Float", "width": 155, "precision": 1},
+        {"label": "Actual Breakdown Time", "fieldname": "actual_breakdown_time", "fieldtype": "Float", "width": 165, "precision": 1},
+        {"label": "Actual Planned Maintenance Time", "fieldname": "actual_planned_maintenance_time", "fieldtype": "Float", "width": 210, "precision": 1},
+        {"label": "Actual Inspection Time", "fieldname": "actual_inspection_time", "fieldtype": "Float", "width": 160, "precision": 1},
+        {"label": "Actual Service Time", "fieldname": "actual_service_time", "fieldtype": "Float", "width": 150, "precision": 1},
+        {"label": "Other Lost Hrs", "fieldname": "shift_other_lost_hours", "fieldtype": "Float", "width": 110, "precision": 1},
+        {"label": "General & Specific Other Lost Hours", "fieldname": "captured_other_lost_hours", "fieldtype": "Float", "width": 235, "precision": 1},
+        {"label": "Other Lost Hours Variance", "fieldname": "other_lost_hours_variance", "fieldtype": "Float", "width": 190, "precision": 1},
+        {"label": "Avail (%)", "fieldname": "plant_shift_availability", "fieldtype": "Percent", "width": 85, "precision": 1},
+        {"label": "Util (%)", "fieldname": "plant_shift_utilisation", "fieldtype": "Percent", "width": 85, "precision": 1},
+        {"label": "Breakdown Reason", "fieldname": "breakdown_reason", "fieldtype": "Data", "width": 170},
+        {"label": "Other Delay Reason", "fieldname": "other_delay_reason", "fieldtype": "Data", "width": 170},
     ]
-
-
 
 
 MSR_TIME_FIELDS = [
@@ -65,14 +61,41 @@ SUM_FIELDS = [
     "other_lost_hours_variance",
 ]
 
-AVG_FIELDS = [
-    "plant_shift_availability",
-    "plant_shift_utilisation",
-]
-
 
 def r1(v):
     return round(v or 0, 1)
+
+
+def calc_availability(req_hrs, avail_hrs):
+    req_hrs = float(req_hrs or 0)
+    avail_hrs = float(avail_hrs or 0)
+
+    if req_hrs <= 0:
+        return 0.0
+
+    return r1((avail_hrs / req_hrs) * 100)
+
+
+def calc_utilisation(work_hrs, avail_hrs):
+    work_hrs = float(work_hrs or 0)
+    avail_hrs = float(avail_hrs or 0)
+
+    if avail_hrs <= 0:
+        return 0.0
+
+    return r1((work_hrs / avail_hrs) * 100)
+
+
+def apply_formula_fields(row):
+    row["plant_shift_availability"] = calc_availability(
+        row.get("shift_required_hours"),
+        row.get("shift_available_hours"),
+    )
+    row["plant_shift_utilisation"] = calc_utilisation(
+        row.get("shift_working_hours"),
+        row.get("shift_available_hours"),
+    )
+    return row
 
 
 def get_shift_window(shift, shift_date):
@@ -116,41 +139,37 @@ def get_overlap_hours(start1, end1, start2, end2):
     return (overlap_end - overlap_start).total_seconds() / 3600.0
 
 
-
-
 def get_planned_downtime_value(location, shift_date, indent):
     site = (location or "").strip().lower()
-    day_of_week = frappe.utils.getdate(shift_date).weekday()  # Mon=0 ... Sun=6
+    day_of_week = frappe.utils.getdate(shift_date).weekday()
 
     saturday_special_sites = {"koppie", "uitgevallen", "bankfontein", "kriel"}
 
-    if day_of_week == 6:  # Sunday
+    if day_of_week == 6:
         return 0.0
 
-    if day_of_week == 5:  # Saturday
+    if day_of_week == 5:
         if site in saturday_special_sites:
             return 4.0 if indent in (0, 1, 2) else 2.0
         return 6.0 if indent in (0, 1, 2) else 3.0
 
-    # Weekdays
     return 6.0 if indent in (0, 1, 2) else 3.0
 
 
 def get_actual_hours_value(location, shift_date, indent):
     site = (location or "").strip().lower()
-    day_of_week = frappe.utils.getdate(shift_date).weekday()  # Mon=0 ... Sun=6
+    day_of_week = frappe.utils.getdate(shift_date).weekday()
 
     saturday_special_sites = {"koppie", "uitgevallen", "bankfontein", "kriel"}
 
-    if day_of_week == 6:  # Sunday
+    if day_of_week == 6:
         return 0.0
 
-    if day_of_week == 5:  # Saturday
+    if day_of_week == 5:
         if site in saturday_special_sites:
             return 18.0 if indent in (0, 1, 2) else 9.0
         return 24.0 if indent in (0, 1, 2) else 12.0
 
-    # Weekdays
     return 24.0 if indent in (0, 1, 2) else 12.0
 
 
@@ -167,9 +186,6 @@ def attach_planned_and_actual_hours(data):
         row["actual_hours"] = r1(
             get_actual_hours_value(row.get("location"), row.get("shift_date"), row.get("indent"))
         )
-
-
-
 
 
 def get_msr_time_map(filters):
@@ -212,9 +228,6 @@ def get_msr_time_map(filters):
 
         if end_dt <= start_dt:
             continue
-
-        total_hours = (row.get("total_time") or 0) / 3600.0
-        unavailable_hours = (row.get("total_time_unavailable") or 0) / 3600.0
 
         for shift in ("Day", "Night", "Morning", "Afternoon"):
             shift_start, shift_end = get_shift_window(shift, row.service_date)
@@ -261,7 +274,6 @@ def attach_msr_actuals(data, filters):
 
 
 def recalculate_summary_rows(data):
-    # indent 2 = asset totals from indent 3
     asset_map = {}
     for row in data:
         if row.get("indent") == 3:
@@ -288,10 +300,8 @@ def recalculate_summary_rows(data):
             for field in SUM_FIELDS:
                 row[field] = r1(sum((child.get(field) or 0) for child in children))
 
-            for field in AVG_FIELDS:
-                row[field] = r1(sum((child.get(field) or 0) for child in children) / len(children))
+            apply_formula_fields(row)
 
-    # indent 1 = date totals from indent 2
     date_map = {}
     for row in data:
         if row.get("indent") == 2:
@@ -316,10 +326,8 @@ def recalculate_summary_rows(data):
             for field in SUM_FIELDS:
                 row[field] = r1(sum((child.get(field) or 0) for child in children))
 
-            for field in AVG_FIELDS:
-                row[field] = r1(sum((child.get(field) or 0) for child in children) / len(children))
+            apply_formula_fields(row)
 
-    # indent 0 = category totals from indent 1
     category_map = {}
     for row in data:
         if row.get("indent") == 1:
@@ -335,15 +343,7 @@ def recalculate_summary_rows(data):
             for field in SUM_FIELDS:
                 row[field] = r1(sum((child.get(field) or 0) for child in children))
 
-            for field in AVG_FIELDS:
-                row[field] = r1(sum((child.get(field) or 0) for child in children) / len(children))
-
-
-
-
-# ---------------------------------------------------
-# Fetch and Group Data
-# ---------------------------------------------------
+            apply_formula_fields(row)
 
 
 def get_grouped_data(filters):
@@ -391,13 +391,21 @@ def get_grouped_data(filters):
         cat = record["asset_category"] or "Uncategorised"
         date = str(record["shift_date"])
         asset = record["asset_name"]
+
+        apply_formula_fields(record)
+
         grouped.setdefault(cat, {}).setdefault(date, {}).setdefault(asset, []).append(record)
 
     data = []
 
     for cat, date_groups in grouped.items():
         cat_rows = [r for d in date_groups.values() for a in d.values() for r in a]
-        data.append(summary_row(cat_rows, indent=0, asset_category=cat, sum_hours=False))
+        data.append(summary_row(
+            cat_rows,
+            indent=0,
+            asset_category=cat,
+            location=(filters.get("location") or None),
+        ))
 
         for date, assets in date_groups.items():
             date_rows = [r for a in assets.values() for r in a]
@@ -407,19 +415,16 @@ def get_grouped_data(filters):
                 asset_category=cat,
                 shift_date=date,
                 location=(filters.get("location") or None),
-                sum_hours=True
             ))
 
             for asset, rows in assets.items():
-                combined = combine_shifts(rows)
-
                 data.append(summary_row(
-                    [combined],
+                    rows,
                     indent=2,
                     asset_category=cat,
                     asset_name=asset,
                     shift_date=date,
-                    location=(rows[0].get("location") if rows else None)
+                    location=(rows[0].get("location") if rows else None),
                 ))
 
                 for row in rows:
@@ -437,6 +442,8 @@ def get_grouped_data(filters):
                         "actual_inspection_time",
                         "shift_available_hours",
                         "shift_other_lost_hours",
+                        "captured_other_lost_hours",
+                        "other_lost_hours_variance",
                         "plant_shift_availability",
                         "plant_shift_utilisation",
                     ]:
@@ -452,27 +459,9 @@ def get_grouped_data(filters):
     return data
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-# ---------------------------------------------------
-# Combine Multiple Shifts (Day/Night)
-# ---------------------------------------------------
 def combine_shifts(rows):
     total = {}
-    count = len(rows)
 
-    # Sum hour fields
     for key in [
         "shift_required_hours",
         "shift_working_hours",
@@ -488,71 +477,44 @@ def combine_shifts(rows):
     ]:
         total[key] = sum((r.get(key) or 0) for r in rows)
 
-    # Captured other lost hours comes from Daily Lost Hours Recon (site/day),
-    # so it will usually be the same for all shifts. Keep it as an average.
-    total["captured_other_lost_hours"] = (
-        sum((r.get("captured_other_lost_hours") or 0) for r in rows) / count if count else 0
-    )
-
-    # Percent fields = average
-    total["plant_shift_availability"] = (
-        sum((r.get("plant_shift_availability") or 0) for r in rows) / count if count else 0
-    )
-    total["plant_shift_utilisation"] = (
-        sum((r.get("plant_shift_utilisation") or 0) for r in rows) / count if count else 0
-    )
-
-    # Variance = Other Lost Hrs - Captured Other Lost Hours
+    total["captured_other_lost_hours"] = sum((r.get("captured_other_lost_hours") or 0) for r in rows)
     total["other_lost_hours_variance"] = (
         (total.get("shift_other_lost_hours") or 0) - (total.get("captured_other_lost_hours") or 0)
     )
 
+    apply_formula_fields(total)
     return total
 
 
-
-# ---------------------------------------------------
-# Summary Row Generator
-# ---------------------------------------------------
-def summary_row(rows, indent, sum_hours=False, **extra_fields):
-    def r1(v): return round(v or 0, 1)
+def summary_row(rows, indent, **extra_fields):
     count = len(rows)
     if count == 0:
         return {**extra_fields, "indent": indent}
 
-    def avg(field): return sum((r.get(field) or 0) for r in rows) / count if count else 0
-    def total(field): return sum((r.get(field) or 0) for r in rows)
-    h_fn = total if sum_hours else avg
+    combined = combine_shifts(rows)
 
     return {
         **extra_fields,
-        "shift_required_hours": r1(h_fn("shift_required_hours")),
-        "shift_working_hours": r1(h_fn("shift_working_hours")),
-        "shift_breakdown_hours": r1(h_fn("shift_breakdown_hours")),
-        "planned_downtime": r1(h_fn("planned_downtime")),
-        "actual_hours": r1(h_fn("actual_hours")),
-        "actual_service_time": r1(h_fn("actual_service_time")),
-        "actual_breakdown_time": r1(h_fn("actual_breakdown_time")),
-        "actual_planned_maintenance_time": r1(h_fn("actual_planned_maintenance_time")),
-        "actual_inspection_time": r1(h_fn("actual_inspection_time")),
-        "shift_available_hours": r1(h_fn("shift_available_hours")),
-        "shift_other_lost_hours": r1(h_fn("shift_other_lost_hours")),
-        "plant_shift_availability": r1(avg("plant_shift_availability")),
-        "captured_other_lost_hours": r1(h_fn("captured_other_lost_hours")),
-        "other_lost_hours_variance": r1(h_fn("other_lost_hours_variance")),
-        "plant_shift_utilisation": r1(avg("plant_shift_utilisation")),
-        "indent": indent
+        "shift_required_hours": r1(combined.get("shift_required_hours")),
+        "shift_working_hours": r1(combined.get("shift_working_hours")),
+        "shift_breakdown_hours": r1(combined.get("shift_breakdown_hours")),
+        "planned_downtime": r1(combined.get("planned_downtime")),
+        "actual_hours": r1(combined.get("actual_hours")),
+        "actual_service_time": r1(combined.get("actual_service_time")),
+        "actual_breakdown_time": r1(combined.get("actual_breakdown_time")),
+        "actual_planned_maintenance_time": r1(combined.get("actual_planned_maintenance_time")),
+        "actual_inspection_time": r1(combined.get("actual_inspection_time")),
+        "shift_available_hours": r1(combined.get("shift_available_hours")),
+        "shift_other_lost_hours": r1(combined.get("shift_other_lost_hours")),
+        "captured_other_lost_hours": r1(combined.get("captured_other_lost_hours")),
+        "other_lost_hours_variance": r1(combined.get("other_lost_hours_variance")),
+        "plant_shift_availability": r1(combined.get("plant_shift_availability")),
+        "plant_shift_utilisation": r1(combined.get("plant_shift_utilisation")),
+        "indent": indent,
     }
 
 
-# ---------------------------------------------------
-# Attach Breakdown & Delay Reasons
-# ---------------------------------------------------
 def attach_reasons(data, filters):
-    """
-    Fetch breakdown_reason (per asset/day) and other_delay_reason
-    (shared site/day comment from Daily Lost Hours Recon)
-    """
     key_map = {(d.get("asset_name"), str(d.get("shift_date")), d.get("location"))
                for d in data if d.get("asset_name") and d.get("shift_date")}
     if not key_map:
@@ -563,7 +525,6 @@ def attach_reasons(data, filters):
     end_date = filters.get("end_date")
     location = filters.get("location")
 
-    # --- Breakdown Reason from Breakdown History ---
     breakdown_rows = frappe.db.sql("""
         SELECT
             bh.asset_name,
@@ -580,8 +541,6 @@ def attach_reasons(data, filters):
         k = (r.asset_name, str(r.shift_date), r.location)
         breakdown_map.setdefault(k, []).append(r.breakdown_reason_updates)
 
-    # --- Other Delay Reason (shared site/day comment) + Captured Other Lost Hours (by shift) ---
-    # --- General captured (site/day/shift) ---
     delay_rows = frappe.db.sql("""
         SELECT
             location,
@@ -595,7 +554,6 @@ def attach_reasons(data, filters):
     """.format(loc_filter="AND location = %(loc)s" if location else ""),
         {"start": start_date, "end": end_date, "loc": location}, as_dict=True)
 
-    # --- Plant-specific captured (site/day/shift/asset) from child table ---
     plant_rows = frappe.db.sql("""
         SELECT
             r.location,
@@ -612,37 +570,27 @@ def attach_reasons(data, filters):
     """.format(loc_filter="AND r.location = %(loc)s" if location else ""),
         {"start": start_date, "end": end_date, "loc": location}, as_dict=True)
 
-
-    # comments stay site/day-level
     delay_map = {(r.location, str(r.shift_date)): (r.gen_lost_hours_comments or "") for r in delay_rows}
 
-    # general captured is per site/day/shift
     captured_general_map = {
         (r.location, str(r.shift_date), (r.shift or "")): (r.total_general_lost_hours or 0)
         for r in delay_rows
     }
 
-    # plant-specific captured is per site/day/shift/asset
     captured_plant_map = {}
     for r in plant_rows:
         k = (r.location, str(r.shift_date), (r.shift or ""), r.asset_name)
         captured_plant_map[k] = (captured_plant_map.get(k, 0) + (r.total_plant_specific_lost_hours or 0))
 
-
-
-    # --- Attach to rows ---
     for row in data:
         if not row.get("shift_date"):
             continue
 
-        # DATE totals must be summed from children (asset totals), not pulled from DLR
         if row.get("indent") == 1:
             continue
 
         k2 = (row.get("location"), str(row["shift_date"]))
         shift = (row.get("shift") or "")
-
-        # Captured Other Lost Hours + variance
         asset = row.get("asset_name")
 
         def captured_for(s):
@@ -653,7 +601,6 @@ def attach_reasons(data, filters):
         if shift in ("Day", "Night"):
             captured = captured_for(shift)
         else:
-            # TOTAL row (asset header): sum Day + Night for THIS asset
             captured = captured_for("Day") + captured_for("Night")
 
         row["captured_other_lost_hours"] = round(captured or 0, 1)
@@ -662,17 +609,12 @@ def attach_reasons(data, filters):
             1
         )
 
-
-        # Breakdown Reason (per asset/day)
         if row.get("asset_name"):
             k1 = (row["asset_name"], str(row["shift_date"]), row.get("location"))
             row["breakdown_reason"] = "; ".join(breakdown_map.get(k1, [])) if k1 in breakdown_map else ""
 
-        # Other Delay Reason (site/day comment)
         row["other_delay_reason"] = delay_map.get(k2, "")
 
-
-    # Optional debug (can be commented out)
     frappe.log_error(
         f"Avail & Util Detailed fetched {len(breakdown_rows)} breakdowns and {len(delay_rows)} daily comments",
         "Avail Util Debug"

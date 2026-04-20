@@ -11,18 +11,18 @@
    "fieldname": "start_date",
    "fieldtype": "Date",
    "label": "Start Date",
-   "mandatory": 0,
+   "mandatory": 1,
    "wildcard_filter": 0
   },
   {
    "fieldname": "end_date",
    "fieldtype": "Date",
    "label": "End Date",
-   "mandatory": 0,
+   "mandatory": 1,
    "wildcard_filter": 0
   },
   {
-   "fieldname": "site",
+   "fieldname": "location",
    "fieldtype": "Link",
    "label": "Site",
    "mandatory": 0,

@@ -1,21 +1,21 @@
 import frappe
 from frappe.utils import flt
 
+
 def execute(filters=None):
     """
     Generate the Availability and Utilisation summary report,
     grouped by Asset Category and Site, with per-category bar charts.
     """
     columns = get_columns()
-    data = get_collapsed_summary(filters)
+    data = get_collapsed_summary(filters or {})
 
     if not data:
         frappe.msgprint("⚠️ No records found for the selected filters or date range.")
         return columns, []
 
-    charts = build_charts(data, filters)
+    charts = build_charts(data, filters or {})
 
-    # HTML for multiple charts below the table
     message_html = ""
     for ch in charts:
         message_html += f"""
@@ -25,13 +25,9 @@ def execute(filters=None):
         </div>
         """
 
-    # Return the first chart for top display, and embed the rest as HTML
     return columns, data, message_html, charts[0] if charts else None
 
 
-# -------------------------------------------------------
-# Columns
-# -------------------------------------------------------
 def get_columns():
     return [
         {"label": "Category", "fieldname": "asset_category", "fieldtype": "Data", "width": 95},
@@ -47,9 +43,105 @@ def get_columns():
     ]
 
 
-# -------------------------------------------------------
-# Data Logic — grouped by Asset Category
-# -------------------------------------------------------
+def r1(v):
+    return round(flt(v), 1)
+
+
+def calc_availability(req_hrs, avail_hrs):
+    req_hrs = flt(req_hrs)
+    avail_hrs = flt(avail_hrs)
+
+    if req_hrs <= 0:
+        return 0.0
+
+    return r1((avail_hrs / req_hrs) * 100)
+
+
+def calc_utilisation(work_hrs, avail_hrs):
+    work_hrs = flt(work_hrs)
+    avail_hrs = flt(avail_hrs)
+
+    if avail_hrs <= 0:
+        return 0.0
+
+    return r1((work_hrs / avail_hrs) * 100)
+
+
+def apply_formula_fields(row):
+    row["plant_shift_availability"] = calc_availability(
+        row.get("shift_required_hours"),
+        row.get("shift_available_hours"),
+    )
+    row["plant_shift_utilisation"] = calc_utilisation(
+        row.get("shift_working_hours"),
+        row.get("shift_available_hours"),
+    )
+    return row
+
+
+def round_row(row):
+    for f in [
+        "shift_required_hours",
+        "shift_working_hours",
+        "shift_breakdown_hours",
+        "shift_available_hours",
+        "shift_other_lost_hours",
+        "plant_shift_availability",
+        "plant_shift_utilisation",
+    ]:
+        row[f] = r1(row.get(f))
+
+
+def build_conditions(filters):
+    conditions = []
+
+    if filters.get("start_date") and filters.get("end_date"):
+        conditions.append(f"shift_date BETWEEN {frappe.db.escape(filters.get('start_date'))} AND {frappe.db.escape(filters.get('end_date'))}")
+    elif filters.get("start_date"):
+        conditions.append(f"shift_date >= {frappe.db.escape(filters.get('start_date'))}")
+    elif filters.get("end_date"):
+        conditions.append(f"shift_date <= {frappe.db.escape(filters.get('end_date'))}")
+
+    if filters.get("location") or filters.get("site"):
+        loc = filters.get("location") or filters.get("site")
+        conditions.append(f"location = {frappe.db.escape(loc)}")
+
+    if filters.get("asset"):
+        conditions.append(f"asset_name = {frappe.db.escape(filters.get('asset'))}")
+
+    if filters.get("asset_category") and filters.get("asset_category") != "All":
+        cat = filters.get("asset_category")
+        if cat == "Uncategorised":
+            conditions.append("(asset_category IS NULL OR asset_category = '' OR asset_category = 'Uncategorised')")
+        else:
+            conditions.append(f"asset_category = {frappe.db.escape(cat)}")
+
+    return "WHERE " + " AND ".join(conditions) if conditions else ""
+
+
+def summary_row(rows, **extra_fields):
+    if not rows:
+        return {**extra_fields}
+
+    req = sum(flt(r.get("shift_required_hours")) for r in rows)
+    work = sum(flt(r.get("shift_working_hours")) for r in rows)
+    brkdwn = sum(flt(r.get("shift_breakdown_hours")) for r in rows)
+    avail = sum(flt(r.get("shift_available_hours")) for r in rows)
+    lost = sum(flt(r.get("shift_other_lost_hours")) for r in rows)
+
+    out = {
+        **extra_fields,
+        "shift_required_hours": r1(req),
+        "shift_working_hours": r1(work),
+        "shift_breakdown_hours": r1(brkdwn),
+        "shift_available_hours": r1(avail),
+        "shift_other_lost_hours": r1(lost),
+        "plant_shift_availability": calc_availability(req, avail),
+        "plant_shift_utilisation": calc_utilisation(work, avail),
+    }
+    return out
+
+
 def get_collapsed_summary(filters):
     conditions = build_conditions(filters)
 
@@ -62,9 +154,7 @@ def get_collapsed_summary(filters):
             SUM(shift_working_hours) AS shift_working_hours,
             SUM(shift_breakdown_hours) AS shift_breakdown_hours,
             SUM(shift_available_hours) AS shift_available_hours,
-            SUM(shift_other_lost_hours) AS shift_other_lost_hours,
-            AVG(plant_shift_availability) AS plant_shift_availability,
-            AVG(plant_shift_utilisation) AS plant_shift_utilisation
+            SUM(shift_other_lost_hours) AS shift_other_lost_hours
         FROM `tabAvailability and Utilisation`
         {conditions}
         GROUP BY COALESCE(asset_category, 'Uncategorised'), asset_name, location
@@ -73,6 +163,10 @@ def get_collapsed_summary(filters):
 
     if not records:
         return []
+
+    for row in records:
+        apply_formula_fields(row)
+        round_row(row)
 
     grouped = {}
     for row in records:
@@ -87,12 +181,11 @@ def get_collapsed_summary(filters):
         data.append(cat_row)
 
         for r in rows:
-            round_row(r)
-            r["asset_category"] = ""
-            r["indent"] = 1
-            data.append(r)
+            child = dict(r)
+            child["asset_category"] = ""
+            child["indent"] = 1
+            data.append(child)
 
-    # Grand total
     total_row = summary_row(records, asset_category="GRAND TOTAL")
     total_row.update({"asset_name": "", "location": "", "indent": 0})
     data.append(total_row)
@@ -100,81 +193,16 @@ def get_collapsed_summary(filters):
     return data
 
 
-# -------------------------------------------------------
-# Helpers
-# -------------------------------------------------------
-def summary_row(rows, **extra_fields):
-    def r1(v): return round(v or 0, 1)
-    count = len(rows)
-    def avg(f): return sum((r.get(f) or 0) for r in rows) / count if count else 0
-    def total(f): return sum((r.get(f) or 0) for r in rows)
-
-    return {
-        **extra_fields,
-        "shift_required_hours": r1(total("shift_required_hours")),
-        "shift_working_hours": r1(total("shift_working_hours")),
-        "shift_breakdown_hours": r1(total("shift_breakdown_hours")),
-        "shift_available_hours": r1(total("shift_available_hours")),
-        "shift_other_lost_hours": r1(total("shift_other_lost_hours")),
-        "plant_shift_availability": r1(avg("plant_shift_availability")),
-        "plant_shift_utilisation": r1(avg("plant_shift_utilisation")),
-    }
-
-
-def round_row(row):
-    for f in [
-        "shift_required_hours", "shift_working_hours", "shift_breakdown_hours",
-        "shift_available_hours", "shift_other_lost_hours",
-        "plant_shift_availability", "plant_shift_utilisation"
-    ]:
-        row[f] = round(row.get(f) or 0, 1)
-
-
-def build_conditions(filters):
-    conditions = []
-    if filters.get("start_date") and filters.get("end_date"):
-        conditions.append(f"shift_date BETWEEN '{filters.get('start_date')}' AND '{filters.get('end_date')}'")
-    elif filters.get("start_date"):
-        conditions.append(f"shift_date >= '{filters.get('start_date')}'")
-    elif filters.get("end_date"):
-        conditions.append(f"shift_date <= '{filters.get('end_date')}'")
-
-    if filters.get("location") or filters.get("site"):
-        loc = filters.get("location") or filters.get("site")
-        conditions.append(f"location = {frappe.db.escape(loc)}")
-
-    # NEW: Asset filter (filters against Availability and Utilisation.asset_name)
-    if filters.get("asset"):
-        conditions.append(f"asset_name = {frappe.db.escape(filters.get('asset'))}")
-
-    # NEW: Asset Category filter (All shows everything)
-    if filters.get("asset_category") and filters.get("asset_category") != "All":
-        cat = filters.get("asset_category")
-        if cat == "Uncategorised":
-            conditions.append("(asset_category IS NULL OR asset_category = '' OR asset_category = 'Uncategorised')")
-        else:
-            conditions.append(f"asset_category = '{cat}'")
-
-
-
-    return "WHERE " + " AND ".join(conditions) if conditions else ""
-
-
-# -------------------------------------------------------
-# Chart Builder — per category (asset view) OR time-bucket view
-# -------------------------------------------------------
 def build_charts(data, filters):
     filters = filters or {}
 
     metric = filters.get("metric") or "All"
-    chart_type = (filters.get("chart_type") or "Bar").lower()   # "bar" or "line"
+    chart_type = (filters.get("chart_type") or "Bar").lower()
     time_column = filters.get("time_column") or "Month Only"
 
-    # If user selects any "time" mode, switch charts to a time-bucket chart
     if time_column != "Month Only":
         return [build_time_chart(filters, metric, chart_type, time_column)]
 
-    # Otherwise: keep the existing "per category, per asset" charts
     cat_map = {}
     for row in data:
         cat = row.get("asset_category") or "Uncategorised"
@@ -200,7 +228,7 @@ def build_charts(data, filters):
             "type": chart_type,
             "height": 250,
             "barOptions": {"spaceRatio": 0.6},
-            "colors": ["#FFC39B", "#7A7A7A"]  # Availability, Utilisation
+            "colors": ["#FFC39B", "#7A7A7A"]
         }
         charts.append(chart)
 
@@ -208,18 +236,15 @@ def build_charts(data, filters):
 
 
 def build_time_chart(filters, metric, chart_type, time_column):
-    """
-    Time-bucket chart across selected filters.
-    Uses AVG(%) per bucket.
-    """
     conditions = build_conditions(filters)
     bucket_expr, bucket_label = get_time_bucket_expr(time_column)
 
     rows = frappe.db.sql(f"""
         SELECT
             {bucket_expr} AS bucket,
-            AVG(plant_shift_availability) AS avail,
-            AVG(plant_shift_utilisation) AS util
+            SUM(shift_required_hours) AS req,
+            SUM(shift_working_hours) AS work,
+            SUM(shift_available_hours) AS avail
         FROM `tabAvailability and Utilisation`
         {conditions}
         GROUP BY {bucket_expr}
@@ -227,8 +252,8 @@ def build_time_chart(filters, metric, chart_type, time_column):
     """, as_dict=True)
 
     labels = [r.get("bucket") for r in rows]
-    avail_vals = [flt(r.get("avail") or 0) for r in rows]
-    util_vals = [flt(r.get("util") or 0) for r in rows]
+    avail_vals = [calc_availability(r.get("req"), r.get("avail")) for r in rows]
+    util_vals = [calc_utilisation(r.get("work"), r.get("avail")) for r in rows]
 
     datasets = []
     if metric in ("All", "Availability %"):
@@ -241,15 +266,11 @@ def build_time_chart(filters, metric, chart_type, time_column):
         "data": {"labels": labels, "datasets": datasets},
         "type": chart_type,
         "height": 280,
-        "colors": ["#FFC39B", "#7A7A7A"]  # Availability, Utilisation
+        "colors": ["#FFC39B", "#7A7A7A"]
     }
 
 
 def get_time_bucket_expr(time_column):
-    """
-    Returns (SQL expr, label) for MariaDB/MySQL.
-    """
-    # NOTE: tabAvailability and Utilisation.shift_date is assumed to be a DATE/DATETIME.
     if time_column == "Days Only":
         return ("DATE_FORMAT(shift_date, '%Y-%m-%d')", "Day")
     if time_column == "Days and Month":
@@ -259,5 +280,4 @@ def get_time_bucket_expr(time_column):
     if time_column == "Week and Month":
         return ("CONCAT(DATE_FORMAT(shift_date, '%b'), ' ', DATE_FORMAT(shift_date, '%x-W%v'))", "Week+Month")
 
-    # Month Only (default)
     return ("DATE_FORMAT(shift_date, '%Y-%m')", "Month")

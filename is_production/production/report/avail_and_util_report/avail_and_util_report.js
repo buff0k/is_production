@@ -1,25 +1,25 @@
 frappe.query_reports["Avail and Util report"] = {
-    "filters": [
+    filters: [
         {
-            "fieldname": "start_date",
-            "label": __("Start Date"),
-            "fieldtype": "Date",
-            "reqd": 1,
-            "default": frappe.datetime.add_days(frappe.datetime.nowdate(), -7)
+            fieldname: "start_date",
+            label: __("Start Date"),
+            fieldtype: "Date",
+            reqd: 1,
+            default: frappe.datetime.add_days(frappe.datetime.nowdate(), -7)
         },
         {
-            "fieldname": "end_date",
-            "label": __("End Date"),
-            "fieldtype": "Date",
-            "reqd": 1,
-            "default": frappe.datetime.nowdate()
+            fieldname: "end_date",
+            label: __("End Date"),
+            fieldtype: "Date",
+            reqd: 1,
+            default: frappe.datetime.nowdate()
         },
         {
-            "fieldname": "location",
-            "label": __("Site"),
-            "fieldtype": "Link",
-            "options": "Location",
-            "reqd": 0
+            fieldname: "location",
+            label: __("Site"),
+            fieldtype: "Link",
+            options: "Location",
+            reqd: 0
         }
     ],
 
@@ -28,7 +28,6 @@ frappe.query_reports["Avail and Util report"] = {
             report.refresh();
         });
 
-        // Force column widths AFTER render
         report.on("render_complete", () => {
             setTimeout(() => {
                 if (!report.datatable) return;
