@@ -111,6 +111,10 @@ class PreUseHours(Document):
             eng_hrs_end = cr.eng_hrs_start
             working_hours = round(flt(eng_hrs_end) - flt(prev_row.eng_hrs_start), 1)
 
+            # Allow reset from legacy/blank baseline only when previous start is exactly 0.
+            if flt(prev_row.eng_hrs_start) == 0:
+                continue            
+
             if working_hours < 0 or working_hours > 12:
                 bad_assets.append({
                     "asset": cr.asset_name,

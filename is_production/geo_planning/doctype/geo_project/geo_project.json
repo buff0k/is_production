@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "{project_code}-{model_version}",
+ "autoname": "format: {project_name}-{project_code}-{model_version}",
  "creation": "2026-02-14 14:57:09.299292",
  "description": "Purpose: A single reserve/model context (Bankfontein etc.)",
  "doctype": "DocType",
@@ -117,11 +117,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-16 15:04:23.224525",
+ "modified": "2026-04-21 14:02:59.285147",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Project",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
