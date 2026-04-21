@@ -29,6 +29,7 @@ def get_columns():
         {"label": "Other Lost Hours Variance", "fieldname": "other_lost_hours_variance", "fieldtype": "Float", "width": 190, "precision": 1},
         {"label": "Avail (%)", "fieldname": "plant_shift_availability", "fieldtype": "Percent", "width": 85, "precision": 1},
         {"label": "Util (%)", "fieldname": "plant_shift_utilisation", "fieldtype": "Percent", "width": 85, "precision": 1},
+        {"label": "Emp Avail (%)", "fieldname": "employee_availability", "fieldtype": "Percent", "width": 100, "precision": 1},
         {"label": "Breakdown Reason", "fieldname": "breakdown_reason", "fieldtype": "Data", "width": 170},
         {"label": "Other Delay Reason", "fieldname": "other_delay_reason", "fieldtype": "Data", "width": 170},
     ]
@@ -62,12 +63,17 @@ def r1(v):
     return round(v or 0, 1)
 
 
+def clamp_percentage(value):
+    value = float(value or 0)
+    return max(0.0, min(100.0, value))
+
+
 def calc_availability(req_hrs, avail_hrs):
     req_hrs = float(req_hrs or 0)
     avail_hrs = float(avail_hrs or 0)
     if req_hrs <= 0:
         return 0.0
-    return r1((avail_hrs / req_hrs) * 100)
+    return r1(clamp_percentage((avail_hrs / req_hrs) * 100))
 
 
 def calc_utilisation(work_hrs, avail_hrs):
@@ -75,7 +81,15 @@ def calc_utilisation(work_hrs, avail_hrs):
     avail_hrs = float(avail_hrs or 0)
     if avail_hrs <= 0:
         return 0.0
-    return r1((work_hrs / avail_hrs) * 100)
+    return r1(clamp_percentage((work_hrs / avail_hrs) * 100))
+
+
+def calc_employee_availability(req_hrs, other_lost_hrs):
+    req_hrs = float(req_hrs or 0)
+    other_lost_hrs = float(other_lost_hrs or 0)
+    if req_hrs <= 0:
+        return 0.0
+    return r1(clamp_percentage(((req_hrs - other_lost_hrs) / req_hrs) * 100))
 
 
 def apply_formula_fields(row):
@@ -86,6 +100,10 @@ def apply_formula_fields(row):
     row["plant_shift_utilisation"] = calc_utilisation(
         row.get("shift_working_hours"),
         row.get("shift_available_hours"),
+    )
+    row["employee_availability"] = calc_employee_availability(
+        row.get("shift_required_hours"),
+        row.get("shift_other_lost_hours"),
     )
     return row
 
@@ -382,9 +400,12 @@ def get_grouped_data(filters):
         date = str(record["shift_date"])
         asset = record["asset_name"]
 
-        # keep engine values on shift rows
         record["plant_shift_availability"] = r1(record.get("plant_shift_availability"))
         record["plant_shift_utilisation"] = r1(record.get("plant_shift_utilisation"))
+        record["employee_availability"] = calc_employee_availability(
+            record.get("shift_required_hours"),
+            record.get("shift_other_lost_hours"),
+        )
 
         grouped.setdefault(cat, {}).setdefault(date, {}).setdefault(asset, []).append(record)
 
@@ -439,9 +460,12 @@ def get_grouped_data(filters):
                     ]:
                         row[field] = r1(row.get(field))
 
-                    # keep engine values on leaves
                     row["plant_shift_availability"] = r1(row.get("plant_shift_availability"))
                     row["plant_shift_utilisation"] = r1(row.get("plant_shift_utilisation"))
+                    row["employee_availability"] = calc_employee_availability(
+                        row.get("shift_required_hours"),
+                        row.get("shift_other_lost_hours"),
+                    )
 
                     data.append(row)
 
@@ -479,7 +503,6 @@ def combine_shifts(rows):
         (total.get("shift_other_lost_hours") or 0) - (total.get("captured_other_lost_hours") or 0)
     )
 
-    # totals recalc from hours
     apply_formula_fields(total)
     return total
 
@@ -507,6 +530,7 @@ def summary_row(rows, indent, **extra_fields):
         "other_lost_hours_variance": r1(combined.get("other_lost_hours_variance")),
         "plant_shift_availability": r1(combined.get("plant_shift_availability")),
         "plant_shift_utilisation": r1(combined.get("plant_shift_utilisation")),
+        "employee_availability": r1(combined.get("employee_availability")),
         "indent": indent,
     }
 
@@ -611,6 +635,8 @@ def attach_reasons(data, filters):
             row["breakdown_reason"] = "; ".join(breakdown_map.get(k1, [])) if k1 in breakdown_map else ""
 
         row["other_delay_reason"] = delay_map.get(k2, "")
+
+        apply_formula_fields(row)
 
     frappe.log_error(
         f"Avail & Util Detailed fetched {len(breakdown_rows)} breakdowns and {len(delay_rows)} daily comments",
