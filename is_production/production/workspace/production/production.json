@@ -67,95 +67,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Production Drilling and Diesel",
-   "link_count": 8,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Hourly Production",
-   "link_count": 0,
-   "link_to": "Hourly Production",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Capture Non Production Work Hour",
-   "link_count": 0,
-   "link_to": "Non-Production Worked Hours",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Pre-Use Hours",
-   "link_count": 0,
-   "link_to": "Pre-Use Hours",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Daily Diesel Sheet",
-   "link_count": 0,
-   "link_to": "Daily Diesel Sheet",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Hourly Drilling Report",
-   "link_count": 0,
-   "link_to": "Hourly Drilling Report",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Survey",
-   "link_count": 0,
-   "link_to": "Survey",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Diesel Receipt",
-   "link_count": 0,
-   "link_to": "Diesel Receipt",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Diesel Usage Site Analysis",
-   "link_count": 0,
-   "link_to": "Diesel Usage Site Analyses",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Planning",
    "link_count": 5,
    "link_type": "DocType",
@@ -432,8 +343,166 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Mine Planning ",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Project",
+   "link_count": 0,
+   "link_to": "Geo Project",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Import Batch",
+   "link_count": 0,
+   "link_to": "Geo Import Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Drillhole",
+   "link_count": 0,
+   "link_to": "Geo Drillhole",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Model Output",
+   "link_count": 0,
+   "link_to": "Geo Model Output",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Model Point",
+   "link_count": 0,
+   "link_to": "Geo Model Point",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Production Drilling and Diesel",
+   "link_count": 9,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Hourly Production",
+   "link_count": 0,
+   "link_to": "Hourly Production",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Machine Availability Hourly",
+   "link_count": 0,
+   "link_to": "Machine Availability Hourly",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Capture Non Production Work Hour",
+   "link_count": 0,
+   "link_to": "Non-Production Worked Hours",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Pre-Use Hours",
+   "link_count": 0,
+   "link_to": "Pre-Use Hours",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Daily Diesel Sheet",
+   "link_count": 0,
+   "link_to": "Daily Diesel Sheet",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Hourly Drilling Report",
+   "link_count": 0,
+   "link_to": "Hourly Drilling Report",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Survey",
+   "link_count": 0,
+   "link_to": "Survey",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diesel Receipt",
+   "link_count": 0,
+   "link_to": "Diesel Receipt",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Diesel Usage Site Analysis",
+   "link_count": 0,
+   "link_to": "Diesel Usage Site Analyses",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Reporting",
-   "link_count": 11,
+   "link_count": 12,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -550,65 +619,16 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 0,
-   "label": "Mine Planning ",
-   "link_count": 5,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Project",
+   "is_query_report": 1,
+   "label": "Number of ADT's",
    "link_count": 0,
-   "link_to": "Geo Project",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Import Batch",
-   "link_count": 0,
-   "link_to": "Geo Import Batch",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Drillhole",
-   "link_count": 0,
-   "link_to": "Geo Drillhole",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Model Output",
-   "link_count": 0,
-   "link_to": "Geo Model Output",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Model Point",
-   "link_count": 0,
-   "link_to": "Geo Model Point",
-   "link_type": "DocType",
+   "link_to": "Number of ADT's",
+   "link_type": "Report",
    "onboard": 0,
    "type": "Link"
   }
  ],
- "modified": "2026-04-21 14:40:18.391531",
+ "modified": "2026-04-24 09:55:50.105111",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

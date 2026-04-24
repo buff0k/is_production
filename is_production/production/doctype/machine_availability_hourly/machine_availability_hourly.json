@@ -1,0 +1,151 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format: {site}-{date}-{hour_slot}",
+ "creation": "2026-04-24 09:08:15.119412",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site",
+  "date",
+  "shift",
+  "shift_num_hour",
+  "hour_slot",
+  "day_number",
+  "hour_sort_key",
+  "asset_category",
+  "machine_availability"
+ ],
+ "fields": [
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Location"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Production Shift Start Date"
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "label": "Shift",
+   "options": "\nDay\nNight\nMorning\nAfternoon"
+  },
+  {
+   "fieldname": "shift_num_hour",
+   "fieldtype": "Select",
+   "label": "Shift Number Hours"
+  },
+  {
+   "fieldname": "hour_slot",
+   "fieldtype": "Read Only",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Hour Slot",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "day_number",
+   "fieldtype": "Int",
+   "label": "Day Number ",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hour_sort_key",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Hour Sort Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "machine_availability",
+   "fieldtype": "Table",
+   "label": "Machine Availability",
+   "options": "Machine Availability Hourly Child"
+  },
+  {
+   "fieldname": "asset_category",
+   "fieldtype": "Link",
+   "label": "Asset Category ",
+   "options": "Asset Category"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-24 09:54:53.721283",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Machine Availability Hourly",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Engineering Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Engineering User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

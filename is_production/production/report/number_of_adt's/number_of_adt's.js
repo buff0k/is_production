@@ -30,14 +30,11 @@ frappe.query_reports["Number of ADT's"] = {
     ],
 
     onload: function (report) {
-        const start = report.get_filter_value("start_date");
-        const end = report.get_filter_value("end_date");
-
-        if (!start) {
+        if (!report.get_filter_value("start_date")) {
             report.set_filter_value("start_date", frappe.datetime.month_start());
         }
 
-        if (!end) {
+        if (!report.get_filter_value("end_date")) {
             report.set_filter_value("end_date", frappe.datetime.get_today());
         }
     },
@@ -47,12 +44,17 @@ frappe.query_reports["Number of ADT's"] = {
 
         if (!data) return formatted;
 
-        if (column.fieldname === "avg_adts") {
-            formatted = `<b>${formatted ?? 0}</b>`;
+        if (
+            column.fieldname === "avg_used" ||
+            column.fieldname === "avg_avail" ||
+            column.fieldname === "report_date" ||
+            column.fieldname === "day_name"
+        ) {
+            formatted = `<b>${formatted || 0}</b>`;
         }
 
         if (column.fieldname === "report_date" || column.fieldname === "day_name") {
-            formatted = `<b>${formatted || ""}</b>`;
+            formatted = `<b>${value || ""}</b>`;
         }
 
         return formatted;

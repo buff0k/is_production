@@ -14,7 +14,6 @@ def execute(filters=None):
     end_date = filters.get("end_date")
     formatted_date = format_date(end_date, "dd/MM/yyyy") if end_date else ""
 
-    # ---- Fetch Monthly Production Plan ----
     mpp = get_monthly_plan(site, end_date)
     month_start = getdate(mpp.prod_month_start_date) if mpp else None
 
@@ -41,17 +40,11 @@ def execute(filters=None):
         "strip_ratio": 0,
     }
 
-    # ✅ Actual Daily Achieved (EXACTLY like Daily Reporting "Daily Achieved")
-    # daily_achieved = SUM(total_ts_bcm) + SUM(total_dozing_bcm)
     actual_ts_day = get_actual_ts_for_day(site, end_date)
     actual_dozer_day = get_actual_dozer_for_day(site, end_date)
-    daily_achieved = (actual_ts_day or 0) + (actual_dozer_day or 0)
-
-    # Always populate this field for the HTML row
-    data["actual_daily"] = daily_achieved
+    data["actual_daily"] = (actual_ts_day or 0) + (actual_dozer_day or 0)
 
     if mpp:
-        # --- Base plan values ---
         data.update({
             "monthly_target": flt(mpp.monthly_target_bcm),
             "waste_bcms_planned": flt(mpp.waste_bcms_planned),
@@ -59,7 +52,6 @@ def execute(filters=None):
             "num_prod_days": flt(mpp.num_prod_days),
         })
 
-        # --- Calculate Worked Days (same logic as Production Performance) ---
         completed_days = 0
         if month_start:
             child_rows = frappe.get_all(
@@ -79,7 +71,8 @@ def execute(filters=None):
                 dt = r.get("shift_start_date")
                 if isinstance(dt, str):
                     dt = datetime.strptime(dt, "%Y-%m-%d").date()
-                if dt and dt.weekday() != 6:  # exclude Sundays
+
+                if dt and dt.weekday() != 6:
                     hrs = (
                         (r.get("shift_day_hours") or 0)
                         + (r.get("shift_night_hours") or 0)
@@ -95,8 +88,9 @@ def execute(filters=None):
         data["num_prod_days_completed"] = worked_days
         data["month_remaining_prod_days"] = remaining_days
 
-        # ---- Actuals ----
-        mtd_actual_bcms = get_actual_bcms_for_date(site, getdate(end_date), month_start)
+        # Changed: MTD Prog Actual BCM’s now comes directly from Monthly Production Planning
+        mtd_actual_bcms = flt(mpp.month_actual_bcm)
+
         mtd_prog_actual_coal = get_mtd_coal_dynamic(site, getdate(end_date), month_start)
         mtd_prog_actual_waste = mtd_actual_bcms - (mtd_prog_actual_coal / 1.5)
 
@@ -104,7 +98,6 @@ def execute(filters=None):
         data["mtd_prog_actual_coal"] = mtd_prog_actual_coal
         data["mtd_prog_actual_waste"] = mtd_prog_actual_waste
 
-        # ---- Derived metrics ----
         data["mtd_prog_target_waste"] = (
             (data["waste_bcms_planned"] / data["num_prod_days"]) * data["num_prod_days_completed"]
             if data["num_prod_days"] else 0
@@ -118,16 +111,10 @@ def execute(filters=None):
         data["short_over_coal"] = data["mtd_prog_target_coal"] - data["mtd_prog_actual_coal"]
 
         data["remaining_volume"] = data["monthly_target"] - data["mtd_actual_bcms"]
-
-        data["daily_required"] = (
-            data["remaining_volume"] / max((data["month_remaining_prod_days"], 1))
-        )
-
+        data["daily_required"] = data["remaining_volume"] / max((data["month_remaining_prod_days"], 1))
         data["days_left"] = remaining_days
 
-        # Forecast should come directly from Monthly Production Planning (MPP), same as Daily Report
         data["forecast"] = flt(mpp.month_forecated_bcm) if mpp else 0
-
         data["short_over_forecast"] = data["monthly_target"] - data["forecast"]
 
         data["strip_ratio"] = round(
@@ -140,105 +127,27 @@ def execute(filters=None):
     return [], None, html
 
 
-# ----------------------------------------------------------
-# Helper functions
-# ----------------------------------------------------------
 def get_monthly_plan(site, date):
     if not site or not date:
         return None
+
     plan_name = frappe.db.get_value(
         "Monthly Production Planning",
-        {"location": site, "prod_month_start_date": ["<=", date], "prod_month_end_date": [">=", date]},
+        {
+            "location": site,
+            "prod_month_start_date": ["<=", date],
+            "prod_month_end_date": [">=", date]
+        },
         "name",
     )
+
     return frappe.get_doc("Monthly Production Planning", plan_name) if plan_name else None
 
 
-# ----------------------------------------------------------
-# ✅ Actual BCMs (MPP logic)
-# ----------------------------------------------------------
-def get_actual_bcms_for_date(site, end_date, month_start):
-    if not site or not end_date:
-        return 0
-
-    survey_doc = frappe.get_all(
-        "Survey",
-        filters={
-            "location": site,
-            "last_production_shift_start_date": ["<=", f"{end_date} 23:59:59"],
-        },
-        fields=["last_production_shift_start_date", "total_ts_bcm", "total_dozing_bcm"],
-        order_by="last_production_shift_start_date desc",
-        limit_page_length=1
-    )
-
-    ts_actual_bcm = 0
-    dozing_actual_bcm = 0
-    end_dt = getdate(end_date)
-    start_dt = getdate(month_start)
-
-    if survey_doc:
-        survey = survey_doc[0]
-        survey_date = survey.get("last_production_shift_start_date")
-        if isinstance(survey_date, datetime):
-            survey_date = survey_date.date()
-
-        if survey_date and start_dt <= survey_date <= end_dt:
-            ts_actual_bcm = survey.get("total_ts_bcm") or 0
-            dozing_actual_bcm = survey.get("total_dozing_bcm") or 0
-
-            ts_after = frappe.db.sql("""
-                SELECT COALESCE(SUM(tl.bcms),0)
-                FROM `tabHourly Production` hp
-                JOIN `tabTruck Loads` tl ON tl.parent = hp.name
-                WHERE hp.prod_date > %s AND hp.prod_date <= %s
-                  AND hp.location = %s
-            """, (survey_date, end_date, site))[0][0]
-
-            dozing_after = frappe.db.sql("""
-                SELECT COALESCE(SUM(dp.bcm_hour),0)
-                FROM `tabHourly Production` hp
-                JOIN `tabDozer Production` dp ON dp.parent = hp.name
-                WHERE hp.prod_date > %s AND hp.prod_date <= %s
-                  AND hp.location = %s
-            """, (survey_date, end_date, site))[0][0]
-
-            ts_actual_bcm += ts_after or 0
-            dozing_actual_bcm += dozing_after or 0
-        else:
-            ts_actual_bcm, dozing_actual_bcm = get_hourly_bcms(month_start, end_date, site)
-    else:
-        ts_actual_bcm, dozing_actual_bcm = get_hourly_bcms(month_start, end_date, site)
-
-    return (ts_actual_bcm or 0) + (dozing_actual_bcm or 0)
-
-
-def get_hourly_bcms(start_date, end_date, site):
-    ts = frappe.db.sql("""
-        SELECT COALESCE(SUM(tl.bcms),0)
-        FROM `tabHourly Production` hp
-        JOIN `tabTruck Loads` tl ON tl.parent = hp.name
-        WHERE hp.prod_date BETWEEN %s AND %s
-          AND hp.location = %s
-    """, (start_date, end_date, site))[0][0]
-
-    dozing = frappe.db.sql("""
-        SELECT COALESCE(SUM(dp.bcm_hour),0)
-        FROM `tabHourly Production` hp
-        JOIN `tabDozer Production` dp ON dp.parent = hp.name
-        WHERE hp.prod_date BETWEEN %s AND %s
-          AND hp.location = %s
-    """, (start_date, end_date, site))[0][0]
-
-    return ts or 0, dozing or 0
-
-
-# ----------------------------------------------------------
-# ✅ Actual Coal Tons (Survey + HP after survey logic)
-# ----------------------------------------------------------
 def get_mtd_coal_dynamic(site, end_date, month_start):
     if not site or not end_date:
         return 0
+
     COAL_CONVERSION = 1.5
 
     survey_doc = frappe.get_all(
@@ -259,11 +168,13 @@ def get_mtd_coal_dynamic(site, end_date, month_start):
     if survey_doc:
         survey = survey_doc[0]
         survey_date = survey.get("last_production_shift_start_date")
+
         if isinstance(survey_date, datetime):
             survey_date = survey_date.date()
 
         if survey_date and start_dt <= survey_date <= end_dt:
             coal_tons_actual = survey.get("total_surveyed_coal_tons") or 0
+
             coal_after = frappe.db.sql("""
                 SELECT COALESCE(SUM(tl.bcms),0)
                 FROM `tabHourly Production` hp
@@ -272,6 +183,7 @@ def get_mtd_coal_dynamic(site, end_date, month_start):
                   AND hp.location = %s
                   AND LOWER(tl.mat_type) LIKE '%%coal%%'
             """, (survey_date, end_date, site))[0][0]
+
             coal_tons_actual += (coal_after or 0) * COAL_CONVERSION
         else:
             coal_tons_actual = get_coal_from_hourly(month_start, end_date, site, COAL_CONVERSION)
@@ -290,15 +202,14 @@ def get_coal_from_hourly(start_date, end_date, site, COAL_CONVERSION):
           AND hp.location = %s
           AND LOWER(tl.mat_type) LIKE '%%coal%%'
     """, (start_date, end_date, site))[0][0]
+
     return (coal_bcm or 0) * COAL_CONVERSION
 
 
-# ----------------------------------------------------------
-# ✅ Daily Achieved components (MATCH Daily Reporting logic)
-# ----------------------------------------------------------
 def get_actual_ts_for_day(site, date):
     if not site or not date:
         return 0
+
     result = frappe.db.sql(
         """
         SELECT SUM(total_ts_bcm) AS total_bcm
@@ -308,12 +219,14 @@ def get_actual_ts_for_day(site, date):
         (site, date),
         as_dict=True
     )
+
     return result[0].total_bcm or 0
 
 
 def get_actual_dozer_for_day(site, date):
     if not site or not date:
         return 0
+
     result = frappe.db.sql(
         """
         SELECT SUM(total_dozing_bcm) AS total_bcm
@@ -323,12 +236,10 @@ def get_actual_dozer_for_day(site, date):
         (site, date),
         as_dict=True
     )
+
     return result[0].total_bcm or 0
 
 
-# ----------------------------------------------------------
-# HTML layout builder
-# ----------------------------------------------------------
 def build_html(site, formatted_date, d):
     def fmt(value, decimals=0):
         return f"{flt(value, decimals):,.{decimals}f}"
@@ -400,11 +311,13 @@ def build_html(site, formatted_date, d):
     </style>
     """
 
-    html = f"""
+    site_label = site.upper() if site else ""
+
+    return f"""
     {style}
     <div class="report-container">
         <div class="header-title">
-            {site.upper()}<br>
+            {site_label}<br>
             PRODUCTION SUMMARY – {formatted_date}
             <input type="text" class="week-input" placeholder="" />
         </div>
@@ -446,4 +359,3 @@ def build_html(site, formatted_date, d):
         </table>
     </div>
     """
-    return html

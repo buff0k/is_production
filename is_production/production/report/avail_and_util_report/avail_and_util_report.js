@@ -27,17 +27,11 @@ frappe.query_reports["Avail and Util report"] = {
         report.page.set_primary_action(__("Refresh"), function() {
             report.refresh();
         });
+    },
 
-        report.on("render_complete", () => {
-            setTimeout(() => {
-                if (!report.datatable) return;
-
-                report.datatable.columns.forEach(col => {
-                    col.width = Math.max(col.width || 140, 170);
-                });
-
-                report.datatable.refresh();
-            }, 200);
+    get_datatable_options(options) {
+        return Object.assign(options, {
+            freezeColumns: 3
         });
     },
 

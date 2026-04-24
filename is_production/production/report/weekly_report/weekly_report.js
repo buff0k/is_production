@@ -18,7 +18,6 @@ frappe.query_reports["Production Summary"] = {
   onload: function (report) {
     console.log("✅ Production Summary loaded — 2x1 cm week box active.");
 
-    // Make the manual week box interactive visually
     setTimeout(() => {
       const weekBox = document.querySelector(".week-input");
       if (weekBox) {
