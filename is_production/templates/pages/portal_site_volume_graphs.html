@@ -2,6 +2,10 @@
 
 {% block page_content %}
 <style>
+/* =========================================================
+   FULL SCREEN PORTAL APP SHELL
+   ========================================================= */
+
 html,
 body {
     background: #ffffff !important;
@@ -38,21 +42,30 @@ main,
     z-index: 9999;
     background: #ffffff;
     overflow: auto;
-    padding: 10px;
+    padding: 12px;
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #1f272e;
 }
+
+/* =========================================================
+   TOP BAR
+   ========================================================= */
 
 .portal-topbar {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
+    padding: 0 2px;
 }
 
 .portal-title {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 700;
     margin: 0;
+    line-height: 32px;
+    color: #111827;
+    white-space: nowrap;
 }
 
 .portal-filter {
@@ -67,6 +80,14 @@ main,
     border: 1px solid #d1d8dd;
     padding: 4px 10px;
     background: #f7f7f7;
+    color: #111827;
+    font-size: 14px;
+    outline: none;
+}
+
+.portal-filter input:focus {
+    border-color: #9aa8b5;
+    background: #ffffff;
 }
 
 .portal-dropdown {
@@ -88,6 +109,7 @@ main,
     padding: 10px 12px;
     cursor: pointer;
     border-bottom: 1px solid #f3f3f3;
+    font-size: 13px;
 }
 
 .portal-option:hover {
@@ -97,16 +119,157 @@ main,
 .portal-empty {
     padding: 10px 12px;
     color: #6c757d;
+    font-size: 13px;
 }
 
 #dashboard_status {
-    margin-bottom: 12px;
+    margin: 0 0 10px 0;
+    padding: 0 2px;
     color: #6c757d;
     font-size: 14px;
 }
 
 #dashboard_content {
     width: 100%;
+}
+
+/* =========================================================
+   SITE VOLUME GRAPH REPORT LAYOUT
+   Make portal match Desk 2-column card layout.
+   ========================================================= */
+
+#dashboard_content .isd-ceo-graphs {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+#dashboard_content .isd-ceo-graphs .isd-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    align-items: start !important;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+#dashboard_content .isd-ceo-graphs .isd-card {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    background: #ffffff;
+    border: 1px solid #d8dfe6;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    margin: 0 !important;
+}
+
+/* Header/banner area */
+#dashboard_content .isd-ceo-graphs .isd-banner {
+    padding: 12px 14px !important;
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+    font-weight: 400 !important;
+    color: #111827 !important;
+}
+
+#dashboard_content .isd-ceo-graphs .isd-banner strong,
+#dashboard_content .isd-ceo-graphs .isd-banner b {
+    font-weight: 700 !important;
+}
+
+#dashboard_content .isd-ceo-graphs .isd-banner div,
+#dashboard_content .isd-ceo-graphs .isd-banner span {
+    line-height: 1.25 !important;
+}
+
+/* Chart body */
+#dashboard_content .isd-ceo-graphs .isd-chart-wrap,
+#dashboard_content .isd-ceo-graphs .chart-wrap,
+#dashboard_content .isd-ceo-graphs .isd-card-body {
+    width: 100% !important;
+    padding: 16px 18px 14px 18px !important;
+    background: #ffffff !important;
+    box-sizing: border-box;
+}
+
+/* Canvas sizing: keep it like Desk cards */
+#dashboard_content .isd-ceo-graphs canvas {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 300px !important;
+    max-height: 300px !important;
+}
+
+/* If the report wraps canvas in generic divs */
+#dashboard_content .isd-ceo-graphs .isd-card > div:not(.isd-banner) {
+    box-sizing: border-box;
+}
+
+/* Keep site header colours from report HTML */
+#dashboard_content .isd-ceo-graphs .isd-banner[style*="background"] {
+    background-clip: padding-box;
+}
+
+/* =========================================================
+   FALLBACKS IF REPORT HTML CLASS STRUCTURE DIFFERS SLIGHTLY
+   ========================================================= */
+
+#dashboard_content .isd-card {
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #d8dfe6;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+#dashboard_content .isd-banner {
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.25;
+    font-weight: 400;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+    #dashboard_content .isd-ceo-graphs .isd-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    #dashboard_content .isd-ceo-graphs canvas {
+        height: 300px !important;
+        max-height: 300px !important;
+    }
+}
+
+@media (max-width: 700px) {
+    #portal-site-volume-graphs-app {
+        padding: 6px;
+    }
+
+    .portal-topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .portal-filter {
+        width: 100%;
+    }
+
+    #dashboard_content .isd-ceo-graphs canvas {
+        height: 240px !important;
+        max-height: 240px !important;
+    }
 }
 </style>
 
@@ -275,12 +438,18 @@ main,
 
             try {
                 const config = JSON.parse(canvas.dataset.chart);
+
+                if (!config.options) config.options = {};
+                config.options.responsive = true;
+                config.options.maintainAspectRatio = false;
+
                 const chart = new Chart(canvas.getContext("2d"), config);
                 canvas._isd_chart = chart;
                 canvas.dataset.rendered = "1";
 
                 setTimeout(function () { chart.resize(); }, 50);
                 setTimeout(function () { chart.resize(); }, 150);
+                setTimeout(function () { chart.resize(); }, 300);
             } catch (e) {
                 console.error("Chart render failed", e);
             }
@@ -319,6 +488,34 @@ main,
         });
     }
 
+    function normalize_graph_layout() {
+        const root = dashEl.querySelector(".isd-ceo-graphs");
+        if (!root) return;
+
+        const grid = root.querySelector(".isd-grid");
+        if (grid) {
+            grid.style.display = "grid";
+            grid.style.gridTemplateColumns = "repeat(2, minmax(0, 1fr))";
+            grid.style.gap = "12px";
+            grid.style.alignItems = "start";
+            grid.style.width = "100%";
+        }
+
+        root.querySelectorAll(".isd-card").forEach(function (card) {
+            card.style.width = "100%";
+            card.style.maxWidth = "none";
+            card.style.margin = "0";
+            card.style.overflow = "hidden";
+        });
+
+        root.querySelectorAll("canvas[data-chart]").forEach(function (canvas) {
+            canvas.style.width = "100%";
+            canvas.style.height = "300px";
+            canvas.style.maxHeight = "300px";
+            canvas.style.display = "block";
+        });
+    }
+
     function render_dashboard(response) {
         const payload = response.payload || {};
         const siteOrderMap = response.site_order_map || {};
@@ -329,10 +526,12 @@ main,
         if (html) {
             dashEl.innerHTML = html;
             reorder_graph_cards(siteOrderMap);
+            normalize_graph_layout();
 
             load_chartjs()
                 .then(function () {
                     render_all_charts(dashEl);
+                    normalize_graph_layout();
                 })
                 .catch(function (e) {
                     console.error(e);

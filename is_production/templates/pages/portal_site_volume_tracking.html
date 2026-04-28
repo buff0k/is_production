@@ -2,6 +2,10 @@
 
 {% block page_content %}
 <style>
+/* =========================================================
+   FULL SCREEN PORTAL APP SHELL
+   ========================================================= */
+
 html,
 body {
     background: #ffffff !important;
@@ -38,21 +42,30 @@ main,
     z-index: 9999;
     background: #ffffff;
     overflow: auto;
-    padding: 10px;
+    padding: 4px;
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #1f272e;
 }
+
+/* =========================================================
+   TOP BAR
+   ========================================================= */
 
 .portal-topbar {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
+    padding: 0 4px;
 }
 
 .portal-title {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 700;
     margin: 0;
+    line-height: 32px;
+    color: #111827;
+    white-space: nowrap;
 }
 
 .portal-filter {
@@ -67,6 +80,14 @@ main,
     border: 1px solid #d1d8dd;
     padding: 4px 10px;
     background: #f7f7f7;
+    color: #111827;
+    font-size: 14px;
+    outline: none;
+}
+
+.portal-filter input:focus {
+    border-color: #9aa8b5;
+    background: #ffffff;
 }
 
 .portal-dropdown {
@@ -88,6 +109,7 @@ main,
     padding: 10px 12px;
     cursor: pointer;
     border-bottom: 1px solid #f3f3f3;
+    font-size: 13px;
 }
 
 .portal-option:hover {
@@ -97,10 +119,12 @@ main,
 .portal-empty {
     padding: 10px 12px;
     color: #6c757d;
+    font-size: 13px;
 }
 
 #dashboard_status {
-    margin-bottom: 12px;
+    margin: 0 0 8px 0;
+    padding: 0 4px;
     color: #6c757d;
     font-size: 14px;
 }
@@ -109,47 +133,206 @@ main,
     width: 100%;
 }
 
+/* =========================================================
+   DESK-LIKE SITE CARD
+   ========================================================= */
+
+.site-section {
+    border: 2px solid #000000;
+    border-radius: 8px;
+    margin: 0 0 10px 0;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.site-header-block {
+    padding: 8px;
+}
+
+.site-title {
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 1.2;
+    margin-bottom: 3px;
+    color: #1f272e;
+}
+
+.site-period {
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.2;
+    color: #1f272e;
+    text-transform: uppercase;
+}
+
+/* =========================================================
+   KPI CARDS - MATCH DESK VERSION
+   ========================================================= */
+
 .kpi-bar {
     display: grid;
-    grid-template-columns: repeat(8, minmax(120px, 1fr));
-    gap: 6px;
+    grid-template-columns: 130px 130px 174px 130px 130px 132px 150px 130px;
+    gap: 7px;
     margin-top: 8px;
+    align-items: stretch;
 }
 
 .kpi-box {
-    background: #ffffff;
-    border: 1px solid #d1d8dd;
-    border-radius: 6px;
-    padding: 6px;
-    min-height: 64px;
+    background: #f4f4f4;
+    border: 3px solid #000000;
+    border-radius: 8px;
+    padding: 6px 6px 5px 6px;
+    min-height: 62px;
     text-align: center;
+    color: #1f272e;
+    box-sizing: border-box;
 }
 
 .kpi-box .label {
     font-size: 11px;
-    line-height: 1.1;
-    font-weight: 600;
+    line-height: 1.05;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.kpi-box .sub-label {
+    font-size: 11px;
+    line-height: 1.05;
+    margin-top: 1px;
 }
 
 .kpi-box .value {
     font-size: 18px;
-    font-weight: 700;
-    margin-top: 4px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-top: 6px;
 }
 
-.isd-good {
+.kpi-box .trend {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.kpi-box .arrow {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.kpi-box.isd-good {
+    background: #2fb34a !important;
+    color: #ffffff !important;
+}
+
+.kpi-box.isd-bad {
+    background: #e84f53 !important;
+    color: #ffffff !important;
+}
+
+.kpi-box.projected-box {
+    background: #d9f0ff !important;
+    color: #000000 !important;
+}
+
+.kpi-box.projected-box .label {
+    color: #000000 !important;
+}
+
+.kpi-box.projected-box .sub-label {
+    color: #000000 !important;
+}
+
+.kpi-box.projected-box .value {
+    color: #000000 !important;
+}
+
+/* =========================================================
+   SUMMARY TABLE - MATCH DESK VERSION
+   ========================================================= */
+
+.summary-wrap {
+    padding: 6px;
+    background: #ffffff;
+}
+
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 4px solid #000000;
+    background: #ffffff;
+    table-layout: auto;
+}
+
+.summary-table th,
+.summary-table td {
+    border: 1px solid #000000;
+    padding: 6px 6px;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 14px;
+    line-height: 1.15;
+    color: #1f272e;
+    background: #ffffff;
+    white-space: nowrap;
+}
+
+.summary-table th {
+    font-weight: 800;
+}
+
+.summary-table td {
+    font-weight: 400;
+}
+
+.summary-table .sep {
+    border-right: 3px solid #000000 !important;
+}
+
+.summary-table .subsep {
+    border-right: 1px solid #000000 !important;
+}
+
+.summary-table .isd-good-cell {
     background: #c9f2d8 !important;
 }
 
-.isd-bad {
+.summary-table .isd-bad-cell {
     background: #f9caca !important;
 }
 
-.site-section {
-    border: 1px solid #d1d8dd;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    overflow: hidden;
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1400px) {
+    .kpi-bar {
+        grid-template-columns: repeat(4, minmax(130px, 1fr));
+    }
+}
+
+@media (max-width: 800px) {
+    .portal-topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .portal-filter {
+        width: 100%;
+    }
+
+    .kpi-bar {
+        grid-template-columns: repeat(2, minmax(130px, 1fr));
+    }
+
+    .summary-wrap {
+        overflow-x: auto;
+    }
+
+    .summary-table {
+        min-width: 1300px;
+    }
 }
 </style>
 
@@ -195,7 +378,7 @@ main,
     let _timer = null;
 
     function escapeHtml(value) {
-        return String(value || "")
+        return String(value == null ? "" : value)
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
@@ -249,7 +432,7 @@ main,
 
     function fmt_int(n) {
         const x = Number(n || 0);
-        return Math.round(x).toLocaleString();
+        return Math.round(x).toLocaleString().replace(/,/g, " ");
     }
 
     function fmt_decimal(n, decimals) {
@@ -258,7 +441,7 @@ main,
         return x.toLocaleString(undefined, {
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
-        });
+        }).replace(/,/g, " ");
     }
 
     function cls_good_bad_from_value(val) {
@@ -281,10 +464,20 @@ main,
 
         let extraCls = "";
         let arrow = "";
+        let projectedCls = "";
         let inlineStyle = "";
 
-        if (opts.customBackground) inlineStyle += "background:" + opts.customBackground + ";";
-        if (opts.customTextColor) inlineStyle += "color:" + opts.customTextColor + ";";
+        if (opts.projected) {
+            projectedCls = "projected-box";
+        }
+
+        if (opts.customBackground) {
+            inlineStyle += "background:" + opts.customBackground + ";";
+        }
+
+        if (opts.customTextColor) {
+            inlineStyle += "color:" + opts.customTextColor + ";";
+        }
 
         if (coloured) {
             extraCls = cls_good_bad_from_value(value);
@@ -292,12 +485,12 @@ main,
         }
 
         return `
-            <div class="kpi-box ${extraCls}" style="${inlineStyle}">
+            <div class="kpi-box ${extraCls} ${projectedCls}" style="${inlineStyle}">
                 <div class="label">${escapeHtml(label)}</div>
                 ${
                     sublabel
-                        ? `<div class="sub-label" style="font-size:11px;opacity:0.85;line-height:1.1;margin-top:2px;">${escapeHtml(sublabel)}</div>`
-                        : `<div class="sub-label" style="font-size:11px;line-height:1.1;margin-top:2px;">&nbsp;</div>`
+                        ? `<div class="sub-label">${escapeHtml(sublabel)}</div>`
+                        : `<div class="sub-label">&nbsp;</div>`
                 }
                 <div class="value">
                     <span class="trend">
@@ -320,7 +513,7 @@ main,
         return `
             <div class="kpi-box ${cls}">
                 <div class="label">${escapeHtml(label)}</div>
-                <div class="sub-label" style="font-size:11px;line-height:1.1;margin-top:2px;">&nbsp;</div>
+                <div class="sub-label">&nbsp;</div>
                 <div class="value">
                     <span class="trend">
                         <span class="arrow">${arrow}</span>
@@ -331,61 +524,50 @@ main,
         `;
     }
 
-    const BORDER_BLACK = "#000000";
-    const OUTER_BORDER_PX = 2;
-    const GRID_PX = 1;
-    const SEP_PX = 2;
-    const SUBSEP_PX = 1;
-
     function th(text, cls) {
         cls = cls || "";
-        let style = "border:" + GRID_PX + "px solid " + BORDER_BLACK + ";padding:6px 6px;text-align:center;";
-
-        if (cls === "sep") style += "border-right:" + SEP_PX + "px solid " + BORDER_BLACK + ";";
-        if (cls === "subsep") style += "border-right:" + SUBSEP_PX + "px solid " + BORDER_BLACK + ";";
-
-        return '<th class="' + cls + '" style="' + style + '">' + escapeHtml(text) + '</th>';
+        return `<th class="${cls}">${escapeHtml(text)}</th>`;
     }
 
     function td(value, opts) {
         opts = opts || {};
+
         const cls = opts.cls || "";
-        const bg = opts.bg ? "background:" + opts.bg + ";" : "";
+        const bgClass = opts.goodBadClass || "";
 
-        let style = "border:" + GRID_PX + "px solid " + BORDER_BLACK + ";padding:6px 6px;text-align:center;" + bg;
-
-        if (cls === "sep") style += "border-right:" + SEP_PX + "px solid " + BORDER_BLACK + ";";
-        if (cls === "subsep") style += "border-right:" + SUBSEP_PX + "px solid " + BORDER_BLACK + ";";
-
-        return '<td class="' + cls + '" style="' + style + '">' + fmt_int(value) + '</td>';
+        return `<td class="${cls} ${bgClass}">${fmt_int(value)}</td>`;
     }
 
     function build_summary_table(r) {
-        const GREEN = "#C9F2D8";
-        const RED = "#F9CACA";
-
         const mtd_var = Number(r.mtd_var_bcm || 0);
         const coal_var = Number(r.mtd_coal_var_t || 0);
         const waste_var = Number(r.mtd_waste_var_bcm || 0);
         const day_var = Number(r.day_var_bcm || 0);
 
-        const tableStyle = "width:100%;border-collapse:collapse;border:" + OUTER_BORDER_PX + "px solid " + BORDER_BLACK + ";";
+        const mtdVarCls = mtd_var >= 0 ? "isd-good-cell" : "isd-bad-cell";
+        const coalVarCls = coal_var >= 0 ? "isd-good-cell" : "isd-bad-cell";
+        const wasteVarCls = waste_var >= 0 ? "isd-good-cell" : "isd-bad-cell";
+        const dayVarCls = day_var >= 0 ? "isd-good-cell" : "isd-bad-cell";
 
         return `
-            <table class="summary-table" style="${tableStyle}">
+            <table class="summary-table">
                 <tr>
                     ${th("Month Target(bcm)", "subsep")}
                     ${th("Month Coal(t)", "subsep")}
                     ${th("Month Waste(bcm)", "sep")}
+
                     ${th("MTD Act(bcm)", "subsep")}
                     ${th("MTD Plan(bcm)", "subsep")}
                     ${th("Var", "sep")}
+
                     ${th("MTD C (t)", "subsep")}
                     ${th("MTD C Plan(t)", "subsep")}
                     ${th("Var C", "sep")}
+
                     ${th("MTD W (bcm)", "subsep")}
                     ${th("MTD W Plan(bcm)", "subsep")}
                     ${th("Var W", "sep")}
+
                     ${th("Day BCM", "subsep")}
                     ${th("Day Target(bcm)", "subsep")}
                     ${th("Day Var", "sep")}
@@ -394,18 +576,22 @@ main,
                     ${td(r.month_target_bcm, { cls: "subsep" })}
                     ${td(r.month_coal_t, { cls: "subsep" })}
                     ${td(r.month_waste_bcm, { cls: "sep" })}
+
                     ${td(r.mtd_act_bcm, { cls: "subsep" })}
                     ${td(r.mtd_plan_bcm, { cls: "subsep" })}
-                    ${td(r.mtd_var_bcm, { cls: "sep", bg: mtd_var >= 0 ? GREEN : RED })}
+                    ${td(r.mtd_var_bcm, { cls: "sep", goodBadClass: mtdVarCls })}
+
                     ${td(r.mtd_coal_t, { cls: "subsep" })}
                     ${td(r.mtd_coal_plan_t, { cls: "subsep" })}
-                    ${td(r.mtd_coal_var_t, { cls: "sep", bg: coal_var >= 0 ? GREEN : RED })}
+                    ${td(r.mtd_coal_var_t, { cls: "sep", goodBadClass: coalVarCls })}
+
                     ${td(r.mtd_waste_bcm, { cls: "subsep" })}
                     ${td(r.mtd_waste_plan_bcm, { cls: "subsep" })}
-                    ${td(r.mtd_waste_var_bcm, { cls: "sep", bg: waste_var >= 0 ? GREEN : RED })}
+                    ${td(r.mtd_waste_var_bcm, { cls: "sep", goodBadClass: wasteVarCls })}
+
                     ${td(r.day_bcm, { cls: "subsep" })}
                     ${td(r.day_target_bcm, { cls: "subsep" })}
-                    ${td(r.day_var_bcm, { cls: "sep", bg: day_var >= 0 ? GREEN : RED })}
+                    ${td(r.day_var_bcm, { cls: "sep", goodBadClass: dayVarCls })}
                 </tr>
             </table>
         `;
@@ -422,16 +608,19 @@ main,
 
         return `
             <div class="site-section">
-                <div style="padding:8px;background:${bg};">
-                    <div style="font-size:17px;">SITE: ${escapeHtml(site)}</div>
-                    <div style="font-size:12px;">
+                <div class="site-header-block" style="background:${bg};">
+                    <div class="site-title">SITE: ${escapeHtml(site)}</div>
+                    <div class="site-period">
                         PRODUCTION PERIOD: ${escapeHtml(start)} → ${escapeHtml(end)}
                     </div>
 
                     <div class="kpi-bar">
                         ${kpi_box("Month Target", r.month_target_bcm)}
                         ${kpi_box("Forecast", r.forecast_bcm)}
-                        ${kpi_box("Var: Forecast vs.Month Target", forecast_var, { coloured: true, showArrow: true })}
+                        ${kpi_box("Var: Forecast vs.Month Target", forecast_var, {
+                            coloured: true,
+                            showArrow: true
+                        })}
                         ${kpi_box("Days Left in Month", r.days_left)}
                         ${kpi_box("Original Daily Target", r.original_daily_target)}
                         ${kpi_box("Current Avg per Day", r.current_avg_per_day)}
@@ -439,13 +628,12 @@ main,
                         ${kpi_box("Projected BCM/man", r.projected_bcm_per_man, {
                             sublabel: employeeLabel,
                             formatter: function (v) { return fmt_decimal(v, 1); },
-                            customBackground: "#d9f0ff",
-                            customTextColor: "#000000"
+                            projected: true
                         })}
                     </div>
                 </div>
 
-                <div style="padding:6px;">
+                <div class="summary-wrap">
                     ${build_summary_table(r)}
                 </div>
             </div>
