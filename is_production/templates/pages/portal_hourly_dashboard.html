@@ -1,0 +1,324 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+<div class="container-fluid my-4">
+    <h2>Hourly Dashboard</h2>
+    <p>Portal dashboard view</p>
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="define_monthly_production"><strong>Define Monthly Production</strong></label>
+            <div class="portal-link-wrap" style="position: relative;">
+                <input
+                    type="text"
+                    class="form-control"
+                    id="define_monthly_production"
+                    placeholder="Search Define Monthly Production"
+                    autocomplete="off"
+                >
+                <div
+                    id="define_monthly_production_dropdown"
+                    style="
+                        position:absolute;
+                        top:calc(100% + 4px);
+                        left:0;
+                        right:0;
+                        z-index:1000;
+                        background:#fff;
+                        border:1px solid #d1d8dd;
+                        border-radius:8px;
+                        box-shadow:0 6px 18px rgba(0,0,0,0.12);
+                        max-height:220px;
+                        overflow-y:auto;
+                        display:none;
+                    "
+                ></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard_status" class="text-muted mb-2"></div>
+    <div id="dashboard_content" class="isd-hourly-dashboard-page"></div>
+</div>
+
+<script>
+(function () {
+    const REPORT_NAME = "Hourly Dashboard";
+    const STORAGE_KEY = "portal_hourly_dash_define_monthly_production";
+
+    const input = document.getElementById("define_monthly_production");
+    const dropdown = document.getElementById("define_monthly_production_dropdown");
+    const statusEl = document.getElementById("dashboard_status");
+    const dashEl = document.getElementById("dashboard_content");
+
+    let _auto_refresh_started = false;
+    let _refreshing = false;
+    let _timer = null;
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function extract_report_html(payload) {
+        if (!payload) return "";
+
+        if (typeof payload.html === "string" && payload.html.trim()) return payload.html;
+        if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+
+        if (payload.message && typeof payload.message.html === "string" && payload.message.html.trim()) {
+            return payload.message.html;
+        }
+
+        if (typeof payload.report_html === "string" && payload.report_html.trim()) return payload.report_html;
+
+        return "";
+    }
+
+    function ms_until_next_refresh() {
+        const now = new Date();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+        const ms = now.getMilliseconds();
+
+        let nextMinute;
+        if (minutes < 10) nextMinute = 10;
+        else if (minutes < 30) nextMinute = 30;
+        else nextMinute = 70;
+
+        return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
+    }
+
+    function start_aligned_refresh() {
+        if (_auto_refresh_started) return;
+        _auto_refresh_started = true;
+
+        const schedule_next = function () {
+            const delay = ms_until_next_refresh();
+            _timer = setTimeout(auto_refresh, delay);
+        };
+
+        const auto_refresh = function () {
+            if (_refreshing) {
+                schedule_next();
+                return;
+            }
+
+            if (!input.value) {
+                schedule_next();
+                return;
+            }
+
+            _refreshing = true;
+            load_and_render(true).finally(function () {
+                _refreshing = false;
+                schedule_next();
+            });
+        };
+
+        schedule_next();
+    }
+
+    function run_report(filters) {
+        return frappe.call({
+            method: "frappe.desk.query_report.run",
+            args: {
+                report_name: REPORT_NAME,
+                filters: filters
+            },
+            freeze: false
+        });
+    }
+
+    function get_site_order_map(docname) {
+        if (!docname) return Promise.resolve({});
+
+        return frappe.db.get_doc("Define Monthly Production", docname)
+            .then(function (doc) {
+                const rows = Array.isArray(doc.define) ? doc.define : [];
+                const orderMap = {};
+
+                rows.forEach(function (row, idx) {
+                    const site = (row.site || "").trim();
+                    if (site && !(site in orderMap)) {
+                        orderMap[site] = idx;
+                    }
+                });
+
+                return orderMap;
+            })
+            .catch(function (e) {
+                console.error("Could not read Define Monthly Production order:", e);
+                return {};
+            });
+    }
+
+    function extract_site_name_from_block(el) {
+        const headerText = $(el).find(".isd-site-header").first().text().trim();
+        const match = headerText.match(/Site:\s*(.+)/i);
+        return match ? match[1].trim() : "";
+    }
+
+    function reorder_hourly_sites(siteOrderMap) {
+        const $grid = $(dashEl).find(".isd-hourly-dashboard .isd-grid").first();
+        if (!$grid.length) return;
+
+        const blocks = $grid.children(".isd-site").get();
+        if (!blocks.length) return;
+
+        blocks.sort(function (a, b) {
+            const aSite = extract_site_name_from_block(a);
+            const bSite = extract_site_name_from_block(b);
+
+            const aHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, aSite);
+            const bHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, bSite);
+
+            if (aHasOrder && bHasOrder) return siteOrderMap[aSite] - siteOrderMap[bSite];
+            if (aHasOrder) return -1;
+            if (bHasOrder) return 1;
+
+            return aSite.localeCompare(bSite);
+        });
+
+        blocks.forEach(function (block) {
+            $grid.append(block);
+        });
+    }
+
+    function render_dashboard(payload, siteOrderMap) {
+        const html = extract_report_html(payload);
+
+        if (html) {
+            dashEl.innerHTML = html;
+            reorder_hourly_sites(siteOrderMap);
+            return;
+        }
+
+        const rows = payload.result || [];
+        if (!rows.length) {
+            dashEl.innerHTML = '<div class="text-muted">No data for the selected filter.</div>';
+            return;
+        }
+
+        dashEl.innerHTML = '<div class="text-warning">Report returned data, but no HTML block was found.</div>';
+    }
+
+    function load_and_render(is_auto) {
+        const val = input.value;
+
+        if (!val) {
+            statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
+            return Promise.resolve();
+        }
+
+        localStorage.setItem(STORAGE_KEY, val);
+        statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
+
+        return Promise.all([
+            run_report({ define_monthly_production: val }),
+            get_site_order_map(val)
+        ]).then(function (results) {
+            const res = results[0];
+            const siteOrderMap = results[1];
+            const payload = res.message || {};
+
+            render_dashboard(payload, siteOrderMap);
+
+            const time = new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+            });
+
+            statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
+
+            if (is_auto && frappe.show_alert) {
+                frappe.show_alert({
+                    message: "Hourly Dashboard updated at " + time,
+                    indicator: "green"
+                }, 5);
+            }
+        }).catch(function (e) {
+            console.error(e);
+            statusEl.textContent = "Error loading dashboard data.";
+            dashEl.innerHTML = '<div class="text-danger">Could not load dashboard data. Check console / server logs.</div>';
+        });
+    }
+
+    async function search_define_monthly_production(term) {
+        const r = await frappe.call({
+            method: "frappe.desk.search.search_link",
+            args: {
+                doctype: "Define Monthly Production",
+                txt: term || "",
+                page_length: 20
+            }
+        });
+
+        return (r.message || []).map(function (row) {
+            return row.value || row.name || row;
+        });
+    }
+
+    async function render_dropdown() {
+        const term = input.value || "";
+
+        try {
+            const results = await search_define_monthly_production(term);
+
+            if (!results.length) {
+                dropdown.innerHTML = '<div style="padding:10px 12px;color:#6c757d;">No matches found</div>';
+                dropdown.style.display = "block";
+                return;
+            }
+
+            dropdown.innerHTML = results.map(function (option) {
+                return '<div class="portal-option" data-value="' + escapeHtml(option) + '" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f3f3f3;">' + escapeHtml(option) + '</div>';
+            }).join("");
+
+            dropdown.style.display = "block";
+        } catch (e) {
+            console.error(e);
+            dropdown.innerHTML = '<div style="padding:10px 12px;color:#6c757d;">No matches found</div>';
+            dropdown.style.display = "block";
+        }
+    }
+
+    input.addEventListener("focus", render_dropdown);
+    input.addEventListener("input", render_dropdown);
+
+    dropdown.addEventListener("mousedown", function (e) {
+        const optionEl = e.target.closest(".portal-option");
+        if (!optionEl) return;
+
+        input.value = optionEl.getAttribute("data-value");
+        dropdown.style.display = "none";
+
+        load_and_render(false);
+        start_aligned_refresh();
+    });
+
+    document.addEventListener("click", function (e) {
+        if (!input.closest(".portal-link-wrap").contains(e.target)) {
+            dropdown.style.display = "none";
+        }
+    });
+
+    const last = localStorage.getItem(STORAGE_KEY);
+    if (last) {
+        input.value = last;
+        load_and_render(false);
+        start_aligned_refresh();
+    } else {
+        statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
+    }
+
+    window.addEventListener("beforeunload", function () {
+        if (_timer) clearTimeout(_timer);
+    });
+})();
+</script>
+{% endblock %}

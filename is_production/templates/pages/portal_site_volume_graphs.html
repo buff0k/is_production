@@ -1,0 +1,409 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+<div class="container-fluid my-4">
+    <h2>Site Volume Graphs</h2>
+    <p>Portal dashboard view</p>
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="monthly_production_plan"><strong>Monthly Production Plan</strong></label>
+            <div class="portal-link-wrap" style="position: relative;">
+                <input
+                    type="text"
+                    class="form-control"
+                    id="monthly_production_plan"
+                    placeholder="Search Monthly Production Plan"
+                    autocomplete="off"
+                >
+                <div
+                    id="monthly_production_plan_dropdown"
+                    style="
+                        position:absolute;
+                        top:calc(100% + 4px);
+                        left:0;
+                        right:0;
+                        z-index:1000;
+                        background:#fff;
+                        border:1px solid #d1d8dd;
+                        border-radius:8px;
+                        box-shadow:0 6px 18px rgba(0,0,0,0.12);
+                        max-height:220px;
+                        overflow-y:auto;
+                        display:none;
+                    "
+                ></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard_status" class="text-muted mb-2"></div>
+    <div id="dashboard_content" class="isd-site-volume-graphs-page"></div>
+</div>
+
+<script>
+(function () {
+    const REPORT_NAME = "CEO Dashboard One Graphs";
+    const STORAGE_KEY = "portal_site_volume_graphs_monthly_production_plan";
+
+    const input = document.getElementById("monthly_production_plan");
+    const dropdown = document.getElementById("monthly_production_plan_dropdown");
+    const statusEl = document.getElementById("dashboard_status");
+    const dashEl = document.getElementById("dashboard_content");
+
+    let _auto_refresh_started = false;
+    let _refreshing = false;
+    let _timer = null;
+
+    function escapeHtml(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+    }
+
+    function extract_report_html(payload) {
+        if (!payload) return "";
+
+        if (typeof payload.html === "string" && payload.html.trim()) return payload.html;
+        if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+
+        if (payload.message && typeof payload.message.html === "string" && payload.message.html.trim()) {
+            return payload.message.html;
+        }
+
+        if (typeof payload.report_html === "string" && payload.report_html.trim()) return payload.report_html;
+
+        return "";
+    }
+
+    function ms_until_next_refresh() {
+        const now = new Date();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+        const ms = now.getMilliseconds();
+
+        let nextMinute;
+        if (minutes < 10) nextMinute = 10;
+        else if (minutes < 30) nextMinute = 30;
+        else nextMinute = 70;
+
+        return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
+    }
+
+    function start_aligned_refresh() {
+        if (_auto_refresh_started) return;
+        _auto_refresh_started = true;
+
+        const schedule_next = function () {
+            const delay = ms_until_next_refresh();
+            _timer = setTimeout(auto_refresh, delay);
+        };
+
+        const auto_refresh = function () {
+            if (_refreshing) {
+                schedule_next();
+                return;
+            }
+
+            if (!input.value) {
+                schedule_next();
+                return;
+            }
+
+            _refreshing = true;
+            load_and_render(true).finally(function () {
+                _refreshing = false;
+                schedule_next();
+            });
+        };
+
+        schedule_next();
+    }
+
+    function run_report(filters) {
+        return frappe.call({
+            method: "frappe.desk.query_report.run",
+            args: {
+                report_name: REPORT_NAME,
+                filters: filters
+            },
+            freeze: false
+        });
+    }
+
+    function get_site_order_map(docname) {
+        if (!docname) return Promise.resolve({});
+
+        return frappe.db.get_doc("Define Monthly Production", docname)
+            .then(function (doc) {
+                const rows = Array.isArray(doc.define) ? doc.define : [];
+                const orderMap = {};
+
+                rows.forEach(function (row, idx) {
+                    const site = (row.site || "").trim();
+                    if (site && !(site in orderMap)) {
+                        orderMap[site] = idx;
+                    }
+                });
+
+                return orderMap;
+            })
+            .catch(function (e) {
+                console.error("Could not read Define Monthly Production order:", e);
+                return {};
+            });
+    }
+
+    function load_chartjs() {
+        if (window.Chart) return Promise.resolve();
+
+        if (window._isd_chartjs_loading_promise) {
+            return window._isd_chartjs_loading_promise;
+        }
+
+        window._isd_chartjs_loading_promise = new Promise(function (resolve, reject) {
+            const existing = document.querySelector('script[data-isd-chartjs="1"]');
+            if (existing) {
+                existing.addEventListener("load", function () { resolve(); }, { once: true });
+                existing.addEventListener("error", function () { reject(new Error("Chart.js failed to load")); }, { once: true });
+                return;
+            }
+
+            const s = document.createElement("script");
+            s.src = "https://cdn.jsdelivr.net/npm/chart.js";
+            s.dataset.isdChartjs = "1";
+            s.onload = function () { resolve(); };
+            s.onerror = function () { reject(new Error("Chart.js failed to load")); };
+            document.head.appendChild(s);
+        });
+
+        return window._isd_chartjs_loading_promise;
+    }
+
+    function destroy_charts(root) {
+        try {
+            (root || document).querySelectorAll("canvas[data-chart]").forEach(function (canvas) {
+                if (canvas._isd_chart) {
+                    canvas._isd_chart.destroy();
+                    canvas._isd_chart = null;
+                }
+            });
+        } catch (e) {
+            console.error("Chart destroy failed", e);
+        }
+    }
+
+    function render_all_charts(root) {
+        if (!window.Chart || !root) return;
+
+        root.querySelectorAll("canvas[data-chart]").forEach(function (canvas) {
+            if (canvas._isd_chart) {
+                try {
+                    canvas._isd_chart.resize();
+                    setTimeout(function () {
+                        if (canvas._isd_chart) canvas._isd_chart.resize();
+                    }, 80);
+                } catch (e) {}
+                return;
+            }
+
+            try {
+                const config = JSON.parse(canvas.dataset.chart);
+                const chart = new Chart(canvas.getContext("2d"), config);
+                canvas._isd_chart = chart;
+                canvas.dataset.rendered = "1";
+
+                setTimeout(function () { chart.resize(); }, 50);
+                setTimeout(function () { chart.resize(); }, 150);
+            } catch (e) {
+                console.error("Chart render failed", e);
+            }
+        });
+    }
+
+    function extract_site_name_from_card(el) {
+        const bannerText = $(el).find(".isd-banner").first().text().trim();
+        const match = bannerText.match(/Site:\s*(.+)/i);
+        return match ? match[1].trim() : "";
+    }
+
+    function reorder_graph_cards(siteOrderMap) {
+        const $grid = $(dashEl).find(".isd-ceo-graphs .isd-grid").first();
+        if (!$grid.length) return;
+
+        const cards = $grid.children(".isd-card").get();
+        if (!cards.length) return;
+
+        cards.sort(function (a, b) {
+            const aSite = extract_site_name_from_card(a);
+            const bSite = extract_site_name_from_card(b);
+
+            const aHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, aSite);
+            const bHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, bSite);
+
+            if (aHasOrder && bHasOrder) return siteOrderMap[aSite] - siteOrderMap[bSite];
+            if (aHasOrder) return -1;
+            if (bHasOrder) return 1;
+
+            return aSite.localeCompare(bSite);
+        });
+
+        cards.forEach(function (card) {
+            $grid.append(card);
+        });
+    }
+
+    function render_dashboard(payload, siteOrderMap) {
+        const html = extract_report_html(payload);
+
+        destroy_charts(dashEl);
+
+        if (html) {
+            dashEl.innerHTML = html;
+            reorder_graph_cards(siteOrderMap);
+
+            load_chartjs()
+                .then(function () {
+                    render_all_charts(dashEl);
+                })
+                .catch(function (e) {
+                    console.error(e);
+                    if (frappe.show_alert) {
+                        frappe.show_alert({
+                            message: "Could not load chart library.",
+                            indicator: "red"
+                        }, 5);
+                    }
+                });
+
+            return;
+        }
+
+        const rows = payload.result || [];
+        if (!rows.length) {
+            dashEl.innerHTML = '<div class="text-muted">No data for the selected filter.</div>';
+            return;
+        }
+
+        dashEl.innerHTML = '<div class="text-warning">Report returned data, but no HTML block was found.</div>';
+    }
+
+    function load_and_render(is_auto) {
+        const val = input.value;
+
+        if (!val) {
+            statusEl.textContent = "Select a Monthly Production Plan to load the graphs.";
+            return Promise.resolve();
+        }
+
+        localStorage.setItem(STORAGE_KEY, val);
+        statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
+
+        return Promise.all([
+            run_report({ monthly_production_plan: val }),
+            get_site_order_map(val)
+        ]).then(function (results) {
+            const res = results[0];
+            const siteOrderMap = results[1];
+            const payload = res.message || {};
+
+            render_dashboard(payload, siteOrderMap);
+
+            const time = new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+            });
+
+            statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
+
+            if (is_auto && frappe.show_alert) {
+                frappe.show_alert({
+                    message: "Site Volume Graphs updated at " + time,
+                    indicator: "green"
+                }, 5);
+            }
+        }).catch(function (e) {
+            console.error(e);
+            statusEl.textContent = "Error loading graph data.";
+            dashEl.innerHTML = '<div class="text-danger">Could not load graph data. Check console / server logs.</div>';
+        });
+    }
+
+    async function search_define_monthly_production(term) {
+        const r = await frappe.call({
+            method: "frappe.desk.search.search_link",
+            args: {
+                doctype: "Define Monthly Production",
+                txt: term || "",
+                page_length: 20
+            }
+        });
+
+        return (r.message || []).map(function (row) {
+            return row.value || row.name || row;
+        });
+    }
+
+    async function render_dropdown() {
+        const term = input.value || "";
+
+        try {
+            const results = await search_define_monthly_production(term);
+
+            if (!results.length) {
+                dropdown.innerHTML = '<div style="padding:10px 12px;color:#6c757d;">No matches found</div>';
+                dropdown.style.display = "block";
+                return;
+            }
+
+            dropdown.innerHTML = results.map(function (option) {
+                return '<div class="portal-option" data-value="' + escapeHtml(option) + '" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f3f3f3;">' + escapeHtml(option) + '</div>';
+            }).join("");
+
+            dropdown.style.display = "block";
+        } catch (e) {
+            console.error(e);
+            dropdown.innerHTML = '<div style="padding:10px 12px;color:#6c757d;">No matches found</div>';
+            dropdown.style.display = "block";
+        }
+    }
+
+    input.addEventListener("focus", render_dropdown);
+    input.addEventListener("input", render_dropdown);
+
+    dropdown.addEventListener("mousedown", function (e) {
+        const optionEl = e.target.closest(".portal-option");
+        if (!optionEl) return;
+
+        input.value = optionEl.getAttribute("data-value");
+        dropdown.style.display = "none";
+
+        load_and_render(false);
+        start_aligned_refresh();
+    });
+
+    document.addEventListener("click", function (e) {
+        if (!input.closest(".portal-link-wrap").contains(e.target)) {
+            dropdown.style.display = "none";
+        }
+    });
+
+    const last = localStorage.getItem(STORAGE_KEY);
+    if (last) {
+        input.value = last;
+        load_and_render(false);
+        start_aligned_refresh();
+    } else {
+        statusEl.textContent = "Select a Monthly Production Plan to load the graphs.";
+    }
+
+    window.addEventListener("beforeunload", function () {
+        if (_timer) clearTimeout(_timer);
+        destroy_charts(dashEl);
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,198 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:RENT-{month}-{plant_number}",
+ "creation": "2026-04-24 10:51:27.900403",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "header_section",
+  "site",
+  "mine",
+  "supplier",
+  "month",
+  "plant_number",
+  "make",
+  "model",
+  "tank_capacity",
+  "last_refueling_hr_meter",
+  "shift",
+  "daily_logs_section",
+  "rental_equipment_logs",
+  "totals_section",
+  "start_hrs",
+  "closing_hrs",
+  "total_hrs",
+  "total_litres",
+  "average_lhr",
+  "approval_section",
+  "site_manager_company_no",
+  "site_manager_name_surname",
+  "site_manager_signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "header_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "mine",
+   "fieldtype": "Select",
+   "label": "Mine",
+   "options": "Umsimbithi Mining\nMsobo Coal\nSilver Lake\nWonderfontein\nSeriti-MMS\nKriel Colliery Rehab\nXakwa Holdings"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Location"
+  },
+  {
+   "description": "Example: Jan-26",
+   "fieldname": "month",
+   "fieldtype": "Data",
+   "label": "Month"
+  },
+  {
+   "fieldname": "plant_number",
+   "fieldtype": "Link",
+   "label": "Plant Number",
+   "options": "Asset"
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Select",
+   "label": "Supplier",
+   "options": "MASSHIRE\nRAMTAG\nCollab Chain\nESJ Business Enterprise\nPhashash Global\nPhashash Global\nBARLOWORLD\nPregal Earthmoving\nLAMBSON'S HIRE\nMANYATHI\nNqobanqobile\nNdwandwe Ndwandwe\nMMS Solution\nMASIMENE\nTHA HOLDINGS\nMASIMENE SVUMELWANE\nLAMBSON HIRE\nIMBALENHLE MATERIALS HANDLINGS & PROJ\nDEWATERING PUMPS\nSENERIA SUPPLIERS\nPREGAL\nNANG WAM NANG WAM\nSENERIA SUPPLIERS\nDSA"
+  },
+  {
+   "fieldname": "last_refueling_hr_meter",
+   "fieldtype": "Float",
+   "label": "Last re-Fueling Hr Meter",
+   "precision": "0"
+  },
+  {
+   "fieldname": "daily_logs_section",
+   "fieldtype": "Section Break",
+   "label": "Rental Equipment"
+  },
+  {
+   "fieldname": "rental_equipment_logs",
+   "fieldtype": "Table",
+   "label": "Rental Equipment Logs",
+   "options": "Rental Equipment Log Row"
+  },
+  {
+   "fieldname": "totals_section",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "start_hrs",
+   "fieldtype": "Float",
+   "label": "Start HRS",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "closing_hrs",
+   "fieldtype": "Float",
+   "label": "Closing HRS",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_hrs",
+   "fieldtype": "Float",
+   "label": "Total Hrs",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_litres",
+   "fieldtype": "Float",
+   "label": "Total Litres",
+   "precision": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "average_lhr",
+   "fieldtype": "Float",
+   "label": "Average L/Hr",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approval_section",
+   "fieldtype": "Section Break",
+   "label": "Approval"
+  },
+  {
+   "fieldname": "tank_capacity",
+   "fieldtype": "Float",
+   "label": "Tank Capacity",
+   "precision": "0"
+  },
+  {
+   "fieldname": "site_manager_company_no",
+   "fieldtype": "Link",
+   "label": "Site Manager Company No",
+   "options": "Employee"
+  },
+  {
+   "fetch_from": "site_manager_company_no.employee_name",
+   "fieldname": "site_manager_name_surname",
+   "fieldtype": "Data",
+   "label": "Site Manger Name & Surname"
+  },
+  {
+   "fieldname": "site_manager_signature",
+   "fieldtype": "Signature",
+   "label": "Site Manager Signature"
+  },
+  {
+   "fetch_from": "plant_number.asset_name",
+   "fieldname": "make",
+   "fieldtype": "Data",
+   "label": "Make"
+  },
+  {
+   "fetch_from": "plant_number.item_name",
+   "fieldname": "model",
+   "fieldtype": "Data",
+   "label": "Model"
+  },
+  {
+   "fieldname": "shift",
+   "fieldtype": "Select",
+   "label": "Shift",
+   "options": "Day Shift\nNight Shift\nBoth Shifts"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-24 16:00:13.812912",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Rental Equipment",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
