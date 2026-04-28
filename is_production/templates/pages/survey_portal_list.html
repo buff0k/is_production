@@ -1,0 +1,112 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+
+<div class="container" style="max-width: 1200px; margin-top: 25px;">
+
+  <h2>Saved Surveys</h2>
+
+  <p>
+    <a href="/survey_portal" class="btn btn-primary">
+      New Survey
+    </a>
+  </p>
+
+  {% if records %}
+    <table class="table table-bordered table-hover">
+      <thead>
+        <tr>
+          <th>Draft</th>
+          <th>Shift Start Date</th>
+          <th>Site</th>
+          <th>Sub Site</th>
+          <th>Survey Date/Time</th>
+          <th>Status</th>
+          <th>ERP Survey</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for row in records %}
+          <tr>
+            <td>{{ row.name }}</td>
+            <td>{{ row.last_production_shift_start_date or "" }}</td>
+            <td>{{ row.location or "" }}</td>
+            <td>{{ row.sub_site_description or "" }}</td>
+            <td>{{ row.survey_datetime or "" }}</td>
+
+            <td>
+              {% if row.sent %}
+                <span class="label label-success">Sent</span>
+              {% else %}
+                <span class="label label-warning">Draft</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if row.erp_survey_ref %}
+                <a href="/app/survey/{{ row.erp_survey_ref }}" target="_blank">
+                  {{ row.erp_survey_ref }}
+                </a>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+
+            <td>
+              {% if not row.sent %}
+                <a
+                  class="btn btn-xs btn-default"
+                  href="/survey_portal?draft={{ row.name }}"
+                >
+                  Edit
+                </a>
+
+                <button
+                  class="btn btn-xs btn-success"
+                  onclick="sendSurveyToERP('{{ row.name }}')"
+                >
+                  Send
+                </button>
+              {% else %}
+                <a
+                  class="btn btn-xs btn-default"
+                  href="/survey_portal?draft={{ row.name }}"
+                >
+                  View
+                </a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <div class="alert alert-info">
+      No survey drafts found.
+    </div>
+  {% endif %}
+
+</div>
+
+<script>
+function sendSurveyToERP(draftName) {
+  frappe.confirm("Send this survey to ERP?", function() {
+    frappe.call({
+      method: "is_production.templates.pages.survey_portal.send_survey_to_erp",
+      args: {
+        draft_name: draftName
+      },
+      callback: function(r) {
+        if (r.message && r.message.ok) {
+          frappe.msgprint("Survey sent to ERP: " + r.message.survey_name);
+          window.location.reload();
+        }
+      }
+    });
+  });
+}
+</script>
+
+{% endblock %}

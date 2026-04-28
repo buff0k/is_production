@@ -64,7 +64,7 @@
    "fieldname": "supplier",
    "fieldtype": "Select",
    "label": "Supplier",
-   "options": "MASSHIRE\nRAMTAG\nCollab Chain\nESJ Business Enterprise\nPhashash Global\nPhashash Global\nBARLOWORLD\nPregal Earthmoving\nLAMBSON'S HIRE\nMANYATHI\nNqobanqobile\nNdwandwe Ndwandwe\nMMS Solution\nMASIMENE\nTHA HOLDINGS\nMASIMENE SVUMELWANE\nLAMBSON HIRE\nIMBALENHLE MATERIALS HANDLINGS & PROJ\nDEWATERING PUMPS\nSENERIA SUPPLIERS\nPREGAL\nNANG WAM NANG WAM\nSENERIA SUPPLIERS\nDSA"
+   "options": "MASSHIRE\nRAMTAG\nCollab Chain\nESJ Business Enterprise\nPhashash Global\nPhashash Global\nBARLOWORLD\nPregal Earthmoving\nLAMBSON'S HIRE\nMANYATHI\nNqobanqobile\nNdwandwe Ndwandwe\nMMS Solution\nMASIMENE\nTHA HOLDINGS\nMASIMENE SVUMELWANE\nLAMBSON HIRE\nIMBALENHLE MATERIALS HANDLINGS & PROJ\nDEWATERING PUMPS\nSENERIA SUPPLIERS\nPREGAL\nNANG WAM NANG WAM\nSENERIA SUPPLIERS\nDSA\nBELL\nKOBALCO\nCAT"
   },
   {
    "fieldname": "last_refueling_hr_meter",
@@ -151,13 +151,13 @@
    "label": "Site Manager Signature"
   },
   {
-   "fetch_from": "plant_number.asset_name",
+   "fetch_from": "plant_number.asset_category",
    "fieldname": "make",
    "fieldtype": "Data",
    "label": "Make"
   },
   {
-   "fetch_from": "plant_number.item_name",
+   "fetch_from": "plant_number.item_code",
    "fieldname": "model",
    "fieldtype": "Data",
    "label": "Model"
@@ -171,7 +171,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-24 16:00:13.812912",
+ "modified": "2026-04-28 14:10:34.295266",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Rental Equipment",

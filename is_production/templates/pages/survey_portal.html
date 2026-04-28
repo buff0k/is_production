@@ -1,0 +1,191 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+
+<div class="container" style="max-width: 1100px; margin-top: 25px;">
+
+  <h2>Survey Portal</h2>
+
+  <form id="survey-form">
+
+    <input type="hidden" id="draft_name" value="{{ draft.name if draft else '' }}">
+
+    <div class="row">
+      <div class="col-md-6">
+        <label>Last Production Shift Start Date</label>
+        <input
+          type="date"
+          class="form-control"
+          id="last_production_shift_start_date"
+          required
+          value="{{ draft.last_production_shift_start_date if draft else '' }}"
+        >
+      </div>
+
+      <div class="col-md-6">
+        <label>Site</label>
+        <select class="form-control" id="location" required>
+          <option value="">Select Site</option>
+          {% for loc in locations %}
+            <option value="{{ loc.name }}"
+              {% if draft and draft.location == loc.name %}selected{% endif %}
+            >
+              {{ loc.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <br>
+
+    <div class="row">
+      <div class="col-md-6">
+        <label>Sub Site Description</label>
+        <input
+          type="text"
+          class="form-control"
+          id="sub_site_description"
+          value="{{ draft.sub_site_description if draft else '' }}"
+        >
+      </div>
+
+      <div class="col-md-6">
+        <label>Survey Date and Time</label>
+        <input
+          type="datetime-local"
+          class="form-control"
+          id="survey_datetime"
+          required
+          value="{{ draft.survey_datetime if draft else '' }}"
+        >
+      </div>
+    </div>
+
+    <br>
+
+    <div>
+      <label>Formal Survey Notes or Report</label>
+      <input type="file" class="form-control" id="survey_report_file">
+      <input
+        type="hidden"
+        id="survey_report_notes"
+        value="{{ draft.survey_report_notes if draft else '' }}"
+      >
+
+      {% if draft and draft.survey_report_notes %}
+        <p style="margin-top: 8px;">
+          Current file:
+          <a href="{{ draft.survey_report_notes }}" target="_blank">
+            {{ draft.survey_report_notes }}
+          </a>
+        </p>
+      {% endif %}
+    </div>
+
+    <hr>
+
+    <h4>Surveyed Values</h4>
+
+    <p class="text-muted">
+      Child table fields will be added after Surveyed Values DocType JSON is confirmed.
+    </p>
+
+    <hr>
+
+    <button type="button" class="btn btn-primary" onclick="saveSurveyDraft()">
+      Save Draft
+    </button>
+
+    {% if draft and not draft.sent %}
+      <button type="button" class="btn btn-success" onclick="sendSurveyToERP()">
+        Send to ERP
+      </button>
+    {% endif %}
+
+    <a href="/survey_portal_list" class="btn btn-default">
+      View Saved Surveys
+    </a>
+
+  </form>
+</div>
+
+<script>
+async function uploadSurveyFile() {
+  const fileInput = document.getElementById("survey_report_file");
+
+  if (!fileInput.files.length) {
+    return document.getElementById("survey_report_notes").value;
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+  formData.append("is_private", 1);
+  formData.append("doctype", "Survey Portal Draft");
+
+  const response = await fetch("/api/method/upload_file", {
+    method: "POST",
+    body: formData,
+    headers: {
+      "X-Frappe-CSRF-Token": frappe.csrf_token
+    }
+  });
+
+  const result = await response.json();
+
+  if (!result.message || !result.message.file_url) {
+    frappe.msgprint("File upload failed");
+    throw new Error("File upload failed");
+  }
+
+  return result.message.file_url;
+}
+
+async function saveSurveyDraft() {
+  const fileUrl = await uploadSurveyFile();
+
+  frappe.call({
+    method: "is_production.templates.pages.survey_portal.save_survey_draft",
+    args: {
+      draft_name: document.getElementById("draft_name").value,
+      last_production_shift_start_date: document.getElementById("last_production_shift_start_date").value,
+      location: document.getElementById("location").value,
+      sub_site_description: document.getElementById("sub_site_description").value,
+      survey_datetime: document.getElementById("survey_datetime").value,
+      survey_report_notes: fileUrl
+    },
+    callback: function(r) {
+      if (r.message && r.message.ok) {
+        frappe.msgprint("Draft saved");
+        window.location.href = "/survey_portal?draft=" + r.message.draft_name;
+      }
+    }
+  });
+}
+
+function sendSurveyToERP() {
+  const draftName = document.getElementById("draft_name").value;
+
+  if (!draftName) {
+    frappe.msgprint("Save draft first");
+    return;
+  }
+
+  frappe.confirm("Send this survey to ERP?", function() {
+    frappe.call({
+      method: "is_production.templates.pages.survey_portal.send_survey_to_erp",
+      args: {
+        draft_name: draftName
+      },
+      callback: function(r) {
+        if (r.message && r.message.ok) {
+          frappe.msgprint("Survey sent to ERP: " + r.message.survey_name);
+          window.location.href = "/survey_portal_list";
+        }
+      }
+    });
+  });
+}
+</script>
+
+{% endblock %}

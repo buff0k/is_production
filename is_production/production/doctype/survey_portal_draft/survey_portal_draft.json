@@ -1,0 +1,166 @@
+{
+ "actions": [],
+ "autoname": "format:SPD-{YYYY}-{#####}",
+ "creation": "2026-04-28 15:04:05.822948",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "portal_user",
+  "last_production_shift_start_date",
+  "site",
+  "sub_site_description",
+  "survey_datetime",
+  "survey_documents",
+  "total_surveyed_bcm",
+  "total_ts_bcm",
+  "total_dozing_bcm",
+  "total_surveyed_coal_tons",
+  "sent",
+  "sent_datetime",
+  "erp_survey_ref",
+  "surveyed_values"
+ ],
+ "fields": [
+  {
+   "fieldname": "portal_user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Portal User",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "last_production_shift_start_date",
+   "fieldtype": "Date",
+   "label": "Last Production Shift Start Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sub_site_description",
+   "fieldtype": "Data",
+   "label": "Sub Site Description"
+  },
+  {
+   "fieldname": "survey_datetime",
+   "fieldtype": "Datetime",
+   "label": "Survey Date and Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "survey_documents",
+   "fieldtype": "Attach",
+   "label": "Survey Documents",
+   "reqd": 1
+  },
+  {
+   "fieldname": "total_surveyed_bcm",
+   "fieldtype": "Float",
+   "label": "Total Surveyed BCM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_ts_bcm",
+   "fieldtype": "Float",
+   "label": "Total Truck and Shovel BCM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_dozing_bcm",
+   "fieldtype": "Float",
+   "label": "Total Dozing BCM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_surveyed_coal_tons",
+   "fieldtype": "Float",
+   "label": "Total Surveyed Coal Tons",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "sent",
+   "fieldtype": "Check",
+   "label": "Sent",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sent_datetime",
+   "fieldtype": "Datetime",
+   "label": "Sent Datetime",
+   "read_only": 1
+  },
+  {
+   "fieldname": "erp_survey_ref",
+   "fieldtype": "Link",
+   "label": "ERP Survey Ref",
+   "options": "Survey",
+   "read_only": 1
+  },
+  {
+   "fieldname": "surveyed_values",
+   "fieldtype": "Table",
+   "label": "Surveyed Values",
+   "options": "Survey Portal Draft Values"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-28 15:40:59.117952",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Survey Portal Draft",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Supplier",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

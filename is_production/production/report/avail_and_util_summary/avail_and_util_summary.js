@@ -19,88 +19,143 @@ frappe.query_reports["Avail and Util summary"] = {
             label: __("Site"),
             fieldtype: "Link",
             options: "Location",
-            reqd: 1
-        },
-        {
-            fieldname: "asset_category",
-            label: __("Asset Category"),
-            fieldtype: "Select",
-            options: ["All"],
-            default: "All",
-            reqd: 0
-        },
-        {
-            fieldname: "metric",
-            label: __("Metric"),
-            fieldtype: "Select",
-            options: ["All", "Availability %", "Utilisation %"],
-            default: "All",
-            reqd: 0
-        },
-        {
-            fieldname: "chart_type",
-            label: __("Chart View"),
-            fieldtype: "Select",
-            options: ["Bar", "Line"],
-            default: "Bar",
-            reqd: 0
-        },
-        {
-            fieldname: "time_column",
-            label: __("Time Column"),
-            fieldtype: "Select",
-            options: ["Month Only", "Days Only", "Days and Month", "Weeks Only", "Week and Month"],
-            default: "Month Only",
             reqd: 0
         }
     ],
 
-    onload: function (report) {
-        const cat_filter = report.get_filter("asset_category");
-        if (cat_filter) {
-            frappe.db.get_list("Availability and Utilisation", {
-                fields: ["asset_category"],
-                group_by: "asset_category",
-                order_by: "asset_category asc",
-                limit: 999
-            }).then(rows => {
-                const cats = (rows || [])
-                    .map(r => (r.asset_category || "Uncategorised"))
-                    .filter(Boolean);
-
-                const unique = ["All", ...Array.from(new Set(cats))];
-                cat_filter.df.options = unique;
-                cat_filter.refresh();
-            });
-        }
-
-        report.page.add_inner_button(__("Show/Hide Charts"), function () {
-            const charts = document.querySelectorAll(".frappe-chart");
-            charts.forEach(ch => {
-                ch.style.display = ch.style.display === "none" ? "block" : "none";
-            });
+    onload: function(report) {
+        report.page.set_primary_action(__("Refresh"), function() {
+            report.refresh();
         });
 
-        report.page.set_primary_action(__("Refresh"), function () {
-            report.refresh();
+        setTimeout(function() {
+            apply_avail_util_summary_freeze_columns();
+        }, 1000);
+
+        setTimeout(function() {
+            apply_avail_util_summary_freeze_columns();
+        }, 2500);
+    },
+
+    get_datatable_options(options) {
+        return Object.assign(options, {
+            // Freeze first 5 visible columns:
+            // Row No | Asset Category | Shift Date | Asset Name | Location
+            freezeColumns: 5
         });
     },
 
-    formatter: function (value, row, column, data, default_formatter) {
+    after_datatable_render: function(datatable) {
+        setTimeout(function() {
+            apply_avail_util_summary_freeze_columns();
+        }, 300);
+    },
+
+    formatter: function(value, row, column, data, default_formatter) {
         value = default_formatter(value, row, column, data);
 
-        if (column.fieldname === "plant_shift_availability" && data.plant_shift_availability >= 85) {
-            value = `<span style="color:#4CAF50;font-weight:600;">${value}</span>`;
-        } else if (column.fieldname === "plant_shift_availability") {
-            value = `<span style="color:#f0ad4e;font-weight:600;">${value}</span>`;
-        }
-
-        if (column.fieldname === "plant_shift_utilisation" && data.plant_shift_utilisation >= 75) {
-            value = `<span style="color:#2196F3;font-weight:600;">${value}</span>`;
-        } else if (column.fieldname === "plant_shift_utilisation") {
-            value = `<span style="color:#ff7043;font-weight:600;">${value}</span>`;
-        }
+        setTimeout(function() {
+            apply_avail_util_summary_freeze_columns();
+        }, 100);
 
         return value;
     }
 };
+
+function apply_avail_util_summary_freeze_columns() {
+    if (!frappe.query_report || !frappe.query_report.datatable) {
+        return;
+    }
+
+    if (frappe.query_report.report_name !== "Avail and Util summary") {
+        return;
+    }
+
+    const datatable = frappe.query_report.datatable;
+
+    datatable.options.freezeColumns = 5;
+
+    const style_id = "avail-util-summary-freeze-columns-style";
+    const old_style = document.getElementById(style_id);
+
+    if (old_style) {
+        old_style.remove();
+    }
+
+    const style = document.createElement("style");
+    style.id = style_id;
+
+    style.innerHTML = `
+        /*
+            Freeze only attached summary columns:
+            col 0 = Row number
+            col 1 = Asset Category
+            col 2 = Shift Date
+            col 3 = Asset Name
+            col 4 = Location
+        */
+
+        .dt-cell--col-0,
+        .dt-cell--col-1,
+        .dt-cell--col-2,
+        .dt-cell--col-3,
+        .dt-cell--col-4 {
+            position: sticky !important;
+            background: #ffffff !important;
+            z-index: 30 !important;
+            box-shadow: 1px 0 0 #d1d8dd !important;
+        }
+
+        .dt-header .dt-cell--col-0,
+        .dt-header .dt-cell--col-1,
+        .dt-header .dt-cell--col-2,
+        .dt-header .dt-cell--col-3,
+        .dt-header .dt-cell--col-4,
+        .dt-cell--header.dt-cell--col-0,
+        .dt-cell--header.dt-cell--col-1,
+        .dt-cell--header.dt-cell--col-2,
+        .dt-cell--header.dt-cell--col-3,
+        .dt-cell--header.dt-cell--col-4 {
+            position: sticky !important;
+            background: #f8f8f8 !important;
+            z-index: 60 !important;
+            box-shadow: 1px 0 0 #d1d8dd !important;
+        }
+
+        .dt-cell--col-0 {
+            left: 0px !important;
+        }
+
+        .dt-cell--col-1 {
+            left: 38px !important;
+        }
+
+        .dt-cell--col-2 {
+            left: 168px !important;
+        }
+
+        .dt-cell--col-3 {
+            left: 258px !important;
+        }
+
+        .dt-cell--col-4 {
+            left: 378px !important;
+        }
+    `;
+
+    document.head.appendChild(style);
+
+    console.log("Avail and Util summary: freeze columns applied");
+}
+
+$(document).on("page-change", function() {
+    setTimeout(function() {
+        apply_avail_util_summary_freeze_columns();
+    }, 1200);
+});
+
+$(document).on("click", ".query-report button, .query-report .btn", function() {
+    setTimeout(function() {
+        apply_avail_util_summary_freeze_columns();
+    }, 1200);
+});
