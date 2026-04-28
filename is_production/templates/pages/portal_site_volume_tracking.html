@@ -1,51 +1,180 @@
 {% extends "templates/web.html" %}
 
 {% block page_content %}
-<div class="container-fluid my-4">
-    <h2>Site Volume Tracking</h2>
-    <p>Portal dashboard view</p>
+<style>
+html,
+body {
+    background: #ffffff !important;
+    overflow: hidden !important;
+}
 
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <label for="define_monthly_production"><strong>Define Monthly Production</strong></label>
-            <div class="portal-link-wrap" style="position: relative;">
-                <input
-                    type="text"
-                    class="form-control"
-                    id="define_monthly_production"
-                    placeholder="Search Define Monthly Production"
-                    autocomplete="off"
-                >
-                <div
-                    id="define_monthly_production_dropdown"
-                    style="
-                        position:absolute;
-                        top:calc(100% + 4px);
-                        left:0;
-                        right:0;
-                        z-index:1000;
-                        background:#fff;
-                        border:1px solid #d1d8dd;
-                        border-radius:8px;
-                        box-shadow:0 6px 18px rgba(0,0,0,0.12);
-                        max-height:220px;
-                        overflow-y:auto;
-                        display:none;
-                    "
-                ></div>
-            </div>
+header,
+footer,
+.web-footer,
+.navbar,
+.page-breadcrumbs,
+.page-header,
+.page-footer,
+.footer-powered {
+    display: none !important;
+}
+
+.web-page,
+.page_content,
+.page-content,
+.page-content-wrapper,
+main,
+.container,
+.container-fluid {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#portal-site-volume-tracking-app {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #ffffff;
+    overflow: auto;
+    padding: 10px;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.portal-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.portal-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.portal-filter {
+    width: 320px;
+    position: relative;
+}
+
+.portal-filter input {
+    width: 100%;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #d1d8dd;
+    padding: 4px 10px;
+    background: #f7f7f7;
+}
+
+.portal-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    background: #fff;
+    border: 1px solid #d1d8dd;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    max-height: 260px;
+    overflow-y: auto;
+    display: none;
+}
+
+.portal-option {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f3f3;
+}
+
+.portal-option:hover {
+    background: #f7fafc;
+}
+
+.portal-empty {
+    padding: 10px 12px;
+    color: #6c757d;
+}
+
+#dashboard_status {
+    margin-bottom: 12px;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+#dashboard_content {
+    width: 100%;
+}
+
+.kpi-bar {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(120px, 1fr));
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.kpi-box {
+    background: #ffffff;
+    border: 1px solid #d1d8dd;
+    border-radius: 6px;
+    padding: 6px;
+    min-height: 64px;
+    text-align: center;
+}
+
+.kpi-box .label {
+    font-size: 11px;
+    line-height: 1.1;
+    font-weight: 600;
+}
+
+.kpi-box .value {
+    font-size: 18px;
+    font-weight: 700;
+    margin-top: 4px;
+}
+
+.isd-good {
+    background: #c9f2d8 !important;
+}
+
+.isd-bad {
+    background: #f9caca !important;
+}
+
+.site-section {
+    border: 1px solid #d1d8dd;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+</style>
+
+<div id="portal-site-volume-tracking-app">
+    <div class="portal-topbar">
+        <h1 class="portal-title">Site Volume Tracking</h1>
+
+        <div class="portal-filter">
+            <input
+                type="text"
+                id="define_monthly_production"
+                placeholder="Search Define Monthly Production"
+                autocomplete="off"
+            >
+            <div id="define_monthly_production_dropdown" class="portal-dropdown"></div>
         </div>
     </div>
 
-    <div id="dashboard_status" class="text-muted mb-2"></div>
+    <div id="dashboard_status">Select a Define Monthly Production to load the dashboard.</div>
     <div id="dashboard_content" class="dashboard-grid"></div>
 </div>
 
 <script>
 (function () {
-    const REPORT_NAME = "CEO DASHBOARD";
     const STORAGE_KEY = "portal_site_volume_tracking_define_monthly_production";
-    const BCM_PER_MAN_THRESHOLD = 4000;
 
     const SITE_HEADER_COLOURS = {
         "Klipfontein": "#EBF9FF",
@@ -116,58 +245,6 @@
         };
 
         schedule_next();
-    }
-
-    function run_report(filters) {
-        return frappe.call({
-            method: "frappe.desk.query_report.run",
-            args: {
-                report_name: REPORT_NAME,
-                filters: filters
-            },
-            freeze: false
-        });
-    }
-
-    function get_list(doctype, args) {
-        args = args || {};
-
-        return frappe.call({
-            method: "frappe.client.get_list",
-            args: {
-                doctype: doctype,
-                fields: args.fields || ["name"],
-                filters: args.filters || {},
-                order_by: args.order_by,
-                limit_page_length: args.limit_page_length || 20
-            },
-            freeze: false
-        }).then(function (r) {
-            return r.message || [];
-        });
-    }
-
-    function get_site_order_map(docname) {
-        if (!docname) return Promise.resolve({});
-
-        return frappe.db.get_doc("Define Monthly Production", docname)
-            .then(function (doc) {
-                const rows = Array.isArray(doc.define) ? doc.define : [];
-                const orderMap = {};
-
-                rows.forEach(function (row, idx) {
-                    const site = (row.site || "").trim();
-                    if (site && !(site in orderMap)) {
-                        orderMap[site] = idx;
-                    }
-                });
-
-                return orderMap;
-            })
-            .catch(function (e) {
-                console.error("Could not read Define Monthly Production order:", e);
-                return {};
-            });
     }
 
     function fmt_int(n) {
@@ -252,132 +329,6 @@
                 </div>
             </div>
         `;
-    }
-
-    function get_active_employee_count(site) {
-        const cleanSite = String(site || "").trim();
-        if (!cleanSite) return Promise.resolve(0);
-
-        return frappe.db.count("Employee", {
-            filters: {
-                status: "Active",
-                branch: cleanSite
-            }
-        }).then(function (count) {
-            return Number(count || 0);
-        }).catch(function (e) {
-            console.error("Could not count active employees for site " + cleanSite + ":", e);
-            return 0;
-        });
-    }
-
-    function get_monthly_production_metrics(site, prodEnd) {
-        const cleanSite = String(site || "").trim();
-        const cleanProdEnd = prodEnd || null;
-
-        if (!cleanSite) {
-            return Promise.resolve({
-                month_actual_bcm: 0,
-                month_forecated_bcm: 0
-            });
-        }
-
-        const fields = ["name", "month_actual_bcm", "month_forecated_bcm"];
-
-        const tryEndDate = function () {
-            if (!cleanProdEnd) return Promise.resolve([]);
-
-            return get_list("Monthly Production Planning", {
-                fields: fields,
-                filters: {
-                    location: cleanSite,
-                    prod_month_end_date: cleanProdEnd
-                },
-                order_by: "modified desc",
-                limit_page_length: 1
-            });
-        };
-
-        const tryInvoiceEnd = function () {
-            if (!cleanProdEnd) return Promise.resolve([]);
-
-            return get_list("Monthly Production Planning", {
-                fields: fields,
-                filters: {
-                    location: cleanSite,
-                    prod_month_end: cleanProdEnd
-                },
-                order_by: "modified desc",
-                limit_page_length: 1
-            });
-        };
-
-        const tryLatestForSite = function () {
-            return get_list("Monthly Production Planning", {
-                fields: fields,
-                filters: {
-                    location: cleanSite
-                },
-                order_by: "modified desc",
-                limit_page_length: 1
-            });
-        };
-
-        return tryEndDate()
-            .then(function (rows) {
-                if (rows && rows.length) return rows;
-                return tryInvoiceEnd();
-            })
-            .then(function (rows) {
-                if (rows && rows.length) return rows;
-                return tryLatestForSite();
-            })
-            .then(function (rows) {
-                const row = rows && rows[0] ? rows[0] : {};
-                return {
-                    month_actual_bcm: Number(row.month_actual_bcm || 0),
-                    month_forecated_bcm: Number(row.month_forecated_bcm || 0)
-                };
-            })
-            .catch(function (e) {
-                console.error("Could not get monthly production metrics for site " + cleanSite + ":", e);
-                return {
-                    month_actual_bcm: 0,
-                    month_forecated_bcm: 0
-                };
-            });
-    }
-
-    function enrich_row_with_employee_kpis(row) {
-        const site = String(row.site || "").trim();
-        const prodEnd = row.prod_end || null;
-
-        return Promise.all([
-            get_active_employee_count(site),
-            get_monthly_production_metrics(site, prodEnd)
-        ]).then(function (results) {
-            const employeeCount = results[0];
-            const monthlyMetrics = results[1];
-
-            const monthActualBcm = Number(monthlyMetrics.month_actual_bcm || 0);
-            const monthForecastedBcm = Number(monthlyMetrics.month_forecated_bcm || 0);
-
-            const bcmPerMan = employeeCount > 0 ? monthActualBcm / employeeCount : 0;
-            const projectedBcmPerMan = employeeCount > 0 ? monthForecastedBcm / employeeCount : 0;
-
-            const copy = Object.assign({}, row);
-            copy.employee_count = employeeCount;
-            copy.month_actual_bcm_source = monthActualBcm;
-            copy.month_forecated_bcm_source = monthForecastedBcm;
-            copy.bcm_per_man = bcmPerMan;
-            copy.projected_bcm_per_man = projectedBcmPerMan;
-
-            return copy;
-        });
-    }
-
-    function enrich_rows(rows) {
-        return Promise.all((rows || []).map(enrich_row_with_employee_kpis));
     }
 
     const BORDER_BLACK = "#000000";
@@ -501,8 +452,11 @@
         `;
     }
 
-    function render_dashboard(rows, siteOrderMap) {
-        if (!rows || !rows.length) {
+    function render_dashboard(response) {
+        const rows = response.rows || [];
+        const siteOrderMap = response.site_order_map || {};
+
+        if (!rows.length) {
             dashEl.innerHTML = '<div class="text-muted">No data for the selected filter.</div>';
             return;
         }
@@ -524,6 +478,16 @@
         dashEl.innerHTML = sorted.map(build_site_card).join("");
     }
 
+    function run_report(value) {
+        return frappe.call({
+            method: "is_production.templates.pages.portal_site_volume_tracking.run_portal_report",
+            args: {
+                define_monthly_production: value
+            },
+            freeze: false
+        });
+    }
+
     function load_and_render(is_auto) {
         const val = input.value;
 
@@ -535,46 +499,31 @@
         localStorage.setItem(STORAGE_KEY, val);
         statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
 
-        return Promise.all([
-            run_report({ define_monthly_production: val }),
-            get_site_order_map(val)
-        ]).then(function (results) {
-            const res = results[0];
-            const siteOrderMap = results[1];
+        return run_report(val).then(function (r) {
+            render_dashboard(r.message || {});
 
-            const payload = res.message || {};
-            const rows = payload.result || [];
-
-            return enrich_rows(rows).then(function (enrichedRows) {
-                render_dashboard(enrichedRows, siteOrderMap);
-
-                const time = new Date().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                });
-
-                statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
+            const time = new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
             });
+
+            statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
         }).catch(function (e) {
-            console.error(e);
-            statusEl.textContent = "Error loading dashboard data.";
-            dashEl.innerHTML = '<div class="text-danger">Could not load data. Check console / server logs.</div>';
+            console.error("Site Volume Tracking portal error:", e);
+            statusEl.textContent = "Error loading dashboard data. Check browser console and server logs.";
+            dashEl.innerHTML = '<div class="text-danger">Could not load data.</div>';
         });
     }
 
     async function search_define_monthly_production(term) {
         const r = await frappe.call({
-            method: "frappe.desk.search.search_link",
+            method: "is_production.templates.pages.portal_site_volume_tracking.search_define_monthly_production",
             args: {
-                doctype: "Define Monthly Production",
-                txt: term || "",
-                page_length: 20
+                txt: term || ""
             }
         });
 
-        return (r.message || []).map(function (row) {
-            return row.value || row.name || row;
-        });
+        return r.message || [];
     }
 
     async function render_dropdown() {
@@ -584,19 +533,19 @@
             const results = await search_define_monthly_production(term);
 
             if (!results.length) {
-                dropdown.innerHTML = '<div style="padding:10px 12px;color:#6c757d;">No matches found</div>';
+                dropdown.innerHTML = '<div class="portal-empty">No matches found</div>';
                 dropdown.style.display = "block";
                 return;
             }
 
             dropdown.innerHTML = results.map(function (option) {
-                return '<div class="portal-option" data-value="' + escapeHtml(option) + '" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f3f3f3;">' + escapeHtml(option) + '</div>';
+                return '<div class="portal-option" data-value="' + escapeHtml(option) + '">' + escapeHtml(option) + '</div>';
             }).join("");
 
             dropdown.style.display = "block";
         } catch (e) {
-            console.error(e);
-            dropdown.innerHTML = '<div style="padding:10px 12px;color:#6c757d;">No matches found</div>';
+            console.error("Search failed:", e);
+            dropdown.innerHTML = '<div class="portal-empty">No matches found</div>';
             dropdown.style.display = "block";
         }
     }
@@ -616,7 +565,8 @@
     });
 
     document.addEventListener("click", function (e) {
-        if (!input.closest(".portal-link-wrap").contains(e.target)) {
+        const wrap = input.closest(".portal-filter");
+        if (wrap && !wrap.contains(e.target)) {
             dropdown.style.display = "none";
         }
     });
@@ -626,8 +576,6 @@
         input.value = last;
         load_and_render(false);
         start_aligned_refresh();
-    } else {
-        statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
     }
 
     window.addEventListener("beforeunload", function () {

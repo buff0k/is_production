@@ -1,49 +1,384 @@
 {% extends "templates/web.html" %}
 
 {% block page_content %}
-<div class="container-fluid my-4">
-    <h2>Hourly Dashboard</h2>
-    <p>Portal dashboard view</p>
+<style>
+/* =========================================================
+   FULL SCREEN PORTAL APP SHELL
+   ========================================================= */
 
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <label for="define_monthly_production"><strong>Define Monthly Production</strong></label>
-            <div class="portal-link-wrap" style="position: relative;">
-                <input
-                    type="text"
-                    class="form-control"
-                    id="define_monthly_production"
-                    placeholder="Search Define Monthly Production"
-                    autocomplete="off"
-                >
-                <div
-                    id="define_monthly_production_dropdown"
-                    style="
-                        position:absolute;
-                        top:calc(100% + 4px);
-                        left:0;
-                        right:0;
-                        z-index:1000;
-                        background:#fff;
-                        border:1px solid #d1d8dd;
-                        border-radius:8px;
-                        box-shadow:0 6px 18px rgba(0,0,0,0.12);
-                        max-height:220px;
-                        overflow-y:auto;
-                        display:none;
-                    "
-                ></div>
-            </div>
+html,
+body {
+    background: #ffffff !important;
+    overflow: hidden !important;
+}
+
+header,
+footer,
+.web-footer,
+.navbar,
+.page-breadcrumbs,
+.page-header,
+.page-footer,
+.footer-powered {
+    display: none !important;
+}
+
+.web-page,
+.page_content,
+.page-content,
+.page-content-wrapper,
+main,
+.container,
+.container-fluid {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#portal-hourly-dashboard-app {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #ffffff;
+    overflow: auto;
+    padding: 4px;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #1f272e;
+}
+
+/* =========================================================
+   TOP BAR
+   ========================================================= */
+
+.portal-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 0 4px;
+}
+
+.portal-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+    line-height: 32px;
+    color: #111827;
+    white-space: nowrap;
+}
+
+.portal-filter {
+    width: 320px;
+    position: relative;
+}
+
+.portal-filter input {
+    width: 100%;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #d1d8dd;
+    padding: 4px 10px;
+    background: #f7f7f7;
+    color: #111827;
+    font-size: 14px;
+    outline: none;
+}
+
+.portal-filter input:focus {
+    border-color: #9aa8b5;
+    background: #ffffff;
+}
+
+.portal-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    background: #fff;
+    border: 1px solid #d1d8dd;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    max-height: 260px;
+    overflow-y: auto;
+    display: none;
+}
+
+.portal-option {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f3f3;
+    font-size: 13px;
+}
+
+.portal-option:hover {
+    background: #f7fafc;
+}
+
+.portal-empty {
+    padding: 10px 12px;
+    color: #6c757d;
+    font-size: 13px;
+}
+
+#dashboard_status {
+    margin: 0 0 10px 0;
+    padding: 0 4px;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+#dashboard_content {
+    width: 100%;
+}
+
+/* =========================================================
+   HOURLY DASHBOARD REPORT CSS
+   This makes the portal report HTML look like the Desk page.
+   ========================================================= */
+
+#dashboard_content .isd-hourly-dashboard {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+#dashboard_content .isd-hourly-dashboard .isd-grid {
+    display: block;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+#dashboard_content .isd-hourly-dashboard .isd-site {
+    width: 100%;
+    border: 1px solid #d8dfe6;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 0 0 10px 0;
+    background: #f4f4f4;
+    box-shadow: none;
+}
+
+#dashboard_content .isd-hourly-dashboard .isd-site-header {
+    padding: 10px 12px;
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1.25;
+    color: #111827;
+}
+
+#dashboard_content .isd-hourly-dashboard .isd-site-header div,
+#dashboard_content .isd-hourly-dashboard .isd-site-header span,
+#dashboard_content .isd-hourly-dashboard .isd-site-header small,
+#dashboard_content .isd-hourly-dashboard .isd-site-header .small {
+    display: block;
+}
+
+#dashboard_content .isd-hourly-dashboard .isd-site-header small,
+#dashboard_content .isd-hourly-dashboard .isd-site-header .small {
+    font-weight: 400;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+/* Some report HTML may put the header text directly inside a div without classes */
+#dashboard_content .isd-hourly-dashboard .isd-site > div:first-child {
+    font-weight: 700;
+}
+
+/* =========================================================
+   TABLE LAYOUT
+   ========================================================= */
+
+#dashboard_content .isd-hourly-dashboard table {
+    width: 100% !important;
+    max-width: none !important;
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+    background: #f7f7f7;
+    margin: 0 !important;
+    font-size: 11px;
+}
+
+#dashboard_content .isd-hourly-dashboard thead,
+#dashboard_content .isd-hourly-dashboard tbody,
+#dashboard_content .isd-hourly-dashboard tr {
+    width: 100%;
+}
+
+#dashboard_content .isd-hourly-dashboard th,
+#dashboard_content .isd-hourly-dashboard td {
+    border: 1px solid #e3e6e8 !important;
+    padding: 4px 4px !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    font-size: 11px !important;
+    line-height: 1.05 !important;
+    min-height: 28px;
+    height: 28px;
+    background-clip: padding-box;
+    overflow: hidden;
+    white-space: normal;
+}
+
+#dashboard_content .isd-hourly-dashboard th {
+    background: #ffffff;
+    font-weight: 700;
+    color: #111827;
+}
+
+#dashboard_content .isd-hourly-dashboard td {
+    background: #f3f3f3;
+    color: #1f272e;
+}
+
+/* First column: Excavator names */
+#dashboard_content .isd-hourly-dashboard th:first-child,
+#dashboard_content .isd-hourly-dashboard td:first-child {
+    width: 230px !important;
+    min-width: 230px !important;
+    max-width: 230px !important;
+    text-align: left !important;
+    font-weight: 700;
+    padding-left: 10px !important;
+    background: #f3f3f3;
+}
+
+/* Hour columns */
+#dashboard_content .isd-hourly-dashboard th:not(:first-child),
+#dashboard_content .isd-hourly-dashboard td:not(:first-child) {
+    width: calc((100% - 230px) / 24);
+}
+
+/* Make empty cells look like the Desk grid */
+#dashboard_content .isd-hourly-dashboard td:empty::after {
+    content: "\00a0";
+}
+
+/* =========================================================
+   VALUE CELL COLOURS
+   These match the green/red/orange dashboard blocks.
+   ========================================================= */
+
+#dashboard_content .isd-hourly-dashboard .isd-good,
+#dashboard_content .isd-hourly-dashboard td.isd-good,
+#dashboard_content .isd-hourly-dashboard .good,
+#dashboard_content .isd-hourly-dashboard td.good {
+    background: #d8efe5 !important;
+}
+
+#dashboard_content .isd-hourly-dashboard .isd-bad,
+#dashboard_content .isd-hourly-dashboard td.isd-bad,
+#dashboard_content .isd-hourly-dashboard .bad,
+#dashboard_content .isd-hourly-dashboard td.bad {
+    background: #f3d6d8 !important;
+}
+
+#dashboard_content .isd-hourly-dashboard .isd-neutral,
+#dashboard_content .isd-hourly-dashboard td.isd-neutral,
+#dashboard_content .isd-hourly-dashboard .neutral,
+#dashboard_content .isd-hourly-dashboard td.neutral {
+    background: #f5e4d5 !important;
+}
+
+/* If the report uses inline background colors, preserve them */
+#dashboard_content .isd-hourly-dashboard td[style*="background"],
+#dashboard_content .isd-hourly-dashboard th[style*="background"] {
+    background-clip: padding-box;
+}
+
+/* =========================================================
+   FALLBACK STYLING
+   If the report HTML arrives without the exact isd table classes,
+   this still gives it the same full-width block layout.
+   ========================================================= */
+
+#dashboard_content .isd-site {
+    width: 100%;
+    border: 1px solid #d8dfe6;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    background: #f4f4f4;
+}
+
+#dashboard_content .isd-site-header {
+    padding: 10px 12px;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+#dashboard_content table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+#dashboard_content th,
+#dashboard_content td {
+    border: 1px solid #e3e6e8;
+    padding: 4px;
+    font-size: 11px;
+    line-height: 1.05;
+}
+
+/* =========================================================
+   MOBILE / SMALL SCREEN
+   ========================================================= */
+
+@media (max-width: 900px) {
+    .portal-topbar {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .portal-filter {
+        width: 100%;
+    }
+
+    #dashboard_content .isd-hourly-dashboard th:first-child,
+    #dashboard_content .isd-hourly-dashboard td:first-child {
+        width: 160px !important;
+        min-width: 160px !important;
+        max-width: 160px !important;
+    }
+
+    #dashboard_content .isd-hourly-dashboard table {
+        min-width: 1200px;
+    }
+
+    #dashboard_content .isd-hourly-dashboard .isd-site {
+        overflow-x: auto;
+    }
+}
+</style>
+
+<div id="portal-hourly-dashboard-app">
+    <div class="portal-topbar">
+        <h1 class="portal-title">Hourly Dashboard</h1>
+
+        <div class="portal-filter">
+            <input
+                type="text"
+                id="define_monthly_production"
+                placeholder="Search Define Monthly Production"
+                autocomplete="off"
+            >
+            <div id="define_monthly_production_dropdown" class="portal-dropdown"></div>
         </div>
     </div>
 
-    <div id="dashboard_status" class="text-muted mb-2"></div>
+    <div id="dashboard_status">Select a Define Monthly Production to load the dashboard.</div>
     <div id="dashboard_content" class="isd-hourly-dashboard-page"></div>
 </div>
 
 <script>
 (function () {
-    const REPORT_NAME = "Hourly Dashboard";
     const STORAGE_KEY = "portal_hourly_dash_define_monthly_production";
 
     const input = document.getElementById("define_monthly_production");
@@ -123,38 +458,14 @@
         schedule_next();
     }
 
-    function run_report(filters) {
+    function run_report(value) {
         return frappe.call({
-            method: "frappe.desk.query_report.run",
+            method: "is_production.templates.pages.portal_hourly_dashboard.run_portal_report",
             args: {
-                report_name: REPORT_NAME,
-                filters: filters
+                define_monthly_production: value
             },
             freeze: false
         });
-    }
-
-    function get_site_order_map(docname) {
-        if (!docname) return Promise.resolve({});
-
-        return frappe.db.get_doc("Define Monthly Production", docname)
-            .then(function (doc) {
-                const rows = Array.isArray(doc.define) ? doc.define : [];
-                const orderMap = {};
-
-                rows.forEach(function (row, idx) {
-                    const site = (row.site || "").trim();
-                    if (site && !(site in orderMap)) {
-                        orderMap[site] = idx;
-                    }
-                });
-
-                return orderMap;
-            })
-            .catch(function (e) {
-                console.error("Could not read Define Monthly Production order:", e);
-                return {};
-            });
     }
 
     function extract_site_name_from_block(el) {
@@ -189,12 +500,15 @@
         });
     }
 
-    function render_dashboard(payload, siteOrderMap) {
+    function render_dashboard(response) {
+        const payload = response.payload || {};
+        const siteOrderMap = response.site_order_map || {};
         const html = extract_report_html(payload);
 
         if (html) {
             dashEl.innerHTML = html;
             reorder_hourly_sites(siteOrderMap);
+            normalize_hourly_dashboard_markup();
             return;
         }
 
@@ -205,6 +519,20 @@
         }
 
         dashEl.innerHTML = '<div class="text-warning">Report returned data, but no HTML block was found.</div>';
+    }
+
+    function normalize_hourly_dashboard_markup() {
+        const root = dashEl.querySelector(".isd-hourly-dashboard");
+        if (!root) return;
+
+        root.querySelectorAll(".isd-site").forEach(function (siteBlock) {
+            const table = siteBlock.querySelector("table");
+            if (!table) return;
+
+            table.style.width = "100%";
+            table.style.tableLayout = "fixed";
+            table.style.borderCollapse = "collapse";
+        });
     }
 
     function load_and_render(is_auto) {
@@ -218,15 +546,8 @@
         localStorage.setItem(STORAGE_KEY, val);
         statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
 
-        return Promise.all([
-            run_report({ define_monthly_production: val }),
-            get_site_order_map(val)
-        ]).then(function (results) {
-            const res = results[0];
-            const siteOrderMap = results[1];
-            const payload = res.message || {};
-
-            render_dashboard(payload, siteOrderMap);
+        return run_report(val).then(function (r) {
+            render_dashboard(r.message || {});
 
             const time = new Date().toLocaleTimeString([], {
                 hour: "2-digit",
@@ -242,25 +563,21 @@
                 }, 5);
             }
         }).catch(function (e) {
-            console.error(e);
-            statusEl.textContent = "Error loading dashboard data.";
-            dashEl.innerHTML = '<div class="text-danger">Could not load dashboard data. Check console / server logs.</div>';
+            console.error("Hourly Dashboard portal error:", e);
+            statusEl.textContent = "Error loading dashboard data. Check browser console and server logs.";
+            dashEl.innerHTML = '<div class="text-danger">Could not load dashboard data.</div>';
         });
     }
 
     async function search_define_monthly_production(term) {
         const r = await frappe.call({
-            method: "frappe.desk.search.search_link",
+            method: "is_production.templates.pages.portal_hourly_dashboard.search_define_monthly_production",
             args: {
-                doctype: "Define Monthly Production",
-                txt: term || "",
-                page_length: 20
+                txt: term || ""
             }
         });
 
-        return (r.message || []).map(function (row) {
-            return row.value || row.name || row;
-        });
+        return r.message || [];
     }
 
     async function render_dropdown() {
@@ -270,19 +587,19 @@
             const results = await search_define_monthly_production(term);
 
             if (!results.length) {
-                dropdown.innerHTML = '<div style="padding:10px 12px;color:#6c757d;">No matches found</div>';
+                dropdown.innerHTML = '<div class="portal-empty">No matches found</div>';
                 dropdown.style.display = "block";
                 return;
             }
 
             dropdown.innerHTML = results.map(function (option) {
-                return '<div class="portal-option" data-value="' + escapeHtml(option) + '" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f3f3f3;">' + escapeHtml(option) + '</div>';
+                return '<div class="portal-option" data-value="' + escapeHtml(option) + '">' + escapeHtml(option) + '</div>';
             }).join("");
 
             dropdown.style.display = "block";
         } catch (e) {
-            console.error(e);
-            dropdown.innerHTML = '<div style="padding:10px 12px;color:#6c757d;">No matches found</div>';
+            console.error("Search failed:", e);
+            dropdown.innerHTML = '<div class="portal-empty">No matches found</div>';
             dropdown.style.display = "block";
         }
     }
@@ -302,7 +619,8 @@
     });
 
     document.addEventListener("click", function (e) {
-        if (!input.closest(".portal-link-wrap").contains(e.target)) {
+        const wrap = input.closest(".portal-filter");
+        if (wrap && !wrap.contains(e.target)) {
             dropdown.style.display = "none";
         }
     });
@@ -312,8 +630,6 @@
         input.value = last;
         load_and_render(false);
         start_aligned_refresh();
-    } else {
-        statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
     }
 
     window.addEventListener("beforeunload", function () {

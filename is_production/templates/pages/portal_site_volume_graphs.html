@@ -1,49 +1,136 @@
 {% extends "templates/web.html" %}
 
 {% block page_content %}
-<div class="container-fluid my-4">
-    <h2>Site Volume Graphs</h2>
-    <p>Portal dashboard view</p>
+<style>
+html,
+body {
+    background: #ffffff !important;
+    overflow: hidden !important;
+}
 
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <label for="monthly_production_plan"><strong>Monthly Production Plan</strong></label>
-            <div class="portal-link-wrap" style="position: relative;">
-                <input
-                    type="text"
-                    class="form-control"
-                    id="monthly_production_plan"
-                    placeholder="Search Monthly Production Plan"
-                    autocomplete="off"
-                >
-                <div
-                    id="monthly_production_plan_dropdown"
-                    style="
-                        position:absolute;
-                        top:calc(100% + 4px);
-                        left:0;
-                        right:0;
-                        z-index:1000;
-                        background:#fff;
-                        border:1px solid #d1d8dd;
-                        border-radius:8px;
-                        box-shadow:0 6px 18px rgba(0,0,0,0.12);
-                        max-height:220px;
-                        overflow-y:auto;
-                        display:none;
-                    "
-                ></div>
-            </div>
+header,
+footer,
+.web-footer,
+.navbar,
+.page-breadcrumbs,
+.page-header,
+.page-footer,
+.footer-powered {
+    display: none !important;
+}
+
+.web-page,
+.page_content,
+.page-content,
+.page-content-wrapper,
+main,
+.container,
+.container-fluid {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+#portal-site-volume-graphs-app {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #ffffff;
+    overflow: auto;
+    padding: 10px;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.portal-topbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.portal-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.portal-filter {
+    width: 320px;
+    position: relative;
+}
+
+.portal-filter input {
+    width: 100%;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #d1d8dd;
+    padding: 4px 10px;
+    background: #f7f7f7;
+}
+
+.portal-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    background: #fff;
+    border: 1px solid #d1d8dd;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    max-height: 260px;
+    overflow-y: auto;
+    display: none;
+}
+
+.portal-option {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f3f3;
+}
+
+.portal-option:hover {
+    background: #f7fafc;
+}
+
+.portal-empty {
+    padding: 10px 12px;
+    color: #6c757d;
+}
+
+#dashboard_status {
+    margin-bottom: 12px;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+#dashboard_content {
+    width: 100%;
+}
+</style>
+
+<div id="portal-site-volume-graphs-app">
+    <div class="portal-topbar">
+        <h1 class="portal-title">Site Volume Graphs</h1>
+
+        <div class="portal-filter">
+            <input
+                type="text"
+                id="monthly_production_plan"
+                placeholder="Search Monthly Production Plan"
+                autocomplete="off"
+            >
+            <div id="monthly_production_plan_dropdown" class="portal-dropdown"></div>
         </div>
     </div>
 
-    <div id="dashboard_status" class="text-muted mb-2"></div>
+    <div id="dashboard_status">Select a Monthly Production Plan to load the graphs.</div>
     <div id="dashboard_content" class="isd-site-volume-graphs-page"></div>
 </div>
 
 <script>
 (function () {
-    const REPORT_NAME = "CEO Dashboard One Graphs";
     const STORAGE_KEY = "portal_site_volume_graphs_monthly_production_plan";
 
     const input = document.getElementById("monthly_production_plan");
@@ -123,38 +210,14 @@
         schedule_next();
     }
 
-    function run_report(filters) {
+    function run_report(value) {
         return frappe.call({
-            method: "frappe.desk.query_report.run",
+            method: "is_production.templates.pages.portal_site_volume_graphs.run_portal_report",
             args: {
-                report_name: REPORT_NAME,
-                filters: filters
+                monthly_production_plan: value
             },
             freeze: false
         });
-    }
-
-    function get_site_order_map(docname) {
-        if (!docname) return Promise.resolve({});
-
-        return frappe.db.get_doc("Define Monthly Production", docname)
-            .then(function (doc) {
-                const rows = Array.isArray(doc.define) ? doc.define : [];
-                const orderMap = {};
-
-                rows.forEach(function (row, idx) {
-                    const site = (row.site || "").trim();
-                    if (site && !(site in orderMap)) {
-                        orderMap[site] = idx;
-                    }
-                });
-
-                return orderMap;
-            })
-            .catch(function (e) {
-                console.error("Could not read Define Monthly Production order:", e);
-                return {};
-            });
     }
 
     function load_chartjs() {
@@ -256,7 +319,9 @@
         });
     }
 
-    function render_dashboard(payload, siteOrderMap) {
+    function render_dashboard(response) {
+        const payload = response.payload || {};
+        const siteOrderMap = response.site_order_map || {};
         const html = extract_report_html(payload);
 
         destroy_charts(dashEl);
@@ -302,15 +367,8 @@
         localStorage.setItem(STORAGE_KEY, val);
         statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
 
-        return Promise.all([
-            run_report({ monthly_production_plan: val }),
-            get_site_order_map(val)
-        ]).then(function (results) {
-            const res = results[0];
-            const siteOrderMap = results[1];
-            const payload = res.message || {};
-
-            render_dashboard(payload, siteOrderMap);
+        return run_report(val).then(function (r) {
+            render_dashboard(r.message || {});
 
             const time = new Date().toLocaleTimeString([], {
                 hour: "2-digit",
@@ -326,25 +384,21 @@
                 }, 5);
             }
         }).catch(function (e) {
-            console.error(e);
-            statusEl.textContent = "Error loading graph data.";
-            dashEl.innerHTML = '<div class="text-danger">Could not load graph data. Check console / server logs.</div>';
+            console.error("Site Volume Graphs portal error:", e);
+            statusEl.textContent = "Error loading graph data. Check browser console and server logs.";
+            dashEl.innerHTML = '<div class="text-danger">Could not load graph data.</div>';
         });
     }
 
     async function search_define_monthly_production(term) {
         const r = await frappe.call({
-            method: "frappe.desk.search.search_link",
+            method: "is_production.templates.pages.portal_site_volume_graphs.search_define_monthly_production",
             args: {
-                doctype: "Define Monthly Production",
-                txt: term || "",
-                page_length: 20
+                txt: term || ""
             }
         });
 
-        return (r.message || []).map(function (row) {
-            return row.value || row.name || row;
-        });
+        return r.message || [];
     }
 
     async function render_dropdown() {
@@ -354,19 +408,19 @@
             const results = await search_define_monthly_production(term);
 
             if (!results.length) {
-                dropdown.innerHTML = '<div style="padding:10px 12px;color:#6c757d;">No matches found</div>';
+                dropdown.innerHTML = '<div class="portal-empty">No matches found</div>';
                 dropdown.style.display = "block";
                 return;
             }
 
             dropdown.innerHTML = results.map(function (option) {
-                return '<div class="portal-option" data-value="' + escapeHtml(option) + '" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f3f3f3;">' + escapeHtml(option) + '</div>';
+                return '<div class="portal-option" data-value="' + escapeHtml(option) + '">' + escapeHtml(option) + '</div>';
             }).join("");
 
             dropdown.style.display = "block";
         } catch (e) {
-            console.error(e);
-            dropdown.innerHTML = '<div style="padding:10px 12px;color:#6c757d;">No matches found</div>';
+            console.error("Search failed:", e);
+            dropdown.innerHTML = '<div class="portal-empty">No matches found</div>';
             dropdown.style.display = "block";
         }
     }
@@ -386,7 +440,8 @@
     });
 
     document.addEventListener("click", function (e) {
-        if (!input.closest(".portal-link-wrap").contains(e.target)) {
+        const wrap = input.closest(".portal-filter");
+        if (wrap && !wrap.contains(e.target)) {
             dropdown.style.display = "none";
         }
     });
@@ -396,8 +451,6 @@
         input.value = last;
         load_and_render(false);
         start_aligned_refresh();
-    } else {
-        statusEl.textContent = "Select a Monthly Production Plan to load the graphs.";
     }
 
     window.addEventListener("beforeunload", function () {
