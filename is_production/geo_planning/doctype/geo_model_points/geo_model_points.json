@@ -1,0 +1,146 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format: {variable_name}-{geo_project}-{geo_model_output}-{row_no}",
+ "creation": "2026-04-29 10:53:47.715810",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "geo_project",
+  "geo_model_output",
+  "import_batch",
+  "row_no",
+  "x",
+  "y",
+  "z",
+  "variable_name",
+  "version_tag",
+  "status",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Geo Project",
+   "options": "Geo Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "geo_model_output",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Geo Model Output",
+   "options": "Geo Model Output",
+   "reqd": 1
+  },
+  {
+   "fieldname": "import_batch",
+   "fieldtype": "Link",
+   "label": "Import Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "row_no",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Row No",
+   "reqd": 1
+  },
+  {
+   "fieldname": "x",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "X",
+   "reqd": 1
+  },
+  {
+   "fieldname": "y",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Y",
+   "reqd": 1
+  },
+  {
+   "fieldname": "z",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Z",
+   "reqd": 1
+  },
+  {
+   "fieldname": "variable_name",
+   "fieldtype": "Data",
+   "label": "Variable Name"
+  },
+  {
+   "fieldname": "version_tag",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Version Tag"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "\nDraft\nActive\nSuperseded"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks / Comments"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-29 11:01:30.672433",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Model Points",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

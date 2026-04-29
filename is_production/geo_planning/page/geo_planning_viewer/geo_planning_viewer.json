@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2026-04-29 12:49:52.651734",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-04-29 12:49:52.651734",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "geo-planning-viewer",
+ "owner": "Administrator",
+ "page_name": "geo-planning-viewer",
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Geo Planning Viewer"
+}

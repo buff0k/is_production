@@ -56,6 +56,7 @@
    "label": "Variable Name"
   },
   {
+   "fetch_from": "geo_import_batch.version_tag",
    "fieldname": "model_version",
    "fieldtype": "Data",
    "label": "Model Version",
@@ -128,7 +129,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-21 14:25:09.343320",
+ "modified": "2026-04-29 10:30:03.325513",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Model Output",

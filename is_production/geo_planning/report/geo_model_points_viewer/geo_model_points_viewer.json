@@ -1,0 +1,34 @@
+{
+ "add_total_row": 0,
+ "add_translate_data": 0,
+ "columns": [],
+ "creation": "2026-04-29 12:31:49.834279",
+ "disabled": 0,
+ "docstatus": 0,
+ "doctype": "Report",
+ "filters": [],
+ "idx": 0,
+ "is_standard": "Yes",
+ "letter_head": null,
+ "modified": "2026-04-29 12:31:49.834279",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Model Points Viewer",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "Geo Model Points",
+ "report_name": "Geo Model Points Viewer",
+ "report_type": "Script Report",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Production Manager"
+  },
+  {
+   "role": "Production User"
+  }
+ ],
+ "timeout": 0
+}

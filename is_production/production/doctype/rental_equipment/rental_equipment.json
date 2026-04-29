@@ -64,7 +64,7 @@
    "fieldname": "supplier",
    "fieldtype": "Select",
    "label": "Supplier",
-   "options": "MASSHIRE\nRAMTAG\nCollab Chain\nESJ Business Enterprise\nPhashash Global\nPhashash Global\nBARLOWORLD\nPregal Earthmoving\nLAMBSON'S HIRE\nMANYATHI\nNqobanqobile\nNdwandwe Ndwandwe\nMMS Solution\nMASIMENE\nTHA HOLDINGS\nMASIMENE SVUMELWANE\nLAMBSON HIRE\nIMBALENHLE MATERIALS HANDLINGS & PROJ\nDEWATERING PUMPS\nSENERIA SUPPLIERS\nPREGAL\nNANG WAM NANG WAM\nSENERIA SUPPLIERS\nDSA\nBELL\nKOBALCO\nCAT"
+   "options": "MASSHIRE\nRAMTAG\nCollab Chain\nESJ Business Enterprise\nPhashash Global\nPhashash Global\nBARLOWORLD\nPregal Earthmoving\nLAMBSON'S HIRE\nMANYATHI\nNqobanqobile\nNdwandwe Ndwandwe\nMMS Solution\nMASIMENE\nTHA HOLDINGS\nMASIMENE SVUMELWANE\nLAMBSON HIRE\nIMBALENHLE MATERIALS HANDLINGS & PROJ\nDEWATERING PUMPS\nSENERIA SUPPLIERS\nPREGAL\nNANG WAM NANG WAM\nSENERIA SUPPLIERS\nDSA\nBELL\nKOBALCO\nCAT\nHitachi"
   },
   {
    "fieldname": "last_refueling_hr_meter",
@@ -171,7 +171,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-28 14:10:34.295266",
+ "modified": "2026-04-29 08:38:40.698003",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Rental Equipment",
