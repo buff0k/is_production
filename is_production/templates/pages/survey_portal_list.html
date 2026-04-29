@@ -21,6 +21,10 @@
           <th>Site</th>
           <th>Sub Site</th>
           <th>Survey Date/Time</th>
+          <th>Total BCM</th>
+          <th>TS BCM</th>
+          <th>Dozing BCM</th>
+          <th>Coal Tons</th>
           <th>Status</th>
           <th>ERP Survey</th>
           <th>Actions</th>
@@ -35,6 +39,10 @@
             <td>{{ row.location or "" }}</td>
             <td>{{ row.sub_site_description or "" }}</td>
             <td>{{ row.survey_datetime or "" }}</td>
+            <td>{{ "%.1f"|format(row.total_surveyed_bcm or 0) }}</td>
+            <td>{{ "%.1f"|format(row.total_ts_bcm or 0) }}</td>
+            <td>{{ "%.1f"|format(row.total_dozing_bcm or 0) }}</td>
+            <td>{{ "%.1f"|format(row.total_surveyed_coal_tons or 0) }}</td>
 
             <td>
               {% if row.sent %}

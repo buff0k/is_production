@@ -7,10 +7,10 @@
  "field_order": [
   "portal_user",
   "last_production_shift_start_date",
-  "site",
+  "location",
   "sub_site_description",
   "survey_datetime",
-  "survey_documents",
+  "survey_report_notes",
   "total_surveyed_bcm",
   "total_ts_bcm",
   "total_dozing_bcm",
@@ -37,13 +37,6 @@
    "reqd": 1
   },
   {
-   "fieldname": "site",
-   "fieldtype": "Link",
-   "label": "Site",
-   "options": "Location",
-   "reqd": 1
-  },
-  {
    "fieldname": "sub_site_description",
    "fieldtype": "Data",
    "label": "Sub Site Description"
@@ -52,12 +45,6 @@
    "fieldname": "survey_datetime",
    "fieldtype": "Datetime",
    "label": "Survey Date and Time",
-   "reqd": 1
-  },
-  {
-   "fieldname": "survey_documents",
-   "fieldtype": "Attach",
-   "label": "Survey Documents",
    "reqd": 1
   },
   {
@@ -109,12 +96,25 @@
    "fieldtype": "Table",
    "label": "Surveyed Values",
    "options": "Survey Portal Draft Values"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Location",
+   "reqd": 1
+  },
+  {
+   "fieldname": "survey_report_notes",
+   "fieldtype": "Attach",
+   "label": "Survey Documents",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-28 15:40:59.117952",
+ "modified": "2026-04-28 15:52:46.218289",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Survey Portal Draft",

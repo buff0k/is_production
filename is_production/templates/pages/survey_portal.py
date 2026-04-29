@@ -1,7 +1,7 @@
+import json
 import frappe
 from frappe import _
-from frappe.utils import now_datetime
-from werkzeug.utils import redirect
+from frappe.utils import flt, now_datetime
 
 
 def get_context(context):
@@ -9,9 +9,7 @@ def get_context(context):
         frappe.local.flags.redirect_location = "/login"
         raise frappe.Redirect
 
-    roles = frappe.get_roles(frappe.session.user)
-    if "Supplier" not in roles:
-        frappe.throw(_("Not permitted"), frappe.PermissionError)
+    validate_supplier_user()
 
     context.no_cache = 1
     context.title = "Survey Portal"
@@ -25,9 +23,32 @@ def get_context(context):
 
     context.draft_name = frappe.form_dict.get("draft")
     context.draft = None
+    context.rows = []
+    context.shift_date_value = ""
+    context.survey_datetime_value = ""
 
     if context.draft_name:
         context.draft = get_supplier_draft(context.draft_name)
+
+        context.rows = [
+            {
+                "mat_type": row.mat_type or "",
+                "material_type_ref": row.material_type_ref or "",
+                "handling_method": row.handling_method or "",
+                "bcm": flt(row.bcm),
+                "rd": flt(row.rd),
+                "metric_tonnes": flt(row.metric_tonnes),
+            }
+            for row in (context.draft.surveyed_values or [])
+        ]
+
+        if context.draft.last_production_shift_start_date:
+            context.shift_date_value = str(context.draft.last_production_shift_start_date)
+
+        if context.draft.survey_datetime:
+            context.survey_datetime_value = context.draft.survey_datetime.strftime("%Y-%m-%dT%H:%M")
+
+    context.rows_json = frappe.as_json(context.rows)
 
     return context
 
@@ -35,19 +56,26 @@ def get_context(context):
 def get_supplier_draft(draft_name):
     draft = frappe.get_doc("Survey Portal Draft", draft_name)
 
-    if draft.portal_user != frappe.session.user:
+    if draft.portal_user != frappe.session.user and "System Manager" not in frappe.get_roles(frappe.session.user):
         frappe.throw(_("Not permitted"), frappe.PermissionError)
 
     return draft
 
 
 @frappe.whitelist(allow_guest=False)
-def save_survey_draft():
+def save_survey_draft(
+    draft_name=None,
+    last_production_shift_start_date=None,
+    location=None,
+    sub_site_description=None,
+    survey_datetime=None,
+    survey_report_notes=None,
+    surveyed_values=None,
+):
     validate_supplier_user()
 
-    data = frappe.form_dict
-
-    draft_name = data.get("draft_name")
+    rows = normalize_surveyed_values(surveyed_values)
+    totals = calculate_totals_from_rows(rows)
 
     if draft_name:
         draft = get_supplier_draft(draft_name)
@@ -57,19 +85,28 @@ def save_survey_draft():
         draft = frappe.new_doc("Survey Portal Draft")
         draft.portal_user = frappe.session.user
 
-    draft.last_production_shift_start_date = data.get("last_production_shift_start_date")
-    draft.location = data.get("location")
-    draft.sub_site_description = data.get("sub_site_description")
-    draft.survey_datetime = data.get("survey_datetime") or now_datetime()
-    draft.survey_report_notes = data.get("survey_report_notes")
+    draft.last_production_shift_start_date = last_production_shift_start_date
+    draft.location = location
+    draft.sub_site_description = sub_site_description
+    draft.survey_datetime = survey_datetime or now_datetime()
+    draft.survey_report_notes = survey_report_notes
+
+    draft.set("surveyed_values", [])
+    for row in rows:
+        draft.append("surveyed_values", row)
+
+    draft.total_surveyed_bcm = totals["total_surveyed_bcm"]
+    draft.total_ts_bcm = totals["total_ts_bcm"]
+    draft.total_dozing_bcm = totals["total_dozing_bcm"]
+    draft.total_surveyed_coal_tons = totals["total_surveyed_coal_tons"]
 
     draft.save(ignore_permissions=True)
-
     frappe.db.commit()
 
     return {
         "ok": True,
         "draft_name": draft.name,
+        "totals": totals,
     }
 
 
@@ -82,6 +119,9 @@ def send_survey_to_erp(draft_name):
     if draft.sent:
         frappe.throw(_("This survey has already been sent to ERP."))
 
+    if not draft.surveyed_values:
+        frappe.throw(_("Add at least one Surveyed Values row before sending to ERP."))
+
     survey = frappe.new_doc("Survey")
     survey.last_production_shift_start_date = draft.last_production_shift_start_date
     survey.location = draft.location
@@ -89,8 +129,26 @@ def send_survey_to_erp(draft_name):
     survey.survey_datetime = draft.survey_datetime
     survey.survey_report_notes = draft.survey_report_notes
 
-    # Child rows will be added once Surveyed Values child DocType fields are confirmed.
-    # survey.append("surveyed_values", {...})
+    plan_name, hourly_ref = get_plan_and_hourly_ref(
+        draft.last_production_shift_start_date,
+        draft.location,
+    )
+
+    if plan_name:
+        survey.monthly_production_plan_ref = plan_name
+
+    if hourly_ref:
+        survey.hourly_prod_ref = hourly_ref
+
+    for row in draft.surveyed_values:
+        survey.append("surveyed_values", {
+            "mat_type": row.mat_type,
+            "mat_type_ref": row.material_type_ref,
+            "handling_method": row.handling_method,
+            "bcm": flt(row.bcm),
+            "rd": flt(row.rd),
+            "metric_tonnes": flt(row.metric_tonnes),
+        })
 
     survey.insert(ignore_permissions=True)
 
@@ -107,9 +165,127 @@ def send_survey_to_erp(draft_name):
     }
 
 
+def normalize_surveyed_values(surveyed_values):
+    if not surveyed_values:
+        return []
+
+    if isinstance(surveyed_values, str):
+        raw_rows = json.loads(surveyed_values)
+    else:
+        raw_rows = surveyed_values
+
+    clean_rows = []
+
+    for raw in raw_rows or []:
+        mat_type = str(raw.get("mat_type") or "").strip()
+        material_type_ref = str(raw.get("material_type_ref") or "").strip()        
+        handling_method = str(raw.get("handling_method") or "").strip()
+        bcm_raw = raw.get("bcm")
+        rd_raw = raw.get("rd")
+
+        has_any_value = any([
+            mat_type,
+            handling_method,
+            str(bcm_raw or "").strip(),
+            str(rd_raw or "").strip(),
+        ])
+
+        if not has_any_value:
+            continue
+
+        if not mat_type:
+            frappe.throw(_("Each Surveyed Values row needs a Material Type."))
+
+        if not handling_method:
+            frappe.throw(_("Each Surveyed Values row needs a Handling Method."))
+
+        if bcm_raw in (None, ""):
+            frappe.throw(_("Each Surveyed Values row needs a BCM value."))
+
+        if rd_raw in (None, ""):
+            frappe.throw(_("Each Surveyed Values row needs an RD value."))
+
+        bcm = flt(bcm_raw)
+        rd = flt(rd_raw)
+        metric_tonnes = round(bcm * rd, 1)
+
+        clean_rows.append({
+            "mat_type": mat_type,
+            "material_type_ref": material_type_ref,
+            "handling_method": handling_method,
+            "bcm": bcm,
+            "rd": rd,
+            "metric_tonnes": metric_tonnes,
+        })
+
+    return clean_rows
+
+
+def calculate_totals_from_rows(rows):
+    total_surveyed_bcm = 0
+    total_ts_bcm = 0
+    total_dozing_bcm = 0
+    total_surveyed_coal_tons = 0
+
+    for row in rows:
+        bcm = flt(row.get("bcm"))
+        mt = flt(row.get("metric_tonnes"))
+
+        total_surveyed_bcm += bcm
+
+        if row.get("handling_method") == "Truck and Shovel":
+            total_ts_bcm += bcm
+        elif row.get("handling_method") == "Dozing":
+            total_dozing_bcm += bcm
+
+        if row.get("mat_type") == "Coal":
+            total_surveyed_coal_tons += mt
+
+    return {
+        "total_surveyed_bcm": total_surveyed_bcm,
+        "total_ts_bcm": total_ts_bcm,
+        "total_dozing_bcm": total_dozing_bcm,
+        "total_surveyed_coal_tons": total_surveyed_coal_tons,
+    }
+
+
+def get_plan_and_hourly_ref(shift_date, location):
+    if not shift_date or not location:
+        return None, None
+
+    plans = frappe.get_all(
+        "Monthly Production Planning",
+        fields=["name"],
+        filters=[
+            ["location", "=", location],
+            ["prod_month_start_date", "<=", shift_date],
+            ["prod_month_end_date", ">=", shift_date],
+        ],
+        order_by="prod_month_start_date asc",
+        limit_page_length=1,
+    )
+
+    if not plans:
+        return None, None
+
+    plan_name = plans[0].name
+    hourly_ref = None
+
+    mpp = frappe.get_doc("Monthly Production Planning", plan_name)
+    for row in (mpp.month_prod_days or []):
+        if str(row.shift_start_date) == str(shift_date):
+            hourly_ref = row.hourly_production_reference or ""
+            break
+
+    return plan_name, hourly_ref
+
+
 def validate_supplier_user():
     if frappe.session.user == "Guest":
         frappe.throw(_("Login required"), frappe.PermissionError)
 
-    if "Supplier" not in frappe.get_roles(frappe.session.user):
+    roles = set(frappe.get_roles(frappe.session.user))
+    allowed_roles = {"Supplier", "System Manager"}
+
+    if not roles.intersection(allowed_roles):
         frappe.throw(_("Not permitted"), frappe.PermissionError)

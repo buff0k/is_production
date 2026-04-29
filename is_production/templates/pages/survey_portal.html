@@ -2,115 +2,491 @@
 
 {% block page_content %}
 
-<div class="container" style="max-width: 1100px; margin-top: 25px;">
+<style>
+  .survey-portal-wrap {
+    max-width: 1250px;
+    margin: 30px auto;
+  }
 
-  <h2>Survey Portal</h2>
+  .survey-hero {
+    background: linear-gradient(135deg, #103d2b, #1e6f52);
+    color: #fff;
+    border-radius: 16px;
+    padding: 28px 30px;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  }
+
+  .survey-hero h1 {
+    margin: 0 0 8px 0;
+    font-size: 38px;
+    font-weight: 700;
+  }
+
+  .survey-hero p {
+    margin: 0;
+    opacity: 0.95;
+  }
+
+  .survey-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 24px rgba(16, 61, 43, 0.08);
+    margin-bottom: 22px;
+    border: 1px solid #e9f0ec;
+  }
+
+  .survey-card h3 {
+    margin-top: 0;
+    margin-bottom: 18px;
+    color: #103d2b;
+    font-weight: 700;
+  }
+
+  .survey-label {
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: block;
+    color: #244735;
+  }
+
+  .survey-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    overflow: hidden;
+    border-radius: 12px;
+  }
+
+  .survey-table th {
+    background: #eaf5ef;
+    color: #103d2b;
+    font-weight: 700;
+    padding: 12px 10px;
+    border: 1px solid #d6e8dc;
+  }
+
+  .survey-table td {
+    padding: 10px;
+    border: 1px solid #e2ece6;
+    vertical-align: middle;
+  }
+
+  .survey-table input,
+  .survey-table select {
+    min-width: 120px;
+  }
+
+  .totals-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+
+  .total-box {
+    background: #f7fbf8;
+    border: 1px solid #dcebe2;
+    border-radius: 14px;
+    padding: 18px;
+  }
+
+  .total-box .total-title {
+    color: #557564;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .total-box .total-value {
+    font-size: 26px;
+    font-weight: 700;
+    color: #103d2b;
+  }
+
+  .btn-survey-primary {
+    background: #103d2b;
+    border-color: #103d2b;
+    color: #fff;
+  }
+
+  .btn-survey-primary:hover,
+  .btn-survey-primary:focus {
+    background: #0d3122;
+    border-color: #0d3122;
+    color: #fff;
+  }
+
+  .btn-survey-secondary {
+    background: #1e6f52;
+    border-color: #1e6f52;
+    color: #fff;
+  }
+
+  .btn-survey-secondary:hover,
+  .btn-survey-secondary:focus {
+    background: #195b43;
+    border-color: #195b43;
+    color: #fff;
+  }
+
+  .survey-note {
+    background: #f5faf7;
+    border: 1px solid #dcebe2;
+    padding: 12px 14px;
+    border-radius: 10px;
+    margin-top: 12px;
+    color: #476556;
+  }
+
+  .table-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+
+  @media (max-width: 991px) {
+    .totals-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .totals-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="container survey-portal-wrap">
+
+  <div class="survey-hero">
+    <h1>Survey Portal</h1>
+  </div>
 
   <form id="survey-form">
 
     <input type="hidden" id="draft_name" value="{{ draft.name if draft else '' }}">
 
-    <div class="row">
-      <div class="col-md-6">
-        <label>Last Production Shift Start Date</label>
-        <input
-          type="date"
-          class="form-control"
-          id="last_production_shift_start_date"
-          required
-          value="{{ draft.last_production_shift_start_date if draft else '' }}"
-        >
+    <div class="survey-card">
+      <h3>Survey Details</h3>
+
+      <div class="row">
+        <div class="col-md-6">
+          <label class="survey-label">Last Production Shift Start Date</label>
+          <input
+            type="date"
+            class="form-control frappe-date-input"
+            id="last_production_shift_start_date"
+            required
+            value="{{ shift_date_value }}"
+            onclick="this.showPicker && this.showPicker()"
+          >
+        </div>
+
+        <div class="col-md-6">
+          <label class="survey-label">Site</label>
+          <select class="form-control" id="location" required>
+            <option value="">Select Site</option>
+            {% for loc in locations %}
+              <option value="{{ loc.name }}"
+                {% if draft and draft.location == loc.name %}selected{% endif %}
+              >
+                {{ loc.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
 
-      <div class="col-md-6">
-        <label>Site</label>
-        <select class="form-control" id="location" required>
-          <option value="">Select Site</option>
-          {% for loc in locations %}
-            <option value="{{ loc.name }}"
-              {% if draft and draft.location == loc.name %}selected{% endif %}
-            >
-              {{ loc.name }}
-            </option>
-          {% endfor %}
-        </select>
+      <br>
+
+      <div class="row">
+        <div class="col-md-6">
+          <label class="survey-label">Sub Site Description</label>
+          <input
+            type="text"
+            class="form-control"
+            id="sub_site_description"
+            value="{{ draft.sub_site_description if draft else '' }}"
+          >
+        </div>
+
+        <div class="col-md-6">
+          <label class="survey-label">Survey Date and Time</label>
+          <input
+            type="datetime-local"
+            class="form-control frappe-date-input"
+            id="survey_datetime"
+            required
+            value="{{ survey_datetime_value }}"
+            onclick="this.showPicker && this.showPicker()"
+          >
+        </div>
+      </div>
+
+      <br>
+
+      <div>
+        <label class="survey-label">Survey Document</label>
+        <input type="file" class="form-control" id="survey_report_file">
+        <input
+          type="hidden"
+          id="survey_report_notes"
+          value="{{ draft.survey_report_notes if draft else '' }}"
+        >
+
+        {% if draft and draft.survey_report_notes %}
+          <div class="survey-note">
+            Current file:
+            <a href="{{ draft.survey_report_notes }}" target="_blank">
+              {{ draft.survey_report_notes }}
+            </a>
+          </div>
+        {% endif %}
       </div>
     </div>
 
-    <br>
+    <div class="survey-card">
+      <h3>Survey Totals</h3>
 
-    <div class="row">
-      <div class="col-md-6">
-        <label>Sub Site Description</label>
-        <input
-          type="text"
-          class="form-control"
-          id="sub_site_description"
-          value="{{ draft.sub_site_description if draft else '' }}"
-        >
-      </div>
+      <div class="totals-grid">
+        <div class="total-box">
+          <div class="total-title">Total Surveyed BCM</div>
+          <div class="total-value" id="total_surveyed_bcm_display">0.0</div>
+        </div>
 
-      <div class="col-md-6">
-        <label>Survey Date and Time</label>
-        <input
-          type="datetime-local"
-          class="form-control"
-          id="survey_datetime"
-          required
-          value="{{ draft.survey_datetime if draft else '' }}"
-        >
+        <div class="total-box">
+          <div class="total-title">Total Truck and Shovel BCM</div>
+          <div class="total-value" id="total_ts_bcm_display">0.0</div>
+        </div>
+
+        <div class="total-box">
+          <div class="total-title">Total Dozing BCM</div>
+          <div class="total-value" id="total_dozing_bcm_display">0.0</div>
+        </div>
+
+        <div class="total-box">
+          <div class="total-title">Total Surveyed Coal Tons</div>
+          <div class="total-value" id="total_surveyed_coal_tons_display">0.0</div>
+        </div>
       </div>
     </div>
 
-    <br>
+    <div class="survey-card">
+      <h3>Surveyed Values</h3>
 
-    <div>
-      <label>Formal Survey Notes or Report</label>
-      <input type="file" class="form-control" id="survey_report_file">
-      <input
-        type="hidden"
-        id="survey_report_notes"
-        value="{{ draft.survey_report_notes if draft else '' }}"
-      >
+      <table class="survey-table">
+        <thead>
+          <tr>
+            <th style="width: 18%;">Material Type</th>
+            <th style="width: 18%;">Material Type Ref</th>
+            <th style="width: 18%;">Handling Method</th>
+            <th style="width: 16%;">BCM</th>
+            <th style="width: 16%;">RD</th>
+            <th style="width: 16%;">Metric Tonnes</th>
+            <th style="width: 8%;">Action</th>
+          </tr>
+        </thead>
+        <tbody id="surveyed-values-body"></tbody>
+      </table>
 
-      {% if draft and draft.survey_report_notes %}
-        <p style="margin-top: 8px;">
-          Current file:
-          <a href="{{ draft.survey_report_notes }}" target="_blank">
-            {{ draft.survey_report_notes }}
-          </a>
-        </p>
-      {% endif %}
+      <div class="table-actions">
+        <button type="button" class="btn btn-default" onclick="addSurveyRow()">
+          + Add Row
+        </button>
+      </div>
+
+      <div class="survey-note">
+        Metric Tonnes = BCM × RD. Only rows with Material Type = <strong>Coal</strong> count toward Total Surveyed Coal Tons.
+      </div>
     </div>
 
-    <hr>
+    <div class="survey-note">
+      Save Draft will only save this record in the portal. When you are sure the information is correct, click <strong>Send to ERP</strong>.
+    </div>
 
-    <h4>Surveyed Values</h4>
-
-    <p class="text-muted">
-      Child table fields will be added after Surveyed Values DocType JSON is confirmed.
-    </p>
-
-    <hr>
-
-    <button type="button" class="btn btn-primary" onclick="saveSurveyDraft()">
-      Save Draft
-    </button>
-
-    {% if draft and not draft.sent %}
-      <button type="button" class="btn btn-success" onclick="sendSurveyToERP()">
-        Send to ERP
+    <div class="table-actions" style="margin-bottom: 35px;">
+      <button type="button" class="btn btn-survey-primary" onclick="saveSurveyDraft()">
+        Save Draft
       </button>
-    {% endif %}
 
-    <a href="/survey_portal_list" class="btn btn-default">
-      View Saved Surveys
-    </a>
+      {% if draft and not draft.sent %}
+        <button type="button" class="btn btn-survey-secondary" onclick="sendSurveyToERP()">
+          Send to ERP
+        </button>
+      {% endif %}
+
+      <a href="/survey_portal_list" class="btn btn-default">
+        View Saved Surveys
+      </a>
+    </div>
 
   </form>
 </div>
 
+<script type="application/json" id="existing-rows-json">
+{{ rows_json or "[]" }}
+</script>
+
 <script>
+const existingRows = JSON.parse(
+  document.getElementById("existing-rows-json").textContent || "[]"
+);
+
+document.addEventListener("DOMContentLoaded", function () {
+  if (existingRows && existingRows.length) {
+    existingRows.forEach(function(row) {
+      addSurveyRow(row);
+    });
+  } else {
+    addSurveyRow();
+  }
+
+  recalculateTotals();
+});
+
+function addSurveyRow(row = {}) {
+  const tbody = document.getElementById("surveyed-values-body");
+  const tr = document.createElement("tr");
+
+  const bcm = row.bcm !== undefined && row.bcm !== null ? row.bcm : "";
+  const rd = row.rd !== undefined && row.rd !== null && row.rd !== "" ? row.rd : 1;
+  const metricTonnes = row.metric_tonnes !== undefined && row.metric_tonnes !== null && row.metric_tonnes !== ""
+    ? parseFloat(row.metric_tonnes).toFixed(1)
+    : "";
+
+  tr.innerHTML = `
+    <td>
+      <select class="form-control mat_type" onchange="recalculateRow(this)">
+        <option value="">Select</option>
+        <option value="Softs" ${row.mat_type === "Softs" ? "selected" : ""}>Softs</option>
+        <option value="Hards" ${row.mat_type === "Hards" ? "selected" : ""}>Hards</option>
+        <option value="Coal" ${row.mat_type === "Coal" ? "selected" : ""}>Coal</option>
+      </select>
+    </td>
+    <td>
+      <input type="text" class="form-control material_type_ref" value="${row.material_type_ref || ""}">
+    </td>    
+    <td>
+      <select class="form-control handling_method" onchange="recalculateRow(this)">
+        <option value="">Select</option>
+        <option value="Truck and Shovel" ${row.handling_method === "Truck and Shovel" ? "selected" : ""}>Truck and Shovel</option>
+        <option value="Dozing" ${row.handling_method === "Dozing" ? "selected" : ""}>Dozing</option>
+      </select>
+    </td>
+    <td>
+      <input type="number" step="0.001" class="form-control bcm" value="${bcm}" oninput="recalculateRow(this)">
+    </td>
+    <td>
+      <input type="number" step="0.001" class="form-control rd" value="${rd}" oninput="recalculateRow(this)">
+    </td>
+    <td>
+      <input type="number" step="0.001" class="form-control metric_tonnes" value="${metricTonnes}" readonly>
+    </td>
+    <td>
+      <button type="button" class="btn btn-danger btn-xs" onclick="removeSurveyRow(this)">Delete</button>
+    </td>
+  `;
+
+  tbody.appendChild(tr);
+  recalculateRow(tr.querySelector(".bcm"));
+}
+
+function removeSurveyRow(button) {
+  const row = button.closest("tr");
+  row.remove();
+
+  if (!document.querySelectorAll("#surveyed-values-body tr").length) {
+    addSurveyRow();
+  }
+
+  recalculateTotals();
+}
+
+function recalculateRow(element) {
+  const row = element.closest("tr");
+  const bcm = parseFloat(row.querySelector(".bcm").value) || 0;
+  const rd = parseFloat(row.querySelector(".rd").value) || 0;
+  const metricTonnes = bcm * rd;
+
+  row.querySelector(".metric_tonnes").value = metricTonnes ? metricTonnes.toFixed(1) : "";
+  recalculateTotals();
+}
+
+function recalculateTotals() {
+  let totalSurveyed = 0;
+  let totalTS = 0;
+  let totalDozing = 0;
+  let totalCoal = 0;
+
+  document.querySelectorAll("#surveyed-values-body tr").forEach(function(row) {
+    const matType = row.querySelector(".mat_type").value;
+    const handlingMethod = row.querySelector(".handling_method").value;
+    const bcm = parseFloat(row.querySelector(".bcm").value) || 0;
+    const rd = parseFloat(row.querySelector(".rd").value) || 0;
+    const metricTonnes = bcm * rd;
+
+    totalSurveyed += bcm;
+
+    if (handlingMethod === "Truck and Shovel") {
+      totalTS += bcm;
+    } else if (handlingMethod === "Dozing") {
+      totalDozing += bcm;
+    }
+
+    if (matType === "Coal") {
+      totalCoal += metricTonnes;
+    }
+  });
+
+  document.getElementById("total_surveyed_bcm_display").innerText = totalSurveyed.toFixed(1);
+  document.getElementById("total_ts_bcm_display").innerText = totalTS.toFixed(1);
+  document.getElementById("total_dozing_bcm_display").innerText = totalDozing.toFixed(1);
+  document.getElementById("total_surveyed_coal_tons_display").innerText = totalCoal.toFixed(1);
+}
+
+function collectSurveyRows() {
+  const rows = [];
+  let hasError = false;
+
+  document.querySelectorAll("#surveyed-values-body tr").forEach(function(row, index) {
+    const matType = row.querySelector(".mat_type").value;
+    const materialTypeRef = row.querySelector(".material_type_ref").value;
+    const handlingMethod = row.querySelector(".handling_method").value;
+    const bcm = row.querySelector(".bcm").value;
+    const rd = row.querySelector(".rd").value;
+    const metricTonnes = row.querySelector(".metric_tonnes").value;
+
+    const hasAnyValue = matType || handlingMethod || bcm || rd;
+
+    if (!hasAnyValue) {
+      return;
+    }
+
+    if (!matType || !handlingMethod || bcm === "" || rd === "") {
+      frappe.msgprint("Please complete all fields in Surveyed Values row " + (index + 1));
+      hasError = true;
+      return;
+    }
+
+    rows.push({
+      mat_type: matType,
+      material_type_ref: materialTypeRef,
+      handling_method: handlingMethod,
+      bcm: parseFloat(bcm) || 0,
+      rd: parseFloat(rd) || 0,
+      metric_tonnes: parseFloat(metricTonnes) || 0
+    });
+  });
+
+  if (hasError) {
+    return null;
+  }
+
+  return rows;
+}
+
 async function uploadSurveyFile() {
   const fileInput = document.getElementById("survey_report_file");
 
@@ -120,8 +496,10 @@ async function uploadSurveyFile() {
 
   const formData = new FormData();
   formData.append("file", fileInput.files[0]);
-  formData.append("is_private", 1);
-  formData.append("doctype", "Survey Portal Draft");
+  formData.append("is_private", "1");
+  formData.append("folder", "Home/Attachments");
+  formData.append("doctype", "");
+  formData.append("docname", "");
 
   const response = await fetch("/api/method/upload_file", {
     method: "POST",
@@ -142,7 +520,43 @@ async function uploadSurveyFile() {
 }
 
 async function saveSurveyDraft() {
-  const fileUrl = await uploadSurveyFile();
+  const rows = collectSurveyRows();
+  if (rows === null) return;
+
+  if (!document.getElementById("last_production_shift_start_date").value) {
+    frappe.msgprint("Please select Last Production Shift Start Date.");
+    return;
+  }
+
+  if (!document.getElementById("location").value) {
+    frappe.msgprint("Please select Site.");
+    return;
+  }
+
+  if (!document.getElementById("survey_datetime").value) {
+    frappe.msgprint("Please select Survey Date and Time.");
+    return;
+  }
+
+  if (!rows.length) {
+    frappe.msgprint("Please add at least one Surveyed Values row.");
+    return;
+  }
+
+  let fileUrl = "";
+
+  try {
+    fileUrl = await uploadSurveyFile();
+  } catch (e) {
+    frappe.msgprint("Survey Document upload failed. Please try again or use a smaller file.");
+    console.error(e);
+    return;
+  }
+
+  if (!fileUrl) {
+    frappe.msgprint("Please upload a Survey Document.");
+    return;
+  }
 
   frappe.call({
     method: "is_production.templates.pages.survey_portal.save_survey_draft",
@@ -152,13 +566,20 @@ async function saveSurveyDraft() {
       location: document.getElementById("location").value,
       sub_site_description: document.getElementById("sub_site_description").value,
       survey_datetime: document.getElementById("survey_datetime").value,
-      survey_report_notes: fileUrl
+      survey_report_notes: fileUrl,
+      surveyed_values: JSON.stringify(rows)
     },
     callback: function(r) {
       if (r.message && r.message.ok) {
-        frappe.msgprint("Draft saved");
+        frappe.msgprint("Draft saved. Review the record, then click Send to ERP only when you are sure.");
         window.location.href = "/survey_portal?draft=" + r.message.draft_name;
+      } else {
+        frappe.msgprint("Draft was not saved. Please check required fields and try again.");
       }
+    },
+    error: function(r) {
+      frappe.msgprint("Draft was not saved. Please check the form and try again.");
+      console.error(r);
     }
   });
 }
@@ -167,11 +588,19 @@ function sendSurveyToERP() {
   const draftName = document.getElementById("draft_name").value;
 
   if (!draftName) {
-    frappe.msgprint("Save draft first");
+    frappe.msgprint("Save Draft first. You can only send a saved portal record to ERP.");
     return;
   }
 
-  frappe.confirm("Send this survey to ERP?", function() {
+  const rows = collectSurveyRows();
+  if (rows === null) return;
+
+  if (!rows.length) {
+    frappe.msgprint("Cannot send to ERP. Please add at least one Surveyed Values row.");
+    return;
+  }
+
+  frappe.confirm("Are you sure you want to send this survey to ERP? After sending, this draft cannot be edited.", function() {
     frappe.call({
       method: "is_production.templates.pages.survey_portal.send_survey_to_erp",
       args: {
@@ -179,9 +608,21 @@ function sendSurveyToERP() {
       },
       callback: function(r) {
         if (r.message && r.message.ok) {
-          frappe.msgprint("Survey sent to ERP: " + r.message.survey_name);
+          frappe.msgprint("Survey sent to ERP successfully: " + r.message.survey_name);
           window.location.href = "/survey_portal_list";
+        } else {
+          frappe.msgprint("Survey was not sent to ERP. Please check the draft and try again.");
         }
+      },
+      error: function(r) {
+        let message = "Survey was not sent to ERP.";
+
+        if (r && r.message) {
+          message += "<br><br>" + r.message;
+        }
+
+        frappe.msgprint(message);
+        console.error(r);
       }
     });
   });
