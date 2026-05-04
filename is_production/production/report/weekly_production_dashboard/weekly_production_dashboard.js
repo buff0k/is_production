@@ -56,6 +56,11 @@ frappe.query_reports["Weekly Production Dashboard"] = {
 let weekly_dashboard_refresh_timer = null;
 
 
+function get_background_video_url() {
+	return "/files/plexus%20particle%20animation..mp4?v=20260422";
+}
+
+
 function auto_refresh_weekly_dashboard() {
 	clearTimeout(weekly_dashboard_refresh_timer);
 
@@ -76,15 +81,29 @@ function auto_refresh_weekly_dashboard() {
 
 
 function ensure_global_background_video() {
+	const video_url = get_background_video_url();
+
 	if (!$("#weekly-dashboard-global-bg").length) {
 		$("body").append(`
 			<div id="weekly-dashboard-global-bg">
 				<video autoplay muted loop playsinline>
-					<source src="/files/BACKROUND.mp4" type="video/mp4">
+					<source src="${video_url}" type="video/mp4">
 				</video>
 				<div class="weekly-dashboard-global-bg-overlay"></div>
 			</div>
 		`);
+	} else {
+		const source = $("#weekly-dashboard-global-bg source").first();
+		const video = $("#weekly-dashboard-global-bg video").first();
+
+		if (source.attr("src") !== video_url) {
+			source.attr("src", video_url);
+
+			if (video.length) {
+				video[0].load();
+				video[0].play().catch(function () {});
+			}
+		}
 	}
 
 	$("body").addClass("weekly-dashboard-body");
@@ -198,6 +217,7 @@ function hide_report_datatable() {
 
 	$("div").filter(function () {
 		const text = $(this).text().trim();
+
 		return (
 			text === "Nothing to show" ||
 			text.includes("This report was generated")
@@ -237,7 +257,7 @@ function render_weekly_dashboard(wrapper, filters, bcm, coal, diesel, equipment)
 
 	const dashboard_root = get_or_create_dashboard_root(wrapper);
 	const site_name = String(filters.site || "").toUpperCase();
-	const video_url = "/files/BACKROUND.mp4";
+	const video_url = get_background_video_url();
 
 	dashboard_root.html(`
 		${dashboard_styles()}
@@ -277,7 +297,7 @@ function render_weekly_dashboard(wrapper, filters, bcm, coal, diesel, equipment)
 
 						<div class="weekly-dashboard-card">
 							<h2>Recommendations</h2>
-							${render_recommendations(bcm, coal, diesel, equipment)}
+							${render_recommendations(bcm, coal, diesel, equipment, filters)}
 						</div>
 					</div>
 				</div>
@@ -333,7 +353,7 @@ function render_diesel_card(data) {
 
 			<div class="weekly-dashboard-metric-row weekly-dashboard-diesel-cap">
 				<span>Diesel Cap</span>
-				<strong>${format_number(data.cap, 1)}</strong>
+				<strong>${format_number(data.cap, 2)}</strong>
 			</div>
 		</div>
 	`;
@@ -376,19 +396,70 @@ function render_equipment_table(equipment) {
 }
 
 
-function render_recommendations(bcm, coal, diesel, equipment) {
+function is_coal_excluded_site(filters) {
+	const site_name = String(filters.site || "").toLowerCase();
+
+	return (
+		site_name.includes("mimosa") ||
+		site_name.includes("kriel rehab") ||
+		site_name.includes("kriel rehabilitation") ||
+		site_name.includes("kriel-rehab") ||
+		site_name.includes("kriel_rehab")
+	);
+}
+
+
+function render_recommendations(bcm, coal, diesel, equipment, filters) {
 	const recommendations = [];
+	const exclude_coal_recommendations = is_coal_excluded_site(filters);
 
-	if (as_number(bcm.progress) < 90 || as_number(coal.progress) < 90) {
-		recommendations.push(
-			`Production is behind: BCM at ${format_percent(bcm.progress)} and Coal at ${format_percent(coal.progress)} of monthly target. Create a catch-up plan for remaining ${format_number(Math.abs(as_number(bcm.remaining)))} BCM and ${format_number(Math.abs(as_number(coal.remaining)))} tons coal.`
-		);
-	}
+	const bcm_progress = as_number(bcm.progress);
+	const coal_progress = as_number(coal.progress);
+	const bcm_remaining = Math.abs(as_number(bcm.remaining));
+	const coal_remaining = Math.abs(as_number(coal.remaining));
 
-	if (as_number(coal.progress) < as_number(bcm.progress)) {
-		recommendations.push(
-			"Prioritise coal exposure and coal hauling; review drill/blast, loading areas, tip availability, and shift targets daily."
-		);
+	if (exclude_coal_recommendations) {
+		if (bcm_progress < 90) {
+			recommendations.push(
+				`Production is behind: BCM is at ${format_percent(bcm_progress)} of monthly target. Create a catch-up plan for remaining ${format_number(bcm_remaining)} BCM.`
+			);
+		} else if (bcm_progress >= 100) {
+			recommendations.push(
+				`Production is above target: BCM is at ${format_percent(bcm_progress)} of monthly target. Maintain the current production rate and monitor equipment availability, utilisation, and diesel usage.`
+			);
+		} else {
+			recommendations.push(
+				`Production is tracking close to target: BCM is at ${format_percent(bcm_progress)} of monthly target. Continue monitoring daily production, equipment availability, utilisation, and diesel usage.`
+			);
+		}
+	} else {
+		if (bcm_progress < 90 && coal_progress < 90) {
+			recommendations.push(
+				`Production is behind: BCM is at ${format_percent(bcm_progress)} and Coal is at ${format_percent(coal_progress)} of monthly target. Create a catch-up plan for remaining ${format_number(bcm_remaining)} BCM and ${format_number(coal_remaining)} tons coal.`
+			);
+		} else if (bcm_progress < 90 && coal_progress >= 100) {
+			recommendations.push(
+				`BCM production is behind at ${format_percent(bcm_progress)} of monthly target, while Coal is above target at ${format_percent(coal_progress)}. Create a BCM catch-up plan for remaining ${format_number(bcm_remaining)} BCM and maintain coal performance.`
+			);
+		} else if (bcm_progress >= 100 && coal_progress < 90) {
+			recommendations.push(
+				`BCM production is above target at ${format_percent(bcm_progress)}, but Coal is behind at ${format_percent(coal_progress)} of monthly target. Prioritise coal exposure and coal hauling to recover remaining ${format_number(coal_remaining)} tons coal.`
+			);
+		} else if (bcm_progress >= 100 && coal_progress >= 100) {
+			recommendations.push(
+				`Production is above target: BCM is at ${format_percent(bcm_progress)} and Coal is at ${format_percent(coal_progress)} of monthly target. Maintain the current production rate and keep monitoring equipment and diesel performance.`
+			);
+		} else {
+			recommendations.push(
+				`Production is tracking close to target: BCM is at ${format_percent(bcm_progress)} and Coal is at ${format_percent(coal_progress)} of monthly target. Continue monitoring daily targets, coal movement, equipment availability, utilisation, and diesel usage.`
+			);
+		}
+
+		if (coal_progress < bcm_progress && coal_progress < 90) {
+			recommendations.push(
+				"Prioritise coal exposure and coal hauling; review drill/blast, loading areas, tip availability, and shift targets daily."
+			);
+		}
 	}
 
 	if (equipment.length) {
@@ -397,13 +468,13 @@ function render_recommendations(bcm, coal, diesel, equipment) {
 		}, equipment[0]);
 
 		recommendations.push(
-			`Reduce ${lowest_util.equipment} queuing and improve road conditions/dispatching; ${lowest_util.equipment} utilisation is lowest at ${format_percent(lowest_util.utilisation)}.`
+			`Review ${lowest_util.equipment} utilisation; ${lowest_util.equipment} utilisation is lowest at ${format_percent(lowest_util.utilisation)}. Check queuing, road conditions, dispatching, and idle time.`
 		);
 
 		equipment.forEach(function (row) {
 			if (as_number(row.availability) < 85) {
 				recommendations.push(
-					`${row.equipment} utilisation is ${format_percent(row.utilisation)} but availability is ${format_percent(row.availability)}; plan maintenance windows and standby support to avoid breakdown losses.`
+					`${row.equipment} utilisation is ${format_percent(row.utilisation)} and availability is ${format_percent(row.availability)}; plan maintenance windows and standby support to avoid breakdown losses.`
 				);
 			}
 
@@ -422,9 +493,15 @@ function render_recommendations(bcm, coal, diesel, equipment) {
 	}
 
 	if (!recommendations.length) {
-		recommendations.push(
-			"Production and equipment performance are tracking within expected limits. Continue monitoring daily targets, equipment availability, utilisation, and diesel usage."
-		);
+		if (exclude_coal_recommendations) {
+			recommendations.push(
+				"Production and equipment performance are tracking within expected limits. Continue monitoring daily BCM targets, equipment availability, utilisation, and diesel usage."
+			);
+		} else {
+			recommendations.push(
+				"Production and equipment performance are tracking within expected limits. Continue monitoring daily targets, equipment availability, utilisation, coal movement, and diesel usage."
+			);
+		}
 	}
 
 	return `
