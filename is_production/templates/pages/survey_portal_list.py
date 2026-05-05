@@ -9,17 +9,20 @@ def get_context(context):
         raise frappe.Redirect
 
     roles = frappe.get_roles(frappe.session.user)
-    if "Supplier" not in roles:
+    if "External Surveyor" not in roles and "System Manager" not in roles:
         frappe.throw(_("Not permitted"), frappe.PermissionError)
 
     context.no_cache = 1
     context.title = "Survey Portal List"
 
+    filters = {}
+
+    if "System Manager" not in roles:
+        filters["owner"] = frappe.session.user
+
     context.records = frappe.get_all(
-        "Survey Portal Draft",
-        filters={
-            "portal_user": frappe.session.user,
-        },
+        "Survey",
+        filters=filters,
         fields=[
             "name",
             "last_production_shift_start_date",
@@ -30,9 +33,7 @@ def get_context(context):
             "total_ts_bcm",
             "total_dozing_bcm",
             "total_surveyed_coal_tons",
-            "sent",
-            "sent_datetime",
-            "erp_survey_ref",
+            "docstatus",
             "modified",
         ],
         order_by="modified desc",

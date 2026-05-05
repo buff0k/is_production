@@ -33,7 +33,7 @@ def get_context(context):
         context.rows = [
             {
                 "mat_type": row.mat_type or "",
-                "material_type_ref": row.material_type_ref or "",
+                "material_type_ref": row.mat_type_ref or "",
                 "handling_method": row.handling_method or "",
                 "bcm": flt(row.bcm),
                 "rd": flt(row.rd),
@@ -54,12 +54,15 @@ def get_context(context):
 
 
 def get_supplier_draft(draft_name):
-    draft = frappe.get_doc("Survey Portal Draft", draft_name)
+    survey = frappe.get_doc("Survey", draft_name)
 
-    if draft.portal_user != frappe.session.user and "System Manager" not in frappe.get_roles(frappe.session.user):
+    if survey.docstatus != 0:
+        frappe.throw(_("Submitted surveys cannot be edited from the portal."))
+
+    if survey.owner != frappe.session.user and "System Manager" not in frappe.get_roles(frappe.session.user):
         frappe.throw(_("Not permitted"), frappe.PermissionError)
 
-    return draft
+    return survey
 
 
 @frappe.whitelist(allow_guest=False)
@@ -79,11 +82,10 @@ def save_survey_draft(
 
     if draft_name:
         draft = get_supplier_draft(draft_name)
-        if draft.sent:
-            frappe.throw(_("This survey has already been sent to ERP."))
+        if draft.docstatus != 0:
+            frappe.throw(_("Submitted surveys cannot be edited."))
     else:
-        draft = frappe.new_doc("Survey Portal Draft")
-        draft.portal_user = frappe.session.user
+        draft = frappe.new_doc("Survey")
 
     draft.last_production_shift_start_date = last_production_shift_start_date
     draft.location = location
@@ -114,49 +116,15 @@ def save_survey_draft(
 def send_survey_to_erp(draft_name):
     validate_supplier_user()
 
-    draft = get_supplier_draft(draft_name)
+    survey = get_supplier_draft(draft_name)
 
-    if draft.sent:
-        frappe.throw(_("This survey has already been sent to ERP."))
+    if survey.docstatus != 0:
+        frappe.throw(_("This survey is already submitted."))
 
-    if not draft.surveyed_values:
-        frappe.throw(_("Add at least one Surveyed Values row before sending to ERP."))
+    if not survey.surveyed_values:
+        frappe.throw(_("Add at least one Surveyed Values row before submitting."))
 
-    survey = frappe.new_doc("Survey")
-    survey.last_production_shift_start_date = draft.last_production_shift_start_date
-    survey.location = draft.location
-    survey.sub_site_description = draft.sub_site_description
-    survey.survey_datetime = draft.survey_datetime
-    survey.survey_report_notes = draft.survey_report_notes
-
-    plan_name, hourly_ref = get_plan_and_hourly_ref(
-        draft.last_production_shift_start_date,
-        draft.location,
-    )
-
-    if plan_name:
-        survey.monthly_production_plan_ref = plan_name
-
-    if hourly_ref:
-        survey.hourly_prod_ref = hourly_ref
-
-    for row in draft.surveyed_values:
-        survey.append("surveyed_values", {
-            "mat_type": row.mat_type,
-            "mat_type_ref": row.material_type_ref,
-            "handling_method": row.handling_method,
-            "bcm": flt(row.bcm),
-            "rd": flt(row.rd),
-            "metric_tonnes": flt(row.metric_tonnes),
-        })
-
-    survey.insert(ignore_permissions=True)
-
-    draft.sent = 1
-    draft.sent_datetime = now_datetime()
-    draft.erp_survey_ref = survey.name
-    draft.save(ignore_permissions=True)
-
+    survey.submit()
     frappe.db.commit()
 
     return {
@@ -211,7 +179,7 @@ def normalize_surveyed_values(surveyed_values):
 
         clean_rows.append({
             "mat_type": mat_type,
-            "material_type_ref": material_type_ref,
+            "mat_type_ref": material_type_ref,
             "handling_method": handling_method,
             "bcm": bcm,
             "rd": rd,
@@ -285,7 +253,7 @@ def validate_supplier_user():
         frappe.throw(_("Login required"), frappe.PermissionError)
 
     roles = set(frappe.get_roles(frappe.session.user))
-    allowed_roles = {"Supplier", "System Manager"}
+    allowed_roles = {"External Surveyor", "System Manager"}
 
     if not roles.intersection(allowed_roles):
         frappe.throw(_("Not permitted"), frappe.PermissionError)

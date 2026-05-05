@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class SurveyPortalDraftValues(Document):
+class PitOutlinePoints(Document):
 	pass

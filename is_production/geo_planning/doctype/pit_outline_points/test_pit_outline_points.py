@@ -13,9 +13,9 @@ IGNORE_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
 
 
 
-class IntegrationTestSurveyPortalDraft(IntegrationTestCase):
+class IntegrationTestPitOutlinePoints(IntegrationTestCase):
 	"""
-	Integration tests for SurveyPortalDraft.
+	Integration tests for PitOutlinePoints.
 	Use this class for testing interactions between multiple components.
 	"""
 

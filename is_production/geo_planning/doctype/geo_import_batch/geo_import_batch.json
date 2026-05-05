@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format: {batch_id}-{geo_project}",
+ "autoname": "format: {geo_project}-{batch_id}",
  "creation": "2026-02-14 14:55:21.363776",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -11,7 +11,9 @@
   "geo_project",
   "source_system",
   "source_type",
+  "variable_code",
   "variable_name",
+  "full_name",
   "version_tag",
   "processing_status",
   "approval_status",
@@ -49,7 +51,6 @@
    "fieldname": "version_tag",
    "fieldtype": "Data",
    "label": "Version Tag",
-   "reqd": 1,
    "search_index": 1
   },
   {
@@ -174,12 +175,22 @@
    "fieldname": "variable_name",
    "fieldtype": "Data",
    "label": "Variable Name"
+  },
+  {
+   "fieldname": "variable_code",
+   "fieldtype": "Data",
+   "label": "Variable Code"
+  },
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "label": "Full Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-04-29 10:41:34.341893",
+ "modified": "2026-05-04 10:30:47.038540",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Import Batch",

@@ -2,6 +2,34 @@
 
 {% block page_content %}
 
+
+
+
+<style>
+  .status-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .status-draft {
+    background: #fff3cd;
+    color: #8a6d00;
+    border: 1px solid #ffe08a;
+  }
+
+  .status-submitted {
+    background: #dbeafe;
+    color: #1d4ed8;
+    border: 1px solid #93c5fd;
+  }
+</style>
+
+
+
+
 <div class="container" style="max-width: 1200px; margin-top: 25px;">
 
   <h2>Saved Surveys</h2>
@@ -16,7 +44,7 @@
     <table class="table table-bordered table-hover">
       <thead>
         <tr>
-          <th>Draft</th>
+          <th>Survey</th>
           <th>Shift Start Date</th>
           <th>Site</th>
           <th>Sub Site</th>
@@ -45,25 +73,19 @@
             <td>{{ "%.1f"|format(row.total_surveyed_coal_tons or 0) }}</td>
 
             <td>
-              {% if row.sent %}
-                <span class="label label-success">Sent</span>
+              {% if row.docstatus == 1 %}
+                <span class="status-badge status-submitted">Submitted</span>
               {% else %}
-                <span class="label label-warning">Draft</span>
+                <span class="status-badge status-draft">Draft</span>
               {% endif %}
             </td>
 
             <td>
-              {% if row.erp_survey_ref %}
-                <a href="/app/survey/{{ row.erp_survey_ref }}" target="_blank">
-                  {{ row.erp_survey_ref }}
-                </a>
-              {% else %}
-                -
-              {% endif %}
+              {{ row.name }}
             </td>
 
             <td>
-              {% if not row.sent %}
+              {% if row.docstatus == 0 %}
                 <a
                   class="btn btn-xs btn-default"
                   href="/survey_portal?draft={{ row.name }}"
@@ -71,19 +93,13 @@
                   Edit
                 </a>
 
-                <button
-                  class="btn btn-xs btn-success"
-                  onclick="sendSurveyToERP('{{ row.name }}')"
-                >
-                  Send
-                </button>
+                <span class="btn btn-xs btn-default disabled">
+                  ERP Draft
+                </span>
               {% else %}
-                <a
-                  class="btn btn-xs btn-default"
-                  href="/survey_portal?draft={{ row.name }}"
-                >
-                  View
-                </a>
+                <span class="btn btn-xs btn-default disabled">
+                  Submitted
+                </span>
               {% endif %}
             </td>
           </tr>
@@ -100,7 +116,7 @@
 
 <script>
 function sendSurveyToERP(draftName) {
-  frappe.confirm("Send this survey to ERP?", function() {
+  frappe.confirm("Submit this survey? It cannot be edited from the portal after submit.", function() {
     frappe.call({
       method: "is_production.templates.pages.survey_portal.send_survey_to_erp",
       args: {
@@ -108,7 +124,7 @@ function sendSurveyToERP(draftName) {
       },
       callback: function(r) {
         if (r.message && r.message.ok) {
-          frappe.msgprint("Survey sent to ERP: " + r.message.survey_name);
+          frappe.msgprint("Survey submitted: " + r.message.survey_name);
           window.location.reload();
         }
       }

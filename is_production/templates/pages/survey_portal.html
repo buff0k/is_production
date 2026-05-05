@@ -302,19 +302,19 @@
       </div>
     </div>
 
-    <div class="survey-note">
-      Save Draft will only save this record in the portal. When you are sure the information is correct, click <strong>Send to ERP</strong>.
+    <div class="survey-note">      Save Draft saves this Survey directly in ERP as a draft. You can reopen and edit it from this portal until it is submitted inside ERP.
+
     </div>
 
     <div class="table-actions" style="margin-bottom: 35px;">
       <button type="button" class="btn btn-survey-primary" onclick="saveSurveyDraft()">
-        Save Draft
+        {% if draft %}Update Survey Draft{% else %}Save Draft{% endif %}
       </button>
 
-      {% if draft and not draft.sent %}
-        <button type="button" class="btn btn-survey-secondary" onclick="sendSurveyToERP()">
-          Send to ERP
-        </button>
+      {% if draft %}
+        <span class="btn btn-default disabled">
+          Editing ERP Survey: {{ draft.name }}
+        </span>
       {% endif %}
 
       <a href="/survey_portal_list" class="btn btn-default">
@@ -571,7 +571,7 @@ async function saveSurveyDraft() {
     },
     callback: function(r) {
       if (r.message && r.message.ok) {
-        frappe.msgprint("Draft saved. Review the record, then click Send to ERP only when you are sure.");
+        frappe.msgprint("Survey draft saved in ERP. You can reopen and edit it from the portal until it is submitted inside ERP.");
         window.location.href = "/survey_portal?draft=" + r.message.draft_name;
       } else {
         frappe.msgprint("Draft was not saved. Please check required fields and try again.");
@@ -600,7 +600,7 @@ function sendSurveyToERP() {
     return;
   }
 
-  frappe.confirm("Are you sure you want to send this survey to ERP? After sending, this draft cannot be edited.", function() {
+  frappe.confirm("Are you sure you want to submit this survey? After submit, it cannot be edited from the portal.", function() {
     frappe.call({
       method: "is_production.templates.pages.survey_portal.send_survey_to_erp",
       args: {

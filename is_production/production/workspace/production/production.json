@@ -571,8 +571,37 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Mine Planning Reports",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Geo Model Points Viewer",
+   "link_count": 0,
+   "link_to": "Geo Model Points Viewer",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Plan View",
+   "link_count": 0,
+   "link_to": "geo-planning-viewer",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Mine Planning ",
-   "link_count": 5,
+   "link_count": 6,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -630,34 +659,15 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Mine Planning Reports",
-   "link_count": 2,
+   "label": "Pit Outline Points",
+   "link_count": 0,
+   "link_to": "Pit Outline Points",
    "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Geo Model Points Viewer",
-   "link_count": 0,
-   "link_to": "Geo Model Points Viewer",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Plan View",
-   "link_count": 0,
-   "link_to": "geo-planning-viewer",
-   "link_type": "Page",
    "onboard": 0,
    "type": "Link"
   }
  ],
- "modified": "2026-04-29 13:31:30.990887",
+ "modified": "2026-05-04 12:14:04.556875",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

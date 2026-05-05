@@ -767,11 +767,11 @@ function dashboard_styles() {
 
 			.weekly-dashboard-metric-row strong {
 				font-size: 15px;
-				font-weight: 400 !important;
+				font-weight: 800 !important;
 				font-style: italic !important;
 				color: #ffffff;
 				letter-spacing: 0.2px;
-				text-shadow: 0 2px 7px rgba(0,0,0,1), 0 0 8px rgba(255,255,255,0.18);
+				text-shadow: 0 2px 7px rgba(0,0,0,1), 0 0 8px rgba(255,255,255,0.25);
 			}
 
 			.weekly-dashboard-diesel-cap {
@@ -780,12 +780,12 @@ function dashboard_styles() {
 
 			.weekly-dashboard-progress-text {
 				font-size: 13px;
-				font-weight: 400 !important;
+				font-weight: 700 !important;
 				font-style: italic !important;
 				color: #ffffff;
 				margin-top: 14px;
 				margin-bottom: 6px;
-				text-shadow: 0 2px 7px rgba(0,0,0,1), 0 0 8px rgba(255,255,255,0.18);
+				text-shadow: 0 2px 7px rgba(0,0,0,1), 0 0 8px rgba(255,255,255,0.22);
 			}
 
 			.weekly-dashboard-progress-bg {
@@ -813,7 +813,7 @@ function dashboard_styles() {
 				color: #ffffff;
 				text-align: left;
 				padding: 10px;
-				font-weight: 400 !important;
+				font-weight: 700 !important;
 				font-style: italic !important;
 				text-shadow: 0 2px 7px rgba(0,0,0,1);
 			}
@@ -821,10 +821,18 @@ function dashboard_styles() {
 			.weekly-dashboard-equipment-table td {
 				border-bottom: 1px solid rgba(255, 255, 255, 0.24);
 				padding: 10px;
-				font-weight: 400 !important;
+				font-weight: 500 !important;
 				font-style: italic !important;
 				color: #ffffff;
 				text-shadow: 0 2px 6px rgba(0,0,0,1);
+			}
+
+			.weekly-dashboard-equipment-table td:nth-child(2),
+			.weekly-dashboard-equipment-table td:nth-child(3) {
+				font-weight: 800 !important;
+				color: #ffffff;
+				letter-spacing: 0.2px;
+				text-shadow: 0 2px 7px rgba(0,0,0,1), 0 0 8px rgba(255,255,255,0.25);
 			}
 
 			.weekly-dashboard-recommendations {
