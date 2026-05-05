@@ -96,3 +96,18 @@ scheduler_events = {
         ],
     }
 }
+
+standard_portal_menu_items = [
+	{
+		"title": "Capture Survey",
+		"route": "/survey_portal",
+		"reference_doctype": "Survey",
+		"role": "External Surveyor",
+	},
+	{
+		"title": "My Surveys",
+		"route": "/survey_portal_list",
+		"reference_doctype": "Survey",
+		"role": "External Surveyor",
+	}
+]

@@ -130,11 +130,11 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-16 10:28:35.749170",
+ "modified": "2026-05-05 08:17:09.985724",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Survey",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -149,6 +149,7 @@
    "read": 1,
    "report": 1,
    "role": "System Manager",
+   "select": 1,
    "share": 1,
    "submit": 1,
    "write": 1
@@ -161,6 +162,7 @@
    "read": 1,
    "report": 1,
    "role": "External Surveyor",
+   "select": 1,
    "share": 1,
    "write": 1
   },
@@ -168,13 +170,13 @@
    "amend": 1,
    "cancel": 1,
    "create": 1,
-   "delete": 1,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
    "role": "Production Manager",
+   "select": 1,
    "share": 1,
    "submit": 1,
    "write": 1
