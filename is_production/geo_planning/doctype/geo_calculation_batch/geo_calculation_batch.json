@@ -1,0 +1,339 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format: {geo_project}-{batch_id}",
+ "creation": "2026-05-06 11:59:20.586195",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "calculation_batch",
+  "batch_id",
+  "geo_project",
+  "geo_model_output",
+  "version_tag",
+  "calculation_name",
+  "source_mode",
+  "calculation_type",
+  "processing_status",
+  "approval_status",
+  "calculated_by",
+  "calculation_date",
+  "approved_by",
+  "approval_date",
+  "column_break_bmoa",
+  "calculated_variable_code",
+  "calculated_variable_name",
+  "calculated_full_name",
+  "replace_existing",
+  "coordinate_rounding",
+  "match_tolerance",
+  "allow_negative_values",
+  "reference_section",
+  "reference_import_batch",
+  "reference_file_attachment",
+  "reference_variable_code",
+  "reference_variable_name",
+  "reference_full_name",
+  "target_section",
+  "target_import_batch",
+  "target_file_attachment",
+  "target_variable_code",
+  "target_variable_name",
+  "target_full_name",
+  "results_section",
+  "reference_row_count",
+  "target_row_count",
+  "matched_count",
+  "missing_reference_count",
+  "missing_target_count",
+  "success_count",
+  "error_count",
+  "reference_file_hash",
+  "target_file_hash",
+  "calculation_log",
+  "comments"
+ ],
+ "fields": [
+  {
+   "fieldname": "calculation_batch",
+   "fieldtype": "Section Break",
+   "label": "Calculation Batch"
+  },
+  {
+   "fieldname": "batch_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "geo_model_output",
+   "fieldtype": "Link",
+   "label": "Geo Model Output",
+   "options": "Geo Model Output"
+  },
+  {
+   "fieldname": "version_tag",
+   "fieldtype": "Data",
+   "label": "Version Tag",
+   "reqd": 1
+  },
+  {
+   "fieldname": "calculation_name",
+   "fieldtype": "Data",
+   "label": "Calculation Name",
+   "reqd": 1
+  },
+  {
+   "default": "Attached Files",
+   "fieldname": "source_mode",
+   "fieldtype": "Select",
+   "label": "Source Mode",
+   "options": "\nAttached Files\nExisting Import Batches",
+   "reqd": 1
+  },
+  {
+   "default": "Reference Minus Target",
+   "fieldname": "calculation_type",
+   "fieldtype": "Select",
+   "label": "Calculation Type",
+   "options": "\nReference Minus Target\nTarget Minus Reference\nAbsolute Difference",
+   "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "processing_status",
+   "fieldtype": "Select",
+   "label": "Processing Status",
+   "options": "\nDraft\nValidated\nProcessing\nProcessed\nError"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "approval_status",
+   "fieldtype": "Select",
+   "label": "Approval Status",
+   "options": "\nDraft\nApproved\nRejected\nSuperseded"
+  },
+  {
+   "fieldname": "calculated_by",
+   "fieldtype": "Link",
+   "label": "Calculated By",
+   "options": "User"
+  },
+  {
+   "fieldname": "calculation_date",
+   "fieldtype": "Datetime",
+   "label": "Calculation Date"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "User"
+  },
+  {
+   "fieldname": "column_break_bmoa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "approval_date",
+   "fieldtype": "Datetime",
+   "label": "Approval Date"
+  },
+  {
+   "fieldname": "calculated_variable_code",
+   "fieldtype": "Data",
+   "label": "Calculated Variable Code"
+  },
+  {
+   "fieldname": "calculated_variable_name",
+   "fieldtype": "Data",
+   "label": "Calculated Variable Name"
+  },
+  {
+   "fieldname": "calculated_full_name",
+   "fieldtype": "Data",
+   "label": "Calculated Full Name"
+  },
+  {
+   "default": "1",
+   "fieldname": "replace_existing",
+   "fieldtype": "Check",
+   "label": "Replace Existing"
+  },
+  {
+   "default": "2",
+   "fieldname": "coordinate_rounding",
+   "fieldtype": "Int",
+   "label": "Coordinate Rounding"
+  },
+  {
+   "fieldname": "match_tolerance",
+   "fieldtype": "Float",
+   "label": "Match Tolerance"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_negative_values",
+   "fieldtype": "Check",
+   "label": "Allow Negative Values"
+  },
+  {
+   "fieldname": "reference_section",
+   "fieldtype": "Section Break",
+   "label": "Reference Surface"
+  },
+  {
+   "fieldname": "reference_import_batch",
+   "fieldtype": "Link",
+   "label": "Reference Import Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "reference_file_attachment",
+   "fieldtype": "Attach",
+   "label": "Reference File Attachment"
+  },
+  {
+   "fieldname": "reference_variable_code",
+   "fieldtype": "Data",
+   "label": "Reference Variable Code"
+  },
+  {
+   "fieldname": "reference_variable_name",
+   "fieldtype": "Data",
+   "label": "Reference Variable Name"
+  },
+  {
+   "fieldname": "reference_full_name",
+   "fieldtype": "Data",
+   "label": "Reference Full Name"
+  },
+  {
+   "fieldname": "target_section",
+   "fieldtype": "Section Break",
+   "label": "Target Surface"
+  },
+  {
+   "fieldname": "target_import_batch",
+   "fieldtype": "Link",
+   "label": "Target Import Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "target_file_attachment",
+   "fieldtype": "Attach",
+   "label": "Target File Attachment"
+  },
+  {
+   "fieldname": "target_variable_code",
+   "fieldtype": "Data",
+   "label": "Target Variable Code"
+  },
+  {
+   "fieldname": "target_variable_name",
+   "fieldtype": "Data",
+   "label": "Target Variable Name"
+  },
+  {
+   "fieldname": "target_full_name",
+   "fieldtype": "Data",
+   "label": "Target Full Name"
+  },
+  {
+   "fieldname": "results_section",
+   "fieldtype": "Section Break",
+   "label": "Results"
+  },
+  {
+   "fieldname": "reference_row_count",
+   "fieldtype": "Int",
+   "label": "Reference Row Count"
+  },
+  {
+   "fieldname": "target_row_count",
+   "fieldtype": "Int",
+   "label": "Target Row Count"
+  },
+  {
+   "fieldname": "matched_count",
+   "fieldtype": "Int",
+   "label": "Matched Count"
+  },
+  {
+   "fieldname": "missing_reference_count",
+   "fieldtype": "Int",
+   "label": "Missing Reference Count"
+  },
+  {
+   "fieldname": "missing_target_count",
+   "fieldtype": "Int",
+   "label": "Missing Target Count"
+  },
+  {
+   "fieldname": "success_count",
+   "fieldtype": "Int",
+   "label": "Success Count"
+  },
+  {
+   "fieldname": "error_count",
+   "fieldtype": "Int",
+   "label": "Error Count"
+  },
+  {
+   "fieldname": "reference_file_hash",
+   "fieldtype": "Data",
+   "label": "Reference File Hash"
+  },
+  {
+   "fieldname": "target_file_hash",
+   "fieldtype": "Data",
+   "label": "Target File Hash"
+  },
+  {
+   "fieldname": "calculation_log",
+   "fieldtype": "Long Text",
+   "label": "Calculation Log"
+  },
+  {
+   "fieldname": "comments",
+   "fieldtype": "Small Text",
+   "label": "Comments"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-06 13:42:26.316414",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Calculation Batch",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

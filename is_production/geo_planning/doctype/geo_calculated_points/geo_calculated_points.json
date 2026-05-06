@@ -1,0 +1,177 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format: {variable_code}-{geo_project}-{calculation_batch}-{row_no}",
+ "creation": "2026-05-06 12:25:31.629854",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "geo_project",
+  "geo_model_output",
+  "calculation_batch",
+  "row_no",
+  "x",
+  "y",
+  "z",
+  "calculated_z",
+  "reference_z",
+  "target_z",
+  "reference_variable_code",
+  "reference_variable_name",
+  "target_variable_code",
+  "target_variable_name",
+  "variable_code",
+  "variable_name",
+  "full_name",
+  "calculation_type",
+  "match_status",
+  "version_tag",
+  "status",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "geo_model_output",
+   "fieldtype": "Link",
+   "label": "Geo Model Output",
+   "options": "Geo Model Output"
+  },
+  {
+   "fieldname": "calculation_batch",
+   "fieldtype": "Link",
+   "label": "Calculation Batch",
+   "options": "Geo Calculation Batch"
+  },
+  {
+   "fieldname": "row_no",
+   "fieldtype": "Int",
+   "label": "Row No"
+  },
+  {
+   "fieldname": "x",
+   "fieldtype": "Float",
+   "label": "X"
+  },
+  {
+   "fieldname": "y",
+   "fieldtype": "Float",
+   "label": "Y"
+  },
+  {
+   "fieldname": "z",
+   "fieldtype": "Float",
+   "label": "Z"
+  },
+  {
+   "fieldname": "calculated_z",
+   "fieldtype": "Float",
+   "label": "Calculated Z"
+  },
+  {
+   "fieldname": "reference_z",
+   "fieldtype": "Float",
+   "label": "Reference Z"
+  },
+  {
+   "fieldname": "target_z",
+   "fieldtype": "Float",
+   "label": "Target Z"
+  },
+  {
+   "fieldname": "reference_variable_code",
+   "fieldtype": "Data",
+   "label": "Reference Variable Code"
+  },
+  {
+   "fieldname": "reference_variable_name",
+   "fieldtype": "Data",
+   "label": "Reference Variable Name"
+  },
+  {
+   "fieldname": "target_variable_code",
+   "fieldtype": "Data",
+   "label": "Target Variable Code"
+  },
+  {
+   "fieldname": "target_variable_name",
+   "fieldtype": "Data",
+   "label": "Target Variable Name"
+  },
+  {
+   "fieldname": "variable_code",
+   "fieldtype": "Data",
+   "label": "Variable Code"
+  },
+  {
+   "fieldname": "variable_name",
+   "fieldtype": "Data",
+   "label": "Variable Name"
+  },
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "label": "Full Name"
+  },
+  {
+   "fieldname": "calculation_type",
+   "fieldtype": "Data",
+   "label": "Calculation Type"
+  },
+  {
+   "fieldname": "match_status",
+   "fieldtype": "Select",
+   "label": "Match Status",
+   "options": "\nMatched\nMissing Reference\nMissing Target\nError"
+  },
+  {
+   "fieldname": "version_tag",
+   "fieldtype": "Data",
+   "label": "Version Tag"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "\nDraft\nActive\nSuperseded"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-06 13:29:53.209177",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Calculated Points",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

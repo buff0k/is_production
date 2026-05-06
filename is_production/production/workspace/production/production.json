@@ -601,7 +601,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Mine Planning ",
-   "link_count": 6,
+   "link_count": 8,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -665,9 +665,29 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Calculation Batch",
+   "link_count": 0,
+   "link_to": "Geo Calculation Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Calculated Points",
+   "link_count": 0,
+   "link_to": "Geo Calculated Points",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-05-04 12:14:04.556875",
+ "modified": "2026-05-06 13:32:47.999660",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

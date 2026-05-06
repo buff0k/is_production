@@ -47,14 +47,96 @@ def _int(value, default=0):
 		return default
 
 
+def _is_enabled(value):
+	return str(value or "").lower() in ["1", "true", "yes", "on"]
+
+
+def _apply_z_filter(rows, z_filter_enabled=None, z_filter_mode=None, z_filter_value=None, z_filter_value_to=None):
+	if not _is_enabled(z_filter_enabled):
+		return rows
+
+	mode = z_filter_mode or "Less Than"
+	value = _float(z_filter_value, None)
+	value_to = _float(z_filter_value_to, None)
+
+	if value is None:
+		return rows
+
+	filtered = []
+
+	for row in rows:
+		z = row.get("z")
+
+		if z is None:
+			z = row.get("calculated_z")
+
+		try:
+			z = float(z)
+		except Exception:
+			continue
+
+		keep = True
+
+		if mode == "Less Than":
+			keep = z < value
+		elif mode == "Less Than Or Equal":
+			keep = z <= value
+		elif mode == "Greater Than":
+			keep = z > value
+		elif mode == "Greater Than Or Equal":
+			keep = z >= value
+		elif mode == "Equal":
+			keep = z == value
+		elif mode == "Between":
+			if value_to is None:
+				keep = True
+			else:
+				low = min(value, value_to)
+				high = max(value, value_to)
+				keep = low <= z <= high
+		elif mode == "Outside":
+			if value_to is None:
+				keep = True
+			else:
+				low = min(value, value_to)
+				high = max(value, value_to)
+				keep = z < low or z > high
+
+		if keep:
+			filtered.append(row)
+
+	return filtered
+
+
 @frappe.whitelist()
 def get_geo_points(
 	geo_project=None,
 	version_tag=None,
 	variable_name=None,
 	import_batch=None,
-	geo_model_output=None
+	geo_model_output=None,
+	data_source=None,
+	calculation_batch=None,
+	z_filter_enabled=None,
+	z_filter_mode=None,
+	z_filter_value=None,
+	z_filter_value_to=None
 ):
+	data_source = data_source or "Geo Model"
+
+	if data_source == "Geo Depth":
+		return get_geo_depth_points(
+			geo_project=geo_project,
+			version_tag=version_tag,
+			variable_name=variable_name,
+			calculation_batch=calculation_batch,
+			geo_model_output=geo_model_output,
+			z_filter_enabled=z_filter_enabled,
+			z_filter_mode=z_filter_mode,
+			z_filter_value=z_filter_value,
+			z_filter_value_to=z_filter_value_to,
+		)
+
 	doctype = "Geo Model Points"
 
 	raw_filters = {
@@ -90,12 +172,107 @@ def get_geo_points(
 		]
 	)
 
-	return frappe.get_all(
+	rows = frappe.get_all(
 		doctype,
 		filters=filters,
 		fields=fields,
 		limit_page_length=0,
 		order_by="row_no asc"
+	)
+
+	return _apply_z_filter(
+		rows,
+		z_filter_enabled=z_filter_enabled,
+		z_filter_mode=z_filter_mode,
+		z_filter_value=z_filter_value,
+		z_filter_value_to=z_filter_value_to,
+	)
+
+
+@frappe.whitelist()
+def get_geo_depth_points(
+	geo_project=None,
+	version_tag=None,
+	variable_name=None,
+	calculation_batch=None,
+	geo_model_output=None,
+	z_filter_enabled=None,
+	z_filter_mode=None,
+	z_filter_value=None,
+	z_filter_value_to=None
+):
+	doctype = "Geo Calculated Points"
+
+	if not _doctype_exists(doctype):
+		return []
+
+	raw_filters = {
+		"geo_project": geo_project,
+		"version_tag": version_tag,
+		"geo_model_output": geo_model_output,
+		"calculation_batch": calculation_batch,
+	}
+
+	filters = _clean_filters(doctype, raw_filters)
+
+	fields = _safe_fields(
+		doctype,
+		[
+			"x",
+			"y",
+			"z",
+			"calculated_z",
+			"reference_z",
+			"target_z",
+			"reference_variable_code",
+			"reference_variable_name",
+			"target_variable_code",
+			"target_variable_name",
+			"variable_code",
+			"variable_name",
+			"full_name",
+			"version_tag",
+			"geo_project",
+			"geo_model_output",
+			"calculation_batch",
+			"row_no",
+			"match_status",
+			"calculation_type"
+		]
+	)
+
+	or_filters = None
+
+	if variable_name:
+		or_filters = [
+			["Geo Calculated Points", "variable_name", "like", f"%{variable_name}%"],
+			["Geo Calculated Points", "variable_code", "like", f"%{variable_name}%"],
+			["Geo Calculated Points", "full_name", "like", f"%{variable_name}%"],
+		]
+
+	rows = frappe.get_all(
+		doctype,
+		filters=filters,
+		or_filters=or_filters,
+		fields=fields,
+		limit_page_length=0,
+		order_by="row_no asc"
+	)
+
+	for row in rows:
+		if row.get("calculated_z") is not None:
+			row["z"] = row.get("calculated_z")
+
+		row["import_batch"] = row.get("calculation_batch")
+		row["geo_import_batch"] = row.get("calculation_batch")
+		row["data_source"] = "Geo Depth"
+
+	return _apply_z_filter(
+		rows,
+		z_filter_enabled=z_filter_enabled,
+		z_filter_mode=z_filter_mode,
+		z_filter_value=z_filter_value,
+		z_filter_value_to=z_filter_value_to,
 	)
 
 
@@ -198,6 +375,60 @@ def get_model_batch_query(doctype, txt, searchfield, start, page_len, filters):
 
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
+def get_geo_depth_batch_query(doctype, txt, searchfield, start, page_len, filters):
+	if not _doctype_exists("Geo Calculation Batch"):
+		return []
+
+	geo_project = (filters or {}).get("geo_project")
+
+	conditions = []
+	values = {
+		"txt": f"%{txt}%",
+		"start": start,
+		"page_len": page_len,
+	}
+
+	if geo_project:
+		conditions.append("gcb.geo_project = %(geo_project)s")
+		values["geo_project"] = geo_project
+
+	if txt:
+		conditions.append(
+			"(gcb.name LIKE %(txt)s OR gcb.batch_id LIKE %(txt)s OR "
+			"gcb.calculation_name LIKE %(txt)s OR "
+			"gcb.calculated_variable_code LIKE %(txt)s OR "
+			"gcb.calculated_variable_name LIKE %(txt)s OR "
+			"gcb.calculated_full_name LIKE %(txt)s)"
+		)
+
+	where_clause = " AND ".join(conditions)
+
+	if where_clause:
+		where_clause = "WHERE " + where_clause
+
+	return frappe.db.sql(
+		f"""
+		SELECT DISTINCT
+			gcb.name,
+			COALESCE(
+				gcb.calculated_full_name,
+				gcb.calculated_variable_name,
+				gcb.calculated_variable_code,
+				gcb.calculation_name,
+				gcb.batch_id,
+				gcb.name
+			)
+		FROM `tabGeo Calculation Batch` gcb
+		{where_clause}
+		ORDER BY gcb.modified DESC
+		LIMIT %(start)s, %(page_len)s
+		""",
+		values,
+	)
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
 def get_pit_outline_batch_query(doctype, txt, searchfield, start, page_len, filters):
 	geo_project = (filters or {}).get("geo_project")
 
@@ -254,7 +485,9 @@ def save_mining_block_layout(
 	mesh_size_y=None,
 	block_angle_degrees=None,
 	minimum_inside_percent=None,
-	blocks_json=None
+	blocks_json=None,
+	data_source=None,
+	geo_depth_batch=None
 ):
 	if not _doctype_exists("Geo Mining Block Layout") or not _doctype_exists("Geo Mining Block"):
 		frappe.throw(
@@ -283,6 +516,10 @@ def save_mining_block_layout(
 	_set_if_field(layout, "geo_model_output", geo_model_output)
 	_set_if_field(layout, "model_batch", model_batch)
 	_set_if_field(layout, "pit_outline_batch", pit_outline_batch)
+	_set_if_field(layout, "data_source", data_source)
+	_set_if_field(layout, "geo_depth_batch", geo_depth_batch)
+	_set_if_field(layout, "calculation_batch", geo_depth_batch)
+
 	_set_if_field(layout, "block_size_x", _float(block_size_x))
 	_set_if_field(layout, "block_size_y", _float(block_size_y))
 	_set_if_field(layout, "mesh_size_x", _float(mesh_size_x))
@@ -303,6 +540,9 @@ def save_mining_block_layout(
 		_set_if_field(doc, "geo_model_output", geo_model_output)
 		_set_if_field(doc, "model_batch", model_batch)
 		_set_if_field(doc, "pit_outline_batch", pit_outline_batch)
+		_set_if_field(doc, "data_source", data_source)
+		_set_if_field(doc, "geo_depth_batch", geo_depth_batch)
+		_set_if_field(doc, "calculation_batch", geo_depth_batch)
 
 		_set_if_field(doc, "cut_no", _int(block.get("cut_no")))
 		_set_if_field(doc, "block_no", _int(block.get("block_no")))
@@ -353,6 +593,9 @@ def get_mining_block_layouts(geo_project=None):
 			"geo_model_output",
 			"model_batch",
 			"pit_outline_batch",
+			"data_source",
+			"geo_depth_batch",
+			"calculation_batch",
 			"block_size_x",
 			"block_size_y",
 			"mesh_size_x",
