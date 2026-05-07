@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2026-05-07 05:48:10.995357",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-05-07 05:48:10.995357",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "geo-batch-contour-vi",
+ "owner": "Administrator",
+ "page_name": "geo-batch-contour-vi",
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Geo Batch Contour Viewer"
+}
