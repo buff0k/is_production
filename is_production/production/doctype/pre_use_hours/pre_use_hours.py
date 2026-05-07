@@ -112,12 +112,7 @@ class PreUseHours(Document):
                 continue
 
 
-            # Exclude Plot 22 assets from previous-shift validation
-            asset_location = frappe.db.get_value("Asset", cr.asset_name, "location")
-            if asset_location == "Plot 22":
-                continue
-
-            prev_row = get_previous_asset_row(cr.asset_name, self.creation)
+            prev_row = get_previous_asset_row(cr.asset_name, self.shift_date, self.shift)
             if not prev_row or prev_row.eng_hrs_start is None:
                 continue
 
@@ -184,7 +179,7 @@ class PreUseHours(Document):
                 if not cr.asset_name or cr.eng_hrs_start is None:
                     continue
 
-                prev_row = get_previous_asset_row(cr.asset_name, self.creation)
+                prev_row = get_previous_asset_row(cr.asset_name, self.shift_date, self.shift)
                 if not prev_row:
                     continue
 
@@ -285,19 +280,21 @@ class PreUseHours(Document):
         warning_count = 0
         error_count = 0
 
+
+        if self.location == "Plot 22":
+            self.data_integ_indicator = "🟢"
+            self.data_integrity_summary = "<p><b>✅ Plot 22 excluded from integrity checks.</b></p>"
+            return
+
+
+
         for idx, row in enumerate(self.get("pre_use_assets", []), start=1):
             row_issues = []
             eng_hrs_start = row.eng_hrs_start
             eng_hrs_end = row.eng_hrs_end
             working_hours = None
 
-            # Exclude assets currently located at Plot 22 from integrity checks
-            asset_location = None
-            if row.asset_name:
-                asset_location = frappe.db.get_value("Asset", row.asset_name, "location")
 
-            if asset_location == "Plot 22":
-                continue
 
 
             if eng_hrs_start is None:
@@ -414,19 +411,58 @@ def get_previous_document(location, creation_dt):
 
 
 
-def get_previous_asset_row(asset_name, creation_dt):
+def get_previous_asset_row(asset_name, shift_date, shift):
     """
-    Get the previous Pre-use Assets row for the same asset globally
-    across all sites, based on parent Pre-Use Hours creation timestamp.
+    Get the previous Pre-use Assets row for the same asset globally,
+    based on shift_date + shift order, not creation time.
+    Plot 22 records are included as valid previous records.
     """
+    shift_order = {
+        "Morning": 1,
+        "Day": 1,
+        "Afternoon": 2,
+        "Night": 3,
+    }
+
+    current_order = shift_order.get(shift, 0)
+
     row = frappe.db.sql("""
-        SELECT pa.name, pa.parent, pa.asset_name, pa.eng_hrs_start, pa.eng_hrs_end, pa.working_hours
+        SELECT
+            pa.name,
+            pa.parent,
+            pa.asset_name,
+            pa.eng_hrs_start,
+            pa.eng_hrs_end,
+            pa.working_hours,
+            puh.location,
+            puh.shift_date,
+            puh.shift
         FROM `tabPre-use Assets` pa
         INNER JOIN `tabPre-Use Hours` puh ON puh.name = pa.parent
         WHERE pa.asset_name = %s
-          AND puh.creation < %s
-        ORDER BY puh.creation DESC
+          AND (
+                puh.shift_date < %s
+                OR (
+                    puh.shift_date = %s
+                    AND CASE puh.shift
+                        WHEN 'Morning' THEN 1
+                        WHEN 'Day' THEN 1
+                        WHEN 'Afternoon' THEN 2
+                        WHEN 'Night' THEN 3
+                        ELSE 0
+                    END < %s
+                )
+          )
+        ORDER BY
+            puh.shift_date DESC,
+            CASE puh.shift
+                WHEN 'Night' THEN 3
+                WHEN 'Afternoon' THEN 2
+                WHEN 'Morning' THEN 1
+                WHEN 'Day' THEN 1
+                ELSE 0
+            END DESC
         LIMIT 1
-    """, (asset_name, creation_dt), as_dict=True)
+    """, (asset_name, shift_date, shift_date, current_order), as_dict=True)
 
     return frappe._dict(row[0]) if row else None
