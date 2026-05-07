@@ -18,6 +18,7 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 	let loadedThree = false;
 	let THREE = null;
 	let OrbitControls = null;
+	let STLExporter = null;
 
 	const state = {
 		showPoints: true,
@@ -206,12 +207,14 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 					<button class="btn btn-default btn-sm" id="reset_3d_camera">Reset Camera</button>
 					<button class="btn btn-default btn-sm" id="clear_3d_view">Clear View</button>
 					<button class="btn btn-default btn-sm" id="refresh_3d_view">Refresh Render</button>
+					<button class="btn btn-default btn-sm" id="export_3d_stl">Export STL</button>
 				</div>
 
 				<div class="geo-3d-section">
 					<div class="geo-3d-help">
 						Controls: left mouse = rotate, wheel = zoom, right mouse = pan.
 						3D mapping is X = imported X, vertical = imported Z elevation, depth axis = imported Y.
+						STL export includes only visible solid surface meshes, not point clouds or wireframe lines.
 					</div>
 				</div>
 			</div>
@@ -399,9 +402,12 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 		render_surfaces();
 	});
 
+	$("#export_3d_stl").on("click", function() {
+		export_visible_stl();
+	});
+
 	window.addEventListener("resize", function() {
 		resize_renderer();
-		reset_camera();
 	});
 
 	setTimeout(function() {
@@ -456,10 +462,11 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 	function ensure_three_loaded() {
 		THREE = is_production && is_production.THREE;
 		OrbitControls = is_production && is_production.OrbitControls;
+		STLExporter = is_production && is_production.STLExporter;
 
-		if (!THREE || !OrbitControls) {
+		if (!THREE || !OrbitControls || !STLExporter) {
 			return Promise.reject(
-				new Error("Three.js or OrbitControls is not available from production_dependencies.bundle.js")
+				new Error("Three.js, OrbitControls, or STLExporter is not available from production_dependencies.bundle.js")
 			);
 		}
 
@@ -521,7 +528,7 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 				hide_loading();
 				$("#geo_3d_info_box").html(
 					"<b>3D library could not load.</b><br>" +
-					"Check production_dependencies.bundle.js. It must expose is_production.THREE and is_production.OrbitControls."
+					"Check production_dependencies.bundle.js. It must expose is_production.THREE, is_production.OrbitControls, and is_production.STLExporter."
 				);
 			});
 	}
@@ -771,7 +778,6 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 		}
 
 		center_surface_group();
-		reset_camera();
 		update_info_box();
 		update_legend();
 	}
@@ -792,11 +798,13 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 		box.getSize(size);
 
 		surfaceGroup.position.x -= center.x;
-		surfaceGroup.position.y -= center.y;
 		surfaceGroup.position.z -= center.z;
+		surfaceGroup.position.y -= box.min.y;
+
+		surfaceGroup.updateMatrixWorld(true);
 
 		const maxSize = Math.max(size.x, size.y, size.z, 1);
-		state.modelRadius = Math.max(900, maxSize * 1.25);
+		state.modelRadius = Math.max(900, maxSize * 1.35);
 	}
 
 	function get_surface_colour(index, surface) {
@@ -926,6 +934,75 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 		if (renderer && scene && camera) {
 			renderer.render(scene, camera);
 		}
+	}
+
+	function export_visible_stl() {
+		if (!surfaceGroup || !surfaceObjects.length || !STLExporter) {
+			frappe.msgprint("No 3D model is available to export.");
+			return;
+		}
+
+		const exportGroup = new THREE.Group();
+
+		for (const obj of surfaceObjects) {
+			if (!obj.visible) continue;
+			if (!obj.isMesh) continue;
+
+			const clone = obj.clone(true);
+
+			if (obj.geometry) {
+				clone.geometry = obj.geometry.clone();
+			}
+
+			if (obj.material) {
+				clone.material = Array.isArray(obj.material)
+					? obj.material.map(m => m.clone())
+					: obj.material.clone();
+			}
+
+			clone.position.copy(obj.position);
+			clone.rotation.copy(obj.rotation);
+			clone.scale.copy(obj.scale);
+			clone.matrix.copy(obj.matrix);
+			clone.matrixWorld.copy(obj.matrixWorld);
+
+			exportGroup.add(clone);
+		}
+
+		if (!exportGroup.children.length) {
+			frappe.msgprint(
+				"Only solid surface meshes can be exported to STL. Enable 'Show Solid Surface' and load a batch with valid mesh geometry."
+			);
+			return;
+		}
+
+		exportGroup.position.copy(surfaceGroup.position);
+		exportGroup.rotation.copy(surfaceGroup.rotation);
+		exportGroup.scale.copy(surfaceGroup.scale);
+		exportGroup.updateMatrixWorld(true);
+
+		const exporter = new STLExporter();
+		const stlString = exporter.parse(exportGroup, { binary: false });
+
+		const blob = new Blob([stlString], {
+			type: "model/stl"
+		});
+
+		const timestamp = frappe.datetime.now_datetime()
+			.replace(/[^0-9]/g, "")
+			.slice(0, 14);
+
+		const filename = `geo_seam_model_${timestamp}.stl`;
+		const url = URL.createObjectURL(blob);
+
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = filename;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
+
+		URL.revokeObjectURL(url);
 	}
 
 	function update_info_box() {
