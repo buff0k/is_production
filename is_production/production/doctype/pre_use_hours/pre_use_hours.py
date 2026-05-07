@@ -278,6 +278,15 @@ class PreUseHours(Document):
             eng_hrs_end = row.eng_hrs_end
             working_hours = None
 
+            # Exclude assets currently located at Plot 22 from integrity checks
+            asset_location = None
+            if row.asset_name:
+                asset_location = frappe.db.get_value("Asset", row.asset_name, "location")
+
+            if asset_location == "Plot 22":
+                continue
+
+
             if eng_hrs_start is None:
                 row_issues.append("❗ <span style='color:orange;'>Missing Engine Hours Start</span>")
             if eng_hrs_end is None:

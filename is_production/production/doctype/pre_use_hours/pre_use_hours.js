@@ -16,6 +16,7 @@ const CATEGORY_ORDER = [
   "Service Truck",
   "Grader",
   "TLB",
+  "Loader",
   "Drills"
 ];
 
