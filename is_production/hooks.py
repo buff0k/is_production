@@ -36,6 +36,7 @@ override_whitelisted_methods = {
 # Load Sortable.js from CDN across all Desk pages
 app_include_js = [
     "https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js",
+    "/assets/is_production/js/production_3d.bundle.js",
 ]
 
 # ------------------------------------------------------------------------
