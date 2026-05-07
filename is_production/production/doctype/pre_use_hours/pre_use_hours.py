@@ -64,6 +64,13 @@ class PreUseHours(Document):
                 )
 
             validate_shift_date(self, monthly_plan)
+
+            # Plot 22 is excluded from all Pre-Use Hours integrity checks
+            if self.location == "Plot 22":
+                self.data_integ_indicator = "🟢"
+                self.data_integrity_summary = "<p><b>✅ Plot 22 excluded from integrity checks.</b></p>"
+                return
+
             check_previous_record_sequence(self, monthly_plan)
             self.validate_previous_shift_hours()
             self.evaluate_data_integrity()
@@ -102,6 +109,12 @@ class PreUseHours(Document):
 
         for cr in self.pre_use_assets:
             if not cr.asset_name or cr.eng_hrs_start is None:
+                continue
+
+
+            # Exclude Plot 22 assets from previous-shift validation
+            asset_location = frappe.db.get_value("Asset", cr.asset_name, "location")
+            if asset_location == "Plot 22":
                 continue
 
             prev_row = get_previous_asset_row(cr.asset_name, self.creation)
