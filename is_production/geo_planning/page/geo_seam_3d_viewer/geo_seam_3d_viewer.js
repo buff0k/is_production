@@ -14,6 +14,7 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 	let mouse = null;
 	let animationId = null;
 	let surfaceObjects = [];
+	let surfaceGroup = null;
 	let loadedThree = false;
 	let THREE = null;
 	let OrbitControls = null;
@@ -400,6 +401,7 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 
 	window.addEventListener("resize", function() {
 		resize_renderer();
+		reset_camera();
 	});
 
 	setTimeout(function() {
@@ -457,7 +459,7 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 
 		if (!THREE || !OrbitControls) {
 			return Promise.reject(
-				new Error("Three.js or OrbitControls is not available from production_3d.bundle.js")
+				new Error("Three.js or OrbitControls is not available from production_dependencies.bundle.js")
 			);
 		}
 
@@ -473,13 +475,13 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color(0xf7f9fb);
 
-				camera = new THREE.PerspectiveCamera(55, 1, 0.1, 10000000);
-				camera.position.set(900, 700, 900);
+				camera = new THREE.PerspectiveCamera(45, 1, 0.1, 10000000);
 
 				renderer = new THREE.WebGLRenderer({
 					antialias: true,
 					alpha: false
 				});
+
 				renderer.setPixelRatio(window.devicePixelRatio || 1);
 				container.appendChild(renderer.domElement);
 
@@ -487,6 +489,7 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 				controls.enableDamping = true;
 				controls.dampingFactor = 0.08;
 				controls.screenSpacePanning = false;
+				controls.target.set(0, 0, 0);
 
 				raycaster = new THREE.Raycaster();
 				mouse = new THREE.Vector2();
@@ -502,8 +505,13 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 				dir2.position.set(-800, 600, -900);
 				scene.add(dir2);
 
+				surfaceGroup = new THREE.Group();
+				surfaceGroup.name = "surface_group";
+				scene.add(surfaceGroup);
+
 				add_axes();
 				resize_renderer();
+				reset_camera();
 				animate();
 				hide_loading();
 				update_info_box();
@@ -513,7 +521,7 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 				hide_loading();
 				$("#geo_3d_info_box").html(
 					"<b>3D library could not load.</b><br>" +
-					"Check production_3d.bundle.js. It must expose is_production.THREE and is_production.OrbitControls."
+					"Check production_dependencies.bundle.js. It must expose is_production.THREE and is_production.OrbitControls."
 				);
 			});
 	}
@@ -558,9 +566,15 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 		const width = Math.max(300, Math.floor(rect.width));
 		const height = Math.max(300, Math.floor(rect.height));
 
+		renderer.setSize(width, height, true);
+		renderer.setPixelRatio(window.devicePixelRatio || 1);
+
 		camera.aspect = width / height;
 		camera.updateProjectionMatrix();
-		renderer.setSize(width, height, false);
+
+		if (renderer && scene && camera) {
+			renderer.render(scene, camera);
+		}
 	}
 
 	function load_view() {
@@ -663,10 +677,10 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 	}
 
 	function clear_scene_objects() {
-		if (!scene) return;
+		if (!surfaceGroup) return;
 
 		for (const obj of surfaceObjects) {
-			scene.remove(obj);
+			surfaceGroup.remove(obj);
 
 			if (obj.geometry) obj.geometry.dispose();
 
@@ -680,10 +694,11 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 		}
 
 		surfaceObjects = [];
+		surfaceGroup.position.set(0, 0, 0);
 	}
 
 	function render_surfaces() {
-		if (!loadedThree || !scene) {
+		if (!loadedThree || !scene || !surfaceGroup) {
 			return;
 		}
 
@@ -714,7 +729,7 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 				const mesh = new THREE.Mesh(meshData.geometry, mat);
 				mesh.name = `surface_${surface.batch}`;
 				mesh.userData = { surface };
-				scene.add(mesh);
+				surfaceGroup.add(mesh);
 				surfaceObjects.push(mesh);
 			}
 
@@ -727,7 +742,7 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 				});
 				const wire = new THREE.LineSegments(wireGeo, wireMat);
 				wire.name = `wire_${surface.batch}`;
-				scene.add(wire);
+				surfaceGroup.add(wire);
 				surfaceObjects.push(wire);
 			}
 
@@ -750,13 +765,38 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 
 				const pointCloud = new THREE.Points(pointGeo, pointMat);
 				pointCloud.name = `points_${surface.batch}`;
-				scene.add(pointCloud);
+				surfaceGroup.add(pointCloud);
 				surfaceObjects.push(pointCloud);
 			}
 		}
 
+		center_surface_group();
+		reset_camera();
 		update_info_box();
 		update_legend();
+	}
+
+	function center_surface_group() {
+		if (!surfaceGroup || !surfaceObjects.length) return;
+
+		surfaceGroup.updateMatrixWorld(true);
+
+		const box = new THREE.Box3().setFromObject(surfaceGroup);
+
+		if (box.isEmpty()) return;
+
+		const center = new THREE.Vector3();
+		const size = new THREE.Vector3();
+
+		box.getCenter(center);
+		box.getSize(size);
+
+		surfaceGroup.position.x -= center.x;
+		surfaceGroup.position.y -= center.y;
+		surfaceGroup.position.z -= center.z;
+
+		const maxSize = Math.max(size.x, size.y, size.z, 1);
+		state.modelRadius = Math.max(900, maxSize * 1.25);
 	}
 
 	function get_surface_colour(index, surface) {
@@ -863,15 +903,29 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 	function reset_camera() {
 		if (!camera || !controls) return;
 
+		resize_renderer();
+
 		const r = Math.max(state.modelRadius, 900);
-		camera.near = 0.1;
-		camera.far = 100000;
-		camera.position.set(r * 0.9, r * 0.65, r * 1.05);
-		camera.lookAt(0, 0, 0);
+		const target = new THREE.Vector3(0, 0, 0);
+		const position = new THREE.Vector3(
+			r * 0.9,
+			r * 0.75,
+			r * 1.15
+		);
+
+		controls.target.copy(target);
+		camera.position.copy(position);
+		camera.lookAt(target);
+
+		camera.near = Math.max(0.1, r / 10000);
+		camera.far = Math.max(100000, r * 30);
 		camera.updateProjectionMatrix();
 
-		controls.target.set(0, 0, 0);
 		controls.update();
+
+		if (renderer && scene && camera) {
+			renderer.render(scene, camera);
+		}
 	}
 
 	function update_info_box() {
