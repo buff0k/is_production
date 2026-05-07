@@ -15,6 +15,8 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 	let animationId = null;
 	let surfaceObjects = [];
 	let loadedThree = false;
+	let THREE = null;
+	let OrbitControls = null;
 
 	const state = {
 		showPoints: true,
@@ -354,7 +356,6 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 		}
 	});
 
-	// Force practical defaults for mine models with large X/Y extents and small Z ranges.
 	setTimeout(function() {
 		if (!filters.vertical_exaggeration.get_value()) filters.vertical_exaggeration.set_value(50);
 		if (!filters.point_size.get_value()) filters.point_size.set_value(7);
@@ -450,36 +451,18 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 		$("#geo_3d_loading").hide();
 	}
 
-	function load_script(src) {
-		return new Promise((resolve, reject) => {
-			const existing = document.querySelector(`script[src="${src}"]`);
-			if (existing) {
-				resolve();
-				return;
-			}
-
-			const script = document.createElement("script");
-			script.src = src;
-			script.async = true;
-			script.onload = resolve;
-			script.onerror = reject;
-			document.head.appendChild(script);
-		});
-	}
-
 	function ensure_three_loaded() {
-		if (window.THREE && THREE.OrbitControls) {
-			loadedThree = true;
-			return Promise.resolve();
+		THREE = is_production && is_production.THREE;
+		OrbitControls = is_production && is_production.OrbitControls;
+
+		if (!THREE || !OrbitControls) {
+			return Promise.reject(
+				new Error("Three.js or OrbitControls is not available from production_3d.bundle.js")
+			);
 		}
 
-		show_loading("Loading Three.js...");
-
-		return load_script("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js")
-			.then(() => load_script("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/controls/OrbitControls.min.js"))
-			.then(() => {
-				loadedThree = true;
-			});
+		loadedThree = true;
+		return Promise.resolve();
 	}
 
 	function init_three_viewer() {
@@ -500,7 +483,7 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 				renderer.setPixelRatio(window.devicePixelRatio || 1);
 				container.appendChild(renderer.domElement);
 
-				controls = new THREE.OrbitControls(camera, renderer.domElement);
+				controls = new OrbitControls(camera, renderer.domElement);
 				controls.enableDamping = true;
 				controls.dampingFactor = 0.08;
 				controls.screenSpacePanning = false;
@@ -530,13 +513,13 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 				hide_loading();
 				$("#geo_3d_info_box").html(
 					"<b>3D library could not load.</b><br>" +
-					"Check internet access/CSP for cdnjs.cloudflare.com, or install Three.js locally in your app."
+					"Check production_3d.bundle.js. It must expose is_production.THREE and is_production.OrbitControls."
 				);
 			});
 	}
 
 	function add_axes() {
-		if (!scene || !window.THREE) return;
+		if (!scene || !THREE) return;
 
 		const axes = new THREE.AxesHelper(350);
 		axes.name = "base_axes";
@@ -546,7 +529,6 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 		grid.name = "base_grid";
 		scene.add(grid);
 
-		// A small marker at the origin proves the 3D renderer is alive.
 		const markerGeo = new THREE.BoxGeometry(30, 30, 30);
 		const markerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 		const marker = new THREE.Mesh(markerGeo, markerMat);
@@ -665,8 +647,6 @@ frappe.pages["geo-seam-3d-viewer"].on_page_load = function(wrapper) {
 		const dy = maxY - minY || 1;
 		const dz = maxZ - minZ || 1;
 
-		// Normalize large mine coordinates into a stable 3D scene.
-		// This avoids a huge, almost invisible flat sheet when X/Y are tens of thousands of metres.
 		const planExtent = Math.max(dx, dy, 1);
 		state.sceneScale = 1200 / planExtent;
 
