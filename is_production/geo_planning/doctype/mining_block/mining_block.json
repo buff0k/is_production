@@ -1,0 +1,150 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-08 07:44:02.181612",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "mining_block_code",
+  "geo_project",
+  "source_pit_layout",
+  "source_layout_block",
+  "cut_no",
+  "block_no",
+  "row_no",
+  "column_no",
+  "centroid_x",
+  "centroid_y",
+  "column_break_tgzg",
+  "area",
+  "effective_area",
+  "inside_percent",
+  "polygon_geojson",
+  "block_status",
+  "planning_status",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "mining_block_code",
+   "fieldtype": "Data",
+   "label": "Mining Block Code"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "source_pit_layout",
+   "fieldtype": "Link",
+   "label": "Source Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "source_layout_block",
+   "fieldtype": "Link",
+   "label": "Source Layout Block",
+   "options": "Geo Pit Layout Block"
+  },
+  {
+   "fieldname": "cut_no",
+   "fieldtype": "Int",
+   "label": "Cut No"
+  },
+  {
+   "fieldname": "block_no",
+   "fieldtype": "Int",
+   "label": "Block No"
+  },
+  {
+   "fieldname": "row_no",
+   "fieldtype": "Int",
+   "label": "Row No"
+  },
+  {
+   "fieldname": "column_no",
+   "fieldtype": "Int",
+   "label": "Column No"
+  },
+  {
+   "fieldname": "centroid_x",
+   "fieldtype": "Float",
+   "label": "Centroid X"
+  },
+  {
+   "fieldname": "centroid_y",
+   "fieldtype": "Float",
+   "label": "Centroid Y"
+  },
+  {
+   "fieldname": "column_break_tgzg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "area",
+   "fieldtype": "Float",
+   "label": "Area"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "inside_percent",
+   "fieldtype": "Percent",
+   "label": "Inside %"
+  },
+  {
+   "fieldname": "polygon_geojson",
+   "fieldtype": "Long Text",
+   "label": "Polygon GeoJSON"
+  },
+  {
+   "fieldname": "block_status",
+   "fieldtype": "Select",
+   "label": "Block Status",
+   "options": "\nDraft\nAvailable\nPlanned\nScheduled\nMining\nComplete\nExcluded"
+  },
+  {
+   "fieldname": "planning_status",
+   "fieldtype": "Select",
+   "label": "Planning Status",
+   "options": "\nNot Evaluated\nMineable\nNot Mineable\nReview"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-08 08:31:29.034597",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Block",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,6 +1,7 @@
 {
+ "app": "is_production",
  "charts": [],
- "content": "[{\"id\":\"70CtpqZyzz\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Survey Data</span>\",\"col\":12}},{\"id\":\"jxCvbfNGKY\",\"type\":\"card\",\"data\":{\"card_name\":\"Survey Data\",\"col\":4}}]",
+ "content": "[{\"id\":\"70CtpqZyzz\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 16px;\\\">Technical Mine Planning</span>\",\"col\":12}},{\"id\":\"jxCvbfNGKY\",\"type\":\"card\",\"data\":{\"card_name\":\"Importing\",\"col\":4}}]",
  "creation": "2025-02-19 13:48:23.174564",
  "custom_blocks": [],
  "docstatus": 0,
@@ -16,8 +17,8 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Survey Data",
-   "link_count": 1,
+   "label": "Importing",
+   "link_count": 2,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -25,15 +26,25 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Survey",
+   "label": "Geo Import Batch",
    "link_count": 0,
-   "link_to": "Survey",
+   "link_to": "Geo Import Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Calculation Batch",
+   "link_count": 0,
+   "link_to": "Geo Calculation Batch",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
   }
  ],
- "modified": "2025-02-19 13:51:36.866269",
+ "modified": "2026-05-08 05:56:13.774477",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Survey Data",
@@ -45,5 +56,6 @@
  "roles": [],
  "sequence_id": 45.0,
  "shortcuts": [],
- "title": "Survey Data"
+ "title": "Survey Data",
+ "type": "Workspace"
 }

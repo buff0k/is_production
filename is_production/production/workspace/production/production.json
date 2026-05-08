@@ -1,7 +1,7 @@
 {
  "app": "is_production",
  "charts": [],
- "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"oLOLs79C1E\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Dashboard\",\"col\":12}},{\"id\":\"kcBx_OD-Kv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Efficiency ( Weekly)\",\"col\":12}},{\"id\":\"YoeOJfxDNK\",\"type\":\"card\",\"data\":{\"card_name\":\"Management Dashboards\",\"col\":4}},{\"id\":\"oMUDY_5KXL\",\"type\":\"card\",\"data\":{\"card_name\":\"Planning\",\"col\":4}},{\"id\":\"otyz_jgqrE\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Drilling and Diesel\",\"col\":4}},{\"id\":\"03mtDZtvFg\",\"type\":\"card\",\"data\":{\"card_name\":\"Breakdowns and Lost Hours\",\"col\":4}},{\"id\":\"obgFqF53Fu\",\"type\":\"card\",\"data\":{\"card_name\":\"Reporting\",\"col\":4}},{\"id\":\"m0hxRm_d73\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning \",\"col\":4}},{\"id\":\"QwJ2bqlnHv\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning Setup\",\"col\":4}},{\"id\":\"hCx7r295pY\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning Reports\",\"col\":4}}]",
+ "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"oLOLs79C1E\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Dashboard\",\"col\":12}},{\"id\":\"kcBx_OD-Kv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Efficiency ( Weekly)\",\"col\":12}},{\"id\":\"YoeOJfxDNK\",\"type\":\"card\",\"data\":{\"card_name\":\"Management Dashboards\",\"col\":4}},{\"id\":\"oMUDY_5KXL\",\"type\":\"card\",\"data\":{\"card_name\":\"Planning\",\"col\":4}},{\"id\":\"otyz_jgqrE\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Drilling and Diesel\",\"col\":4}},{\"id\":\"03mtDZtvFg\",\"type\":\"card\",\"data\":{\"card_name\":\"Breakdowns and Lost Hours\",\"col\":4}},{\"id\":\"obgFqF53Fu\",\"type\":\"card\",\"data\":{\"card_name\":\"Reporting\",\"col\":4}},{\"id\":\"m0hxRm_d73\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning Imports\",\"col\":4}},{\"id\":\"e3Jn5j12S8\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning Blocks\",\"col\":4}},{\"id\":\"QwJ2bqlnHv\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning Setup\",\"col\":4}},{\"id\":\"hCx7r295pY\",\"type\":\"card\",\"data\":{\"card_name\":\"Mine Planning Reports\",\"col\":4}}]",
  "creation": "2024-07-29 15:25:05.760313",
  "custom_blocks": [],
  "docstatus": 0,
@@ -344,7 +344,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Production Drilling and Diesel",
-   "link_count": 9,
+   "link_count": 10,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -442,138 +442,10 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Mine Planning ",
-   "link_count": 8,
+   "label": "Support Equipment",
+   "link_count": 0,
+   "link_to": "Support Equipment",
    "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Project",
-   "link_count": 0,
-   "link_to": "Geo Project",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Import Batch",
-   "link_count": 0,
-   "link_to": "Geo Import Batch",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Drillhole",
-   "link_count": 0,
-   "link_to": "Geo Drillhole",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Model Output",
-   "link_count": 0,
-   "link_to": "Geo Model Output",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Model Points",
-   "link_count": 0,
-   "link_to": "Geo Model Points",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Pit Outline Points",
-   "link_count": 0,
-   "link_to": "Pit Outline Points",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Calculation Batch",
-   "link_count": 0,
-   "link_to": "Geo Calculation Batch",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Calculated Points",
-   "link_count": 0,
-   "link_to": "Geo Calculated Points",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Mine Planning Reports",
-   "link_count": 4,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Geo Model Points Viewer",
-   "link_count": 0,
-   "link_to": "Geo Model Points Viewer",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Plan View",
-   "link_count": 0,
-   "link_to": "geo-planning-viewer",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Contour Viewer",
-   "link_count": 0,
-   "link_to": "geo-batch-contour-vi",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "3D Viewer",
-   "link_count": 0,
-   "link_to": "geo-seam-3d-viewer",
-   "link_type": "Page",
    "onboard": 0,
    "type": "Link"
   },
@@ -581,7 +453,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Reporting",
-   "link_count": 13,
+   "link_count": 15,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -715,9 +587,256 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Support Equipment Hours Report",
+   "link_count": 0,
+   "link_to": "Support Equipment Hours Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Rental Equipment Hours",
+   "link_count": 0,
+   "link_to": "Rental Equipment Hours",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mine Planning Imports",
+   "link_count": 8,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Project",
+   "link_count": 0,
+   "link_to": "Geo Project",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Import Batch",
+   "link_count": 0,
+   "link_to": "Geo Import Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Drillhole",
+   "link_count": 0,
+   "link_to": "Geo Drillhole",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Model Output",
+   "link_count": 0,
+   "link_to": "Geo Model Output",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Model Points",
+   "link_count": 0,
+   "link_to": "Geo Model Points",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Pit Outline Points",
+   "link_count": 0,
+   "link_to": "Pit Outline Points",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Calculation Batch",
+   "link_count": 0,
+   "link_to": "Geo Calculation Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Calculated Points",
+   "link_count": 0,
+   "link_to": "Geo Calculated Points",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mine Planning Reports",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Geo Model Points Viewer",
+   "link_count": 0,
+   "link_to": "Geo Model Points Viewer",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Plan View",
+   "link_count": 0,
+   "link_to": "geo-planning-viewer",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Contour Viewer",
+   "link_count": 0,
+   "link_to": "geo-batch-contour-vi",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "3D Viewer",
+   "link_count": 0,
+   "link_to": "geo-seam-3d-viewer",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geology Viewer",
+   "link_count": 0,
+   "link_to": "geology-viewer",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mine Planning Blocks",
+   "link_count": 7,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Pit Layout",
+   "link_count": 0,
+   "link_to": "Geo Pit Layout",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Pit Layout Block",
+   "link_count": 0,
+   "link_to": "Geo Pit Layout Block",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Pit Layout Geology Run",
+   "link_count": 0,
+   "link_to": "Geo Pit Layout Geology Run",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Pit Layout Geology Result",
+   "link_count": 0,
+   "link_to": "Geo Pit Layout Geology Result",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mining Block",
+   "link_count": 0,
+   "link_to": "Mining Block",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mining Block Material Value",
+   "link_count": 0,
+   "link_to": "Mining Block Material Value",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Pit Layout Material Stack",
+   "link_count": 0,
+   "link_to": "Geo Pit Layout Material Stack",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-05-07 09:08:57.492009",
+ "modified": "2026-05-08 12:33:50.242847",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

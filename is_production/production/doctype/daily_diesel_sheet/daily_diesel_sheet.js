@@ -11,7 +11,12 @@ frappe.ui.form.on('Daily Diesel Sheet', {
         });
 
         // Filter 'asset_name' in the daily_diesel_entries table based on 'location'
+        // System Manager can see all Assets
         frm.fields_dict['daily_diesel_entries'].grid.get_field('asset_name').get_query = function(doc) {
+            if (frappe.user.has_role('System Manager')) {
+                return {};
+            }
+
             return {
                 filters: {
                     'location': frm.doc.location

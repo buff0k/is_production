@@ -1,0 +1,186 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-08 07:19:21.799572",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "run_name",
+  "geo_project",
+  "geo_pit_layout",
+  "source_type",
+  "geo_import_batch",
+  "geo_calculation_batch",
+  "variable_name",
+  "value_meaning",
+  "rule_enabled",
+  "rule_operator",
+  "rule_value",
+  "rule_value_to",
+  "processing_status",
+  "passing_blocks",
+  "failing_blocks",
+  "no_data_blocks",
+  "remarks",
+  "column_break_jgpn",
+  "material_seam",
+  "variable_code",
+  "use_in_mining_blocks",
+  "run_status",
+  "sort_order"
+ ],
+ "fields": [
+  {
+   "fieldname": "run_name",
+   "fieldtype": "Data",
+   "label": "Run Name"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "geo_pit_layout",
+   "fieldtype": "Link",
+   "label": "Geo Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "label": "Source Type",
+   "options": "\nGeo Import Batch\nGeo Calculation Batch"
+  },
+  {
+   "fieldname": "geo_import_batch",
+   "fieldtype": "Link",
+   "label": "Geo Import Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "geo_calculation_batch",
+   "fieldtype": "Link",
+   "label": "Geo Calculation Batch",
+   "options": "Geo Calculation Batch"
+  },
+  {
+   "fieldname": "variable_name",
+   "fieldtype": "Data",
+   "label": "Variable Name"
+  },
+  {
+   "fieldname": "value_meaning",
+   "fieldtype": "Select",
+   "label": "Value Meaning",
+   "options": "\nElevation\nThickness\nDepth\nQuality\nDensity\nOther"
+  },
+  {
+   "default": "0",
+   "fieldname": "rule_enabled",
+   "fieldtype": "Check",
+   "label": "Rule Enabled"
+  },
+  {
+   "fieldname": "rule_operator",
+   "fieldtype": "Select",
+   "label": "Rule Operator",
+   "options": "\nGreater Than\nGreater Than Or Equal\nLess Than\nLess Than Or Equal\nEqual\nBetween\nOutside"
+  },
+  {
+   "fieldname": "rule_value",
+   "fieldtype": "Float",
+   "label": "Rule Value"
+  },
+  {
+   "fieldname": "rule_value_to",
+   "fieldtype": "Float",
+   "label": "Rule Value To"
+  },
+  {
+   "fieldname": "processing_status",
+   "fieldtype": "Select",
+   "label": "Processing Status",
+   "options": "\nDraft\nRunning\nComplete\nError"
+  },
+  {
+   "fieldname": "passing_blocks",
+   "fieldtype": "Int",
+   "label": "Passing Blocks"
+  },
+  {
+   "fieldname": "failing_blocks",
+   "fieldtype": "Int",
+   "label": "Failing Blocks"
+  },
+  {
+   "fieldname": "no_data_blocks",
+   "fieldtype": "Int",
+   "label": "No Data Blocks"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "column_break_jgpn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "material_seam",
+   "fieldtype": "Data",
+   "label": "Material / Seam"
+  },
+  {
+   "fieldname": "variable_code",
+   "fieldtype": "Data",
+   "label": "Variable Code"
+  },
+  {
+   "default": "0",
+   "fieldname": "use_in_mining_blocks",
+   "fieldtype": "Check",
+   "label": "Use In Mining Blocks"
+  },
+  {
+   "fieldname": "run_status",
+   "fieldtype": "Select",
+   "label": "Run Status",
+   "options": "\nDraft\nApproved\nSuperseded"
+  },
+  {
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-08 12:29:59.749084",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Pit Layout Geology Run",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -109,8 +109,7 @@
    "fieldname": "monthly_production_plan_ref",
    "fieldtype": "Link",
    "label": "MPP Ref",
-   "options": "Monthly Production Planning",
-   "read_only": 1
+   "options": "Monthly Production Planning"
   },
   {
    "fieldname": "hourly_prod_ref",
@@ -130,7 +129,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-05-05 08:17:09.985724",
+ "modified": "2026-05-08 12:18:32.977020",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Survey",

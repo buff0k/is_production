@@ -36,3 +36,30 @@ class Survey(Document):
         self.total_ts_bcm = total_ts
         self.total_dozing_bcm = total_dozing
         self.total_surveyed_coal_tons = total_coal
+
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_latest_mpp_for_site(doctype, txt, searchfield, start, page_len, filters):
+    location = (filters or {}).get("location")
+
+    if not location:
+        return []
+
+    return frappe.db.sql(
+        """
+        SELECT
+            name,
+            prod_month_start_date
+        FROM `tabMonthly Production Planning`
+        WHERE location = %(location)s
+          AND name LIKE %(txt)s
+        ORDER BY prod_month_start_date DESC, modified DESC
+        LIMIT 3
+        """,
+        {
+            "location": location,
+            "txt": f"%{txt}%"
+        }
+    )

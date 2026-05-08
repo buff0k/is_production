@@ -1,0 +1,164 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-08 07:00:38.703008",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "layout_name",
+  "layout_code",
+  "geo_project",
+  "layout_version",
+  "layout_type",
+  "pit_outline_batch",
+  "block_size_x",
+  "block_size_y",
+  "block_angle_degrees",
+  "column_break_tbob",
+  "minimum_inside_percent",
+  "default_cut_no",
+  "numbering_style",
+  "block_count",
+  "total_area",
+  "effective_area",
+  "layout_status",
+  "is_final_layout",
+  "supersedes_layout",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "layout_name",
+   "fieldtype": "Data",
+   "label": "Layout Name"
+  },
+  {
+   "fieldname": "layout_code",
+   "fieldtype": "Data",
+   "label": "Layout Code"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "layout_version",
+   "fieldtype": "Data",
+   "label": "Layout Version"
+  },
+  {
+   "fieldname": "layout_type",
+   "fieldtype": "Select",
+   "label": "Layout Type",
+   "options": "\nPit Layout\nGeology Scenario\nFinal Layout"
+  },
+  {
+   "fieldname": "pit_outline_batch",
+   "fieldtype": "Link",
+   "label": "Pit Outline Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "block_size_x",
+   "fieldtype": "Float",
+   "label": "Block Size X"
+  },
+  {
+   "fieldname": "block_size_y",
+   "fieldtype": "Float",
+   "label": "Block Size Y"
+  },
+  {
+   "fieldname": "block_angle_degrees",
+   "fieldtype": "Float",
+   "label": "Block Angle Degrees"
+  },
+  {
+   "fieldname": "column_break_tbob",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "minimum_inside_percent",
+   "fieldtype": "Percent",
+   "label": "Minimum Inside %"
+  },
+  {
+   "fieldname": "default_cut_no",
+   "fieldtype": "Int",
+   "label": "Default Cut No"
+  },
+  {
+   "fieldname": "numbering_style",
+   "fieldtype": "Select",
+   "label": "Numbering Style",
+   "options": "\nC1B1\nRow Column\nCustom"
+  },
+  {
+   "fieldname": "block_count",
+   "fieldtype": "Int",
+   "label": "Block Count"
+  },
+  {
+   "fieldname": "total_area",
+   "fieldtype": "Float",
+   "label": "Total Area"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "layout_status",
+   "fieldtype": "Select",
+   "label": "Layout Status",
+   "options": "\nDraft\nReviewed\nApproved\nFinal\nSuperseded"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_final_layout",
+   "fieldtype": "Check",
+   "label": "Is Final Layout"
+  },
+  {
+   "fieldname": "supersedes_layout",
+   "fieldtype": "Link",
+   "label": "Supersedes Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-08 07:10:54.903036",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Pit Layout",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

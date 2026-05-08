@@ -67,112 +67,80 @@ function calculate_totals(frm) {
 // Parent Form Script: Survey
 // ——————————————————————
 frappe.ui.form.on('Survey', {
+  onload: function(frm) {
+    set_mpp_ref_query(frm);
+  },
+
   refresh: function(frm) {
     calculate_totals(frm);
+    set_mpp_ref_query(frm);
   },
-  last_production_shift_start_date: function(frm) {
-    fetch_survey_monthly_plan(frm);
-  },
+
   location: function(frm) {
-    fetch_survey_monthly_plan(frm);
+    set_mpp_ref_query(frm);
+    frm.set_value('monthly_production_plan_ref', '');
+    frm.set_value('hourly_prod_ref', '');
   },
-  after_save: function(frm) {
-    fetch_survey_monthly_plan(frm);
+
+  monthly_production_plan_ref: function(frm) {
+    fetch_hourly_prod_ref(frm);
+  },
+
+  last_production_shift_start_date: function(frm) {
+    fetch_hourly_prod_ref(frm);
   }
 });
 
-function fetch_survey_monthly_plan(frm) {
-  const shiftDate = frm.doc.last_production_shift_start_date;
-  const loc       = frm.doc.location;
+function set_mpp_ref_query(frm) {
+  frm.set_query('monthly_production_plan_ref', function() {
+    return {
+      query: 'is_production.production.doctype.survey.survey.get_latest_mpp_for_site',
+      filters: {
+        location: frm.doc.location
+      }
+    };
+  });
+}
 
-  if (!shiftDate || !loc) {
+function fetch_hourly_prod_ref(frm) {
+  const planName = frm.doc.monthly_production_plan_ref;
+  const shiftDate = frm.doc.last_production_shift_start_date;
+
+  if (!planName || !shiftDate) {
+    frm.set_value('hourly_prod_ref', '');
     return;
   }
 
-  // 1) find the matching plan
   frappe.call({
-    method: 'frappe.client.get_list',
+    method: 'frappe.client.get',
     args: {
       doctype: 'Monthly Production Planning',
-      fields: ['name'],
-      filters: [
-        ['location',              '=', loc],
-        ['prod_month_start_date', '<=', shiftDate],
-        ['prod_month_end_date',   '>=', shiftDate]
-      ],
-      order_by: 'prod_month_start_date asc',
-      limit_page_length: 1
+      name: planName
     },
-    callback: function(r1) {
-      let plan = (r1.message || [])[0];
-      if (!plan) {
-        frappe.msgprint(
-          __('No plan found for {0} at {1}', [shiftDate, loc]),
-          'Validation'
-        );
-        frm.set_value('monthly_production_plan_ref', '');
-        frm.set_value('hourly_prod_ref', '');
+    callback: function(r) {
+      let mpp = r.message;
+
+      if (!mpp) {
+        frappe.msgprint(__('Failed to load plan {0}', [planName]), 'Error');
         return;
       }
 
-      let plan_name = plan.name;
-      frm.set_value('monthly_production_plan_ref', plan_name);
+      let match = (mpp.month_prod_days || []).find(row =>
+        row.shift_start_date === shiftDate
+      );
 
-      // persist the link if saved
-      if (!frm.is_new()) {
-        frappe.db.set_value(
-          frm.doc.doctype, frm.doc.name,
-          'monthly_production_plan_ref', plan_name
+      if (match) {
+        frm.set_value('hourly_prod_ref', match.hourly_production_reference || '');
+      } else {
+        frm.set_value('hourly_prod_ref', '');
+        frappe.msgprint(
+          __('No entry for shift_start_date {0} in month_prod_days of {1}', [
+            shiftDate,
+            planName
+          ]),
+          'Validation'
         );
       }
-
-      // 2) fetch the full plan doc
-      frappe.call({
-        method: 'frappe.client.get',
-        args: {
-          doctype: 'Monthly Production Planning',
-          name: plan_name
-        },
-        callback: function(r2) {
-          let mpp = r2.message;
-          if (!mpp) {
-            frappe.msgprint(
-              __('Failed to load plan {0}', [plan_name]),
-              'Error'
-            );
-            return;
-          }
-
-          console.log('Monthly Production Planning:', mpp);
-          console.table(mpp.month_prod_days || []);
-
-          // 3) find the child row whose shift_start_date === shiftDate
-          let match = (mpp.month_prod_days || []).find(row =>
-            row.shift_start_date === shiftDate
-          );
-
-          if (match) {
-            let href = match.hourly_production_reference || '';
-            frm.set_value('hourly_prod_ref', href);
-
-            if (!frm.is_new()) {
-              frappe.db.set_value(
-                frm.doc.doctype, frm.doc.name,
-                'hourly_prod_ref', href
-              ).then(() => {
-                console.log('Persisted hourly_prod_ref:', href);
-              });
-            }
-          } else {
-            frappe.msgprint(
-              __('No entry for shift_start_date {0} in month_prod_days of {1}',
-                [shiftDate, plan_name]),
-              'Validation'
-            );
-            frm.set_value('hourly_prod_ref', '');
-          }
-        }
-      });
     }
   });
 }

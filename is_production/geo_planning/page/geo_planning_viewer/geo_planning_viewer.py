@@ -1,6 +1,12 @@
 import json
 import frappe
 
+try:
+	from is_production.geo_planning.services.viewer_geometry_service import generate_preview_blocks
+except Exception:
+	generate_preview_blocks = None
+
+
 
 def _doctype_has_field(doctype, fieldname):
 	return fieldname in [df.fieldname for df in frappe.get_meta(doctype).fields]
@@ -472,6 +478,104 @@ def get_pit_outline_batch_query(doctype, txt, searchfield, start, page_len, filt
 	)
 
 
+
+@frappe.whitelist()
+def generate_backend_preview_blocks(
+	data_source=None,
+	geo_project=None,
+	version_tag=None,
+	variable_name=None,
+	import_batch=None,
+	geo_model_output=None,
+	calculation_batch=None,
+	pit_outline_batch=None,
+	z_filter_enabled=None,
+	z_filter_mode=None,
+	z_filter_value=None,
+	z_filter_value_to=None,
+	block_size_x=100,
+	block_size_y=40,
+	mesh_size_x=None,
+	mesh_size_y=None,
+	block_angle_degrees=0,
+	minimum_inside_percent=50,
+	auto_number_blocks=0,
+	cut_no=1,
+	points_json=None,
+	pit_points_json=None
+):
+	"""
+	Generate preview mining blocks using backend geometry.
+
+	Important:
+	- The browser should NOT send all geology points back to Python.
+	- The browser sends filters only.
+	- Python loads Geo Model Points / Geo Calculated Points / Pit Outline Points directly.
+	- This avoids Frappe's 250 MB request limit.
+	"""
+	if generate_preview_blocks is None:
+		frappe.throw(
+			"viewer_geometry_service.py could not be imported. "
+			"Please create is_production/geo_planning/services/viewer_geometry_service.py "
+			"and restart the bench."
+		)
+
+	data_source = data_source or "Geo Model"
+
+	# Backwards compatibility only. Avoid this for large models.
+	if points_json:
+		try:
+			points = json.loads(points_json or "[]")
+		except Exception:
+			frappe.throw("Invalid points JSON.")
+	else:
+		points = get_geo_points(
+			data_source=data_source,
+			geo_project=geo_project,
+			version_tag=version_tag,
+			variable_name=variable_name,
+			import_batch=import_batch,
+			geo_model_output=geo_model_output,
+			calculation_batch=calculation_batch,
+			z_filter_enabled=z_filter_enabled,
+			z_filter_mode=z_filter_mode,
+			z_filter_value=z_filter_value,
+			z_filter_value_to=z_filter_value_to,
+		)
+
+	if pit_points_json:
+		try:
+			pit_points = json.loads(pit_points_json or "[]")
+		except Exception:
+			frappe.throw("Invalid pit outline points JSON.")
+	else:
+		pit_points = []
+
+		if pit_outline_batch:
+			pit_points = get_pit_outline_points(
+				geo_project=geo_project,
+				geo_import_batch=pit_outline_batch,
+			)
+
+	if not points:
+		frappe.throw("No model/depth points matched the selected filters.")
+
+	blocks = generate_preview_blocks(
+		points=points,
+		pit_points=pit_points,
+		block_size_x=_float(block_size_x, 100),
+		block_size_y=_float(block_size_y, 40),
+		mesh_size_x=_float(mesh_size_x, 0),
+		mesh_size_y=_float(mesh_size_y, 0),
+		angle_degrees=_float(block_angle_degrees, 0),
+		minimum_inside_percent=_float(minimum_inside_percent, 50),
+		auto_number_blocks=_int(auto_number_blocks, 0),
+		cut_no=_int(cut_no, 1),
+	)
+
+	return blocks
+
+
 @frappe.whitelist()
 def save_mining_block_layout(
 	layout_name=None,
@@ -560,6 +664,8 @@ def save_mining_block_layout(
 		_set_if_field(doc, "point_count", _int(block.get("point_count")))
 		_set_if_field(doc, "expected_point_count", _int(block.get("expected_point_count")))
 		_set_if_field(doc, "inside_percent", _float(block.get("inside_percent")))
+		_set_if_field(doc, "area", _float(block.get("area")))
+		_set_if_field(doc, "effective_area", _float(block.get("effective_area")))
 		_set_if_field(doc, "status", block.get("status") or "Draft")
 		_set_if_field(doc, "corners_json", json.dumps(block.get("corners") or []))
 
@@ -646,6 +752,8 @@ def get_mining_blocks(layout):
 			"point_count",
 			"expected_point_count",
 			"inside_percent",
+			"area",
+			"effective_area",
 			"status",
 			"corners_json"
 		]

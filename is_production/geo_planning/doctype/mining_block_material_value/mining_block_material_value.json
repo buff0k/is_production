@@ -1,0 +1,165 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-08 07:52:01.737783",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "mining_block",
+  "geo_project",
+  "material_seam",
+  "variable_name",
+  "variable_code",
+  "value_type",
+  "source_type",
+  "geo_import_batch",
+  "geo_calculation_batch",
+  "column_break_cbzw",
+  "avg_value",
+  "min_value",
+  "max_value",
+  "point_count",
+  "effective_area",
+  "volume",
+  "density",
+  "tonnes",
+  "passes_rule",
+  "material_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "mining_block",
+   "fieldtype": "Link",
+   "label": "Mining Block",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "material_seam",
+   "fieldtype": "Data",
+   "label": "Material / Seam"
+  },
+  {
+   "fieldname": "variable_name",
+   "fieldtype": "Data",
+   "label": "Variable Name"
+  },
+  {
+   "fieldname": "variable_code",
+   "fieldtype": "Data",
+   "label": "Variable Code"
+  },
+  {
+   "fieldname": "value_type",
+   "fieldtype": "Select",
+   "label": "Value Type",
+   "options": "\nThickness\nDepth\nElevation\nQuality\nDensity\nOther"
+  },
+  {
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "label": "Source Type",
+   "options": "\nGeo Import Batch\nGeo Calculation Batch"
+  },
+  {
+   "fieldname": "geo_import_batch",
+   "fieldtype": "Link",
+   "label": "Geo Import Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "geo_calculation_batch",
+   "fieldtype": "Link",
+   "label": "Geo Calculation Batch",
+   "options": "Geo Calculation Batch"
+  },
+  {
+   "fieldname": "column_break_cbzw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "avg_value",
+   "fieldtype": "Float",
+   "label": "Avg Value"
+  },
+  {
+   "fieldname": "min_value",
+   "fieldtype": "Float",
+   "label": "Min Value"
+  },
+  {
+   "fieldname": "max_value",
+   "fieldtype": "Float",
+   "label": "Max Value"
+  },
+  {
+   "fieldname": "point_count",
+   "fieldtype": "Int",
+   "label": "Point Count"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume"
+  },
+  {
+   "fieldname": "density",
+   "fieldtype": "Float",
+   "label": "Density"
+  },
+  {
+   "fieldname": "tonnes",
+   "fieldtype": "Float",
+   "label": "Tonnes"
+  },
+  {
+   "default": "0",
+   "fieldname": "passes_rule",
+   "fieldtype": "Check",
+   "label": "Passes Rule"
+  },
+  {
+   "fieldname": "material_status",
+   "fieldtype": "Select",
+   "label": "Material Status",
+   "options": "\nMineable\nWaste\nExcluded\nReview\nNo Data"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-08 08:02:01.895276",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Block Material Value",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

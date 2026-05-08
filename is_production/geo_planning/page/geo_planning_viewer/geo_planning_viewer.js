@@ -699,8 +699,7 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 	});
 
 	$("#generate_blocks").on("click", function() {
-		generate_blocks();
-		draw();
+		generate_blocks_backend();
 	});
 
 	$("#clear_blocks").on("click", function() {
@@ -1236,7 +1235,33 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 		];
 	}
 
+	function point_in_polygon(point, polygon) {
+		if (!polygon || polygon.length < 3) return false;
+
+		let inside = false;
+		const x = point.x;
+		const y = point.y;
+
+		for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+			const xi = polygon[i].x;
+			const yi = polygon[i].y;
+			const xj = polygon[j].x;
+			const yj = polygon[j].y;
+
+			const intersect = ((yi > y) !== (yj > y)) &&
+				(x < (xj - xi) * (y - yi) / ((yj - yi) || 0.0000001) + xi);
+
+			if (intersect) inside = !inside;
+		}
+
+		return inside;
+	}
+
 	function point_in_block(point, block) {
+		if (block.corners && block.corners.length >= 3) {
+			return point_in_polygon(point, block.corners);
+		}
+
 		const local = rotate_to_local(point.x, point.y, block.anchor, block.angle);
 		const x0 = block.col * block.width;
 		const y0 = block.row * block.height;
@@ -1248,6 +1273,120 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 			local.y < y0 + block.height
 		);
 	}
+
+
+	function normalise_backend_block(block, index) {
+		const angleDegrees = Number(block.angle_degrees || 0);
+		const angle = angleDegrees * Math.PI / 180;
+		const corners = (block.corners || []).map(p => ({
+			x: Number(p.x),
+			y: Number(p.y)
+		})).filter(p => isFinite(p.x) && isFinite(p.y));
+
+		const x = Number(block.x || block.centroid_x || 0);
+		const y = Number(block.y || block.centroid_y || 0);
+		const width = Number(block.width || block.block_width || 0);
+		const height = Number(block.height || block.block_height || 0);
+		const row = Number(block.row || block.row_no || 0);
+		const col = Number(block.col || block.column_no || 0);
+		const blockNo = Number(block.block_no || index + 1);
+		const cutNo = Number(block.cut_no || 1);
+		const label = block.label || `C${cutNo}B${blockNo}`;
+
+		return {
+			...block,
+			cut_no: cutNo,
+			block_no: blockNo,
+			label,
+			key: block.key || `${col}|${row}|${index}`,
+			col,
+			row,
+			x,
+			y,
+			width,
+			height,
+			angle,
+			angle_degrees: angleDegrees,
+			anchor: block.anchor || get_generation_anchor(),
+			corners,
+			avg_z: Number(block.avg_z || 0),
+			min_z: Number(block.min_z || 0),
+			max_z: Number(block.max_z || 0),
+			point_count: Number(block.point_count || 0),
+			expected_point_count: Number(block.expected_point_count || 0),
+			inside_percent: Number(block.inside_percent || 0),
+			effective_area: Number(block.effective_area || 0),
+			area: Number(block.area || 0),
+			status: block.status || "Draft"
+		};
+	}
+
+	function generate_blocks_backend() {
+		const blockSize = get_selected_block_size();
+		const meshSize = get_manual_or_auto_mesh_size();
+
+		if (!points.length && !pitOutlinePoints.length) {
+			frappe.msgprint("Please load the view before generating mining blocks.");
+			return;
+		}
+
+		if (!blockSize.x || !blockSize.y) {
+			frappe.msgprint("Please enter a valid Mining Block Size, for example 100 x 40.");
+			return;
+		}
+
+		const hasMainData =
+			is_geo_depth()
+				? !!filters.geo_depth_batch.get_value()
+				: !!filters.import_batch.get_value();
+
+		if (!hasMainData) {
+			frappe.msgprint("Please select a Model Batch or Geo Depth batch before generating backend blocks.");
+			return;
+		}
+
+		frappe.call({
+			method: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.generate_backend_preview_blocks",
+			args: {
+				data_source: get_data_source(),
+				geo_project: filters.geo_project.get_value(),
+				geo_model_output: filters.geo_model_output.get_value(),
+				version_tag: filters.version_tag.get_value(),
+				variable_name: filters.variable_name.get_value(),
+				import_batch: filters.import_batch.get_value(),
+				calculation_batch: filters.geo_depth_batch.get_value(),
+				pit_outline_batch: filters.pit_outline_batch.get_value(),
+				z_filter_enabled: is_z_filter_enabled() ? 1 : 0,
+				z_filter_mode: filters.z_filter_mode.get_value(),
+				z_filter_value: filters.z_filter_value.get_value(),
+				z_filter_value_to: filters.z_filter_value_to.get_value(),
+				block_size_x: blockSize.x,
+				block_size_y: blockSize.y,
+				mesh_size_x: meshSize.x,
+				mesh_size_y: meshSize.y,
+				block_angle_degrees: Number(filters.block_angle.get_value() || 0),
+				minimum_inside_percent: Number(filters.minimum_inside.get_value() || 50),
+				auto_number_blocks: autoNumberBlocks ? 1 : 0,
+				cut_no: 1
+			},
+			freeze: true,
+			freeze_message: "Generating blocks with backend geometry...",
+			callback(r) {
+				const rawBlocks = r.message || [];
+				generatedBlocks = rawBlocks.map((b, index) => normalise_backend_block(b, index));
+				selectedBlock = null;
+				blockCacheKey = `${points.length}|${pitOutlinePoints.length}|${blockSize.label}|${meshSize.label}|backend-filter|${filters.block_angle.get_value()}|${filters.minimum_inside.get_value()}`;
+				update_selected_block_info();
+				draw();
+
+				frappe.show_alert({
+					message: `Generated ${generatedBlocks.length.toLocaleString()} backend mining blocks.`,
+					indicator: "green"
+				});
+			}
+		});
+	}
+
 
 	function generate_blocks() {
 		const blockSize = get_selected_block_size();
@@ -1361,7 +1500,7 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 				return {
 					cut_no: 0,
 					block_no: assignedBlockNo,
-					label: assignedBlockNo ? `B${String(assignedBlockNo).padStart(4, "0")}` : "",
+					label: assignedBlockNo ? `C1B${assignedBlockNo}` : "",
 					key: b.key,
 					col: b.col,
 					row: b.row,
@@ -1447,7 +1586,7 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 		numberingOrder.forEach((block, index) => {
 			const blockNo = index + 1;
 			block.block_no = blockNo;
-			block.label = `B${String(blockNo).padStart(4, "0")}`;
+			block.label = `C1B${blockNo}`;
 		});
 
 		selectedBlock = numberingOrder[0];
@@ -1509,6 +1648,8 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 			expected_point_count: b.expected_point_count,
 			inside_percent: b.inside_percent,
 			status: b.status,
+			area: b.area || 0,
+			effective_area: b.effective_area || 0,
 			corners: b.corners
 		}));
 
@@ -1708,7 +1849,7 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 			ctx.closePath();
 			ctx.stroke();
 
-			if (b.label && b.width * view.scale >= 45 && b.height * view.scale >= 20) {
+			if (b.label && ((b.width || 100) * view.scale >= 45) && ((b.height || 40) * view.scale >= 20)) {
 				ctx.save();
 				const blockScreen = world_to_screen_point(b.x, b.y);
 				ctx.translate(blockScreen.x, blockScreen.y);
