@@ -7,15 +7,19 @@ import frappe
 from frappe.model.document import Document
 import datetime
 from frappe.exceptions import TimestampMismatchError
-from frappe.utils import get_datetime
+from frappe.utils import add_days, flt, get_datetime, getdate
 
 
 class MonthlyProductionPlanning(Document):
     def validate(self):
         """
-        Validate document before saving
+        Validate document before saving.
+        Only sync month_prod_days when production date/shift setup changed.
         """
         self.validate_shift_hours()
+
+        if self.should_sync_month_prod_days():
+            self.sync_month_prod_days()
         
     def validate_shift_hours(self):
         """
@@ -26,12 +30,150 @@ class MonthlyProductionPlanning(Document):
                 "Weekday Shift Hours cannot be more than 12",
                 title="Invalid Shift Hours"
             )
-            
+
         if self.saturday_shift_hours and self.saturday_shift_hours > 12:
             frappe.throw(
                 "Saturday Shift Hours cannot be more than 12",
                 title="Invalid Shift Hours"
             )
+
+
+    def should_sync_month_prod_days(self):
+        """
+        Only run month_prod_days sync when setup fields changed.
+        Avoid heavy child-table rebuild on every normal save.
+        """
+        if self.is_new():
+            return True
+
+        before = self.get_doc_before_save()
+
+        if not before:
+            return True
+
+        sync_fields = [
+            "prod_month_start_date",
+            "prod_month_end_date",
+            "shift_system",
+            "weekday_shift_hours",
+            "saturday_shift_hours",
+            "num_sat_shifts",
+            "num_excavators",
+        ]
+
+        return any(self.has_value_changed(fieldname) for fieldname in sync_fields)
+
+
+    def sync_month_prod_days(self):
+        """
+        Ensure month_prod_days matches the configured production date range.
+
+        This keeps existing row data for dates already present, creates any
+        missing rows when the plan range is extended, and removes rows that
+        fall outside the configured range.
+        """
+        if not self.prod_month_start_date or not self.prod_month_end_date:
+            return
+
+        start_date = getdate(self.prod_month_start_date)
+        end_date = getdate(self.prod_month_end_date)
+
+        if not start_date or not end_date or start_date > end_date:
+            return
+
+        existing_by_date = {}
+        for row in self.month_prod_days or []:
+            if row.shift_start_date:
+                existing_by_date[getdate(row.shift_start_date)] = row.as_dict()
+
+        rows = []
+        totals = {"day": 0, "night": 0, "morning": 0, "afternoon": 0}
+        shift_date = start_date
+
+        while shift_date <= end_date:
+            hours = self.get_shift_hours_for_date(shift_date)
+            row_data = existing_by_date.get(shift_date, {})
+
+            production_excavators = row_data.get("production_excavators")
+            if production_excavators in (None, ""):
+                production_excavators = self.num_excavators or 0
+
+            total_shift_hours = sum(hours.values())
+            bcm_per_day = (flt(production_excavators) if production_excavators else 0) * total_shift_hours * 220
+
+            row_data.update({
+                "doctype": "Monthly Production Days",
+                "shift_start_date": shift_date,
+                "day_week": shift_date.strftime("%A"),
+                "shift_day_hours": hours["day"],
+                "shift_night_hours": hours["night"],
+                "shift_morning_hours": hours["morning"],
+                "shift_afternoon_hours": hours["afternoon"],
+                "production_excavators": production_excavators,
+                "bcm_per_day": bcm_per_day,
+            })
+
+            if self.name:
+                row_data["hourly_production_reference"] = f"{self.name}-{shift_date}"
+
+            rows.append(row_data)
+
+            totals["day"] += hours["day"]
+            totals["night"] += hours["night"]
+            totals["morning"] += hours["morning"]
+            totals["afternoon"] += hours["afternoon"]
+            shift_date = add_days(shift_date, 1)
+
+        self.set("month_prod_days", [])
+        for row_data in rows:
+            self.append("month_prod_days", row_data)
+
+        total_hours = totals["day"] + totals["night"] + totals["morning"] + totals["afternoon"]
+        self.tot_shift_day_hours = totals["day"]
+        self.tot_shift_night_hours = totals["night"]
+        self.tot_shift_morning_hours = totals["morning"]
+        self.tot_shift_afternoon_hours = totals["afternoon"]
+        self.total_month_prod_hours = total_hours
+        self.num_prod_days = sum(
+            1 for row in self.month_prod_days
+            if any([
+                row.shift_day_hours,
+                row.shift_night_hours,
+                row.shift_morning_hours,
+                row.shift_afternoon_hours,
+            ])
+        )
+
+        if self.monthly_target_bcm:
+            self.target_bcm_day = self.monthly_target_bcm / self.num_prod_days if self.num_prod_days else 0
+            self.target_bcm_hour = self.monthly_target_bcm / total_hours if total_hours else 0
+
+    def get_shift_hours_for_date(self, shift_date):
+        weekday_shift_hours = self.weekday_shift_hours or 0
+        saturday_shift_hours = self.saturday_shift_hours or 0
+        num_sat_shifts = int(self.num_sat_shifts or 0)
+        day_name = shift_date.strftime("%A")
+
+        hours = {"day": 0, "night": 0, "morning": 0, "afternoon": 0}
+
+        if self.shift_system == "2x12Hour":
+            if day_name == "Saturday":
+                hours["day"] = saturday_shift_hours
+                hours["night"] = saturday_shift_hours if num_sat_shifts > 1 else 0
+            elif day_name != "Sunday":
+                hours["day"] = weekday_shift_hours
+                hours["night"] = weekday_shift_hours
+        else:
+            if day_name == "Saturday":
+                hours["morning"] = saturday_shift_hours
+                hours["afternoon"] = saturday_shift_hours if num_sat_shifts > 1 else 0
+                hours["night"] = saturday_shift_hours if num_sat_shifts > 2 else 0
+            elif day_name != "Sunday":
+                hours["morning"] = weekday_shift_hours
+                hours["afternoon"] = weekday_shift_hours
+                hours["night"] = weekday_shift_hours
+
+        return hours
     
     def update_mtd_production(self):
         """

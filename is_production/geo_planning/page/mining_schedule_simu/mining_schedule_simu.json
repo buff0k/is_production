@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2026-05-08 15:23:39.718306",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-05-08 15:23:39.718306",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "mining-schedule-simu",
+ "owner": "Administrator",
+ "page_name": "mining-schedule-simu",
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Mining Schedule Simulator"
+}
