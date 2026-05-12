@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format: {source_pit_layout}-{mining_block_code}",
  "creation": "2026-05-08 07:44:02.181612",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -123,10 +124,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-11 12:21:08.897804",
+ "modified": "2026-05-12 12:48:29.337931",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Mining Block",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

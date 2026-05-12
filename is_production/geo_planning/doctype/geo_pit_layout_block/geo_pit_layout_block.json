@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": ":{geo_pit_layout}-{block_code}",
  "creation": "2026-05-08 07:11:19.662804",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -133,10 +134,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-11 12:19:53.552211",
+ "modified": "2026-05-12 10:40:04.221524",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Pit Layout Block",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {

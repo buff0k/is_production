@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format: :{geology_run}-{block_code}",
  "creation": "2026-05-08 07:30:53.989588",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -121,10 +122,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-11 12:20:46.371899",
+ "modified": "2026-05-12 12:47:40.065250",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Pit Layout Geology Result",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
