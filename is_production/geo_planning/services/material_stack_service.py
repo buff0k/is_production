@@ -1,6 +1,10 @@
 import frappe
 
 
+SOURCE_IMPORT_BATCH = "Geo Import Batch"
+SOURCE_CALCULATION_BATCH = "Geo Calculation Batch"
+
+
 def _int(value, default=0):
     try:
         if value is None or value == "":
@@ -71,7 +75,7 @@ def _get_stack_items(stack):
     if not items:
         frappe.throw("Material Stack has no valid items with Geology Runs.")
 
-    return sorted(items, key=lambda x: (x["sort_order"], x["idx"]))
+    return sorted(items, key=lambda item: (item["sort_order"], item["idx"]))
 
 
 def _get_mining_blocks_by_layout_block(geo_pit_layout):
@@ -82,7 +86,7 @@ def _get_mining_blocks_by_layout_block(geo_pit_layout):
         limit_page_length=0,
     )
 
-    return {r.source_layout_block: r for r in rows}
+    return {row.source_layout_block: row for row in rows}
 
 
 def _ensure_mining_blocks_exist(geo_pit_layout):
@@ -128,7 +132,7 @@ def _get_geology_results(geology_run):
         limit_page_length=0,
     )
 
-    return {r.layout_block: r for r in rows}
+    return {row.layout_block: row for row in rows}
 
 
 def _material_status_from_result(result):
@@ -156,13 +160,38 @@ def _make_duplicate_filters(mining_block, result, item):
         "material_seam": item["material_seam"],
     }
 
-    if result.source_type == "Geo Import Batch":
+    if result.source_type == SOURCE_IMPORT_BATCH:
         filters["geo_import_batch"] = result.geo_import_batch
 
-    if result.source_type == "Geo Calculation Batch":
+    if result.source_type == SOURCE_CALCULATION_BATCH:
         filters["geo_calculation_batch"] = result.geo_calculation_batch
 
     return filters
+
+
+def _set_source_batch_fields(doc, result):
+    doc.geo_import_batch = result.geo_import_batch
+    doc.geo_calculation_batch = result.geo_calculation_batch
+
+
+def _set_material_value_fields(doc, mb, result, item, stack):
+    run = item["run"]
+
+    doc.mining_block = mb.name
+    doc.geo_project = result.geo_project or stack.geo_project
+    doc.material_seam = item["material_seam"]
+    doc.variable_name = result.variable_name or run.variable_name
+    doc.variable_code = run.get("variable_code")
+    doc.value_type = item["value_type"]
+    doc.source_type = result.source_type
+    _set_source_batch_fields(doc, result)
+    doc.avg_value = result.avg_value
+    doc.min_value = result.min_value
+    doc.max_value = result.max_value
+    doc.point_count = result.point_count
+    doc.effective_area = mb.effective_area
+    doc.passes_rule = result.passes_rule
+    doc.material_status = _material_status_from_result(result)
 
 
 @frappe.whitelist()
@@ -181,15 +210,16 @@ def get_material_stack_summary(material_stack):
 
     for item in items:
         result_count = frappe.db.count("Geo Pit Layout Geology Result", {"geology_run": item["geology_run"]})
+        run = item["run"]
 
         item_summaries.append({
             "sort_order": item["sort_order"],
             "material_seam": item["material_seam"],
             "value_type": item["value_type"],
             "geology_run": item["geology_run"],
-            "run_name": item["run"].run_name,
-            "variable_name": item["run"].variable_name,
-            "variable_code": item["run"].get("variable_code"),
+            "run_name": run.run_name,
+            "variable_name": run.variable_name,
+            "variable_code": run.get("variable_code"),
             "use_for_volume": item["use_for_volume"],
             "use_for_tonnes": item["use_for_tonnes"],
             "use_for_scheduling": item["use_for_scheduling"],
@@ -248,6 +278,7 @@ def attach_material_stack_to_mining_blocks(
     no_mining_block = 0
 
     item_results = []
+    should_overwrite = _int(overwrite_existing, 0)
 
     for item in items:
         results_by_layout_block = _get_geology_results(item["geology_run"])
@@ -268,12 +299,12 @@ def attach_material_stack_to_mining_blocks(
             duplicate_filters = _make_duplicate_filters(mb.name, result, item)
             existing = frappe.db.get_value("Mining Block Material Value", duplicate_filters, "name")
 
-            if existing and not _int(overwrite_existing, 0):
+            if existing and not should_overwrite:
                 skipped += 1
                 item_skipped += 1
                 continue
 
-            if existing and _int(overwrite_existing, 0):
+            if existing and should_overwrite:
                 doc = frappe.get_doc("Mining Block Material Value", existing)
                 updated += 1
                 item_updated += 1
@@ -282,24 +313,7 @@ def attach_material_stack_to_mining_blocks(
                 created += 1
                 item_created += 1
 
-            run = item["run"]
-
-            doc.mining_block = mb.name
-            doc.geo_project = result.geo_project or stack.geo_project
-            doc.material_seam = item["material_seam"]
-            doc.variable_name = result.variable_name or run.variable_name
-            doc.variable_code = run.get("variable_code")
-            doc.value_type = item["value_type"]
-            doc.source_type = result.source_type
-            doc.geo_import_batch = result.geo_import_batch
-            doc.geo_calculation_batch = result.geo_calculation_batch
-            doc.avg_value = result.avg_value
-            doc.min_value = result.min_value
-            doc.max_value = result.max_value
-            doc.point_count = result.point_count
-            doc.effective_area = mb.effective_area
-            doc.passes_rule = result.passes_rule
-            doc.material_status = _material_status_from_result(result)
+            _set_material_value_fields(doc, mb, result, item, stack)
 
             # Keep calculation fields blank here.
             # Phase 4 calculation service populates volume/density/tonnes.
@@ -308,7 +322,7 @@ def attach_material_stack_to_mining_blocks(
                 doc.density = None
                 doc.tonnes = None
 
-            if existing and _int(overwrite_existing, 0):
+            if existing and should_overwrite:
                 doc.save(ignore_permissions=True)
             else:
                 doc.insert(ignore_permissions=True)

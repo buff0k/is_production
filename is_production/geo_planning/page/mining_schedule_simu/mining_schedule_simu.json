@@ -4,7 +4,7 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2026-05-08 15:23:39.718306",
+ "modified": "2026-05-11 12:43:27.655821",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "mining-schedule-simu",
@@ -13,6 +13,9 @@
  "roles": [
   {
    "role": "All"
+  },
+  {
+   "role": "Production Manager"
   }
  ],
  "script": null,

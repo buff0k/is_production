@@ -1,0 +1,168 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-11 13:17:03.382579",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "schedule_scenario",
+  "schedule_period",
+  "mining_block",
+  "mining_block_code",
+  "material_seam",
+  "sequence_no",
+  "planned_volume",
+  "planned_tonnes",
+  "required_hours",
+  "schedule_status",
+  "animation_status",
+  "column_break_tbus",
+  "block_total_volumes",
+  "block_total_tonnes",
+  "scheduled_volume",
+  "scheduled_tonnes",
+  "remaining_volume_after",
+  "start_fraction",
+  "end_fraction",
+  "is_partial",
+  "is_block_complete"
+ ],
+ "fields": [
+  {
+   "fieldname": "schedule_scenario",
+   "fieldtype": "Link",
+   "label": "Schedule Scenario",
+   "options": "Mine Schedule Scenario"
+  },
+  {
+   "fieldname": "schedule_period",
+   "fieldtype": "Link",
+   "label": "Schedule Period",
+   "options": "Mine Schedule Period"
+  },
+  {
+   "fieldname": "mining_block",
+   "fieldtype": "Link",
+   "label": "Mining Block",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "mining_block_code",
+   "fieldtype": "Data",
+   "label": "Mining Block Code"
+  },
+  {
+   "fieldname": "material_seam",
+   "fieldtype": "Data",
+   "label": "Material / Seam"
+  },
+  {
+   "fieldname": "sequence_no",
+   "fieldtype": "Int",
+   "label": "Sequence No"
+  },
+  {
+   "fieldname": "planned_volume",
+   "fieldtype": "Float",
+   "label": "Planned Volume"
+  },
+  {
+   "fieldname": "planned_tonnes",
+   "fieldtype": "Float",
+   "label": "Planned Tonnes"
+  },
+  {
+   "fieldname": "required_hours",
+   "fieldtype": "Float",
+   "label": "Required Hours"
+  },
+  {
+   "fieldname": "schedule_status",
+   "fieldtype": "Select",
+   "label": "Schedule Status"
+  },
+  {
+   "fieldname": "animation_status",
+   "fieldtype": "Select",
+   "label": "Animation Status"
+  },
+  {
+   "fieldname": "column_break_tbus",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "block_total_volumes",
+   "fieldtype": "Float",
+   "label": "Block Total Volumes"
+  },
+  {
+   "fieldname": "block_total_tonnes",
+   "fieldtype": "Float",
+   "label": "Block Total Tonnes"
+  },
+  {
+   "fieldname": "scheduled_volume",
+   "fieldtype": "Float",
+   "label": "Scheduled Volumes"
+  },
+  {
+   "fieldname": "scheduled_tonnes",
+   "fieldtype": "Float",
+   "label": "Scheduled Tonnes"
+  },
+  {
+   "fieldname": "remaining_volume_after",
+   "fieldtype": "Float",
+   "label": "Remaining Volume After"
+  },
+  {
+   "fieldname": "start_fraction",
+   "fieldtype": "Float",
+   "label": "Start Fraction"
+  },
+  {
+   "fieldname": "end_fraction",
+   "fieldtype": "Float",
+   "label": "End Fraction"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_partial",
+   "fieldtype": "Check",
+   "label": "Is Partial"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_block_complete",
+   "fieldtype": "Check",
+   "label": "Is Block Complete"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-11 13:39:01.849705",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mine Schedule Block",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

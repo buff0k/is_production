@@ -33,19 +33,29 @@ def clean_xy_points(points):
             z = _float(p.get("z"), 0.0)
         except Exception:
             continue
-        clean.append({"x": x, "y": y, "z": z, "row_no": _int(p.get("row_no"), idx + 1), "raw": p})
+
+        clean.append({
+            "x": x,
+            "y": y,
+            "z": z,
+            "row_no": _int(p.get("row_no"), idx + 1),
+            "raw": p,
+        })
     return clean
 
 
 def _median_gap(values, fallback=20.0):
     values = sorted(set(round(float(v), 6) for v in values if v is not None))
     gaps = []
-    for i in range(1, len(values)):
-        gap = values[i] - values[i - 1]
+
+    for previous, current in zip(values, values[1:]):
+        gap = current - previous
         if gap > 0.000001:
             gaps.append(gap)
+
     if not gaps:
         return fallback
+
     gaps.sort()
     return gaps[len(gaps) // 2]
 
@@ -54,7 +64,11 @@ def estimate_mesh_size(points, fallback_x=20.0, fallback_y=20.0):
     clean = clean_xy_points(points)
     if len(clean) < 2:
         return fallback_x, fallback_y
-    return _median_gap([p["x"] for p in clean], fallback_x), _median_gap([p["y"] for p in clean], fallback_y)
+
+    return (
+        _median_gap((p["x"] for p in clean), fallback_x),
+        _median_gap((p["y"] for p in clean), fallback_y),
+    )
 
 
 def _edge_key(a, b):
@@ -86,6 +100,7 @@ def _grid_coverage_polygon(points):
         p2 = (x + half_x, y - half_y)
         p3 = (x + half_x, y + half_y)
         p4 = (x - half_x, y + half_y)
+
         add_or_remove(p1, p2)
         add_or_remove(p2, p3)
         add_or_remove(p3, p4)
@@ -102,6 +117,7 @@ def _grid_coverage_polygon(points):
     geom = unary_union(polygons)
     if not geom.is_valid:
         geom = geom.buffer(0)
+
     return None if geom.is_empty else geom
 
 
@@ -114,9 +130,10 @@ def build_pit_geometry(pit_points):
         return _grid_coverage_polygon(clean)
 
     clean = sorted(clean, key=lambda p: p.get("row_no") or 0)
-    polygon = Polygon([(p["x"], p["y"]) for p in clean])
+    polygon = Polygon((p["x"], p["y"]) for p in clean)
     if not polygon.is_valid:
         polygon = polygon.buffer(0)
+
     return None if polygon.is_empty else polygon
 
 
@@ -126,7 +143,7 @@ def _largest_polygon(geom):
     if geom.geom_type == "Polygon":
         return geom
     if geom.geom_type == "MultiPolygon":
-        return max(list(geom.geoms), key=lambda g: g.area)
+        return max(geom.geoms, key=lambda g: g.area)
     return None
 
 
@@ -134,9 +151,11 @@ def _polygon_corners(polygon):
     polygon = _largest_polygon(polygon)
     if polygon is None:
         return []
+
     coords = list(polygon.exterior.coords)
     if len(coords) > 1 and coords[0] == coords[-1]:
         coords = coords[:-1]
+
     return [{"x": float(x), "y": float(y)} for x, y in coords]
 
 

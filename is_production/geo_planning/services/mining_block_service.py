@@ -1,6 +1,10 @@
 import frappe
 
 
+SOURCE_TYPE_IMPORT_BATCH = "Geo Import Batch"
+SOURCE_TYPE_CALCULATION_BATCH = "Geo Calculation Batch"
+
+
 def _float(value, default=0.0):
     try:
         if value is None or value == "":
@@ -20,7 +24,7 @@ def _int(value, default=0):
 
 
 def _doctype_has_field(doctype, fieldname):
-    return fieldname in [df.fieldname for df in frappe.get_meta(doctype).fields]
+    return any(df.fieldname == fieldname for df in frappe.get_meta(doctype).fields)
 
 
 def _set_if_field(doc, fieldname, value):
@@ -132,6 +136,67 @@ def _planning_status_from_results(results_by_layout_block, layout_block_name):
     return "Review"
 
 
+def _assign_mining_block_fields(doc, block, geo_pit_layout, results_by_layout_block):
+    doc.mining_block_code = block.block_code
+    doc.geo_project = block.geo_project
+    doc.source_pit_layout = geo_pit_layout
+    doc.source_layout_block = block.name
+    doc.cut_no = block.cut_no
+    doc.block_no = block.block_no
+    doc.row_no = block.row_no
+    doc.column_no = block.column_no
+    doc.centroid_x = block.centroid_x
+    doc.centroid_y = block.centroid_y
+    doc.area = block.area
+    doc.effective_area = block.effective_area
+    doc.inside_percent = block.inside_percent
+    doc.polygon_geojson = block.polygon_geojson
+    doc.block_status = "Available"
+    doc.planning_status = _planning_status_from_results(results_by_layout_block, block.name)
+    doc.remarks = f"Generated from Geo Pit Layout {geo_pit_layout}"
+
+
+def _make_material_value_duplicate_filters(mining_block, result):
+    filters = {
+        "mining_block": mining_block,
+        "source_type": result.source_type,
+        "variable_name": result.variable_name,
+    }
+
+    if result.source_type == SOURCE_TYPE_IMPORT_BATCH:
+        filters["geo_import_batch"] = result.geo_import_batch
+
+    if result.source_type == SOURCE_TYPE_CALCULATION_BATCH:
+        filters["geo_calculation_batch"] = result.geo_calculation_batch
+
+    return filters
+
+
+def _assign_material_value_fields(value_doc, mining_block, result, run, mb_effective_area):
+    value_doc.mining_block = mining_block
+    value_doc.geo_project = result.geo_project
+    value_doc.material_seam = run.variable_name or result.variable_name
+    value_doc.variable_name = result.variable_name
+    value_doc.variable_code = None
+    value_doc.value_type = run.value_meaning or "Other"
+    value_doc.source_type = result.source_type
+    value_doc.geo_import_batch = result.geo_import_batch
+    value_doc.geo_calculation_batch = result.geo_calculation_batch
+    value_doc.avg_value = result.avg_value
+    value_doc.min_value = result.min_value
+    value_doc.max_value = result.max_value
+    value_doc.point_count = result.point_count
+    value_doc.effective_area = mb_effective_area
+    value_doc.passes_rule = result.passes_rule
+    value_doc.material_status = _material_status_from_result(result.result_status, result.passes_rule)
+
+    # Phase 4 will calculate volume/tonnes properly once density rules are defined.
+    # For now we only prepare the fields.
+    value_doc.volume = None
+    value_doc.density = None
+    value_doc.tonnes = None
+
+
 @frappe.whitelist()
 def mark_layout_final(geo_pit_layout):
     """
@@ -213,23 +278,7 @@ def generate_mining_blocks_from_layout(
             doc = frappe.new_doc("Mining Block")
             created_blocks += 1
 
-        doc.mining_block_code = block.block_code
-        doc.geo_project = block.geo_project
-        doc.source_pit_layout = geo_pit_layout
-        doc.source_layout_block = block.name
-        doc.cut_no = block.cut_no
-        doc.block_no = block.block_no
-        doc.row_no = block.row_no
-        doc.column_no = block.column_no
-        doc.centroid_x = block.centroid_x
-        doc.centroid_y = block.centroid_y
-        doc.area = block.area
-        doc.effective_area = block.effective_area
-        doc.inside_percent = block.inside_percent
-        doc.polygon_geojson = block.polygon_geojson
-        doc.block_status = "Available"
-        doc.planning_status = _planning_status_from_results(results_by_layout_block, block.name)
-        doc.remarks = f"Generated from Geo Pit Layout {geo_pit_layout}"
+        _assign_mining_block_fields(doc, block, geo_pit_layout, results_by_layout_block)
 
         if existing and overwrite_existing:
             doc.save(ignore_permissions=True)
@@ -245,21 +294,9 @@ def generate_mining_blocks_from_layout(
             if not mining_block:
                 continue
 
-            duplicate_filters = {
-                "mining_block": mining_block,
-                "source_type": result.source_type,
-                "variable_name": result.variable_name,
-            }
-
-            if result.source_type == "Geo Import Batch":
-                duplicate_filters["geo_import_batch"] = result.geo_import_batch
-
-            if result.source_type == "Geo Calculation Batch":
-                duplicate_filters["geo_calculation_batch"] = result.geo_calculation_batch
-
             existing_value = frappe.db.get_value(
                 "Mining Block Material Value",
-                duplicate_filters,
+                _make_material_value_duplicate_filters(mining_block, result),
                 "name",
             )
 
@@ -273,29 +310,7 @@ def generate_mining_blocks_from_layout(
                 value_doc = frappe.new_doc("Mining Block Material Value")
 
             mb_effective_area = frappe.db.get_value("Mining Block", mining_block, "effective_area") or 0
-
-            value_doc.mining_block = mining_block
-            value_doc.geo_project = result.geo_project
-            value_doc.material_seam = run.variable_name or result.variable_name
-            value_doc.variable_name = result.variable_name
-            value_doc.variable_code = None
-            value_doc.value_type = run.value_meaning or "Other"
-            value_doc.source_type = result.source_type
-            value_doc.geo_import_batch = result.geo_import_batch
-            value_doc.geo_calculation_batch = result.geo_calculation_batch
-            value_doc.avg_value = result.avg_value
-            value_doc.min_value = result.min_value
-            value_doc.max_value = result.max_value
-            value_doc.point_count = result.point_count
-            value_doc.effective_area = mb_effective_area
-            value_doc.passes_rule = result.passes_rule
-            value_doc.material_status = _material_status_from_result(result.result_status, result.passes_rule)
-
-            # Phase 4 will calculate volume/tonnes properly once density rules are defined.
-            # For now we only prepare the fields.
-            value_doc.volume = None
-            value_doc.density = None
-            value_doc.tonnes = None
+            _assign_material_value_fields(value_doc, mining_block, result, run, mb_effective_area)
 
             if existing_value and overwrite_existing:
                 value_doc.save(ignore_permissions=True)

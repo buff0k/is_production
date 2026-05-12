@@ -1,0 +1,219 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-11 12:58:11.611554",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "scenario_name",
+  "geo_project",
+  "geo_pit_layout",
+  "material_stack",
+  "material_seam",
+  "value_type",
+  "start_date",
+  "end_date",
+  "shift_hours_weekday",
+  "shift_hours_saturday",
+  "shift_hours_sunday",
+  "shifts_per_weekday",
+  "shifts_per_saturday",
+  "shifts_per_sunday",
+  "column_break_cseq",
+  "number_of_excavators",
+  "capacity_per_excavator_hour",
+  "utilisation_percent",
+  "availability_percent",
+  "schedule_method",
+  "scenario_status",
+  "total_volume",
+  "total_tonnes",
+  "total_scheduled_blocks",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "scenario_name",
+   "fieldtype": "Data",
+   "label": "Scenario Name"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "geo_pit_layout",
+   "fieldtype": "Link",
+   "label": "Geo Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "material_stack",
+   "fieldtype": "Link",
+   "label": "Material Stack",
+   "options": "Geo Pit Layout Material Stack"
+  },
+  {
+   "fieldname": "material_seam",
+   "fieldtype": "Data",
+   "label": "Material / Seam"
+  },
+  {
+   "fieldname": "value_type",
+   "fieldtype": "Select",
+   "label": "Value Type"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date"
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date"
+  },
+  {
+   "default": "2",
+   "fieldname": "shifts_per_weekday",
+   "fieldtype": "Float",
+   "label": "Shifts per Weekday"
+  },
+  {
+   "default": "2",
+   "fieldname": "shifts_per_saturday",
+   "fieldtype": "Float",
+   "label": "Shifts per Saturday"
+  },
+  {
+   "default": "9",
+   "fieldname": "shift_hours_weekday",
+   "fieldtype": "Float",
+   "label": "Shift Hours Weekday"
+  },
+  {
+   "default": "7",
+   "fieldname": "shift_hours_saturday",
+   "fieldtype": "Float",
+   "label": "Shift Hours Saturday"
+  },
+  {
+   "default": "7",
+   "fieldname": "shift_hours_sunday",
+   "fieldtype": "Float",
+   "label": "Shift Hours Sunday"
+  },
+  {
+   "default": "2",
+   "fieldname": "shifts_per_sunday",
+   "fieldtype": "Float",
+   "label": "Shifts per Sunday"
+  },
+  {
+   "fieldname": "column_break_cseq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "number_of_excavators",
+   "fieldtype": "Int",
+   "label": "Number of Excavators"
+  },
+  {
+   "default": "220",
+   "fieldname": "capacity_per_excavator_hour",
+   "fieldtype": "Float",
+   "label": "Capacity per Excavator Hour"
+  },
+  {
+   "fieldname": "utilisation_percent",
+   "fieldtype": "Percent",
+   "label": "Utilisation %"
+  },
+  {
+   "fieldname": "availability_percent",
+   "fieldtype": "Percent",
+   "label": "Availability %"
+  },
+  {
+   "fieldname": "schedule_method",
+   "fieldtype": "Select",
+   "label": "Schedule Method"
+  },
+  {
+   "fieldname": "scenario_status",
+   "fieldtype": "Select",
+   "label": "Scenario Status"
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume"
+  },
+  {
+   "fieldname": "total_tonnes",
+   "fieldtype": "Float",
+   "label": "Total Tonnes"
+  },
+  {
+   "fieldname": "total_scheduled_blocks",
+   "fieldtype": "Int",
+   "label": "Total Scheduled Blocks"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-11 13:10:21.165847",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mine Schedule Scenario",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

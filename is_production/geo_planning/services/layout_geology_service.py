@@ -1,9 +1,13 @@
 import json
 
 import frappe
-import pandas as pd
 import geopandas as gpd
+import pandas as pd
 from shapely.geometry import Point, shape
+
+
+SOURCE_TYPE_CALCULATION = "Geo Calculation Batch"
+SOURCE_TYPE_IMPORT = "Geo Import Batch"
 
 
 def _float(value, default=0.0):
@@ -104,12 +108,13 @@ def _get_calculation_batch_points(geo_project, geo_calculation_batch):
 
 def _source_points_to_dataframe(source_type, points):
     rows = []
+    is_calculation_batch = source_type == SOURCE_TYPE_CALCULATION
 
     for p in points:
         if p.get("x") is None or p.get("y") is None:
             continue
 
-        if source_type == "Geo Calculation Batch":
+        if is_calculation_batch:
             value = p.get("calculated_z")
             if value is None:
                 value = p.get("z")
@@ -119,14 +124,16 @@ def _source_points_to_dataframe(source_type, points):
         if value is None:
             continue
 
-        rows.append({
-            "point_name": p.get("name"),
-            "x": _float(p.get("x")),
-            "y": _float(p.get("y")),
-            "value": _float(value),
-            "variable_name": p.get("variable_name"),
-            "variable_code": p.get("variable_code"),
-        })
+        rows.append(
+            {
+                "point_name": p.get("name"),
+                "x": _float(p.get("x")),
+                "y": _float(p.get("y")),
+                "value": _float(value),
+                "variable_name": p.get("variable_name"),
+                "variable_code": p.get("variable_code"),
+            }
+        )
 
     if not rows:
         frappe.throw("No valid source points with X, Y and value were found.")
@@ -147,15 +154,17 @@ def _blocks_to_geodataframe(blocks):
         if geom.is_empty:
             continue
 
-        rows.append({
-            "layout_block": b.get("name"),
-            "geo_pit_layout": b.get("geo_pit_layout"),
-            "geo_project": b.get("geo_project"),
-            "block_code": b.get("block_code"),
-            "effective_area": _float(b.get("effective_area")),
-            "inside_percent": _float(b.get("inside_percent")),
-            "geometry": geom,
-        })
+        rows.append(
+            {
+                "layout_block": b.get("name"),
+                "geo_pit_layout": b.get("geo_pit_layout"),
+                "geo_project": b.get("geo_project"),
+                "block_code": b.get("block_code"),
+                "effective_area": _float(b.get("effective_area")),
+                "inside_percent": _float(b.get("inside_percent")),
+                "geometry": geom,
+            }
+        )
 
     if not rows:
         frappe.throw("No valid block polygons were found in the selected layout.")
@@ -217,9 +226,7 @@ def _summarise_points_by_block(blocks_gdf, points_gdf):
     if joined.empty:
         return summaries
 
-    grouped = joined.groupby("layout_block")
-
-    for layout_block, group in grouped:
+    for layout_block, group in joined.groupby("layout_block"):
         values = group["value"].astype(float)
         block_code = group["block_code"].iloc[0]
 
@@ -233,6 +240,13 @@ def _summarise_points_by_block(blocks_gdf, points_gdf):
         }
 
     return summaries
+
+
+def _source_batch_fields(source_type, geo_import_batch=None, geo_calculation_batch=None):
+    return {
+        "geo_import_batch": geo_import_batch if source_type == SOURCE_TYPE_IMPORT else None,
+        "geo_calculation_batch": geo_calculation_batch if source_type == SOURCE_TYPE_CALCULATION else None,
+    }
 
 
 @frappe.whitelist()
@@ -254,10 +268,10 @@ def preview_layout_geology(
     blocks = _get_layout_blocks(geo_pit_layout)
     blocks_gdf = _blocks_to_geodataframe(blocks)
 
-    if source_type == "Geo Calculation Batch":
+    if source_type == SOURCE_TYPE_CALCULATION:
         source_points = _get_calculation_batch_points(geo_project, geo_calculation_batch)
     else:
-        source_type = "Geo Import Batch"
+        source_type = SOURCE_TYPE_IMPORT
         source_points = _get_import_batch_points(geo_project, geo_import_batch)
 
     points_df = _source_points_to_dataframe(source_type, source_points)
@@ -277,16 +291,18 @@ def preview_layout_geology(
 
         if not row:
             no_data += 1
-            results.append({
-                "layout_block": layout_block,
-                "block_code": block.get("block_code"),
-                "avg_value": None,
-                "min_value": None,
-                "max_value": None,
-                "point_count": 0,
-                "passes_rule": 0,
-                "result_status": "No Data",
-            })
+            results.append(
+                {
+                    "layout_block": layout_block,
+                    "block_code": block.get("block_code"),
+                    "avg_value": None,
+                    "min_value": None,
+                    "max_value": None,
+                    "point_count": 0,
+                    "passes_rule": 0,
+                    "result_status": "No Data",
+                }
+            )
             continue
 
         passes = 1
@@ -303,16 +319,18 @@ def preview_layout_geology(
         elif status == "Fail":
             failing += 1
 
-        results.append({
-            "layout_block": layout_block,
-            "block_code": row["block_code"],
-            "avg_value": row["avg_value"],
-            "min_value": row["min_value"],
-            "max_value": row["max_value"],
-            "point_count": row["point_count"],
-            "passes_rule": passes,
-            "result_status": status,
-        })
+        results.append(
+            {
+                "layout_block": layout_block,
+                "block_code": row["block_code"],
+                "avg_value": row["avg_value"],
+                "min_value": row["min_value"],
+                "max_value": row["max_value"],
+                "point_count": row["point_count"],
+                "passes_rule": passes,
+                "result_status": status,
+            }
+        )
 
     return {
         "geo_project": geo_project,
@@ -364,13 +382,19 @@ def create_layout_geology_run(
         rule_value_to=rule_value_to,
     )
 
+    source_fields = _source_batch_fields(
+        payload["source_type"],
+        geo_import_batch=geo_import_batch,
+        geo_calculation_batch=geo_calculation_batch,
+    )
+
     run = frappe.new_doc("Geo Pit Layout Geology Run")
     run.run_name = run_name
     run.geo_project = geo_project
     run.geo_pit_layout = geo_pit_layout
     run.source_type = payload["source_type"]
-    run.geo_import_batch = geo_import_batch if payload["source_type"] == "Geo Import Batch" else None
-    run.geo_calculation_batch = geo_calculation_batch if payload["source_type"] == "Geo Calculation Batch" else None
+    run.geo_import_batch = source_fields["geo_import_batch"]
+    run.geo_calculation_batch = source_fields["geo_calculation_batch"]
     run.variable_name = variable_name
     run.value_meaning = value_meaning
     run.rule_enabled = 1 if _bool(rule_enabled) else 0
@@ -393,8 +417,8 @@ def create_layout_geology_run(
         doc.geo_project = geo_project
         doc.block_code = result.get("block_code")
         doc.source_type = payload["source_type"]
-        doc.geo_import_batch = geo_import_batch if payload["source_type"] == "Geo Import Batch" else None
-        doc.geo_calculation_batch = geo_calculation_batch if payload["source_type"] == "Geo Calculation Batch" else None
+        doc.geo_import_batch = source_fields["geo_import_batch"]
+        doc.geo_calculation_batch = source_fields["geo_calculation_batch"]
         doc.variable_name = variable_name
         doc.avg_value = result.get("avg_value")
         doc.min_value = result.get("min_value")

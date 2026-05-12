@@ -1,0 +1,117 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-11 13:11:45.747624",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "schedule_scenario",
+  "period_no",
+  "period_name",
+  "period_start",
+  "period_end",
+  "day_type",
+  "available_shifts",
+  "available_hours",
+  "capacity_volume",
+  "scheduled_volume",
+  "scheduled_tonnes",
+  "scheduled_blocks",
+  "period_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "schedule_scenario",
+   "fieldtype": "Link",
+   "label": "Schedule Scenario",
+   "options": "Mine Schedule Scenario"
+  },
+  {
+   "fieldname": "period_no",
+   "fieldtype": "Int",
+   "label": "Period No"
+  },
+  {
+   "fieldname": "period_name",
+   "fieldtype": "Data",
+   "label": "Period Name"
+  },
+  {
+   "fieldname": "period_start",
+   "fieldtype": "Date",
+   "label": "Period Start"
+  },
+  {
+   "fieldname": "period_end",
+   "fieldtype": "Date",
+   "label": "Period End"
+  },
+  {
+   "fieldname": "day_type",
+   "fieldtype": "Select",
+   "label": "Day Type"
+  },
+  {
+   "fieldname": "available_shifts",
+   "fieldtype": "Float",
+   "label": "Available Shifts"
+  },
+  {
+   "fieldname": "available_hours",
+   "fieldtype": "Float",
+   "label": "Available Hours"
+  },
+  {
+   "fieldname": "capacity_volume",
+   "fieldtype": "Float",
+   "label": "Capacity Volume"
+  },
+  {
+   "fieldname": "scheduled_volume",
+   "fieldtype": "Float",
+   "label": "Scheduled Volume"
+  },
+  {
+   "fieldname": "scheduled_tonnes",
+   "fieldtype": "Float",
+   "label": "Scheduled Tonnes"
+  },
+  {
+   "fieldname": "scheduled_blocks",
+   "fieldtype": "Int",
+   "label": "Scheduled Blocks"
+  },
+  {
+   "fieldname": "period_status",
+   "fieldtype": "Select",
+   "label": "Period Status"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-11 13:15:36.450193",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mine Schedule Period",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

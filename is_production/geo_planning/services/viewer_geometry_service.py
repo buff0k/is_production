@@ -4,6 +4,15 @@ from shapely import affinity
 from shapely.ops import polygonize, unary_union
 
 
+DEFAULT_BLOCK_SIZE_X = 100
+DEFAULT_BLOCK_SIZE_Y = 40
+DEFAULT_MESH_SIZE_X = 20
+DEFAULT_MESH_SIZE_Y = 20
+DEFAULT_MINIMUM_INSIDE_PERCENT = 50
+DEFAULT_CUT_NO = 1
+EPSILON = 0.000001
+
+
 def _float(value, default=0):
 	try:
 		if value is None or value == "":
@@ -46,13 +55,11 @@ def _clean_points(points):
 
 def _median_gap(values, fallback):
 	values = sorted(set(round(float(v), 6) for v in values if v is not None))
-	gaps = []
-
-	for i in range(1, len(values)):
-		gap = values[i] - values[i - 1]
-
-		if gap > 0.000001:
-			gaps.append(gap)
+	gaps = [
+		values[i] - values[i - 1]
+		for i in range(1, len(values))
+		if values[i] - values[i - 1] > EPSILON
+	]
 
 	if not gaps:
 		return fallback
@@ -61,16 +68,16 @@ def _median_gap(values, fallback):
 	return gaps[len(gaps) // 2]
 
 
-def _estimate_mesh_size(points, fallback_x=20, fallback_y=20):
+def _estimate_mesh_size(points, fallback_x=DEFAULT_MESH_SIZE_X, fallback_y=DEFAULT_MESH_SIZE_Y):
 	clean = _clean_points(points)
 
 	if len(clean) < 2:
 		return fallback_x, fallback_y
 
-	xs = [p["x"] for p in clean]
-	ys = [p["y"] for p in clean]
-
-	return _median_gap(xs, fallback_x), _median_gap(ys, fallback_y)
+	return (
+		_median_gap((p["x"] for p in clean), fallback_x),
+		_median_gap((p["y"] for p in clean), fallback_y),
+	)
 
 
 def _bounds_from_points(points):
@@ -107,7 +114,7 @@ def _grid_coverage_polygon(points):
 	if len(clean) < 3:
 		return None
 
-	cell_x, cell_y = _estimate_mesh_size(clean, 20, 20)
+	cell_x, cell_y = _estimate_mesh_size(clean, DEFAULT_MESH_SIZE_X, DEFAULT_MESH_SIZE_Y)
 	half_x = cell_x / 2
 	half_y = cell_y / 2
 	edge_map = {}
@@ -173,7 +180,7 @@ def points_to_pit_polygon(pit_points):
 		return _grid_coverage_polygon(clean)
 
 	clean = sorted(clean, key=lambda p: p.get("row_no") or 0)
-	polygon = Polygon([(p["x"], p["y"]) for p in clean])
+	polygon = Polygon((p["x"], p["y"]) for p in clean)
 
 	if not polygon.is_valid:
 		polygon = polygon.buffer(0)
@@ -192,7 +199,7 @@ def _largest_polygon(geom):
 		return geom
 
 	if geom.geom_type == "MultiPolygon":
-		return max(list(geom.geoms), key=lambda g: g.area)
+		return max(geom.geoms, key=lambda g: g.area)
 
 	return None
 
@@ -239,17 +246,50 @@ def _points_inside_polygon(points, polygon):
 	return inside
 
 
+def _get_generation_bounds(clean_points, clean_pit_points, block_size_x, block_size_y):
+	pit_polygon = points_to_pit_polygon(clean_pit_points)
+
+	if pit_polygon:
+		minx, miny, maxx, maxy = pit_polygon.bounds
+		base_polygon = _largest_polygon(pit_polygon)
+		origin = base_polygon.centroid if base_polygon else Point(minx, miny)
+	else:
+		bounds = _bounds_from_points(clean_points)
+
+		if not bounds:
+			return None, None
+
+		minx, miny, maxx, maxy = bounds
+		origin = Point(minx, miny)
+
+	pad = max(block_size_x, block_size_y) * 2
+	return (minx - pad, miny - pad, maxx + pad, maxy + pad), (pit_polygon, origin)
+
+
+def _z_summary(block_points):
+	z_values = [p["z"] for p in block_points]
+
+	if not z_values:
+		return 0, 0, 0
+
+	return (
+		float(sum(z_values) / len(z_values)),
+		float(min(z_values)),
+		float(max(z_values)),
+	)
+
+
 def generate_preview_blocks(
 	points,
 	pit_points=None,
-	block_size_x=100,
-	block_size_y=40,
+	block_size_x=DEFAULT_BLOCK_SIZE_X,
+	block_size_y=DEFAULT_BLOCK_SIZE_Y,
 	mesh_size_x=None,
 	mesh_size_y=None,
 	angle_degrees=0,
-	minimum_inside_percent=50,
+	minimum_inside_percent=DEFAULT_MINIMUM_INSIDE_PERCENT,
 	auto_number_blocks=0,
-	cut_no=1,
+	cut_no=DEFAULT_CUT_NO,
 	**kwargs
 ):
 	"""
@@ -265,45 +305,38 @@ def generate_preview_blocks(
 	if not clean_points and not clean_pit_points:
 		return []
 
-	block_size_x = _float(block_size_x, 100)
-	block_size_y = _float(block_size_y, 40)
+	block_size_x = _float(block_size_x, DEFAULT_BLOCK_SIZE_X)
+	block_size_y = _float(block_size_y, DEFAULT_BLOCK_SIZE_Y)
 	mesh_size_x = _float(mesh_size_x, 0)
 	mesh_size_y = _float(mesh_size_y, 0)
 	angle_degrees = _float(angle_degrees, 0)
-	minimum_inside_percent = _float(minimum_inside_percent, 50)
+	minimum_inside_percent = _float(minimum_inside_percent, DEFAULT_MINIMUM_INSIDE_PERCENT)
 	auto_number_blocks = _int(auto_number_blocks, 0)
-	cut_no = _int(cut_no, 1)
+	cut_no = _int(cut_no, DEFAULT_CUT_NO)
 
 	if block_size_x <= 0 or block_size_y <= 0:
 		return []
 
 	if mesh_size_x <= 0 or mesh_size_y <= 0:
-		mesh_size_x, mesh_size_y = _estimate_mesh_size(clean_points, 20, 20)
+		mesh_size_x, mesh_size_y = _estimate_mesh_size(clean_points, DEFAULT_MESH_SIZE_X, DEFAULT_MESH_SIZE_Y)
 
 	expected_point_count = max(
 		1,
 		int(round((block_size_x / mesh_size_x) * (block_size_y / mesh_size_y)))
 	)
 
-	pit_polygon = points_to_pit_polygon(clean_pit_points)
+	bounds, geometry_info = _get_generation_bounds(
+		clean_points,
+		clean_pit_points,
+		block_size_x,
+		block_size_y,
+	)
 
-	if pit_polygon:
-		minx, miny, maxx, maxy = pit_polygon.bounds
-		origin = _largest_polygon(pit_polygon).centroid if _largest_polygon(pit_polygon) else Point(minx, miny)
-	else:
-		bounds = _bounds_from_points(clean_points)
+	if not bounds:
+		return []
 
-		if not bounds:
-			return []
-
-		minx, miny, maxx, maxy = bounds
-		origin = Point(minx, miny)
-
-	pad = max(block_size_x, block_size_y) * 2
-	minx -= pad
-	miny -= pad
-	maxx += pad
-	maxy += pad
+	minx, miny, maxx, maxy = bounds
+	pit_polygon, origin = geometry_info
 
 	blocks = []
 	block_no = 0
@@ -323,11 +356,7 @@ def generate_preview_blocks(
 					use_radians=False,
 				)
 
-			effective = raw_block
-
-			if pit_polygon:
-				effective = raw_block.intersection(pit_polygon)
-
+			effective = raw_block.intersection(pit_polygon) if pit_polygon else raw_block
 			effective = _largest_polygon(effective)
 
 			if effective is None or effective.is_empty or effective.area <= 0:
@@ -344,10 +373,10 @@ def generate_preview_blocks(
 			if not pit_polygon and not block_points:
 				continue
 
-			z_values = [p["z"] for p in block_points]
 			block_no += 1
 
 			label = f"C{cut_no}B{block_no}" if auto_number_blocks else ""
+			avg_z, min_z, max_z = _z_summary(block_points)
 			corners = _polygon_corners_for_viewer(effective)
 
 			blocks.append({
@@ -367,9 +396,9 @@ def generate_preview_blocks(
 				"inside_percent": float(inside_percent),
 				"point_count": len(block_points),
 				"expected_point_count": expected_point_count,
-				"avg_z": float(sum(z_values) / len(z_values)) if z_values else 0,
-				"min_z": float(min(z_values)) if z_values else 0,
-				"max_z": float(max(z_values)) if z_values else 0,
+				"avg_z": avg_z,
+				"min_z": min_z,
+				"max_z": max_z,
 				"status": "Full Block" if inside_percent >= 99 else "Partial Block",
 				"polygon_geojson": mapping(effective),
 				"corners": corners,

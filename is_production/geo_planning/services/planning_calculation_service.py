@@ -1,6 +1,52 @@
 import frappe
 
 
+DEFAULT_VALUE_TYPE = "Thickness"
+DEFAULT_DENSITY = 1.5
+
+
+_MATERIAL_VALUE_FIELDS = [
+    "mbmv.name",
+    "mbmv.mining_block",
+    "mbmv.geo_project",
+    "mbmv.material_seam",
+    "mbmv.variable_name",
+    "mbmv.value_type",
+    "mbmv.avg_value",
+    "mbmv.min_value",
+    "mbmv.max_value",
+    "mbmv.point_count",
+    "mbmv.effective_area",
+    "mbmv.volume",
+    "mbmv.density",
+    "mbmv.tonnes",
+    "mbmv.passes_rule",
+    "mbmv.material_status",
+    "mb.source_pit_layout",
+    "mb.effective_area AS block_effective_area",
+    "mb.planning_status",
+]
+
+
+_BLOCK_FIELDS = [
+    "name",
+    "mining_block_code",
+    "geo_project",
+    "source_pit_layout",
+    "effective_area",
+    "planning_status",
+    "block_status",
+]
+
+
+_PLANNING_STATUS_RULES = {
+    "mineable": "Mineable",
+    "not_evaluated": "Not Evaluated",
+    "not_mineable": "Not Mineable",
+    "review": "Review",
+}
+
+
 def _float(value, default=0.0):
     try:
         if value is None or value == "":
@@ -20,7 +66,7 @@ def _int(value, default=0):
 
 
 def _doctype_has_field(doctype, fieldname):
-    return fieldname in [df.fieldname for df in frappe.get_meta(doctype).fields]
+    return any(df.fieldname == fieldname for df in frappe.get_meta(doctype).fields)
 
 
 def _set_if_field(doc, fieldname, value):
@@ -35,15 +81,7 @@ def _get_mining_blocks_for_layout(source_pit_layout):
     blocks = frappe.get_all(
         "Mining Block",
         filters={"source_pit_layout": source_pit_layout},
-        fields=[
-            "name",
-            "mining_block_code",
-            "geo_project",
-            "source_pit_layout",
-            "effective_area",
-            "planning_status",
-            "block_status",
-        ],
+        fields=_BLOCK_FIELDS,
         limit_page_length=0,
     )
 
@@ -54,36 +92,13 @@ def _get_mining_blocks_for_layout(source_pit_layout):
 
 
 def _get_material_values(source_pit_layout, value_type=None, material_seam=None):
-    filters = {}
-
-    if value_type:
-        filters["value_type"] = value_type
-
-    if material_seam:
-        filters["material_seam"] = material_seam
+    value_type_clause = "AND mbmv.value_type = %(value_type)s" if value_type else ""
+    material_seam_clause = "AND mbmv.material_seam = %(material_seam)s" if material_seam else ""
 
     rows = frappe.db.sql(
         """
         SELECT
-            mbmv.name,
-            mbmv.mining_block,
-            mbmv.geo_project,
-            mbmv.material_seam,
-            mbmv.variable_name,
-            mbmv.value_type,
-            mbmv.avg_value,
-            mbmv.min_value,
-            mbmv.max_value,
-            mbmv.point_count,
-            mbmv.effective_area,
-            mbmv.volume,
-            mbmv.density,
-            mbmv.tonnes,
-            mbmv.passes_rule,
-            mbmv.material_status,
-            mb.source_pit_layout,
-            mb.effective_area AS block_effective_area,
-            mb.planning_status
+            {fields}
         FROM `tabMining Block Material Value` mbmv
         INNER JOIN `tabMining Block` mb
             ON mb.name = mbmv.mining_block
@@ -92,8 +107,9 @@ def _get_material_values(source_pit_layout, value_type=None, material_seam=None)
         {material_seam_clause}
         ORDER BY mb.mining_block_code ASC
         """.format(
-            value_type_clause="AND mbmv.value_type = %(value_type)s" if value_type else "",
-            material_seam_clause="AND mbmv.material_seam = %(material_seam)s" if material_seam else "",
+            fields=",\n            ".join(_MATERIAL_VALUE_FIELDS),
+            value_type_clause=value_type_clause,
+            material_seam_clause=material_seam_clause,
         ),
         {
             "source_pit_layout": source_pit_layout,
@@ -132,6 +148,22 @@ def _status_from_value(row, mineable_only=True):
     return current_status or "Review"
 
 
+def _planning_status_from_statuses(statuses):
+    if not statuses:
+        return _PLANNING_STATUS_RULES["not_evaluated"]
+
+    if "Mineable" in statuses:
+        return _PLANNING_STATUS_RULES["mineable"]
+
+    if all(status == "No Data" for status in statuses):
+        return _PLANNING_STATUS_RULES["not_evaluated"]
+
+    if all(status in ("Excluded", "Waste", "No Data") for status in statuses):
+        return _PLANNING_STATUS_RULES["not_mineable"]
+
+    return _PLANNING_STATUS_RULES["review"]
+
+
 def _update_mining_block_status(mining_block):
     """
     Update Mining Block.planning_status from its material values.
@@ -149,18 +181,8 @@ def _update_mining_block_status(mining_block):
         limit_page_length=0,
     )
 
-    statuses = [r.material_status for r in rows if r.material_status]
-
-    if not statuses:
-        planning_status = "Not Evaluated"
-    elif "Mineable" in statuses:
-        planning_status = "Mineable"
-    elif all(s == "No Data" for s in statuses):
-        planning_status = "Not Evaluated"
-    elif all(s in ("Excluded", "Waste", "No Data") for s in statuses):
-        planning_status = "Not Mineable"
-    else:
-        planning_status = "Review"
+    statuses = [row.material_status for row in rows if row.material_status]
+    planning_status = _planning_status_from_statuses(statuses)
 
     frappe.db.set_value(
         "Mining Block",
@@ -173,8 +195,39 @@ def _update_mining_block_status(mining_block):
     return planning_status
 
 
+def _has_no_data(row):
+    return row.get("avg_value") is None or _int(row.get("point_count"), 0) == 0
+
+
+def _get_effective_area(row):
+    effective_area = _float(row.get("effective_area"), 0)
+
+    if effective_area <= 0:
+        effective_area = _float(row.get("block_effective_area"), 0)
+
+    return effective_area
+
+
+def _save_material_status(row, material_status):
+    doc = frappe.get_doc("Mining Block Material Value", row.name)
+    doc.material_status = material_status
+    doc.save(ignore_permissions=True)
+    return doc
+
+
+def _save_volume_tonnes(row, effective_area, volume, density, tonnes, material_status):
+    doc = frappe.get_doc("Mining Block Material Value", row.name)
+    doc.effective_area = effective_area
+    doc.volume = volume
+    doc.density = density
+    doc.tonnes = tonnes
+    doc.material_status = material_status
+    doc.save(ignore_permissions=True)
+    return doc
+
+
 @frappe.whitelist()
-def get_planning_calculation_summary(source_pit_layout, value_type="Thickness", material_seam=None):
+def get_planning_calculation_summary(source_pit_layout, value_type=DEFAULT_VALUE_TYPE, material_seam=None):
     """
     Summary before running Phase 4 calculations.
     """
@@ -185,9 +238,9 @@ def get_planning_calculation_summary(source_pit_layout, value_type="Thickness", 
         material_seam=material_seam,
     )
 
-    with_value = [v for v in values if v.avg_value is not None]
-    mineable = [v for v in values if v.material_status == "Mineable" or _int(v.passes_rule, 0) == 1]
-    no_data = [v for v in values if v.avg_value is None or v.material_status == "No Data"]
+    with_value = [value for value in values if value.avg_value is not None]
+    mineable = [value for value in values if value.material_status == "Mineable" or _int(value.passes_rule, 0) == 1]
+    no_data = [value for value in values if value.avg_value is None or value.material_status == "No Data"]
 
     return {
         "source_pit_layout": source_pit_layout,
@@ -204,9 +257,9 @@ def get_planning_calculation_summary(source_pit_layout, value_type="Thickness", 
 @frappe.whitelist()
 def calculate_volume_and_tonnes(
     source_pit_layout,
-    value_type="Thickness",
+    value_type=DEFAULT_VALUE_TYPE,
     material_seam=None,
-    density=1.4,
+    density=DEFAULT_DENSITY,
     mineable_only=1,
     update_block_status=1,
 ):
@@ -228,7 +281,7 @@ def calculate_volume_and_tonnes(
     if not source_pit_layout:
         frappe.throw("Source Pit Layout is required.")
 
-    density = _float(density, 1.4)
+    density = _float(density, DEFAULT_DENSITY)
 
     if density <= 0:
         frappe.throw("Density must be greater than zero.")
@@ -249,44 +302,30 @@ def calculate_volume_and_tonnes(
     total_tonnes = 0.0
     mineable_values = 0
 
+    mineable_only = _int(mineable_only, 1)
+    update_block_status = _int(update_block_status, 1)
     touched_blocks = set()
 
     for row in values:
-        avg_value = row.get("avg_value")
-
-        if avg_value is None or _int(row.get("point_count"), 0) == 0:
+        if _has_no_data(row):
             skipped_no_data += 1
-            doc = frappe.get_doc("Mining Block Material Value", row.name)
-            doc.material_status = "No Data"
-            doc.save(ignore_permissions=True)
+            _save_material_status(row, "No Data")
             touched_blocks.add(row.mining_block)
             continue
 
-        material_status = _status_from_value(row, mineable_only=bool(_int(mineable_only, 1)))
+        material_status = _status_from_value(row, mineable_only=bool(mineable_only))
 
-        if _int(mineable_only, 1) and material_status != "Mineable":
+        if mineable_only and material_status != "Mineable":
             skipped_not_mineable += 1
-            doc = frappe.get_doc("Mining Block Material Value", row.name)
-            doc.material_status = material_status
-            doc.save(ignore_permissions=True)
+            _save_material_status(row, material_status)
             touched_blocks.add(row.mining_block)
             continue
 
-        effective_area = _float(row.get("effective_area"), 0)
-
-        if effective_area <= 0:
-            effective_area = _float(row.get("block_effective_area"), 0)
-
-        volume = effective_area * _float(avg_value)
+        effective_area = _get_effective_area(row)
+        volume = effective_area * _float(row.get("avg_value"))
         tonnes = volume * density
 
-        doc = frappe.get_doc("Mining Block Material Value", row.name)
-        doc.effective_area = effective_area
-        doc.volume = volume
-        doc.density = density
-        doc.tonnes = tonnes
-        doc.material_status = material_status
-        doc.save(ignore_permissions=True)
+        _save_volume_tonnes(row, effective_area, volume, density, tonnes, material_status)
 
         total_volume += volume
         total_tonnes += tonnes
@@ -297,7 +336,7 @@ def calculate_volume_and_tonnes(
 
         touched_blocks.add(row.mining_block)
 
-    if _int(update_block_status, 1):
+    if update_block_status:
         for mining_block in touched_blocks:
             _update_mining_block_status(mining_block)
 
@@ -319,7 +358,7 @@ def calculate_volume_and_tonnes(
 
 
 @frappe.whitelist()
-def get_volume_tonnes_summary(source_pit_layout, value_type="Thickness", material_seam=None):
+def get_volume_tonnes_summary(source_pit_layout, value_type=DEFAULT_VALUE_TYPE, material_seam=None):
     """
     Post-calculation summary.
     """
