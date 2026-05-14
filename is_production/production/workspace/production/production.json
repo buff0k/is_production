@@ -313,165 +313,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Reporting",
-   "link_count": 15,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Pre-Use Report",
-   "link_count": 0,
-   "link_to": "Pre-Use Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Daily Reporting",
-   "link_count": 0,
-   "link_to": "Daily Reporting",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Weekly Report",
-   "link_count": 0,
-   "link_to": "Weekly Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Rates per Hour",
-   "link_count": 0,
-   "link_to": "Productivity",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Support Equipment Machine Hours",
-   "link_count": 0,
-   "link_to": "Rental Equipment Hours",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Avail and Util Full Version",
-   "link_count": 0,
-   "link_to": "Avail and Util report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Team Production",
-   "link_count": 0,
-   "link_to": "Production Shift Teams",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Avail and Util Summary",
-   "link_count": 0,
-   "link_to": "Avail and Util summary",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Diesel Reconciliation",
-   "link_count": 0,
-   "link_to": "Diesel Reconciliation",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Worked Hours vs Prod Hours",
-   "link_count": 0,
-   "link_to": "Total Worked Hours vs Production Hours",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Diesel Cap Report",
-   "link_count": 0,
-   "link_to": "Diesel Cap Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Number of ADT's",
-   "link_count": 0,
-   "link_to": "Number of ADT's",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Excavator Loads Per Hour",
-   "link_count": 0,
-   "link_to": "Excavator Loads Per Hour",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Support Equipment Hours Report",
-   "link_count": 0,
-   "link_to": "Support Equipment Hours Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Rental Equipment Hours",
-   "link_count": 0,
-   "link_to": "Rental Equipment Hours",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Technical Mine Planning- Imports",
    "link_count": 8,
    "link_type": "DocType",
@@ -873,9 +714,178 @@
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reporting",
+   "link_count": 16,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Pre-Use Report",
+   "link_count": 0,
+   "link_to": "Pre-Use Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Daily Reporting",
+   "link_count": 0,
+   "link_to": "Daily Reporting",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Weekly Report",
+   "link_count": 0,
+   "link_to": "Weekly Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Rates per Hour",
+   "link_count": 0,
+   "link_to": "Productivity",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Support Equipment Machine Hours",
+   "link_count": 0,
+   "link_to": "Rental Equipment Hours",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Avail and Util Full Version",
+   "link_count": 0,
+   "link_to": "Avail and Util report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Team Production",
+   "link_count": 0,
+   "link_to": "Production Shift Teams",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Avail and Util Summary",
+   "link_count": 0,
+   "link_to": "Avail and Util summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Diesel Reconciliation",
+   "link_count": 0,
+   "link_to": "Diesel Reconciliation",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Worked Hours vs Prod Hours",
+   "link_count": 0,
+   "link_to": "Total Worked Hours vs Production Hours",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Diesel Cap Report",
+   "link_count": 0,
+   "link_to": "Diesel Cap Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Number of ADT's",
+   "link_count": 0,
+   "link_to": "Number of ADT's",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Excavator Loads Per Hour",
+   "link_count": 0,
+   "link_to": "Excavator Loads Per Hour",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Support Equipment Hours Report",
+   "link_count": 0,
+   "link_to": "Support Equipment Hours Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Rental Equipment Hours",
+   "link_count": 0,
+   "link_to": "Rental Equipment Hours",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "ekly Production Dashboard",
+   "link_count": 0,
+   "link_to": "Weekly Production Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-05-11 15:42:36.119955",
+ "modified": "2026-05-12 19:04:39.311999",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

@@ -31,7 +31,7 @@ frappe.ui.form.on('Daily Diesel Sheet', {
             return {
                 filters: {
                     'location': frm.doc.location,
-                    'asset_category': 'Diesel Bowsers'
+                    'asset_category': ['in', ['Diesel Bowsers', 'Diesel Bulk']]
                 }
             };
         });
