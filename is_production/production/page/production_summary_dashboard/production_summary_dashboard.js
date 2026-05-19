@@ -1,5 +1,5 @@
 frappe.pages["production-summary-dashboard"].on_page_load = function (wrapper) {
-    new ProductionSummaryDashboard(wrapper);
+    window.production_summary_dashboard = new ProductionSummaryDashboard(wrapper);
 };
 
 class ProductionSummaryDashboard {
@@ -284,6 +284,23 @@ class ProductionSummaryDashboard {
                 font-weight: 700;
             }
 
+            .psd-average-bcm-h-input {
+                width: 100%;
+                border: 1px solid #cfd6de;
+                border-radius: 4px;
+                padding: 2px 5px;
+                text-align: right;
+                font-weight: 700;
+                background: #ffffff;
+                color: #001b44;
+            }
+
+            .psd-average-bcm-h-input:focus {
+                outline: none;
+                border-color: #0f1f53;
+                box-shadow: 0 0 0 1px #0f1f53;
+            }
+
             .psd-positive {
                 color: #18a957 !important;
             }
@@ -528,6 +545,7 @@ class ProductionSummaryDashboard {
         const varianceClass = this.varianceClass(row.forecast_variance_bcm);
         const wasteClass = this.varianceClass(row.waste_variance_bcm) === "positive" ? "psd-positive" : "psd-negative";
         const coalClass = this.varianceClass(row.coal_variance_tons) === "positive" ? "psd-positive" : "psd-negative";
+        const averageBcmH = this.getManualAverageBcmH(row.site);
 
         return `
             <div class="psd-card">
@@ -578,6 +596,19 @@ class ProductionSummaryDashboard {
                         <td class="label">Daily achieved</td>
                         <td class="unit">BCM</td>
                         <td class="value">${this.formatNumber(row.daily_achieved_bcm, 1)}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Average BCM/H</td>
+                        <td class="unit"></td>
+                        <td class="value">
+                            <input
+                                type="text"
+                                class="psd-average-bcm-h-input"
+                                data-site="${frappe.utils.escape_html(row.site || "")}"
+                                value="${frappe.utils.escape_html(averageBcmH)}"
+                                oninput="window.production_summary_dashboard && window.production_summary_dashboard.saveManualAverageBcmH(this)"
+                            />
+                        </td>
                     </tr>
                     <tr>
                         <td class="label">Days worked / left</td>
@@ -836,6 +867,7 @@ class ProductionSummaryDashboard {
             ["Actual coal", "TONS", row.actual_coal_tons, styles.metricValue],
             ["Daily required", "BCM", row.daily_required_bcm, styles.metricValue],
             ["Daily achieved", "BCM", row.daily_achieved_bcm, styles.metricValue],
+            ["Average BCM/H", "", this.getManualAverageBcmH(row.site), styles.metricValue],
             ["Days worked / left", "", `${row.days_worked} / ${row.days_left}`, styles.metricValue],
             ["Strip ratio", "", row.strip_ratio, styles.metricValue]
         ];
@@ -878,6 +910,7 @@ class ProductionSummaryDashboard {
             "Actual Coal Tons": r.actual_coal_tons,
             "Daily Required BCM": r.daily_required_bcm,
             "Daily Achieved BCM": r.daily_achieved_bcm,
+            "Average BCM/H": this.getManualAverageBcmH(r.site),
             "Days Worked": r.days_worked,
             "Days Left": r.days_left,
             "Strip Ratio": r.strip_ratio,
@@ -1015,6 +1048,22 @@ class ProductionSummaryDashboard {
 
     isVarianceLabel(label) {
         return String(label).toLowerCase().includes("variance");
+    }
+
+
+    getManualAverageBcmH(site) {
+        const key = this.getManualAverageBcmHKey(site);
+        return localStorage.getItem(key) || "";
+    }
+
+    saveManualAverageBcmH(input) {
+        const site = input.dataset.site || "";
+        const key = this.getManualAverageBcmHKey(site);
+        localStorage.setItem(key, input.value || "");
+    }
+
+    getManualAverageBcmHKey(site) {
+        return `production_summary_dashboard_average_bcm_h_${encodeURIComponent(site || "")}`;
     }
 
     varianceClass(value) {

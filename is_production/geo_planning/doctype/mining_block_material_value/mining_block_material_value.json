@@ -24,7 +24,12 @@
   "density",
   "tonnes",
   "passes_rule",
-  "material_status"
+  "material_status",
+  "column_break_bnli",
+  "material_stack",
+  "material_stack_item",
+  "source_geology_run",
+  "source_geology_result"
  ],
  "fields": [
   {
@@ -133,12 +138,40 @@
    "fieldtype": "Select",
    "label": "Material Status",
    "options": "\nMineable\nWaste\nExcluded\nReview\nNo Data"
+  },
+  {
+   "fieldname": "column_break_bnli",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "material_stack",
+   "fieldtype": "Link",
+   "label": "Material Stack",
+   "options": "Geo Pit Layout Material Stack"
+  },
+  {
+   "fieldname": "material_stack_item",
+   "fieldtype": "Link",
+   "label": "Material Stack Item",
+   "options": "Geo Pit Layout Material Stack Item"
+  },
+  {
+   "fieldname": "source_geology_run",
+   "fieldtype": "Link",
+   "label": "Source Geology Run",
+   "options": "Geo Pit Layout Geology Run"
+  },
+  {
+   "fieldname": "source_geology_result",
+   "fieldtype": "Link",
+   "label": "Source Geology Result",
+   "options": "Geo Pit Layout Geology Result"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-11 12:21:25.752869",
+ "modified": "2026-05-18 09:27:41.232386",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Mining Block Material Value",

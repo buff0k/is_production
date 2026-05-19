@@ -1,11 +1,10 @@
 import frappe
-from frappe.utils import getdate
+from frappe.utils import flt, getdate
+from datetime import datetime
 
 REPORT_DOCTYPE = "Monthly Production Planning"
 CHILD_DOCTYPE = "Monthly Production Days"
-HOURLY_DOCTYPE = "Hourly Production"
-
-COAL_BCM_TO_TONS = 1.5
+COAL_CONVERSION = 1.5
 
 PLANNING_GROUPS = [
     {
@@ -50,7 +49,7 @@ def get_dashboard_data(
             frappe.throw(f"Start Date cannot be after End Date for {group['key']}")
 
         for site in group["sites"]:
-            row = build_site_row(site, start_date, end_date)
+            row = build_site_row(site, end_date)
             if row:
                 rows.append(row)
 
@@ -76,372 +75,257 @@ def get_dashboard_data(
     }
 
 
-def build_site_row(site, selected_start_date, selected_end_date):
-    planning = get_latest_planning_record(site, selected_start_date, selected_end_date)
-    if not planning:
+def build_site_row(site, report_date):
+    mpp = get_monthly_plan(site, report_date)
+    if not mpp:
         return None
 
-    month_start = getdate(planning.prod_month_start_date)
-    month_end = getdate(planning.prod_month_end_date)
-    selected_start = getdate(selected_start_date)
-    selected_end = getdate(selected_end_date)
+    month_start = getdate(mpp.prod_month_start_date) if mpp.prod_month_start_date else None
+    end_date = getdate(report_date)
 
-    overlap_start = max(month_start, selected_start)
-    overlap_end = min(month_end, selected_end)
+    monthly_target = flt0(mpp.monthly_target_bcm)
+    waste_bcms_planned = flt0(mpp.waste_bcms_planned)
+    coal_tons_planned = flt0(mpp.coal_tons_planned)
+    num_prod_days = flt0(mpp.num_prod_days)
 
-    if overlap_start > overlap_end:
-        return None
+    worked_days = get_completed_production_days(mpp.name, month_start, end_date)
+    days_left = max(num_prod_days - worked_days, 0)
 
-    is_full_month_selection = (overlap_start == month_start and overlap_end == month_end)
+    # MTD Actual BCM must be flexible according to the selected report date.
+    # It sums Monthly Production Days from month start up to the selected end date.
+    selected_mtd_actual_bcms = get_mtd_actual_bcms_from_days(mpp.name, month_start, end_date)
 
-    # Full-month values from Monthly Production Planning
-    monthly_target_bcm_full = flt0(planning.monthly_target_bcm)
-    monthly_forecast_bcm_full = flt0(planning.month_forecated_bcm)
-    monthly_actual_bcm_full = flt0(planning.month_actual_bcm)
-    monthly_actual_coal_tons_full = flt0(planning.month_actual_coal)
-    monthly_coal_tons_planned_full = flt0(planning.coal_tons_planned)
-    monthly_waste_bcms_planned_full = flt0(planning.waste_bcms_planned)
-    monthly_days_completed = cint0(planning.prod_days_completed)
-    monthly_days_left = cint0(planning.month_remaining_production_days)
-    monthly_daily_achieved = flt0(planning.mtd_bcm_day)
-    monthly_strip_ratio = flt0(planning.split_ratio)
+    # If the child table has no BCM values, fall back to Monthly Production Planning.
+    mtd_actual_bcms = selected_mtd_actual_bcms if selected_mtd_actual_bcms else flt0(mpp.month_actual_bcm)
 
-    month_day_counts = get_child_day_counts(planning.name, month_start, month_end)
-    overlap_day_counts = get_child_day_counts(planning.name, overlap_start, overlap_end)
+    # Daily achieved = Actual BCMs / Days Worked
+    actual_daily = mtd_actual_bcms / worked_days if worked_days else 0
 
-    month_planned_days = cint0(month_day_counts["planned_days"])
-    selected_planned_days = cint0(overlap_day_counts["planned_days"])
+    mtd_prog_actual_coal = get_mtd_coal_dynamic(site, end_date, month_start)
+    mtd_prog_actual_waste = mtd_actual_bcms - (mtd_prog_actual_coal / COAL_CONVERSION)
 
-    # Site card target must stay full month unchanged
-    site_card_target_bcm = monthly_target_bcm_full
+    mtd_prog_target_waste = (
+        (waste_bcms_planned / num_prod_days) * worked_days
+        if num_prod_days else 0
+    )
+    short_over_waste = mtd_prog_target_waste - mtd_prog_actual_waste
 
-    # Top summary stays full month
-    full_month_forecast_variance = monthly_forecast_bcm_full - monthly_target_bcm_full
-    full_month_coal_variance = monthly_actual_coal_tons_full - monthly_coal_tons_planned_full
-    full_month_waste_variance = (
-        (monthly_actual_bcm_full - (monthly_actual_coal_tons_full / COAL_BCM_TO_TONS if monthly_actual_coal_tons_full else 0))
-        - monthly_waste_bcms_planned_full
+    mtd_prog_target_coal = (
+        (coal_tons_planned / num_prod_days) * worked_days
+        if num_prod_days else 0
+    )
+    short_over_coal = mtd_prog_target_coal - mtd_prog_actual_coal
+
+    remaining_volume = monthly_target - mtd_actual_bcms
+    daily_required = remaining_volume / max(days_left, 1)
+
+    forecast = flt0(mpp.month_forecated_bcm)
+    short_over_forecast = monthly_target - forecast
+
+    strip_ratio = round(
+        (mtd_prog_actual_waste / mtd_prog_actual_coal)
+        if mtd_prog_actual_coal else 0,
+        1
     )
 
-    # FULL MONTH selection -> use parent MPP saved month stats so it matches the MPP screen
-    if is_full_month_selection:
-        card_forecast_bcm = monthly_forecast_bcm_full
-        card_actual_bcm = monthly_actual_bcm_full
-        card_actual_coal_tons = monthly_actual_coal_tons_full
-        card_coal_variance_tons = full_month_coal_variance
-        card_waste_variance_bcm = full_month_waste_variance
-        card_forecast_variance_bcm = full_month_forecast_variance
-        card_days_worked = monthly_days_completed
-        card_days_left = monthly_days_left
-        card_daily_achieved_bcm = monthly_daily_achieved
-        card_strip_ratio = monthly_strip_ratio
-        card_forecast_delivery_percent = (
-            (monthly_forecast_bcm_full / monthly_target_bcm_full) * 100
-            if monthly_target_bcm_full else 0
-        )
-        card_daily_required_bcm = (
-            monthly_target_bcm_full / month_planned_days if month_planned_days else 0
-        )
-
-        return {
-            "site": site,
-            "monthly_target_bcm": round(site_card_target_bcm, 0),
-            "forecast_bcm": round(card_forecast_bcm, 0),
-            "forecast_variance_bcm": round(card_forecast_variance_bcm, 0),
-            "waste_variance_bcm": round(card_waste_variance_bcm, 0),
-            "coal_variance_tons": round(card_coal_variance_tons, 0),
-            "actual_bcm": round(card_actual_bcm, 0),
-            "actual_coal_tons": round(card_actual_coal_tons, 0),
-            "daily_required_bcm": round(card_daily_required_bcm, 1),
-            "daily_achieved_bcm": round(card_daily_achieved_bcm, 1),
-            "days_worked": card_days_worked,
-            "days_left": card_days_left,
-            "strip_ratio": round(card_strip_ratio, 1),
-            "forecast_delivery_percent": round(card_forecast_delivery_percent, 1),
-
-            "_summary_monthly_target_bcm": round(monthly_target_bcm_full, 0),
-            "_summary_forecast_bcm": round(monthly_forecast_bcm_full, 0),
-            "_summary_forecast_variance_bcm": round(full_month_forecast_variance, 0),
-            "_summary_waste_variance_bcm": round(full_month_waste_variance, 0),
-            "_summary_coal_variance_tons": round(full_month_coal_variance, 0),
-        }
-
-    # SMALLER SELECTED RANGE -> only inside card values change
-    selected_target_bcm = prorate_value(
-        monthly_target_bcm_full,
-        selected_planned_days,
-        month_planned_days
-    )
-    selected_planned_coal_tons = prorate_value(
-        monthly_coal_tons_planned_full,
-        selected_planned_days,
-        month_planned_days
-    )
-
-    selected_planned_coal_bcm = (
-        selected_planned_coal_tons / COAL_BCM_TO_TONS if selected_planned_coal_tons else 0
-    )
-    selected_planned_waste_bcm = selected_target_bcm - selected_planned_coal_bcm
-
-    child_period = get_child_period_metrics(planning.name, overlap_start, overlap_end)
-    actual_bcm_from_days = flt0(child_period["actual_bcm"])
-    child_worked_days = cint0(child_period["worked_days"])
-
-    hourly_period = get_hourly_period_metrics(site, overlap_start, overlap_end)
-    actual_bcm_from_hourly = flt0(hourly_period["actual_bcm"])
-    actual_coal_tons_hourly = flt0(hourly_period["actual_coal_tons"])
-    hourly_worked_days = cint0(hourly_period["worked_days"])
-
-    coal_tons_from_truck_loads = get_truck_load_coal_tons(site, overlap_start, overlap_end)
-
-    base_actual_bcm = max(actual_bcm_from_hourly, actual_bcm_from_days)
-    survey_variance_delta = get_survey_variance_delta(planning.name, overlap_start, overlap_end)
-
-    selected_actual_bcm = base_actual_bcm + survey_variance_delta
-    selected_actual_coal_tons = max(actual_coal_tons_hourly, coal_tons_from_truck_loads)
-
-    worked_days = max(hourly_worked_days, child_worked_days)
-    days_left = max(selected_planned_days - worked_days, 0)
-
-    selected_forecast_variance_bcm = selected_actual_bcm - selected_target_bcm
-
-    selected_actual_waste_bcm = selected_actual_bcm - (
-        selected_actual_coal_tons / COAL_BCM_TO_TONS if selected_actual_coal_tons else 0
-    )
-    selected_waste_variance_bcm = selected_actual_waste_bcm - selected_planned_waste_bcm
-    selected_coal_variance_tons = selected_actual_coal_tons - selected_planned_coal_tons
-
-    daily_required_bcm = (
-        selected_target_bcm / selected_planned_days if selected_planned_days else 0
-    )
-    daily_achieved_bcm = (
-        selected_actual_bcm / worked_days if worked_days else 0
-    )
-
-    strip_ratio = (
-        selected_actual_waste_bcm / selected_actual_coal_tons
-        if selected_actual_coal_tons else 0
-    )
     forecast_delivery_percent = (
-        (selected_actual_bcm / selected_target_bcm) * 100
-        if selected_target_bcm else 0
+        (forecast / monthly_target) * 100
+        if monthly_target else 0
     )
+
+    # Dashboard sign alignment:
+    # Weekly Report shows SHORT / OVER forecast as monthly_target - forecast.
+    # Dashboard forecast variance shows forecast - monthly_target, so over-target is positive
+    # and under-target is negative, matching the card style currently used.
+    forecast_variance_bcm = forecast - monthly_target
+
+    # Weekly Report waste/coal SHORT / OVER uses target - actual, but dashboard variance
+    # should show actual - target so that positive means over-achieved/over-actual.
+    waste_variance_bcm = mtd_prog_actual_waste - mtd_prog_target_waste
+    coal_variance_tons = mtd_prog_actual_coal - mtd_prog_target_coal
 
     return {
         "site": site,
-        "monthly_target_bcm": round(site_card_target_bcm, 0),
-        "forecast_bcm": round(selected_actual_bcm, 0),
-        "forecast_variance_bcm": round(selected_forecast_variance_bcm, 0),
-        "waste_variance_bcm": round(selected_waste_variance_bcm, 0),
-        "coal_variance_tons": round(selected_coal_variance_tons, 0),
-        "actual_bcm": round(selected_actual_bcm, 0),
-        "actual_coal_tons": round(selected_actual_coal_tons, 0),
-        "daily_required_bcm": round(daily_required_bcm, 1),
-        "daily_achieved_bcm": round(daily_achieved_bcm, 1),
-        "days_worked": worked_days,
-        "days_left": days_left,
+        "monthly_target_bcm": round(monthly_target, 0),
+        "forecast_bcm": round(forecast, 0),
+        "forecast_variance_bcm": round(forecast_variance_bcm, 0),
+        "waste_variance_bcm": round(waste_variance_bcm, 0),
+        "coal_variance_tons": round(coal_variance_tons, 0),
+        "actual_bcm": round(mtd_actual_bcms, 0),
+        "actual_coal_tons": round(mtd_prog_actual_coal, 0),
+        "daily_required_bcm": round(daily_required, 1),
+        "daily_achieved_bcm": round(actual_daily, 1),
+        "days_worked": cint0(worked_days),
+        "days_left": cint0(days_left),
         "strip_ratio": round(strip_ratio, 1),
         "forecast_delivery_percent": round(forecast_delivery_percent, 1),
 
-        "_summary_monthly_target_bcm": round(monthly_target_bcm_full, 0),
-        "_summary_forecast_bcm": round(monthly_forecast_bcm_full, 0),
-        "_summary_forecast_variance_bcm": round(full_month_forecast_variance, 0),
-        "_summary_waste_variance_bcm": round(full_month_waste_variance, 0),
-        "_summary_coal_variance_tons": round(full_month_coal_variance, 0),
+        "_summary_monthly_target_bcm": round(monthly_target, 0),
+        "_summary_forecast_bcm": round(forecast, 0),
+        "_summary_forecast_variance_bcm": round(forecast_variance_bcm, 0),
+        "_summary_waste_variance_bcm": round(waste_variance_bcm, 0),
+        "_summary_coal_variance_tons": round(coal_variance_tons, 0),
     }
 
 
-def get_latest_planning_record(site, start_date, end_date):
-    rows = frappe.db.sql(
-        """
-        SELECT
-            name,
-            location,
-            prod_month_start_date,
-            prod_month_end_date,
-            IFNULL(monthly_target_bcm, 0) AS monthly_target_bcm,
-            IFNULL(month_forecated_bcm, 0) AS month_forecated_bcm,
-            IFNULL(month_actual_bcm, 0) AS month_actual_bcm,
-            IFNULL(month_actual_coal, 0) AS month_actual_coal,
-            IFNULL(coal_tons_planned, 0) AS coal_tons_planned,
-            IFNULL(waste_bcms_planned, 0) AS waste_bcms_planned,
-            IFNULL(prod_days_completed, 0) AS prod_days_completed,
-            IFNULL(month_remaining_production_days, 0) AS month_remaining_production_days,
-            IFNULL(mtd_bcm_day, 0) AS mtd_bcm_day,
-            IFNULL(split_ratio, 0) AS split_ratio
-        FROM `tabMonthly Production Planning`
-        WHERE location = %(site)s
-          AND prod_month_end_date >= %(start_date)s
-          AND prod_month_start_date <= %(end_date)s
-        ORDER BY prod_month_end_date DESC, modified DESC
-        LIMIT 1
-        """,
-        {
-            "site": site,
-            "start_date": start_date,
-            "end_date": end_date,
-        },
-        as_dict=True,
-    )
-    return rows[0] if rows else None
+def get_monthly_plan(site, date):
+    if not site or not date:
+        return None
 
-
-def get_child_day_counts(parent_name, start_date, end_date):
-    rows = frappe.db.sql(
-        f"""
-        SELECT
-            COUNT(*) AS planned_days
-        FROM `tab{CHILD_DOCTYPE}`
-        WHERE parent = %(parent)s
-          AND parenttype = %(parenttype)s
-          AND parentfield = 'month_prod_days'
-          AND shift_start_date BETWEEN %(start_date)s AND %(end_date)s
-        """,
+    plan_name = frappe.db.get_value(
+        "Monthly Production Planning",
         {
-            "parent": parent_name,
-            "parenttype": REPORT_DOCTYPE,
-            "start_date": start_date,
-            "end_date": end_date,
+            "location": site,
+            "prod_month_start_date": ["<=", date],
+            "prod_month_end_date": [">=", date],
         },
-        as_dict=True,
+        "name",
     )
 
-    row = rows[0] if rows else {}
-    return {
-        "planned_days": cint0(row.get("planned_days")),
-    }
+    return frappe.get_doc("Monthly Production Planning", plan_name) if plan_name else None
 
 
-def get_child_period_metrics(parent_name, start_date, end_date):
-    rows = frappe.db.sql(
-        f"""
-        SELECT
-            SUM(IFNULL(total_daily_bcms, 0)) AS actual_bcm,
-            COUNT(
-                CASE
-                    WHEN IFNULL(total_daily_bcms, 0) > 0 THEN 1
-                    ELSE NULL
-                END
-            ) AS worked_days
-        FROM `tab{CHILD_DOCTYPE}`
-        WHERE parent = %(parent)s
-          AND parenttype = %(parenttype)s
-          AND parentfield = 'month_prod_days'
-          AND shift_start_date BETWEEN %(start_date)s AND %(end_date)s
-        """,
-        {
-            "parent": parent_name,
-            "parenttype": REPORT_DOCTYPE,
-            "start_date": start_date,
-            "end_date": end_date,
-        },
-        as_dict=True,
-    )
-
-    row = rows[0] if rows else {}
-    return {
-        "actual_bcm": flt0(row.get("actual_bcm")),
-        "worked_days": cint0(row.get("worked_days")),
-    }
-
-
-def get_cumulative_survey_variance(parent_name, comparator, cutoff_date):
-    rows = frappe.db.sql(
-        f"""
-        SELECT
-            (IFNULL(cum_dozing_variance, 0) + IFNULL(cum_ts_variance, 0)) AS cumulative_variance
-        FROM `tab{CHILD_DOCTYPE}`
-        WHERE parent = %(parent)s
-          AND parenttype = %(parenttype)s
-          AND parentfield = 'month_prod_days'
-          AND shift_start_date {comparator} %(cutoff_date)s
-          AND (
-              IFNULL(cum_dozing_variance, 0) <> 0
-              OR IFNULL(cum_ts_variance, 0) <> 0
-          )
-        ORDER BY shift_start_date DESC
-        LIMIT 1
-        """,
-        {
-            "parent": parent_name,
-            "parenttype": REPORT_DOCTYPE,
-            "cutoff_date": cutoff_date,
-        },
-        as_dict=True,
-    )
-
-    if not rows:
+def get_completed_production_days(parent_name, month_start, end_date):
+    if not parent_name or not month_start or not end_date:
         return 0
 
-    return flt0(rows[0].get("cumulative_variance"))
-
-
-def get_survey_variance_delta(parent_name, start_date, end_date):
-    end_cumulative = get_cumulative_survey_variance(parent_name, "<=", end_date)
-    before_start_cumulative = get_cumulative_survey_variance(parent_name, "<", start_date)
-    return end_cumulative - before_start_cumulative
-
-
-def get_hourly_period_metrics(site, start_date, end_date):
-    rows = frappe.db.sql(
-        f"""
-        SELECT
-            SUM(IFNULL(total_ts_bcm, 0) + IFNULL(total_dozing_bcm, 0)) AS actual_bcm,
-            SUM(IFNULL(coal_tons_total, 0)) AS actual_coal_tons,
-            COUNT(
-                DISTINCT CASE
-                    WHEN (IFNULL(total_ts_bcm, 0) + IFNULL(total_dozing_bcm, 0)) > 0
-                    THEN prod_date
-                    ELSE NULL
-                END
-            ) AS worked_days
-        FROM `tab{HOURLY_DOCTYPE}`
-        WHERE location = %(site)s
-          AND prod_date BETWEEN %(start_date)s AND %(end_date)s
-        """,
-        {
-            "site": site,
-            "start_date": start_date,
-            "end_date": end_date,
+    child_rows = frappe.get_all(
+        CHILD_DOCTYPE,
+        filters={
+            "parent": parent_name,
+            "shift_start_date": ["between", [month_start, end_date]],
         },
-        as_dict=True,
+        fields=[
+            "shift_start_date",
+            "shift_day_hours",
+            "shift_night_hours",
+            "shift_morning_hours",
+            "shift_afternoon_hours",
+        ],
     )
 
-    row = rows[0] if rows else {}
-    return {
-        "actual_bcm": flt0(row.get("actual_bcm")),
-        "actual_coal_tons": flt0(row.get("actual_coal_tons")),
-        "worked_days": cint0(row.get("worked_days")),
-    }
+    completed_days = 0
+
+    for row in child_rows:
+        dt = row.get("shift_start_date")
+
+        if isinstance(dt, str):
+            dt = datetime.strptime(dt, "%Y-%m-%d").date()
+
+        # Python weekday: Monday = 0, Sunday = 6.
+        if dt and dt.weekday() != 6:
+            hours = (
+                flt0(row.get("shift_day_hours"))
+                + flt0(row.get("shift_night_hours"))
+                + flt0(row.get("shift_morning_hours"))
+                + flt0(row.get("shift_afternoon_hours"))
+            )
+
+            if hours:
+                completed_days += 1
+
+    return completed_days
 
 
-def get_truck_load_coal_tons(site, start_date, end_date):
-    rows = frappe.db.sql(
+def get_mtd_actual_bcms_from_days(parent_name, month_start, end_date):
+    if not parent_name or not month_start or not end_date:
+        return 0
+
+    rows = frappe.get_all(
+        CHILD_DOCTYPE,
+        filters={
+            "parent": parent_name,
+            "shift_start_date": ["between", [month_start, end_date]],
+        },
+        fields=["total_daily_bcms"],
+    )
+
+    return sum(flt0(row.get("total_daily_bcms")) for row in rows)
+
+def get_mtd_coal_dynamic(site, end_date, month_start):
+    if not site or not end_date or not month_start:
+        return 0
+
+    survey_doc = frappe.get_all(
+        "Survey",
+        filters={
+            "location": site,
+            "last_production_shift_start_date": ["<=", f"{end_date} 23:59:59"],
+        },
+        fields=["last_production_shift_start_date", "total_surveyed_coal_tons"],
+        order_by="last_production_shift_start_date desc",
+        limit_page_length=1,
+    )
+
+    coal_tons_actual = 0
+    end_dt = getdate(end_date)
+    start_dt = getdate(month_start)
+
+    if survey_doc:
+        survey = survey_doc[0]
+        survey_date = survey.get("last_production_shift_start_date")
+
+        if isinstance(survey_date, datetime):
+            survey_date = survey_date.date()
+
+        if survey_date and start_dt <= survey_date <= end_dt:
+            coal_tons_actual = survey.get("total_surveyed_coal_tons") or 0
+
+            coal_after = frappe.db.sql(
+                """
+                SELECT COALESCE(SUM(tl.bcms), 0)
+                FROM `tabHourly Production` hp
+                JOIN `tabTruck Loads` tl ON tl.parent = hp.name
+                WHERE hp.prod_date > %s
+                  AND hp.prod_date <= %s
+                  AND hp.location = %s
+                  AND LOWER(tl.mat_type) LIKE '%%coal%%'
+                """,
+                (survey_date, end_date, site),
+            )[0][0]
+
+            coal_tons_actual += (coal_after or 0) * COAL_CONVERSION
+        else:
+            coal_tons_actual = get_coal_from_hourly(month_start, end_date, site)
+    else:
+        coal_tons_actual = get_coal_from_hourly(month_start, end_date, site)
+
+    return coal_tons_actual
+
+
+def get_coal_from_hourly(start_date, end_date, site):
+    coal_bcm = frappe.db.sql(
         """
-        SELECT
-            SUM(IFNULL(tl.bcms, 0)) AS coal_bcm
+        SELECT COALESCE(SUM(tl.bcms), 0)
         FROM `tabHourly Production` hp
-        INNER JOIN `tabTruck Loads` tl ON tl.parent = hp.name
-        WHERE hp.location = %(site)s
-          AND hp.prod_date BETWEEN %(start_date)s AND %(end_date)s
-          AND LOWER(IFNULL(tl.mat_type, '')) LIKE '%%coal%%'
+        JOIN `tabTruck Loads` tl ON tl.parent = hp.name
+        WHERE hp.prod_date BETWEEN %s AND %s
+          AND hp.location = %s
+          AND LOWER(tl.mat_type) LIKE '%%coal%%'
         """,
-        {
-            "site": site,
-            "start_date": start_date,
-            "end_date": end_date,
-        },
+        (start_date, end_date, site),
+    )[0][0]
+
+    return (coal_bcm or 0) * COAL_CONVERSION
+
+
+def get_actual_daily_bcm(site, date):
+    if not site or not date:
+        return 0
+
+    result = frappe.db.sql(
+        """
+        SELECT
+            COALESCE(SUM(IFNULL(total_ts_bcm, 0) + IFNULL(total_dozing_bcm, 0)), 0) AS total_bcm
+        FROM `tabHourly Production`
+        WHERE location = %s
+          AND prod_date = %s
+        """,
+        (site, date),
         as_dict=True,
     )
 
-    coal_bcm = flt0(rows[0].get("coal_bcm")) if rows else 0
-    return coal_bcm * COAL_BCM_TO_TONS
-
-
-def prorate_value(full_value, selected_days, full_days):
-    if not full_days or full_days <= 0:
-        return 0
-    return full_value * (selected_days / full_days)
+    return flt0(result[0].get("total_bcm")) if result else 0
 
 
 def flt0(value):

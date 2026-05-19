@@ -164,28 +164,56 @@ def calculate_hours_from_hr_meter(doc):
 
 def get_pre_use_data(site, asset, log_date, shift_filter=None):
     """
-    Gets Start and Stop from Pre-Use Hours.
+    Gets Start and Stop from both pre-use sources.
 
-    Parent DocType:
-        Pre-Use Hours
+    Source 1:
+        Pre-Use Hours > Pre-use Assets
+        eng_hrs_start / eng_hrs_end
 
-    Parent fields:
-        location
-        shift_date
-        shift
-
-    Child DocType:
-        Pre-use Assets
-
-    Child fields:
-        asset_name
-        eng_hrs_start
-        eng_hrs_end
+    Source 2:
+        Support Equipment > Support Equipment Assets
+        engine_start_hours / engine_end_hours
     """
+
+    start_values = []
+    stop_values = []
+
+    for data in [
+        get_pre_use_hours_data(site, asset, log_date, shift_filter),
+        get_support_equipment_pre_use_data(site, asset, log_date, shift_filter),
+    ]:
+        start = flt(data.get("start"))
+        stop = flt(data.get("stop"))
+
+        if start:
+            start_values.append(start)
+
+        if stop:
+            stop_values.append(stop)
+
+    return {
+        "found": bool(start_values or stop_values),
+        "start": min(start_values) if start_values else 0,
+        "stop": max(stop_values) if stop_values else 0,
+    }
+
+
+def get_pre_use_hours_data(site, asset, log_date, shift_filter=None):
+    """
+    Original source:
+        Pre-Use Hours > Pre-use Assets
+    """
+
+    if not frappe.db.exists("DocType", "Pre-Use Hours"):
+        return {
+            "found": False,
+            "start": 0,
+            "stop": 0,
+        }
 
     parent_filters = {
         "location": site,
-        "shift_date": log_date
+        "shift_date": log_date,
     }
 
     if shift_filter:
@@ -194,14 +222,14 @@ def get_pre_use_data(site, asset, log_date, shift_filter=None):
     pre_use_docs = frappe.get_all(
         "Pre-Use Hours",
         filters=parent_filters,
-        pluck="name"
+        pluck="name",
     )
 
     if not pre_use_docs:
         return {
             "found": False,
             "start": 0,
-            "stop": 0
+            "stop": 0,
         }
 
     rows = frappe.get_all(
@@ -209,28 +237,92 @@ def get_pre_use_data(site, asset, log_date, shift_filter=None):
         filters={
             "parent": ["in", pre_use_docs],
             "parenttype": "Pre-Use Hours",
-            "asset_name": asset
+            "asset_name": asset,
         },
         fields=[
             "asset_name",
             "eng_hrs_start",
-            "eng_hrs_end"
-        ]
+            "eng_hrs_end",
+        ],
     )
 
+    return get_start_stop_from_rows(
+        rows=rows,
+        start_field="eng_hrs_start",
+        stop_field="eng_hrs_end",
+    )
+
+
+def get_support_equipment_pre_use_data(site, asset, log_date, shift_filter=None):
+    """
+    New source:
+        Support Equipment > Support Equipment Assets
+    """
+
+    if not frappe.db.exists("DocType", "Support Equipment"):
+        return {
+            "found": False,
+            "start": 0,
+            "stop": 0,
+        }
+
+    parent_filters = {
+        "location": site,
+        "shift_date": log_date,
+        "docstatus": ["<", 2],
+    }
+
+    if shift_filter:
+        parent_filters["shift"] = ["in", shift_filter]
+
+    support_docs = frappe.get_all(
+        "Support Equipment",
+        filters=parent_filters,
+        pluck="name",
+    )
+
+    if not support_docs:
+        return {
+            "found": False,
+            "start": 0,
+            "stop": 0,
+        }
+
+    rows = frappe.get_all(
+        "Support Equipment Assets",
+        filters={
+            "parent": ["in", support_docs],
+            "parenttype": "Support Equipment",
+            "asset_name": asset,
+        },
+        fields=[
+            "asset_name",
+            "engine_start_hours",
+            "engine_end_hours",
+        ],
+    )
+
+    return get_start_stop_from_rows(
+        rows=rows,
+        start_field="engine_start_hours",
+        stop_field="engine_end_hours",
+    )
+
+
+def get_start_stop_from_rows(rows, start_field, stop_field):
     if not rows:
         return {
             "found": False,
             "start": 0,
-            "stop": 0
+            "stop": 0,
         }
 
     start_values = []
     stop_values = []
 
     for row in rows:
-        start = flt(row.get("eng_hrs_start"))
-        stop = flt(row.get("eng_hrs_end"))
+        start = flt(row.get(start_field))
+        stop = flt(row.get(stop_field))
 
         if start:
             start_values.append(start)
@@ -238,13 +330,10 @@ def get_pre_use_data(site, asset, log_date, shift_filter=None):
         if stop:
             stop_values.append(stop)
 
-    min_start = min(start_values) if start_values else 0
-    max_stop = max(stop_values) if stop_values else 0
-
     return {
-        "found": True,
-        "start": min_start,
-        "stop": max_stop
+        "found": bool(start_values or stop_values),
+        "start": min(start_values) if start_values else 0,
+        "stop": max(stop_values) if stop_values else 0,
     }
 
 

@@ -1,0 +1,249 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-18 09:39:48.070974",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "batch_name",
+  "geo_project",
+  "geo_pit_layout",
+  "pit_outline_batch",
+  "layout_settings_section",
+  "block_size_x",
+  "block_size_y",
+  "block_angle_degrees",
+  "minimum_inside_percent",
+  "default_cut_no",
+  "numbering_style",
+  "column_break_oinc",
+  "status",
+  "job_id",
+  "queued_on",
+  "started_on",
+  "completed_on",
+  "progress_section",
+  "total_records",
+  "processed_records",
+  "success_count",
+  "error_count",
+  "blocks_created",
+  "total_area",
+  "effective_area",
+  "progress_percent",
+  "options_section",
+  "overwrite_existing",
+  "clear_existing_blocks",
+  "remarks",
+  "error_section",
+  "error_log",
+  "result_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "batch_name",
+   "fieldtype": "Data",
+   "label": "Batch Name"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "geo_pit_layout",
+   "fieldtype": "Link",
+   "label": "Geo Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "pit_outline_batch",
+   "fieldtype": "Link",
+   "label": "Pit Outline Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "layout_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Layout Settings"
+  },
+  {
+   "default": "100",
+   "fieldname": "block_size_x",
+   "fieldtype": "Float",
+   "label": "Block Size X"
+  },
+  {
+   "default": "45",
+   "fieldname": "block_size_y",
+   "fieldtype": "Float",
+   "label": "Block Size Y"
+  },
+  {
+   "default": "0",
+   "fieldname": "block_angle_degrees",
+   "fieldtype": "Float",
+   "label": "Block Angle Degrees"
+  },
+  {
+   "default": "55",
+   "fieldname": "minimum_inside_percent",
+   "fieldtype": "Percent",
+   "label": "Minimum Inside %"
+  },
+  {
+   "default": "1",
+   "fieldname": "default_cut_no",
+   "fieldtype": "Int",
+   "label": "Default Cut No"
+  },
+  {
+   "default": "C1B1",
+   "fieldname": "numbering_style",
+   "fieldtype": "Select",
+   "label": "Numbering Style",
+   "options": "\nC1B1\nRow Column\nCustom"
+  },
+  {
+   "fieldname": "column_break_oinc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "\nDraft\nQueued\nRunning\nComplete\nError\nCancelled"
+  },
+  {
+   "fieldname": "job_id",
+   "fieldtype": "Data",
+   "label": "Background Job ID"
+  },
+  {
+   "fieldname": "queued_on",
+   "fieldtype": "Datetime",
+   "label": "Queued On"
+  },
+  {
+   "fieldname": "started_on",
+   "fieldtype": "Datetime",
+   "label": "Started On"
+  },
+  {
+   "fieldname": "completed_on",
+   "fieldtype": "Datetime",
+   "label": "Completed On"
+  },
+  {
+   "fieldname": "progress_section",
+   "fieldtype": "Section Break",
+   "label": "Progress"
+  },
+  {
+   "fieldname": "total_records",
+   "fieldtype": "Int",
+   "label": "Total Records"
+  },
+  {
+   "fieldname": "processed_records",
+   "fieldtype": "Int",
+   "label": "Processed Records"
+  },
+  {
+   "fieldname": "success_count",
+   "fieldtype": "Int",
+   "label": "Success Count"
+  },
+  {
+   "fieldname": "error_count",
+   "fieldtype": "Int",
+   "label": "Error Count"
+  },
+  {
+   "fieldname": "blocks_created",
+   "fieldtype": "Int",
+   "label": "Blocks Created"
+  },
+  {
+   "fieldname": "total_area",
+   "fieldtype": "Float",
+   "label": "Total Area"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "progress_percent",
+   "fieldtype": "Percent",
+   "label": "Progress %"
+  },
+  {
+   "fieldname": "options_section",
+   "fieldtype": "Section Break",
+   "label": "Options"
+  },
+  {
+   "default": "0",
+   "fieldname": "overwrite_existing",
+   "fieldtype": "Check",
+   "label": "Overwrite Existing Blocks"
+  },
+  {
+   "default": "0",
+   "fieldname": "clear_existing_blocks",
+   "fieldtype": "Check",
+   "label": "Clear Existing Layout Blocks First"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "error_section",
+   "fieldtype": "Section Break",
+   "label": "Error / Diagnostics"
+  },
+  {
+   "fieldname": "error_log",
+   "fieldtype": "Long Text",
+   "label": "Error Log"
+  },
+  {
+   "fieldname": "result_json",
+   "fieldtype": "Long Text",
+   "label": "Result JSON"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-18 11:12:38.927468",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Geo Layout Generation Batch",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,181 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "autoname: hash",
+ "creation": "2026-05-18 09:28:21.972107",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "mining_block",
+  "geo_project",
+  "source_pit_layout",
+  "material_stack",
+  "material_seam",
+  "thickness_value",
+  "thickness_point_count",
+  "density_value",
+  "density_point_count",
+  "effective_area",
+  "volume",
+  "column_break_alnf",
+  "tonnes",
+  "quality_summary_json",
+  "material_status",
+  "calculation_status",
+  "remarks",
+  "thickness_value_record",
+  "density_value_record"
+ ],
+ "fields": [
+  {
+   "fieldname": "mining_block",
+   "fieldtype": "Link",
+   "label": "Mining Block",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "source_pit_layout",
+   "fieldtype": "Link",
+   "label": "Source Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "material_stack",
+   "fieldtype": "Link",
+   "label": "Material Stack",
+   "options": "Geo Pit Layout Material Stack"
+  },
+  {
+   "fieldname": "material_seam",
+   "fieldtype": "Data",
+   "label": "Material Seam"
+  },
+  {
+   "fieldname": "thickness_value",
+   "fieldtype": "Float",
+   "label": "Thickness Value"
+  },
+  {
+   "fieldname": "thickness_point_count",
+   "fieldtype": "Int",
+   "label": "Thickness Point Count"
+  },
+  {
+   "fieldname": "density_value",
+   "fieldtype": "Float",
+   "label": "Density Value"
+  },
+  {
+   "fieldname": "density_point_count",
+   "fieldtype": "Int",
+   "label": "Density Point Count"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume"
+  },
+  {
+   "fieldname": "column_break_alnf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tonnes",
+   "fieldtype": "Float",
+   "label": "Tonnes"
+  },
+  {
+   "fieldname": "quality_summary_json",
+   "fieldtype": "Long Text",
+   "label": "Quality Summary JSON"
+  },
+  {
+   "fieldname": "material_status",
+   "fieldtype": "Select",
+   "label": "Material Status",
+   "options": "\nMineable\nWaste\nExcluded\nReview\nNo Data"
+  },
+  {
+   "fieldname": "calculation_status",
+   "fieldtype": "Select",
+   "label": "Calculation Status",
+   "options": "\nDraft\nCalculated\nError"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "thickness_value_record",
+   "fieldtype": "Link",
+   "label": "Thickness Value Record",
+   "options": "Mining Block Material Value"
+  },
+  {
+   "fieldname": "density_value_record",
+   "fieldtype": "Link",
+   "label": "Density Value Record",
+   "options": "Mining Block Material Value"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-19 06:48:51.329630",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Block Material Summary",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -28,7 +28,12 @@
   "variable_code",
   "use_in_mining_blocks",
   "run_status",
-  "sort_order"
+  "sort_order",
+  "latest_assignment_batch",
+  "assignment_job_id",
+  "assignment_started_on",
+  "assignment_completed_on",
+  "assignment_error"
  ],
  "fields": [
   {
@@ -103,7 +108,7 @@
    "fieldname": "processing_status",
    "fieldtype": "Select",
    "label": "Processing Status",
-   "options": "\nDraft\nRunning\nComplete\nError"
+   "options": "\nDraft\nQueued\nRunning\nComplete\nError"
   },
   {
    "fieldname": "passing_blocks",
@@ -155,12 +160,38 @@
    "fieldname": "sort_order",
    "fieldtype": "Int",
    "label": "Sort Order"
+  },
+  {
+   "fieldname": "latest_assignment_batch",
+   "fieldtype": "Link",
+   "label": "Latest Assignment Batch",
+   "options": "Geo Layout Geology Assignment Batch"
+  },
+  {
+   "fieldname": "assignment_job_id",
+   "fieldtype": "Data",
+   "label": "Assignment Job ID"
+  },
+  {
+   "fieldname": "assignment_started_on",
+   "fieldtype": "Datetime",
+   "label": "Assignment Started On"
+  },
+  {
+   "fieldname": "assignment_completed_on",
+   "fieldtype": "Datetime",
+   "label": "Assignment Completed On"
+  },
+  {
+   "fieldname": "assignment_error",
+   "fieldtype": "Long Text",
+   "label": "Assignment Error"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-12 10:40:41.440812",
+ "modified": "2026-05-19 06:43:41.560184",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Pit Layout Geology Run",

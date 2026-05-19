@@ -1,0 +1,230 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-18 11:41:04.780764",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "batch_name",
+  "geo_project",
+  "geo_pit_layout",
+  "source_section",
+  "require_final",
+  "overwrite_existing",
+  "update_existing",
+  "status_column",
+  "status",
+  "job_id",
+  "queued_on",
+  "started_on",
+  "completed_on",
+  "progress_section",
+  "total_layout_blocks",
+  "processed_layout_blocks",
+  "mining_blocks_created",
+  "mining_blocks_updated",
+  "mining_blocks_skipped",
+  "error_count",
+  "progress_percent",
+  "totals_section",
+  "total_area",
+  "effective_area",
+  "remarks",
+  "error_section",
+  "error_log",
+  "result_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "batch_name",
+   "fieldtype": "Data",
+   "label": "Batch Name"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "geo_pit_layout",
+   "fieldtype": "Link",
+   "label": "Geo Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "source_section",
+   "fieldtype": "Section Break",
+   "label": "Source Layout"
+  },
+  {
+   "default": "0",
+   "fieldname": "require_final",
+   "fieldtype": "Check",
+   "label": "Require Final Layout"
+  },
+  {
+   "default": "0",
+   "fieldname": "overwrite_existing",
+   "fieldtype": "Check",
+   "label": "Overwrite Existing Mining Blocks"
+  },
+  {
+   "default": "0",
+   "fieldname": "update_existing",
+   "fieldtype": "Check",
+   "label": "Update Existing Mining Blocks"
+  },
+  {
+   "fieldname": "status_column",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "\nDraft\nQueued\nRunning\nComplete\nError\nCancelled"
+  },
+  {
+   "fieldname": "job_id",
+   "fieldtype": "Data",
+   "label": "Background Job ID"
+  },
+  {
+   "fieldname": "queued_on",
+   "fieldtype": "Datetime",
+   "label": "Queued On"
+  },
+  {
+   "fieldname": "started_on",
+   "fieldtype": "Datetime",
+   "label": "Started On"
+  },
+  {
+   "fieldname": "completed_on",
+   "fieldtype": "Datetime",
+   "label": "Completed On"
+  },
+  {
+   "fieldname": "progress_section",
+   "fieldtype": "Section Break",
+   "label": "Progress"
+  },
+  {
+   "fieldname": "total_layout_blocks",
+   "fieldtype": "Int",
+   "label": "Total Layout Blocks"
+  },
+  {
+   "fieldname": "processed_layout_blocks",
+   "fieldtype": "Int",
+   "label": "Processed Layout Blocks"
+  },
+  {
+   "fieldname": "mining_blocks_created",
+   "fieldtype": "Int",
+   "label": "Mining Blocks Created"
+  },
+  {
+   "fieldname": "mining_blocks_updated",
+   "fieldtype": "Int",
+   "label": "Mining Blocks Updated"
+  },
+  {
+   "fieldname": "mining_blocks_skipped",
+   "fieldtype": "Int",
+   "label": "Mining Blocks Skipped"
+  },
+  {
+   "fieldname": "error_count",
+   "fieldtype": "Int",
+   "label": "Error Count"
+  },
+  {
+   "fieldname": "progress_percent",
+   "fieldtype": "Percent",
+   "label": "Progress %"
+  },
+  {
+   "fieldname": "totals_section",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "total_area",
+   "fieldtype": "Float",
+   "label": "Total Area"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "error_section",
+   "fieldtype": "Section Break",
+   "label": "Error / Diagnostics"
+  },
+  {
+   "fieldname": "error_log",
+   "fieldtype": "Long Text",
+   "label": "Error Log"
+  },
+  {
+   "fieldname": "result_json",
+   "fieldtype": "Long Text",
+   "label": "Result JSON"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-19 05:45:28.796567",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Block Generation Batch",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -11,7 +11,20 @@
   "geo_pit_layout",
   "stack_status",
   "remarks",
-  "item"
+  "item",
+  "latest_calculation_batch",
+  "column_break_kqup",
+  "is_default_stack",
+  "calculation_status",
+  "attach_status",
+  "last_attached_on",
+  "last_calculated_on",
+  "background_job_id",
+  "error_log",
+  "total_volume",
+  "total_tonnes",
+  "mineable_block_count",
+  "no_data_block_count"
  ],
  "fields": [
   {
@@ -47,12 +60,80 @@
    "fieldtype": "Table",
    "label": "Item",
    "options": "Geo Pit Layout Material Stack Item"
+  },
+  {
+   "fieldname": "column_break_kqup",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_default_stack",
+   "fieldtype": "Check",
+   "label": "Is Default Stack"
+  },
+  {
+   "fieldname": "calculation_status",
+   "fieldtype": "Select",
+   "label": "Calculation Status",
+   "options": "\nNot Calculated\nQueued\nRunning\nComplete\nError"
+  },
+  {
+   "fieldname": "attach_status",
+   "fieldtype": "Select",
+   "label": "Attach Status",
+   "options": "Not Attached\nQueued\nRunning\nComplete\nError"
+  },
+  {
+   "fieldname": "last_attached_on",
+   "fieldtype": "Datetime",
+   "label": "Last Attached On"
+  },
+  {
+   "fieldname": "last_calculated_on",
+   "fieldtype": "Datetime",
+   "label": "Last Calculated On"
+  },
+  {
+   "fieldname": "background_job_id",
+   "fieldtype": "Data",
+   "label": "Background Job ID"
+  },
+  {
+   "fieldname": "error_log",
+   "fieldtype": "Long Text",
+   "label": "Error Log"
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume"
+  },
+  {
+   "fieldname": "total_tonnes",
+   "fieldtype": "Float",
+   "label": "Total Tonnes"
+  },
+  {
+   "fieldname": "mineable_block_count",
+   "fieldtype": "Int",
+   "label": "Mineable Block Count"
+  },
+  {
+   "fieldname": "no_data_block_count",
+   "fieldtype": "Int",
+   "label": "No Data Block Count"
+  },
+  {
+   "fieldname": "latest_calculation_batch",
+   "fieldtype": "Link",
+   "label": "Latest Calculation Batch",
+   "options": "Mining Block Material Calculation Batch"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-12 12:50:54.048479",
+ "modified": "2026-05-19 06:45:40.093529",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Pit Layout Material Stack",

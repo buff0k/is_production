@@ -3,6 +3,7 @@ import json
 import frappe
 import geopandas as gpd
 import pandas as pd
+from frappe.utils import now
 from shapely.geometry import Point, shape
 
 
@@ -19,8 +20,48 @@ def _float(value, default=0.0):
         return default
 
 
+def _int(value, default=0):
+    try:
+        if value is None or value == "":
+            return default
+        return int(float(value))
+    except Exception:
+        return default
+
+
 def _bool(value):
     return str(value).lower() in ("1", "true", "yes", "y")
+
+
+def _has_field(doctype, fieldname):
+    try:
+        return frappe.get_meta(doctype).has_field(fieldname)
+    except Exception:
+        return False
+
+
+def _set_if_field(doc, fieldname, value):
+    if _has_field(doc.doctype, fieldname):
+        setattr(doc, fieldname, value)
+
+
+def _safe_json(value):
+    try:
+        return json.dumps(value, default=str)
+    except Exception:
+        return "{}"
+
+
+def _get_layout_project(geo_pit_layout):
+    if not geo_pit_layout:
+        frappe.throw("Geo Pit Layout is required.")
+
+    geo_project = frappe.db.get_value("Geo Pit Layout", geo_pit_layout, "geo_project")
+
+    if not geo_project:
+        frappe.throw(f"Geo Project could not be found for layout {geo_pit_layout}.")
+
+    return geo_project
 
 
 def _get_layout_blocks(geo_pit_layout):
@@ -49,21 +90,32 @@ def _get_layout_blocks(geo_pit_layout):
     return blocks
 
 
-def _get_layout_project(geo_pit_layout):
-    return frappe.db.get_value("Geo Pit Layout", geo_pit_layout, "geo_project")
+def _get_import_batch_field():
+    if _has_field("Geo Model Points", "import_batch"):
+        return "import_batch"
+    if _has_field("Geo Model Points", "geo_import_batch"):
+        return "geo_import_batch"
+    return "import_batch"
 
 
 def _get_import_batch_points(geo_project, geo_import_batch):
     if not geo_import_batch:
         frappe.throw("Geo Import Batch is required.")
 
+    batch_field = _get_import_batch_field()
+
+    fields = ["name", "x", "y", "z", "variable_name", "row_no"]
+
+    if _has_field("Geo Model Points", "variable_code"):
+        fields.append("variable_code")
+
     points = frappe.get_all(
         "Geo Model Points",
         filters={
             "geo_project": geo_project,
-            "import_batch": geo_import_batch,
+            batch_field: geo_import_batch,
         },
-        fields=["name", "x", "y", "z", "variable_name", "row_no"],
+        fields=fields,
         limit_page_length=0,
     )
 
@@ -79,22 +131,24 @@ def _get_calculation_batch_points(geo_project, geo_calculation_batch):
     if not geo_calculation_batch:
         frappe.throw("Geo Calculation Batch is required.")
 
+    fields = [
+        "name",
+        "x",
+        "y",
+        "z",
+        "calculated_z",
+        "variable_name",
+        "variable_code",
+        "row_no",
+    ]
+
     points = frappe.get_all(
         "Geo Calculated Points",
         filters={
             "geo_project": geo_project,
             "calculation_batch": geo_calculation_batch,
         },
-        fields=[
-            "name",
-            "x",
-            "y",
-            "z",
-            "calculated_z",
-            "variable_name",
-            "variable_code",
-            "row_no",
-        ],
+        fields=fields,
         limit_page_length=0,
     )
 
@@ -106,12 +160,21 @@ def _get_calculation_batch_points(geo_project, geo_calculation_batch):
     return points
 
 
-def _source_points_to_dataframe(source_type, points):
+def _source_points_to_dataframe(source_type, points, variable_name=None, variable_code=None):
     rows = []
     is_calculation_batch = source_type == SOURCE_TYPE_CALCULATION
 
     for p in points:
         if p.get("x") is None or p.get("y") is None:
+            continue
+
+        point_variable_name = p.get("variable_name")
+        point_variable_code = p.get("variable_code")
+
+        if variable_name and point_variable_name and point_variable_name != variable_name:
+            continue
+
+        if variable_code and point_variable_code and point_variable_code != variable_code:
             continue
 
         if is_calculation_batch:
@@ -130,8 +193,8 @@ def _source_points_to_dataframe(source_type, points):
                 "x": _float(p.get("x")),
                 "y": _float(p.get("y")),
                 "value": _float(value),
-                "variable_name": p.get("variable_name"),
-                "variable_code": p.get("variable_code"),
+                "variable_name": point_variable_name,
+                "variable_code": point_variable_code,
             }
         )
 
@@ -224,7 +287,7 @@ def _summarise_points_by_block(blocks_gdf, points_gdf):
     summaries = {}
 
     if joined.empty:
-        return summaries
+        return summaries, 0
 
     for layout_block, group in joined.groupby("layout_block"):
         values = group["value"].astype(float)
@@ -239,7 +302,7 @@ def _summarise_points_by_block(blocks_gdf, points_gdf):
             "point_count": int(values.count()),
         }
 
-    return summaries
+    return summaries, len(joined)
 
 
 def _source_batch_fields(source_type, geo_import_batch=None, geo_calculation_batch=None):
@@ -249,35 +312,49 @@ def _source_batch_fields(source_type, geo_import_batch=None, geo_calculation_bat
     }
 
 
+def _normalise_source_type(source_type):
+    if source_type == SOURCE_TYPE_CALCULATION:
+        return SOURCE_TYPE_CALCULATION
+    return SOURCE_TYPE_IMPORT
+
+
 @frappe.whitelist()
 def preview_layout_geology(
     geo_pit_layout,
     source_type,
     geo_import_batch=None,
     geo_calculation_batch=None,
+    variable_name=None,
+    variable_code=None,
     rule_enabled=0,
     rule_operator=None,
     rule_value=None,
     rule_value_to=None,
 ):
     """
-    Preview geology assignment without saving Geo Pit Layout Geology Run/Result records.
+    Preview geology assignment without saving Geo Pit Layout Geology Result records.
     """
     geo_project = _get_layout_project(geo_pit_layout)
 
     blocks = _get_layout_blocks(geo_pit_layout)
     blocks_gdf = _blocks_to_geodataframe(blocks)
 
+    source_type = _normalise_source_type(source_type)
+
     if source_type == SOURCE_TYPE_CALCULATION:
         source_points = _get_calculation_batch_points(geo_project, geo_calculation_batch)
     else:
-        source_type = SOURCE_TYPE_IMPORT
         source_points = _get_import_batch_points(geo_project, geo_import_batch)
 
-    points_df = _source_points_to_dataframe(source_type, source_points)
+    points_df = _source_points_to_dataframe(
+        source_type=source_type,
+        points=source_points,
+        variable_name=variable_name,
+        variable_code=variable_code,
+    )
     points_gdf = _points_to_geodataframe(points_df)
 
-    summaries = _summarise_points_by_block(blocks_gdf, points_gdf)
+    summaries, assigned_points = _summarise_points_by_block(blocks_gdf, points_gdf)
 
     rule_on = _bool(rule_enabled)
     results = []
@@ -336,12 +413,215 @@ def preview_layout_geology(
         "geo_project": geo_project,
         "geo_pit_layout": geo_pit_layout,
         "source_type": source_type,
+        "total_points": len(points_df),
+        "assigned_points": assigned_points,
         "block_count": len(blocks),
         "result_count": len(results),
         "passing_blocks": passing,
         "failing_blocks": failing,
         "no_data_blocks": no_data,
         "results": results,
+    }
+
+
+def _get_result_downstream_links(geology_run):
+    material_values = 0
+
+    if frappe.db.exists("DocType", "Mining Block Material Value"):
+        material_values = frappe.db.count(
+            "Mining Block Material Value",
+            {"source_geology_run": geology_run},
+        )
+
+    return {
+        "material_values": _int(material_values, 0),
+        "has_downstream_links": bool(material_values),
+    }
+
+
+def clear_geology_results(geology_run, force=0):
+    downstream = _get_result_downstream_links(geology_run)
+
+    if downstream["has_downstream_links"] and not _int(force, 0):
+        frappe.throw(
+            "This geology run already has downstream material values. "
+            "Do not delete results. Rerun assignment in update-in-place mode instead."
+        )
+
+    existing = frappe.get_all(
+        "Geo Pit Layout Geology Result",
+        filters={"geology_run": geology_run},
+        pluck="name",
+        limit_page_length=0,
+    )
+
+    for name in existing:
+        frappe.delete_doc("Geo Pit Layout Geology Result", name, ignore_permissions=True)
+
+    return len(existing)
+
+
+def _get_existing_results_by_block(geology_run):
+    rows = frappe.get_all(
+        "Geo Pit Layout Geology Result",
+        filters={"geology_run": geology_run},
+        fields=["name", "layout_block"],
+        limit_page_length=0,
+    )
+
+    out = {}
+    for row in rows:
+        if row.layout_block:
+            out[row.layout_block] = row.name
+
+    return out
+
+
+def _populate_result_doc(doc, run, result, source_fields):
+    doc.geology_run = run.name
+    doc.geo_pit_layout = run.geo_pit_layout
+    doc.layout_block = result.get("layout_block")
+    doc.geo_project = run.geo_project
+    doc.block_code = result.get("block_code")
+    doc.source_type = run.source_type
+    doc.geo_import_batch = source_fields["geo_import_batch"]
+    doc.geo_calculation_batch = source_fields["geo_calculation_batch"]
+    doc.variable_name = run.variable_name
+    doc.avg_value = result.get("avg_value")
+    doc.min_value = result.get("min_value")
+    doc.max_value = result.get("max_value")
+    doc.point_count = result.get("point_count")
+    doc.passes_rule = result.get("passes_rule")
+    doc.result_status = result.get("result_status")
+
+
+def run_geology_assignment(
+    geology_run,
+    clear_existing_results=0,
+    overwrite_existing=1,
+):
+    """
+    Worker-safe method.
+
+    Reads an existing Geo Pit Layout Geology Run and creates/updates
+    Geo Pit Layout Geology Result rows.
+    """
+    if not geology_run:
+        frappe.throw("Geology Run is required.")
+
+    run = frappe.get_doc("Geo Pit Layout Geology Run", geology_run)
+
+    if not run.geo_pit_layout:
+        frappe.throw("Geo Pit Layout is required on the Geology Run.")
+
+    if not run.geo_project:
+        run.geo_project = _get_layout_project(run.geo_pit_layout)
+
+    run.source_type = _normalise_source_type(run.source_type)
+
+    if run.source_type == SOURCE_TYPE_IMPORT and not run.geo_import_batch:
+        frappe.throw("Geo Import Batch is required for Source Type Geo Import Batch.")
+
+    if run.source_type == SOURCE_TYPE_CALCULATION and not run.geo_calculation_batch:
+        frappe.throw("Geo Calculation Batch is required for Source Type Geo Calculation Batch.")
+
+    downstream = _get_result_downstream_links(run.name)
+
+    if downstream["has_downstream_links"]:
+        clear_existing_results = 0
+        overwrite_existing = 1
+
+    run.processing_status = "Running"
+    _set_if_field(run, "assignment_started_on", now())
+    _set_if_field(run, "assignment_error", None)
+    run.save(ignore_permissions=True)
+
+    if _int(clear_existing_results, 0):
+        clear_geology_results(run.name)
+
+    payload = preview_layout_geology(
+        geo_pit_layout=run.geo_pit_layout,
+        source_type=run.source_type,
+        geo_import_batch=run.geo_import_batch,
+        geo_calculation_batch=run.geo_calculation_batch,
+        variable_name=run.variable_name,
+        variable_code=run.get("variable_code"),
+        rule_enabled=run.rule_enabled,
+        rule_operator=run.rule_operator,
+        rule_value=run.rule_value,
+        rule_value_to=run.rule_value_to,
+    )
+
+    source_fields = _source_batch_fields(
+        payload["source_type"],
+        geo_import_batch=run.geo_import_batch,
+        geo_calculation_batch=run.geo_calculation_batch,
+    )
+
+    existing_by_block = _get_existing_results_by_block(run.name)
+
+    created = 0
+    updated = 0
+    skipped = 0
+    passing = 0
+    failing = 0
+    no_data = 0
+
+    for result in payload["results"]:
+        layout_block = result.get("layout_block")
+        existing = existing_by_block.get(layout_block)
+
+        if existing and not _int(overwrite_existing, 1):
+            skipped += 1
+            continue
+
+        if existing:
+            doc = frappe.get_doc("Geo Pit Layout Geology Result", existing)
+            updated += 1
+        else:
+            doc = frappe.new_doc("Geo Pit Layout Geology Result")
+            created += 1
+
+        _populate_result_doc(doc, run, result, source_fields)
+
+        if existing:
+            doc.save(ignore_permissions=True)
+        else:
+            doc.insert(ignore_permissions=True)
+
+        if doc.result_status == "Pass":
+            passing += 1
+        elif doc.result_status == "Fail":
+            failing += 1
+        elif doc.result_status == "No Data":
+            no_data += 1
+
+    run.passing_blocks = passing
+    run.failing_blocks = failing
+    run.no_data_blocks = no_data
+    run.processing_status = "Complete"
+    _set_if_field(run, "assignment_completed_on", now())
+    _set_if_field(run, "assignment_error", None)
+    run.save(ignore_permissions=True)
+
+    frappe.db.commit()
+
+    return {
+        "geology_run": run.name,
+        "geo_pit_layout": run.geo_pit_layout,
+        "source_type": payload["source_type"],
+        "total_points": payload.get("total_points", 0),
+        "assigned_points": payload.get("assigned_points", 0),
+        "block_count": payload.get("block_count", 0),
+        "results_checked": len(payload["results"]),
+        "results_created": created,
+        "results_updated": updated,
+        "results_skipped": skipped,
+        "passing_blocks": passing,
+        "failing_blocks": failing,
+        "no_data_blocks": no_data,
+        "update_in_place": 1 if downstream["has_downstream_links"] else 0,
+        "downstream_material_values": downstream["material_values"],
     }
 
 
@@ -361,29 +641,19 @@ def create_layout_geology_run(
     remarks=None,
 ):
     """
-    Apply one geology source batch to one saved layout and save per-block results.
-    Creates:
-    - Geo Pit Layout Geology Run
-    - Geo Pit Layout Geology Result records
+    Compatibility method for old viewer workflow.
+
+    New workflow should prefer:
+        Create Geo Pit Layout Geology Run
+        Click Run Assignment
     """
     if not run_name:
         frappe.throw("Run Name is required.")
 
     geo_project = _get_layout_project(geo_pit_layout)
-
-    payload = preview_layout_geology(
-        geo_pit_layout=geo_pit_layout,
-        source_type=source_type,
-        geo_import_batch=geo_import_batch,
-        geo_calculation_batch=geo_calculation_batch,
-        rule_enabled=rule_enabled,
-        rule_operator=rule_operator,
-        rule_value=rule_value,
-        rule_value_to=rule_value_to,
-    )
-
+    source_type = _normalise_source_type(source_type)
     source_fields = _source_batch_fields(
-        payload["source_type"],
+        source_type,
         geo_import_batch=geo_import_batch,
         geo_calculation_batch=geo_calculation_batch,
     )
@@ -392,7 +662,7 @@ def create_layout_geology_run(
     run.run_name = run_name
     run.geo_project = geo_project
     run.geo_pit_layout = geo_pit_layout
-    run.source_type = payload["source_type"]
+    run.source_type = source_type
     run.geo_import_batch = source_fields["geo_import_batch"]
     run.geo_calculation_batch = source_fields["geo_calculation_batch"]
     run.variable_name = variable_name
@@ -401,57 +671,17 @@ def create_layout_geology_run(
     run.rule_operator = rule_operator
     run.rule_value = _float(rule_value) if rule_value not in (None, "") else None
     run.rule_value_to = _float(rule_value_to) if rule_value_to not in (None, "") else None
-    run.processing_status = "Running"
+    run.processing_status = "Draft"
     run.remarks = remarks
     run.insert(ignore_permissions=True)
 
-    passing = 0
-    failing = 0
-    no_data = 0
+    result = run_geology_assignment(
+        geology_run=run.name,
+        clear_existing_results=0,
+        overwrite_existing=1,
+    )
 
-    for result in payload["results"]:
-        doc = frappe.new_doc("Geo Pit Layout Geology Result")
-        doc.geology_run = run.name
-        doc.geo_pit_layout = geo_pit_layout
-        doc.layout_block = result.get("layout_block")
-        doc.geo_project = geo_project
-        doc.block_code = result.get("block_code")
-        doc.source_type = payload["source_type"]
-        doc.geo_import_batch = source_fields["geo_import_batch"]
-        doc.geo_calculation_batch = source_fields["geo_calculation_batch"]
-        doc.variable_name = variable_name
-        doc.avg_value = result.get("avg_value")
-        doc.min_value = result.get("min_value")
-        doc.max_value = result.get("max_value")
-        doc.point_count = result.get("point_count")
-        doc.passes_rule = result.get("passes_rule")
-        doc.result_status = result.get("result_status")
-        doc.insert(ignore_permissions=True)
-
-        if doc.result_status == "Pass":
-            passing += 1
-        elif doc.result_status == "Fail":
-            failing += 1
-        elif doc.result_status == "No Data":
-            no_data += 1
-
-    run.passing_blocks = passing
-    run.failing_blocks = failing
-    run.no_data_blocks = no_data
-    run.processing_status = "Complete"
-    run.save(ignore_permissions=True)
-
-    frappe.db.commit()
-
-    return {
-        "geology_run": run.name,
-        "geo_pit_layout": geo_pit_layout,
-        "source_type": payload["source_type"],
-        "results_created": len(payload["results"]),
-        "passing_blocks": passing,
-        "failing_blocks": failing,
-        "no_data_blocks": no_data,
-    }
+    return result
 
 
 @frappe.whitelist()
@@ -468,6 +698,10 @@ def get_geology_results(geology_run):
             "geo_pit_layout",
             "layout_block",
             "block_code",
+            "source_type",
+            "geo_import_batch",
+            "geo_calculation_batch",
+            "variable_name",
             "avg_value",
             "min_value",
             "max_value",
@@ -478,3 +712,37 @@ def get_geology_results(geology_run):
         order_by="block_code asc",
         limit_page_length=0,
     )
+
+
+@frappe.whitelist()
+def get_geology_assignment_summary(geology_run):
+    if not geology_run:
+        frappe.throw("Geology Run is required.")
+
+    run = frappe.get_doc("Geo Pit Layout Geology Run", geology_run)
+
+    result_count = frappe.db.count(
+        "Geo Pit Layout Geology Result",
+        {"geology_run": geology_run},
+    )
+
+    downstream = _get_result_downstream_links(geology_run)
+
+    return {
+        "geology_run": run.name,
+        "run_name": run.run_name,
+        "geo_project": run.geo_project,
+        "geo_pit_layout": run.geo_pit_layout,
+        "source_type": run.source_type,
+        "geo_import_batch": run.geo_import_batch,
+        "geo_calculation_batch": run.geo_calculation_batch,
+        "variable_name": run.variable_name,
+        "variable_code": run.get("variable_code"),
+        "value_meaning": run.value_meaning,
+        "processing_status": run.processing_status,
+        "result_count": result_count,
+        "passing_blocks": run.passing_blocks,
+        "failing_blocks": run.failing_blocks,
+        "no_data_blocks": run.no_data_blocks,
+        "downstream": downstream,
+    }

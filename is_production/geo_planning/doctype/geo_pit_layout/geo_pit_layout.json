@@ -25,7 +25,15 @@
   "layout_status",
   "is_final_layout",
   "supersedes_layout",
-  "remarks"
+  "remarks",
+  "column_break_nqpb",
+  "generation_status",
+  "generation_job_id",
+  "generation_started_on",
+  "generation_completed_on",
+  "generation_error",
+  "active_material_stack",
+  "latest_generation_batch"
  ],
  "fields": [
   {
@@ -133,12 +141,54 @@
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
+  },
+  {
+   "fieldname": "column_break_nqpb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "generation_status",
+   "fieldtype": "Select",
+   "label": "Generation Status",
+   "options": "\nDraft\nQueued\nRunning\nComplete\nError"
+  },
+  {
+   "fieldname": "generation_job_id",
+   "fieldtype": "Data",
+   "label": "Generation Job ID"
+  },
+  {
+   "fieldname": "generation_started_on",
+   "fieldtype": "Datetime",
+   "label": "Generation Started On"
+  },
+  {
+   "fieldname": "generation_completed_on",
+   "fieldtype": "Datetime",
+   "label": "Generation Completed On"
+  },
+  {
+   "fieldname": "generation_error",
+   "fieldtype": "Long Text",
+   "label": "Generation Error"
+  },
+  {
+   "fieldname": "active_material_stack",
+   "fieldtype": "Link",
+   "label": "Active Material Stack",
+   "options": "Geo Pit Layout Material Stack"
+  },
+  {
+   "fieldname": "latest_generation_batch",
+   "fieldtype": "Link",
+   "label": "Latest Generation Batch",
+   "options": "Geo Layout Generation Batch"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-12 13:51:52.661794",
+ "modified": "2026-05-19 06:41:19.762236",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Pit Layout",
