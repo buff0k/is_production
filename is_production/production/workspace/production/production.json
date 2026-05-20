@@ -739,150 +739,11 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Technical Mine Planning- Blocks",
-   "link_count": 12,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Pit Layout",
-   "link_count": 0,
-   "link_to": "Geo Pit Layout",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Pit Layout Block",
-   "link_count": 0,
-   "link_to": "Geo Pit Layout Block",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Pit Layout Geology Run",
-   "link_count": 0,
-   "link_to": "Geo Pit Layout Geology Run",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Pit Layout Geology Result",
-   "link_count": 0,
-   "link_to": "Geo Pit Layout Geology Result",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Mining Block",
-   "link_count": 0,
-   "link_to": "Mining Block",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Mining Block Material Value",
-   "link_count": 0,
-   "link_to": "Mining Block Material Value",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Pit Layout Material Stack",
-   "link_count": 0,
-   "link_to": "Geo Pit Layout Material Stack",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Mining Block Material Summary",
-   "link_count": 0,
-   "link_to": "Mining Block Material Summary",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Layout Generation Batch",
-   "link_count": 0,
-   "link_to": "Geo Layout Generation Batch",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Layout Geology Assignment Batch",
-   "link_count": 0,
-   "link_to": "Geo Layout Geology Assignment Batch",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Mining Block Generation Batch",
-   "link_count": 0,
-   "link_to": "Mining Block Generation Batch",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Mining Block Material Calculation Batch",
-   "link_count": 0,
-   "link_to": "Mining Block Material Calculation Batch",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Technical Mine Planning-Reports",
-   "link_count": 7,
+   "link_count": 6,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Geo Model Points Viewer",
-   "link_count": 0,
-   "link_to": "Geo Model Points Viewer",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
   },
   {
    "hidden": 0,
@@ -943,9 +804,138 @@
    "link_type": "Report",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Technical Mine Planning- Blocks",
+   "link_count": 12,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Create Pit Layout",
+   "link_count": 0,
+   "link_to": "Geo Pit Layout",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Layout Blocks",
+   "link_count": 0,
+   "link_to": "Geo Pit Layout Block",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Add Geology Runs per Material",
+   "link_count": 0,
+   "link_to": "Geo Pit Layout Geology Run",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geology Result per Block per Material",
+   "link_count": 0,
+   "link_to": "Geo Pit Layout Geology Result",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mining Block",
+   "link_count": 0,
+   "link_to": "Mining Block",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mining Block Material Value",
+   "link_count": 0,
+   "link_to": "Mining Block Material Value",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Material Stack ",
+   "link_count": 0,
+   "link_to": "Geo Pit Layout Material Stack",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Summary per Block per Material",
+   "link_count": 0,
+   "link_to": "Mining Block Material Summary",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Layout Generation Batch",
+   "link_count": 0,
+   "link_to": "Geo Layout Generation Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Layout Geology Assignment Batch",
+   "link_count": 0,
+   "link_to": "Geo Layout Geology Assignment Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mining Block Generation Batch",
+   "link_count": 0,
+   "link_to": "Mining Block Generation Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Mining Block Material Calculation Batch",
+   "link_count": 0,
+   "link_to": "Mining Block Material Calculation Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-05-20 11:56:19.961675",
+ "modified": "2026-05-20 15:15:50.562923",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
