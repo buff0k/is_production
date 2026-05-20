@@ -570,75 +570,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Technical Mine Planning-Reports",
-   "link_count": 6,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Geo Model Points Viewer",
-   "link_count": 0,
-   "link_to": "Geo Model Points Viewer",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geo Plan View",
-   "link_count": 0,
-   "link_to": "geo-planning-viewer",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Contour Viewer",
-   "link_count": 0,
-   "link_to": "geo-batch-contour-vi",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "3D Viewer",
-   "link_count": 0,
-   "link_to": "geo-seam-3d-viewer",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Geology Viewer",
-   "link_count": 0,
-   "link_to": "geology-viewer",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Simulator",
-   "link_count": 0,
-   "link_to": "mining-schedule-simu",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Reporting",
    "link_count": 16,
    "link_type": "DocType",
@@ -933,9 +864,88 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Technical Mine Planning-Reports",
+   "link_count": 7,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Geo Model Points Viewer",
+   "link_count": 0,
+   "link_to": "Geo Model Points Viewer",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geo Plan View",
+   "link_count": 0,
+   "link_to": "geo-planning-viewer",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Contour Viewer",
+   "link_count": 0,
+   "link_to": "geo-batch-contour-vi",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "3D Viewer",
+   "link_count": 0,
+   "link_to": "geo-seam-3d-viewer",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Geology Viewer",
+   "link_count": 0,
+   "link_to": "geology-viewer",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Simulator",
+   "link_count": 0,
+   "link_to": "mining-schedule-simu",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Mining Block Material Report",
+   "link_count": 0,
+   "link_to": "Mining Block Material Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-05-19 06:01:46.012787",
+ "modified": "2026-05-20 11:56:19.961675",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

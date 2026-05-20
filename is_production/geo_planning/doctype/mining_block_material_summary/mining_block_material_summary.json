@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "autoname: hash",
+ "autoname": "hash",
  "creation": "2026-05-18 09:28:21.972107",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -133,11 +133,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-19 06:48:51.329630",
+ "modified": "2026-05-20 06:29:15.354109",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Mining Block Material Summary",
- "naming_rule": "Expression",
+ "naming_rule": "Random",
  "owner": "Administrator",
  "permissions": [
   {
