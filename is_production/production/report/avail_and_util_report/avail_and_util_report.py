@@ -1,4 +1,17 @@
 import frappe
+import datetime
+
+
+EXCLUDED_ASSET_CATEGORIES = {
+    "Grader",
+    "Service Truck",
+    "TLB",
+    "Water Bowser",
+    "Diesel Bowsers",
+    "Drills",
+    "Loader",
+}
+
 
 
 def execute(filters=None):
@@ -150,6 +163,12 @@ def get_overlap_hours(start1, end1, start2, end2):
 
 
 def get_planned_downtime_value(location, shift_date, indent):
+    if not location or not shift_date:
+        return 0
+
+    if not location or not shift_date:
+        return 0
+
     site = (location or "").strip().lower()
     day_of_week = frappe.utils.getdate(shift_date).weekday()
     saturday_special_sites = {"koppie", "uitgevallen", "bankfontein", "kriel"}
@@ -166,6 +185,9 @@ def get_planned_downtime_value(location, shift_date, indent):
 
 
 def get_actual_hours_value(location, shift_date, indent):
+    if not location or not shift_date:
+        return 0
+
     site = (location or "").strip().lower()
     day_of_week = frappe.utils.getdate(shift_date).weekday()
     saturday_special_sites = {"koppie", "uitgevallen", "bankfontein", "kriel"}
@@ -196,6 +218,37 @@ def attach_planned_and_actual_hours(data):
         )
 
 
+def safe_msr_datetime(value, service_date=None):
+    if value in (None, ""):
+        return None
+
+    value_text = str(value).strip()
+    if not value_text:
+        return None
+
+    service_date_text = str(service_date).strip() if service_date else None
+
+    if "0000-00-00" in value_text or "-00-" in value_text:
+        if service_date_text and " " in value_text:
+            time_text = value_text.split()[-1].split(".")[0]
+            try:
+                return frappe.utils.get_datetime(f"{service_date_text} {time_text}")
+            except Exception:
+                return None
+        return None
+
+    try:
+        return frappe.utils.get_datetime(value)
+    except Exception:
+        if service_date_text and ":" in value_text:
+            time_text = value_text.split()[-1].split(".")[0]
+            try:
+                return frappe.utils.get_datetime(f"{service_date_text} {time_text}")
+            except Exception:
+                return None
+        return None
+
+
 def get_msr_time_map(filters):
     conditions = ["msr.service_date >= %(start_date)s", "msr.service_date <= %(end_date)s"]
     args = {
@@ -212,8 +265,8 @@ def get_msr_time_map(filters):
             msr.site AS location,
             msr.service_date,
             asset.asset_name AS asset_name,
-            msr.start_time,
-            msr.end_time,
+            CAST(msr.start_time AS CHAR) AS start_time,
+            CAST(msr.end_time AS CHAR) AS end_time,
             msr.total_time,
             msr.total_time_unavailable,
             msr.service_breakdown
@@ -231,11 +284,14 @@ def get_msr_time_map(filters):
         if not row.get("start_time") or not row.get("end_time"):
             continue
 
-        start_dt = frappe.utils.get_datetime(row.start_time)
-        end_dt = frappe.utils.get_datetime(row.end_time)
+        start_dt = safe_msr_datetime(row.start_time, row.service_date)
+        end_dt = safe_msr_datetime(row.end_time, row.service_date)
+
+        if not start_dt or not end_dt:
+            continue
 
         if end_dt <= start_dt:
-            continue
+            end_dt = frappe.utils.add_to_date(end_dt, days=1, as_datetime=True)
 
         for shift in ("Day", "Night", "Morning", "Afternoon"):
             shift_start, shift_end = get_shift_window(shift, row.service_date)
@@ -389,6 +445,11 @@ def get_grouped_data(filters):
         {condition_str}
         ORDER BY asset_category, shift_date, asset_name, shift
     """, tuple(args), as_dict=True)
+
+    records = [
+        record for record in records
+        if (record.get("asset_category") or "") not in EXCLUDED_ASSET_CATEGORIES
+    ]
 
     if not records:
         frappe.msgprint("No records found for the selected filters.")

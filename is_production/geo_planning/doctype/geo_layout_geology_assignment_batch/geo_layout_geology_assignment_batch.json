@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format: {geo_project}-{geology_run}",
  "creation": "2026-05-18 11:13:08.518764",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -263,10 +264,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-19 14:33:17.832324",
+ "modified": "2026-05-21 05:27:15.786548",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Layout Geology Assignment Batch",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

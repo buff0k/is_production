@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format: {batch_name}-{geo_project}-{geo_pit_layout}-{pit_outline_batch}",
  "creation": "2026-05-18 09:39:48.070974",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -222,10 +223,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-18 11:12:38.927468",
+ "modified": "2026-05-21 05:24:37.386126",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Layout Generation Batch",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -239,6 +241,25 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
   }
  ],
  "row_format": "Dynamic",

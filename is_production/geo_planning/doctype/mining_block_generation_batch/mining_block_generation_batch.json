@@ -1,6 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "format: {geo_project}-{geo_pit_layout}-{batch_name}",
  "creation": "2026-05-18 11:41:04.780764",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -184,10 +185,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-19 05:45:28.796567",
+ "modified": "2026-05-21 05:21:07.398743",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Mining Block Generation Batch",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {

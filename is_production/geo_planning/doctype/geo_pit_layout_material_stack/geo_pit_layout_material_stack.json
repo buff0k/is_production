@@ -11,7 +11,6 @@
   "geo_pit_layout",
   "stack_status",
   "remarks",
-  "item",
   "latest_calculation_batch",
   "column_break_kqup",
   "is_default_stack",
@@ -24,7 +23,9 @@
   "total_volume",
   "total_tonnes",
   "mineable_block_count",
-  "no_data_block_count"
+  "no_data_block_count",
+  "section_break_ctyp",
+  "item"
  ],
  "fields": [
   {
@@ -128,12 +129,16 @@
    "fieldtype": "Link",
    "label": "Latest Calculation Batch",
    "options": "Mining Block Material Calculation Batch"
+  },
+  {
+   "fieldname": "section_break_ctyp",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-19 06:45:40.093529",
+ "modified": "2026-05-21 12:44:54.507939",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Pit Layout Material Stack",
