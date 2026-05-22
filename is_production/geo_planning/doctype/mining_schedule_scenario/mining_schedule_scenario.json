@@ -1,0 +1,299 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format: {scenario_name}-{mining_schedule_selection}",
+ "creation": "2026-05-22 11:29:24.469063",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "scenario_name",
+  "mining_schedule_selection",
+  "geo_project",
+  "geo_pit_layout",
+  "material_stack",
+  "column_break_source",
+  "schedule_status",
+  "period_type",
+  "start_date",
+  "end_date",
+  "schedule_basis",
+  "section_break_capacity",
+  "number_of_shifts",
+  "hours_per_shift",
+  "fleet_capacity_bcm_per_hour",
+  "fleet_capacity_tonnes_per_hour",
+  "target_volume_per_period",
+  "target_tonnes_per_period",
+  "drill_blast_required",
+  "drill_blast_lead_time_days",
+  "section_break_totals",
+  "total_periods",
+  "total_blocks",
+  "total_effective_area",
+  "total_volume",
+  "total_tonnes",
+  "average_density",
+  "average_cv",
+  "capacity_used_percent",
+  "section_break_output",
+  "periods",
+  "scheduled_blocks",
+  "period_materials",
+  "section_break_audit",
+  "generated_on",
+  "generated_by",
+  "source_filters_json",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "scenario_name",
+   "fieldtype": "Data",
+   "label": "Scenario Name"
+  },
+  {
+   "fieldname": "mining_schedule_selection",
+   "fieldtype": "Link",
+   "label": "Source Selection",
+   "options": "Mining Schedule Selection"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "geo_pit_layout",
+   "fieldtype": "Link",
+   "label": "Geo Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "material_stack",
+   "fieldtype": "Link",
+   "label": "Material Stack",
+   "options": "Geo Pit Layout Material Stack"
+  },
+  {
+   "fieldname": "column_break_source",
+   "fieldtype": "Column Break",
+   "label": "Column Break"
+  },
+  {
+   "fieldname": "schedule_status",
+   "fieldtype": "Select",
+   "label": "Schedule Status",
+   "options": "\nDraft\nGenerated\nReviewed\nApproved\nCancelled"
+  },
+  {
+   "fieldname": "period_type",
+   "fieldtype": "Select",
+   "label": "Period Type",
+   "options": "\nWeekly\nMonthly\nDaily"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date"
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date"
+  },
+  {
+   "fieldname": "schedule_basis",
+   "fieldtype": "Select",
+   "label": "Schedule Basis",
+   "options": "\nSelection Sequence\nTarget Tonnes\nTarget Volume\nFleet Capacity"
+  },
+  {
+   "fieldname": "section_break_capacity",
+   "fieldtype": "Section Break",
+   "label": "Section Break: Capacity Inputs"
+  },
+  {
+   "fieldname": "number_of_shifts",
+   "fieldtype": "Int",
+   "label": "Number of Shifts"
+  },
+  {
+   "fieldname": "hours_per_shift",
+   "fieldtype": "Float",
+   "label": "Hours Per Shift"
+  },
+  {
+   "fieldname": "fleet_capacity_bcm_per_hour",
+   "fieldtype": "Float",
+   "label": "Fleet Capacity BCM Per Hour"
+  },
+  {
+   "fieldname": "fleet_capacity_tonnes_per_hour",
+   "fieldtype": "Float",
+   "label": "Fleet Capacity Tonnes Per Hour"
+  },
+  {
+   "fieldname": "target_volume_per_period",
+   "fieldtype": "Float",
+   "label": "Target Volume Per Period"
+  },
+  {
+   "fieldname": "target_tonnes_per_period",
+   "fieldtype": "Float",
+   "label": "Target Tonnes Per Period"
+  },
+  {
+   "default": "0",
+   "fieldname": "drill_blast_required",
+   "fieldtype": "Check",
+   "label": "Drill / Blast Required"
+  },
+  {
+   "fieldname": "drill_blast_lead_time_days",
+   "fieldtype": "Int",
+   "label": "Drill / Blast Lead Time Days"
+  },
+  {
+   "fieldname": "section_break_totals",
+   "fieldtype": "Section Break",
+   "label": "Section Break: Totals"
+  },
+  {
+   "fieldname": "total_periods",
+   "fieldtype": "Int",
+   "label": "Total Periods"
+  },
+  {
+   "fieldname": "total_blocks",
+   "fieldtype": "Int",
+   "label": "Total Blocks"
+  },
+  {
+   "fieldname": "total_effective_area",
+   "fieldtype": "Float",
+   "label": "Total Effective Area"
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume"
+  },
+  {
+   "fieldname": "total_tonnes",
+   "fieldtype": "Float",
+   "label": "Total Tonnes"
+  },
+  {
+   "fieldname": "average_density",
+   "fieldtype": "Float",
+   "label": "Average Density"
+  },
+  {
+   "fieldname": "average_cv",
+   "fieldtype": "Float",
+   "label": "Average CV"
+  },
+  {
+   "fieldname": "capacity_used_percent",
+   "fieldtype": "Float",
+   "label": "Capacity Used Percent"
+  },
+  {
+   "fieldname": "section_break_output",
+   "fieldtype": "Section Break",
+   "label": "Section Break: Output Tables"
+  },
+  {
+   "fieldname": "periods",
+   "fieldtype": "Table",
+   "label": "Periods",
+   "options": "Mining Schedule Period"
+  },
+  {
+   "fieldname": "scheduled_blocks",
+   "fieldtype": "Table",
+   "label": "Scheduled Blocks",
+   "options": "Mining Schedule Block"
+  },
+  {
+   "fieldname": "period_materials",
+   "fieldtype": "Table",
+   "label": "Period Materials",
+   "options": "Mining Schedule Period Material"
+  },
+  {
+   "fieldname": "section_break_audit",
+   "fieldtype": "Section Break",
+   "label": "Section Break: Audit"
+  },
+  {
+   "fieldname": "generated_on",
+   "fieldtype": "Datetime",
+   "label": "Generated On"
+  },
+  {
+   "fieldname": "generated_by",
+   "fieldtype": "Link",
+   "label": "Generated By",
+   "options": "User"
+  },
+  {
+   "fieldname": "source_filters_json",
+   "fieldtype": "Long Text",
+   "label": "Source Filters JSON"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-22 12:38:30.790023",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Scenario",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,175 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-22 11:56:03.012162",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "period_no",
+  "period_label",
+  "sequence_no",
+  "dependency_group",
+  "column_break_block",
+  "mining_block",
+  "mining_block_code",
+  "geo_project",
+  "source_pit_layout",
+  "cut_no",
+  "block_no",
+  "row_no",
+  "column_no",
+  "column_break_values",
+  "effective_area",
+  "total_volume",
+  "total_tonnes",
+  "average_density",
+  "average_cv",
+  "section_break_dates",
+  "planned_start_date",
+  "planned_end_date",
+  "schedule_status",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "period_no",
+   "fieldtype": "Int",
+   "label": "Period No"
+  },
+  {
+   "fieldname": "period_label",
+   "fieldtype": "Data",
+   "label": "Period Label"
+  },
+  {
+   "fieldname": "sequence_no",
+   "fieldtype": "Int",
+   "label": "Sequence No"
+  },
+  {
+   "fieldname": "dependency_group",
+   "fieldtype": "Data",
+   "label": "Planning Cut"
+  },
+  {
+   "fieldname": "column_break_block",
+   "fieldtype": "Column Break",
+   "label": "Column Break"
+  },
+  {
+   "fieldname": "mining_block",
+   "fieldtype": "Link",
+   "label": "Mining Block",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "mining_block_code",
+   "fieldtype": "Data",
+   "label": "Mining Block Code"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "source_pit_layout",
+   "fieldtype": "Link",
+   "label": "Source Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "cut_no",
+   "fieldtype": "Int",
+   "label": "Cut No"
+  },
+  {
+   "fieldname": "block_no",
+   "fieldtype": "Int",
+   "label": "Block No"
+  },
+  {
+   "fieldname": "row_no",
+   "fieldtype": "Int",
+   "label": "Row No"
+  },
+  {
+   "fieldname": "column_no",
+   "fieldtype": "Int",
+   "label": "Column No"
+  },
+  {
+   "fieldname": "column_break_values",
+   "fieldtype": "Column Break",
+   "label": "Column Break"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "label": "Total Volume"
+  },
+  {
+   "fieldname": "total_tonnes",
+   "fieldtype": "Float",
+   "label": "Total Tonnes"
+  },
+  {
+   "fieldname": "average_density",
+   "fieldtype": "Float",
+   "label": "Average Density"
+  },
+  {
+   "fieldname": "average_cv",
+   "fieldtype": "Float",
+   "label": "Average CV"
+  },
+  {
+   "fieldname": "section_break_dates",
+   "fieldtype": "Section Break",
+   "label": "Section Break: Dates"
+  },
+  {
+   "fieldname": "planned_start_date",
+   "fieldtype": "Date",
+   "label": "Planned Start Date"
+  },
+  {
+   "fieldname": "planned_end_date",
+   "fieldtype": "Date",
+   "label": "Planned End Date"
+  },
+  {
+   "fieldname": "schedule_status",
+   "fieldtype": "Select",
+   "label": "Schedule Status",
+   "options": "\nPlanned\nIn Progress\nComplete\nSkipped"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-22 12:03:06.214269",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Block",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,201 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-22 07:24:16.473539",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "mining_block",
+  "mining_block_code",
+  "material_seam",
+  "value_type",
+  "variable_code",
+  "variable_name",
+  "column_break_values",
+  "thickness_value",
+  "density_value",
+  "avg_value",
+  "min_value",
+  "max_value",
+  "point_count",
+  "effective_area",
+  "volume",
+  "tonnes",
+  "material_status",
+  "section_break_source",
+  "material_stack",
+  "material_summary",
+  "material_value",
+  "source_geology_run",
+  "source_geology_result",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "mining_block",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Mining Block",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "mining_block_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Mining Block Code"
+  },
+  {
+   "fieldname": "material_seam",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Material / Seam"
+  },
+  {
+   "fieldname": "value_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Value Type",
+   "options": "\nThickness\nDensity\nQuality\nDepth\nElevation\nOther"
+  },
+  {
+   "fieldname": "variable_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Variable Code"
+  },
+  {
+   "fieldname": "variable_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Variable Name"
+  },
+  {
+   "fieldname": "column_break_values",
+   "fieldtype": "Column Break",
+   "label": "Column Break"
+  },
+  {
+   "fieldname": "thickness_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Thickness Value"
+  },
+  {
+   "fieldname": "density_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Density Value"
+  },
+  {
+   "fieldname": "avg_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Avg Value"
+  },
+  {
+   "fieldname": "min_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Min Value"
+  },
+  {
+   "fieldname": "max_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Max Value"
+  },
+  {
+   "fieldname": "point_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Point Count"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Volume"
+  },
+  {
+   "fieldname": "tonnes",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Tonnes"
+  },
+  {
+   "fieldname": "material_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Material Status",
+   "options": "\nMineable\nWaste\nExcluded\nReview\nNo Data"
+  },
+  {
+   "fieldname": "section_break_source",
+   "fieldtype": "Section Break",
+   "label": "Source Records"
+  },
+  {
+   "fieldname": "material_stack",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Material Stack",
+   "options": "Geo Pit Layout Material Stack"
+  },
+  {
+   "fieldname": "material_summary",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Material Summary",
+   "options": "Mining Block Material Summary"
+  },
+  {
+   "fieldname": "material_value",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Material Value",
+   "options": "Mining Block Material Value"
+  },
+  {
+   "fieldname": "source_geology_run",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source Geology Run",
+   "options": "Geo Pit Layout Geology Run"
+  },
+  {
+   "fieldname": "source_geology_result",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source Geology Result",
+   "options": "Geo Pit Layout Geology Result"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-22 07:41:48.034149",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Selection Material",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,252 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format: {geo_project}-{selection_name}",
+ "creation": "2026-05-22 06:24:09.562264",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "selection_name",
+  "selection_code",
+  "geo_project",
+  "geo_pit_layout",
+  "material_stack",
+  "selection_type",
+  "selection_status",
+  "column_break_main",
+  "selected_block_count",
+  "total_effective_area",
+  "total_volume",
+  "total_tonnes",
+  "average_density",
+  "average_cv",
+  "section_break_source",
+  "created_from_page",
+  "source_filters_json",
+  "selected_on",
+  "selected_by",
+  "scheduler_scenario",
+  "sent_to_scheduler",
+  "sent_to_scheduler_on",
+  "remarks",
+  "section_break_blocks",
+  "blocks",
+  "section_break_materials",
+  "materials"
+ ],
+ "fields": [
+  {
+   "fieldname": "selection_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Selection Name"
+  },
+  {
+   "fieldname": "selection_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Selection Code"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "geo_pit_layout",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Geo Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "material_stack",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Material Stack",
+   "options": "Geo Pit Layout Material Stack"
+  },
+  {
+   "fieldname": "selection_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Selection Type",
+   "options": "\nOption 1\nOption 2\nOption 3\nOption 4\nOption 5\nOption 6\nWeekly Plan\n3 Monthly Plan\nYearly Plan\nPermit Area\nDraft Option\nShort Term Plan\nMonthly Plan\nCustom"
+  },
+  {
+   "fieldname": "selection_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Selection Status",
+   "options": "\nDraft\nReviewed\nApproved\nSent To Scheduler\nCancelled"
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break",
+   "label": "Column Break"
+  },
+  {
+   "fieldname": "selected_block_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Selected Block Count"
+  },
+  {
+   "fieldname": "total_effective_area",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Total Effective Area"
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Total Volume"
+  },
+  {
+   "fieldname": "total_tonnes",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Total Tonnes"
+  },
+  {
+   "fieldname": "average_density",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Average Density"
+  },
+  {
+   "fieldname": "average_cv",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Average CV"
+  },
+  {
+   "fieldname": "section_break_source",
+   "fieldtype": "Section Break",
+   "label": "Source / Audit"
+  },
+  {
+   "fieldname": "created_from_page",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Created From Page"
+  },
+  {
+   "fieldname": "source_filters_json",
+   "fieldtype": "Long Text",
+   "in_list_view": 1,
+   "label": "Source Filters JSON"
+  },
+  {
+   "fieldname": "selected_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Selected On"
+  },
+  {
+   "fieldname": "selected_by",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Selected By",
+   "options": "User"
+  },
+  {
+   "fieldname": "scheduler_scenario",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Scheduler Scenario",
+   "options": "Mine Schedule Scenario"
+  },
+  {
+   "default": "0",
+   "fieldname": "sent_to_scheduler",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Sent To Scheduler"
+  },
+  {
+   "fieldname": "sent_to_scheduler_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Sent To Scheduler On"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "section_break_blocks",
+   "fieldtype": "Section Break",
+   "label": "Selected Blocks"
+  },
+  {
+   "fieldname": "blocks",
+   "fieldtype": "Table",
+   "label": "Blocks",
+   "options": "Mining Schedule Selection Block"
+  },
+  {
+   "fieldname": "section_break_materials",
+   "fieldtype": "Section Break",
+   "label": "Material Package"
+  },
+  {
+   "fieldname": "materials",
+   "fieldtype": "Table",
+   "label": "Materials",
+   "options": "Mining Schedule Selection Material"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-05-22 09:58:43.589190",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Selection",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

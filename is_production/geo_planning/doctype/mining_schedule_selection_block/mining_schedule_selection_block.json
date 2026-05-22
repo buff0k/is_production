@@ -1,0 +1,200 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-22 06:40:46.781046",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sequence_no",
+  "mining_block",
+  "mining_block_code",
+  "geo_project",
+  "source_pit_layout",
+  "cut_no",
+  "block_no",
+  "row_no",
+  "column_no",
+  "column_break_location",
+  "centroid_x",
+  "centroid_y",
+  "area",
+  "effective_area",
+  "total_volume",
+  "total_tonnes",
+  "block_status",
+  "planning_status",
+  "section_break_rules",
+  "dependency_group",
+  "must_mine_after",
+  "must_mine_before",
+  "mining_priority",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "sequence_no",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sequence No"
+  },
+  {
+   "fieldname": "mining_block",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Mining Block",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "mining_block_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Mining Block Code"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "source_pit_layout",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "cut_no",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Cut No"
+  },
+  {
+   "fieldname": "block_no",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Block No"
+  },
+  {
+   "fieldname": "row_no",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Row No"
+  },
+  {
+   "fieldname": "column_no",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Column No"
+  },
+  {
+   "fieldname": "column_break_location",
+   "fieldtype": "Column Break",
+   "label": "Column Break"
+  },
+  {
+   "fieldname": "centroid_x",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Centroid X"
+  },
+  {
+   "fieldname": "centroid_y",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Centroid Y"
+  },
+  {
+   "fieldname": "area",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Area"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "total_volume",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Total Volume"
+  },
+  {
+   "fieldname": "total_tonnes",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Total Tonnes"
+  },
+  {
+   "fieldname": "block_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Block Status",
+   "options": "\nDraft\nAvailable\nPlanned\nScheduled\nMining\nComplete\nExcluded"
+  },
+  {
+   "fieldname": "planning_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Planning Status",
+   "options": "\nNot Evaluated\nMineable\nNot Mineable\nReview"
+  },
+  {
+   "fieldname": "section_break_rules",
+   "fieldtype": "Section Break",
+   "label": "Future Scheduling Rules"
+  },
+  {
+   "fieldname": "dependency_group",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Dependency Group"
+  },
+  {
+   "fieldname": "must_mine_after",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Must Mine After",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "must_mine_before",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Must Mine Before",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "mining_priority",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Mining Priority"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-22 07:47:09.260588",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Selection Block",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

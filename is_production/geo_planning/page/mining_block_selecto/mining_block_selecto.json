@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2026-05-22 07:51:31.038381",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-05-22 07:51:31.038381",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "mining-block-selecto",
+ "owner": "Administrator",
+ "page_name": "mining-block-selecto",
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Mining Block Selector"
+}

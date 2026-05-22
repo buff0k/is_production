@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2026-05-22 12:19:18.601952",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-05-22 12:19:18.601952",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "mining-schedule-view",
+ "owner": "Administrator",
+ "page_name": "mining-schedule-view",
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": " Mining Schedule Viewer"
+}

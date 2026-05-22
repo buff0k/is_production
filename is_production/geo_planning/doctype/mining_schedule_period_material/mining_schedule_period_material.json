@@ -1,0 +1,136 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-05-22 12:04:48.175229",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "period_no",
+  "period_label",
+  "material_seam",
+  "value_type",
+  "variable_code",
+  "variable_name",
+  "column_break_values",
+  "block_count",
+  "effective_area",
+  "volume",
+  "tonnes",
+  "average_thickness",
+  "average_density",
+  "average_value",
+  "min_value",
+  "max_value",
+  "point_count",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "period_no",
+   "fieldtype": "Int",
+   "label": "Period No"
+  },
+  {
+   "fieldname": "period_label",
+   "fieldtype": "Data",
+   "label": "Period Label"
+  },
+  {
+   "fieldname": "material_seam",
+   "fieldtype": "Data",
+   "label": "Material / Seam"
+  },
+  {
+   "fieldname": "value_type",
+   "fieldtype": "Select",
+   "label": "Value Type",
+   "options": "\nThickness\nDensity\nQuality\nDepth\nElevation\nOther"
+  },
+  {
+   "fieldname": "variable_code",
+   "fieldtype": "Data",
+   "label": "Variable Code"
+  },
+  {
+   "fieldname": "variable_name",
+   "fieldtype": "Data",
+   "label": "Variable Name"
+  },
+  {
+   "fieldname": "column_break_values",
+   "fieldtype": "Column Break",
+   "label": "Column Break"
+  },
+  {
+   "fieldname": "block_count",
+   "fieldtype": "Int",
+   "label": "Block Count"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "volume",
+   "fieldtype": "Float",
+   "label": "Volume"
+  },
+  {
+   "fieldname": "tonnes",
+   "fieldtype": "Float",
+   "label": "Tonnes"
+  },
+  {
+   "fieldname": "average_thickness",
+   "fieldtype": "Float",
+   "label": "Average Thickness"
+  },
+  {
+   "fieldname": "average_density",
+   "fieldtype": "Float",
+   "label": "Average Density"
+  },
+  {
+   "fieldname": "average_value",
+   "fieldtype": "Float",
+   "label": "Average Value"
+  },
+  {
+   "fieldname": "min_value",
+   "fieldtype": "Float",
+   "label": "Min Value"
+  },
+  {
+   "fieldname": "max_value",
+   "fieldtype": "Float",
+   "label": "Max Value"
+  },
+  {
+   "fieldname": "point_count",
+   "fieldtype": "Int",
+   "label": "Point Count"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-05-22 12:35:57.344155",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Period Material",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
