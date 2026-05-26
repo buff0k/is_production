@@ -477,3 +477,41 @@ def flt(value):
         return float(value or 0)
     except Exception:
         return 0
+
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_submitted_assets_by_site(doctype, txt, searchfield, start, page_len, filters):
+    site = (filters or {}).get("site")
+
+    if not site:
+        return []
+
+    txt = txt or ""
+
+    return frappe.db.sql(
+        """
+        select
+            a.name,
+            concat_ws(' - ', nullif(a.asset_name, ''), nullif(a.asset_category, '')) as description
+        from `tabAsset` a
+        where
+            a.docstatus = 1
+            and a.location = %(site)s
+            and (
+                a.name like %(txt)s
+                or ifnull(a.asset_name, '') like %(txt)s
+                or ifnull(a.item_code, '') like %(txt)s
+                or ifnull(a.item_name, '') like %(txt)s
+            )
+        order by a.name
+        limit %(start)s, %(page_len)s
+        """,
+        {
+            "site": site,
+            "txt": "%%%s%%" % txt,
+            "start": start,
+            "page_len": page_len
+        }
+    )

@@ -1,5 +1,6 @@
 import os
 import re
+import csv
 import hashlib
 
 import frappe
@@ -9,9 +10,32 @@ from frappe.utils import now
 
 class GeoImportBatch(Document):
 	def validate(self):
+		self.set_defaults()
 		self.set_full_name()
 
+	def set_defaults(self):
+		if not getattr(self, "import_type", None):
+			self.import_type = "Grid Model"
+
+		if self.import_type == "Boundary Polygon":
+			if not getattr(self, "boundary_format", None):
+				self.boundary_format = "Auto Detect"
+
+			if not getattr(self, "boundary_type", None):
+				self.boundary_type = "Pit Outline"
+
+			if not getattr(self, "coordinate_transform", None):
+				self.coordinate_transform = "None"
+
 	def set_full_name(self):
+		import_type = (getattr(self, "import_type", None) or "Grid Model").strip()
+
+		if import_type == "Boundary Polygon":
+			name = (self.variable_name or "").strip()
+			boundary_type = (getattr(self, "boundary_type", None) or "").strip()
+			self.full_name = name or boundary_type or "Boundary Polygon"
+			return
+
 		code = (self.variable_code or "").strip()
 		name = (self.variable_name or "").strip()
 
@@ -100,6 +124,32 @@ def enqueue_create_pit_outline_points(docname, replace_existing=1):
 	return {"job_id": job.id}
 
 
+@frappe.whitelist()
+def enqueue_create_boundary_pit_outline_points(docname, replace_existing=1):
+	job = frappe.enqueue(
+		"is_production.geo_planning.doctype.geo_import_batch.geo_import_batch.create_boundary_pit_outline_points_background",
+		queue="long",
+		timeout=7200,
+		docname=docname,
+		replace_existing=int(replace_existing),
+		user=frappe.session.user,
+		job_name=f"Create Boundary Pit Outline Points - {docname}",
+	)
+
+	frappe.db.set_value(
+		"Geo Import Batch",
+		docname,
+		{
+			"processing_status": "Validated",
+			"import_log": f"Background Boundary Polygon import started at {now()}.\nJob ID: {job.id}",
+		},
+		update_modified=False,
+	)
+	frappe.db.commit()
+
+	return {"job_id": job.id}
+
+
 def _set_batch_status(docname, values):
 	frappe.db.set_value(
 		"Geo Import Batch",
@@ -135,18 +185,29 @@ def _get_file_hash(file_path):
 
 def _is_number(value):
 	try:
-		float(str(value).replace(",", "").strip())
+		float(str(value).replace(",", "").replace("°", "").strip())
 		return True
 	except Exception:
 		return False
 
 
 def _to_float(value):
-	return float(str(value).replace(",", "").strip())
+	return float(str(value).replace(",", "").replace("°", "").strip())
 
 
 def _normalise_code(value):
 	return str(value or "").strip().upper()
+
+
+def _normalise_header(value):
+	clean = str(value or "").strip().lower()
+	clean = clean.replace("\ufeff", "")
+	clean = clean.replace("°", "")
+	clean = clean.replace(".", "")
+	clean = clean.replace("-", " ")
+	clean = clean.replace("_", " ")
+	clean = re.sub(r"\s+", " ", clean)
+	return clean.strip()
 
 
 def _split_line(line):
@@ -162,6 +223,72 @@ def _split_line(line):
 		return [p.strip() for p in clean.split(";")]
 
 	return re.split(r"\s+", clean)
+
+
+def _guess_delimiter(line):
+	counts = {
+		";": line.count(";"),
+		",": line.count(","),
+		"\t": line.count("\t"),
+	}
+
+	best = max(counts, key=counts.get)
+
+	if counts[best] > 0:
+		return best
+
+	return None
+
+
+def _read_csv_like_rows(file_path):
+	rows = []
+
+	with open(file_path, "r", encoding="utf-8-sig", errors="ignore", newline="") as f:
+		lines = f.readlines()
+
+	delimiter = None
+
+	for line in lines:
+		clean = line.strip()
+
+		if not clean:
+			continue
+
+		delimiter = _guess_delimiter(clean)
+		break
+
+	if delimiter:
+		for line_no, line in enumerate(lines, start=1):
+			clean = line.strip()
+
+			if not clean:
+				continue
+
+			try:
+				reader = csv.reader([line], delimiter=delimiter)
+				parts = next(reader)
+			except Exception:
+				parts = clean.split(delimiter)
+
+			rows.append({
+				"line_no": line_no,
+				"parts": [p.strip() for p in parts],
+				"raw": line,
+			})
+	else:
+		for line_no, line in enumerate(lines, start=1):
+			clean = line.strip()
+
+			if not clean:
+				continue
+
+			rows.append({
+				"line_no": line_no,
+				"parts": _split_line(clean),
+				"raw": line,
+			})
+
+	return rows
 
 
 def _is_metadata_header_key(key):
@@ -460,6 +587,259 @@ def _parse_simple_xyz_file(file_path, selected_variable_code):
 	return points
 
 
+def _find_header_row(rows, required_terms):
+	for row in rows:
+		headers = [_normalise_header(p) for p in row["parts"]]
+
+		for term_set in required_terms:
+			found_all = True
+
+			for term in term_set:
+				if not any(term in h for h in headers):
+					found_all = False
+					break
+
+			if found_all:
+				return row
+
+	return None
+
+
+def _find_column_index(headers, candidates):
+	for candidate in candidates:
+		for idx, header in enumerate(headers):
+			if header == candidate:
+				return idx
+
+	for candidate in candidates:
+		for idx, header in enumerate(headers):
+			if candidate in header:
+				return idx
+
+	return None
+
+
+def _apply_boundary_transform(raw_x, raw_y, coordinate_transform):
+	transform = (coordinate_transform or "None").strip()
+
+	if transform == "Lo29 Permit CSV to Mine Grid":
+		return {
+			"x": abs(raw_y),
+			"y": -abs(raw_x),
+		}
+
+	return {
+		"x": raw_x,
+		"y": raw_y,
+	}
+
+
+def _parse_permit_csv_boundary(file_path, coordinate_transform):
+	rows = _read_csv_like_rows(file_path)
+
+	header_row = _find_header_row(
+		rows,
+		required_terms=[
+			["y co ord", "x co ord"],
+			["latitude", "longitude"],
+		],
+	)
+
+	if not header_row:
+		return []
+
+	headers = [_normalise_header(p) for p in header_row["parts"]]
+
+	point_index = _find_column_index(headers, ["dd", "d d", "point", "point no", "no"])
+	y_coord_index = _find_column_index(headers, ["y co ord", "y coord", "y coordinate"])
+	x_coord_index = _find_column_index(headers, ["x co ord", "x coord", "x coordinate"])
+	lat_index = _find_column_index(headers, ["latitude", "lat"])
+	lon_index = _find_column_index(headers, ["longitude", "long", "lon"])
+
+	if y_coord_index is None or x_coord_index is None:
+		return []
+
+	points = []
+	start_collecting = False
+
+	for row in rows:
+		if row["line_no"] == header_row["line_no"]:
+			start_collecting = True
+			continue
+
+		if not start_collecting:
+			continue
+
+		parts = row["parts"]
+
+		if len(parts) <= max(y_coord_index, x_coord_index):
+			continue
+
+		y_raw = parts[y_coord_index]
+		x_raw = parts[x_coord_index]
+
+		if not (_is_number(y_raw) and _is_number(x_raw)):
+			continue
+
+		source_y = _to_float(y_raw)
+		source_x = _to_float(x_raw)
+		transformed = _apply_boundary_transform(
+			raw_x=source_x,
+			raw_y=source_y,
+			coordinate_transform=coordinate_transform,
+		)
+
+		point_no = None
+
+		if point_index is not None and len(parts) > point_index and parts[point_index]:
+			point_no = parts[point_index]
+
+		latitude = None
+		longitude = None
+
+		if lat_index is not None and len(parts) > lat_index and _is_number(parts[lat_index]):
+			latitude = _to_float(parts[lat_index])
+
+		if lon_index is not None and len(parts) > lon_index and _is_number(parts[lon_index]):
+			longitude = _to_float(parts[lon_index])
+
+		points.append({
+			"source_line_no": row["line_no"],
+			"source_point_no": point_no,
+			"x": transformed["x"],
+			"y": transformed["y"],
+			"z": 0,
+			"source_x": source_x,
+			"source_y": source_y,
+			"latitude": latitude,
+			"longitude": longitude,
+		})
+
+	return points
+
+
+def _parse_simple_boundary_file(file_path, boundary_format, coordinate_transform):
+	rows = _read_csv_like_rows(file_path)
+	points = []
+
+	header_row = None
+
+	for row in rows:
+		parts = row["parts"]
+		numeric_count = len([p for p in parts if _is_number(p)])
+
+		if numeric_count < 2:
+			header_row = row
+			break
+
+	if header_row:
+		headers = [_normalise_header(p) for p in header_row["parts"]]
+
+		x_index = _find_column_index(headers, ["x", "easting", "x coord", "x coordinate", "x co ord"])
+		y_index = _find_column_index(headers, ["y", "northing", "y coord", "y coordinate", "y co ord"])
+		z_index = _find_column_index(headers, ["z", "value", "elevation"])
+
+		if x_index is not None and y_index is not None:
+			for row in rows:
+				if row["line_no"] <= header_row["line_no"]:
+					continue
+
+				parts = row["parts"]
+
+				if len(parts) <= max(x_index, y_index):
+					continue
+
+				if not (_is_number(parts[x_index]) and _is_number(parts[y_index])):
+					continue
+
+				raw_x = _to_float(parts[x_index])
+				raw_y = _to_float(parts[y_index])
+				transformed = _apply_boundary_transform(
+					raw_x=raw_x,
+					raw_y=raw_y,
+					coordinate_transform=coordinate_transform,
+				)
+
+				z = 0
+
+				if z_index is not None and len(parts) > z_index and _is_number(parts[z_index]):
+					z = _to_float(parts[z_index])
+
+				points.append({
+					"source_line_no": row["line_no"],
+					"source_point_no": None,
+					"x": transformed["x"],
+					"y": transformed["y"],
+					"z": z,
+					"source_x": raw_x,
+					"source_y": raw_y,
+					"latitude": None,
+					"longitude": None,
+				})
+
+			return points
+
+	for row in rows:
+		numeric_parts = [p for p in row["parts"] if _is_number(p)]
+
+		if len(numeric_parts) < 2:
+			continue
+
+		raw_x = _to_float(numeric_parts[0])
+		raw_y = _to_float(numeric_parts[1])
+		transformed = _apply_boundary_transform(
+			raw_x=raw_x,
+			raw_y=raw_y,
+			coordinate_transform=coordinate_transform,
+		)
+
+		z = 0
+
+		if (boundary_format or "") == "Simple XYZ" and len(numeric_parts) >= 3:
+			z = _to_float(numeric_parts[2])
+		elif len(numeric_parts) >= 3 and (boundary_format or "") == "Auto Detect":
+			z = _to_float(numeric_parts[2])
+
+		points.append({
+			"source_line_no": row["line_no"],
+			"source_point_no": None,
+			"x": transformed["x"],
+			"y": transformed["y"],
+			"z": z,
+			"source_x": raw_x,
+			"source_y": raw_y,
+			"latitude": None,
+			"longitude": None,
+		})
+
+	return points
+
+
+def _parse_boundary_polygon_file(file_path, boundary_format, coordinate_transform):
+	boundary_format = (boundary_format or "Auto Detect").strip()
+
+	if boundary_format in {"Auto Detect", "Permit CSV"}:
+		points = _parse_permit_csv_boundary(
+			file_path=file_path,
+			coordinate_transform=coordinate_transform,
+		)
+
+		if points:
+			return points
+
+		if boundary_format == "Permit CSV":
+			return []
+
+	if boundary_format in {"Auto Detect", "Simple XY", "Simple XYZ"}:
+		return _parse_simple_boundary_file(
+			file_path=file_path,
+			boundary_format=boundary_format,
+			coordinate_transform=coordinate_transform,
+		)
+
+	return []
+
+
 def _get_geo_model_output(batch):
 	model_output_meta = frappe.get_meta("Geo Model Output")
 	fieldnames = [df.fieldname for df in model_output_meta.fields]
@@ -478,12 +858,17 @@ def _get_geo_model_output(batch):
 
 	frappe.throw(
 		"No Geo Model Output record found for this Geo Import Batch. "
-		"Create the Geo Model Output first, then press Geo Model Points or Pit Outline."
+		"Create the Geo Model Output first, then press Geo Model Points, Pit Outline, or Import Boundary."
 	)
 
 
 def _doctype_has_field(doctype, fieldname):
 	return fieldname in [df.fieldname for df in frappe.get_meta(doctype).fields]
+
+
+def _set_doc_field_if_exists(doc_data, doctype, fieldname, value):
+	if _doctype_has_field(doctype, fieldname):
+		doc_data[fieldname] = value
 
 
 def _publish_complete(
@@ -615,6 +1000,52 @@ def create_pit_outline_points_background(docname, replace_existing=1, user=None)
 		raise
 
 
+def create_boundary_pit_outline_points_background(docname, replace_existing=1, user=None):
+	try:
+		result = create_boundary_pit_outline_points(
+			docname=docname,
+			replace_existing=replace_existing,
+		)
+
+		_publish_complete(
+			user=user,
+			event_name="pit_outline_points_import_complete",
+			batch_name=docname,
+			status="success",
+			row_count=result["row_count"],
+			success_count=result["success_count"],
+			error_count=result["error_count"],
+			variable_code=result["variable_code"],
+			full_name=result["full_name"],
+		)
+
+		return result
+
+	except Exception:
+		error_message = frappe.get_traceback()
+
+		_set_batch_status(
+			docname,
+			{
+				"processing_status": "Error",
+				"error_count": 1,
+				"import_log": f"Background Boundary Polygon import failed at {now()}.\n\n{error_message}",
+			},
+		)
+
+		_publish_complete(
+			user=user,
+			event_name="pit_outline_points_import_complete",
+			batch_name=docname,
+			status="error",
+			row_count=0,
+			success_count=0,
+			error_count=1,
+		)
+
+		raise
+
+
 @frappe.whitelist()
 def create_geo_model_points(docname, replace_existing=1):
 	return _create_geo_points_for_target(
@@ -637,6 +1068,236 @@ def create_pit_outline_points(docname, replace_existing=1):
 		batch_fieldname="geo_import_batch",
 		remarks_fieldname="remarks_comments",
 	)
+
+
+@frappe.whitelist()
+def create_boundary_pit_outline_points(docname, replace_existing=1):
+	batch = frappe.get_doc("Geo Import Batch", docname)
+
+	if not batch.raw_file_attachment:
+		frappe.throw("Please attach a raw boundary file before importing.")
+
+	if not batch.geo_project:
+		frappe.throw("Geo Project is required.")
+
+	if not batch.version_tag:
+		frappe.throw("Version Tag is required.")
+
+	file_path = _get_file_path(batch.raw_file_attachment)
+
+	if not os.path.exists(file_path):
+		frappe.throw(f"Attached file not found on server: {file_path}")
+
+	boundary_format = (getattr(batch, "boundary_format", None) or "Auto Detect").strip()
+	boundary_type = (getattr(batch, "boundary_type", None) or "Pit Outline").strip()
+	coordinate_transform = (getattr(batch, "coordinate_transform", None) or "None").strip()
+
+	full_name = (batch.variable_name or boundary_type or "Boundary Polygon").strip()
+	variable_code = boundary_type.upper().replace(" ", "_")
+
+	frappe.db.set_value(
+		"Geo Import Batch",
+		docname,
+		{
+			"variable_code": variable_code,
+			"variable_name": full_name,
+			"full_name": full_name,
+			"processing_status": "Validated",
+			"import_log": f"Reading attached boundary file at {now()}...",
+		},
+		update_modified=False,
+	)
+	frappe.db.commit()
+
+	points = _parse_boundary_polygon_file(
+		file_path=file_path,
+		boundary_format=boundary_format,
+		coordinate_transform=coordinate_transform,
+	)
+
+	row_count = len(points)
+
+	if row_count == 0:
+		_set_batch_status(
+			docname,
+			{
+				"row_count": 0,
+				"success_count": 0,
+				"error_count": 1,
+				"processing_status": "Error",
+				"import_log": "\n".join([
+					"No valid boundary polygon points found.",
+					f"Boundary Format: {boundary_format}",
+					f"Boundary Type: {boundary_type}",
+					f"Coordinate Transform: {coordinate_transform}",
+					"",
+					"Expected formats:",
+					"1. Permit CSV with Y Co Ord and X Co Ord columns.",
+					"2. Simple XY file with x,y columns or two numeric columns.",
+					"3. Simple XYZ file with x,y,z columns or three numeric columns.",
+				]),
+			},
+		)
+
+		frappe.throw("No valid boundary polygon points found. Check the Import Log.")
+
+	geo_model_output = _get_geo_model_output(batch)
+	file_hash = _get_file_hash(file_path)
+	target_doctype = "Pit Outline Points"
+	batch_fieldname = "geo_import_batch"
+	remarks_fieldname = "remarks_comments"
+
+	if replace_existing:
+		existing_filters = {}
+
+		if _doctype_has_field(target_doctype, batch_fieldname):
+			existing_filters[batch_fieldname] = docname
+
+		if _doctype_has_field(target_doctype, "variable_code"):
+			existing_filters["variable_code"] = variable_code
+		elif _doctype_has_field(target_doctype, "variable_name"):
+			existing_filters["variable_name"] = full_name
+
+		existing_points = frappe.get_all(
+			target_doctype,
+			filters=existing_filters,
+			pluck="name",
+		)
+
+		for point_name in existing_points:
+			frappe.delete_doc(
+				target_doctype,
+				point_name,
+				force=True,
+				ignore_permissions=True,
+			)
+
+		frappe.db.commit()
+
+	success_count = 0
+	error_count = 0
+	error_messages = []
+
+	for index, point in enumerate(points, start=1):
+		try:
+			point_data = {
+				"doctype": target_doctype,
+				"geo_project": batch.geo_project,
+				"geo_model_output": geo_model_output,
+				"row_no": index,
+				"x": point["x"],
+				"y": point["y"],
+				"z": point.get("z") or 0,
+				"variable_name": full_name,
+				"version_tag": batch.version_tag,
+				"status": "Draft",
+			}
+
+			_set_doc_field_if_exists(point_data, target_doctype, batch_fieldname, docname)
+			_set_doc_field_if_exists(point_data, target_doctype, "variable_code", variable_code)
+			_set_doc_field_if_exists(point_data, target_doctype, "full_name", full_name)
+
+			_set_doc_field_if_exists(point_data, target_doctype, "boundary_type", boundary_type)
+			_set_doc_field_if_exists(point_data, target_doctype, "boundary_format", boundary_format)
+			_set_doc_field_if_exists(point_data, target_doctype, "coordinate_transform", coordinate_transform)
+			_set_doc_field_if_exists(point_data, target_doctype, "source_point_no", point.get("source_point_no"))
+			_set_doc_field_if_exists(point_data, target_doctype, "source_line_no", point.get("source_line_no"))
+			_set_doc_field_if_exists(point_data, target_doctype, "source_x", point.get("source_x"))
+			_set_doc_field_if_exists(point_data, target_doctype, "source_y", point.get("source_y"))
+			_set_doc_field_if_exists(point_data, target_doctype, "latitude", point.get("latitude"))
+			_set_doc_field_if_exists(point_data, target_doctype, "longitude", point.get("longitude"))
+
+			if _doctype_has_field(target_doctype, remarks_fieldname):
+				point_data[remarks_fieldname] = (
+					f"Imported boundary polygon from {batch.raw_file_attachment}; "
+					f"source line {point.get('source_line_no')}; "
+					f"source point {point.get('source_point_no') or ''}; "
+					f"boundary type {boundary_type}; "
+					f"boundary format {boundary_format}; "
+					f"coordinate transform {coordinate_transform}"
+				)
+
+			point_doc = frappe.get_doc(point_data)
+			point_doc.insert(ignore_permissions=True)
+			success_count += 1
+
+			if success_count % 1000 == 0:
+				_set_batch_status(
+					docname,
+					{
+						"row_count": row_count,
+						"success_count": success_count,
+						"error_count": error_count,
+						"processing_status": "Validated",
+						"import_log": (
+							f"Boundary Polygon import running at {now()}...\n"
+							f"Boundary Type: {boundary_type}\n"
+							f"Boundary Format: {boundary_format}\n"
+							f"Coordinate Transform: {coordinate_transform}\n"
+							f"Rows found: {row_count}\n"
+							f"Rows created so far: {success_count}\n"
+							f"Rows failed so far: {error_count}"
+						),
+					},
+				)
+
+		except Exception as e:
+			error_count += 1
+			error_messages.append(
+				f"Row {index}, source line {point.get('source_line_no')}: {str(e)}"
+			)
+
+	min_x = min([p["x"] for p in points]) if points else None
+	max_x = max([p["x"] for p in points]) if points else None
+	min_y = min([p["y"] for p in points]) if points else None
+	max_y = max([p["y"] for p in points]) if points else None
+
+	_set_batch_status(
+		docname,
+		{
+			"row_count": row_count,
+			"success_count": success_count,
+			"error_count": error_count,
+			"file_hash": file_hash,
+			"processing_status": "Processed" if error_count == 0 else "Error",
+			"import_log": "\n".join([
+				f"Boundary Polygon import completed at {now()}",
+				"Target Doctype: Pit Outline Points",
+				f"File: {batch.raw_file_attachment}",
+				f"Boundary Type: {boundary_type}",
+				f"Boundary Format: {boundary_format}",
+				f"Coordinate Transform: {coordinate_transform}",
+				f"Variable Code: {variable_code}",
+				f"Full Name: {full_name}",
+				f"Version Tag: {batch.version_tag}",
+				f"Geo Model Output: {geo_model_output}",
+				"",
+				"Bounds:",
+				f"Min X: {min_x}",
+				f"Max X: {max_x}",
+				f"Min Y: {min_y}",
+				f"Max Y: {max_y}",
+				"",
+				f"Rows found: {row_count}",
+				f"Rows created: {success_count}",
+				f"Rows failed: {error_count}",
+				"",
+				"Errors:",
+				"\n".join(error_messages[:100]) if error_messages else "None",
+			]),
+		},
+	)
+
+	return {
+		"row_count": row_count,
+		"success_count": success_count,
+		"error_count": error_count,
+		"geo_model_output": geo_model_output,
+		"variable_code": variable_code,
+		"variable_name": full_name,
+		"full_name": full_name,
+		"target_doctype": target_doctype,
+	}
 
 
 def _create_geo_points_for_target(

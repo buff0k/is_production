@@ -5,889 +5,676 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 		single_column: true
 	});
 
-	let points = [];
-	let pitOutlinePoints = [];
-	let generatedBlocks = [];
-	let hoverPoint = null;
-	let hoverBlock = null;
-	let selectedBlock = null;
-	let autoNumberBlocks = false;
-	let rotateViewMode = false;
+	new GeoPlanningViewerPage(page);
+};
 
-	let outlineEdgesCache = null;
-	let pitCellSizeCache = null;
-	let blockCacheKey = "";
+class GeoPlanningViewerPage {
+	constructor(page) {
+		this.page = page;
+		this.wrapper = $(page.body);
 
-	let view = {
-		scale: 1,
-		offsetX: 0,
-		offsetY: 0,
-		isDragging: false,
-		isRotating: false,
-		rotation: 0,
-		startRotation: 0,
-		startAngle: 0,
-		dragMoved: false,
-		lastX: 0,
-		lastY: 0
-	};
+		this.points = [];
+		this.pitOutlinePoints = [];
+		this.previewBlocks = [];
 
-	$(page.body).html(`
-		<style>
-			.geo-viewer-shell {
-				height: calc(100vh - 86px);
-				display: grid;
-				grid-template-columns: 330px 1fr;
-				gap: 10px;
-				padding: 8px;
-				background: #f6f7f9;
-			}
+		this.hoverPoint = null;
+		this.hoverBlock = null;
+		this.selectedBlock = null;
 
-			.geo-side-panel {
-				background: #fff;
-				border: 1px solid #e0e0e0;
-				border-radius: 10px;
-				padding: 12px;
-				overflow-y: auto;
-				box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-			}
+		this.showPoints = true;
+		this.showPitOutline = true;
+		this.showBlocks = true;
+		this.rotateViewMode = false;
 
-			.geo-side-title {
-				font-size: 15px;
-				font-weight: 700;
-				margin-bottom: 10px;
-			}
+		this.filters = {};
 
-			.geo-filter-section {
-				border-top: 1px solid #eee;
-				padding-top: 10px;
-				margin-top: 10px;
-			}
+		this.canvas = null;
+		this.ctx = null;
+		this.hoverBox = null;
 
-			.geo-filter-slot {
-				margin-bottom: 9px;
-			}
+		this.view = {
+			scale: 1,
+			offsetX: 0,
+			offsetY: 0,
+			rotation: 0,
+			isDragging: false,
+			isRotating: false,
+			dragMoved: false,
+			lastX: 0,
+			lastY: 0,
+			startAngle: 0,
+			startRotation: 0
+		};
 
-			.geo-button-row {
-				display: grid;
-				grid-template-columns: 1fr 1fr;
-				gap: 6px;
-				margin-top: 10px;
-			}
+		this.make();
+	}
 
-			.geo-button-row .btn {
-				width: 100%;
-			}
+	make() {
+		this.make_layout();
+		this.make_controls();
+		this.setup_queries();
+		this.bind_actions();
+		this.resize_canvas();
+		this.setup_resize();
+		this.draw();
+	}
 
-			.geo-button-row .btn.geo-active-tool {
-				background: #111;
-				color: #fff;
-				border-color: #111;
-			}
+	make_layout() {
+		this.wrapper.html(`
+			<style>
+				.geo-viewer-shell {
+					height: calc(100vh - 86px);
+					display: grid;
+					grid-template-columns: 315px 1fr;
+					gap: 10px;
+					padding: 8px;
+					background: #f6f7f9;
+				}
 
-			.geo-selected-info {
-				margin-top: 8px;
-				padding: 8px;
-				border: 1px dashed #bbb;
-				border-radius: 7px;
-				font-size: 11px;
-				color: #444;
-				background: #fafafa;
-			}
+				.geo-side-panel {
+					background: #fff;
+					border: 1px solid #e0e0e0;
+					border-radius: 10px;
+					padding: 12px;
+					overflow-y: auto;
+					box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+				}
 
-			.geo-main-panel {
-				position: relative;
-				min-width: 0;
-				background: #fff;
-				border: 1px solid #e0e0e0;
-				border-radius: 10px;
-				overflow: hidden;
-				box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-			}
+				.geo-side-title {
+					font-size: 15px;
+					font-weight: 700;
+					margin-bottom: 4px;
+				}
 
-			.geo-canvas-wrap {
-				position: absolute;
-				inset: 0;
-				background: #fbfbfb;
-				overflow: hidden;
-			}
+				.geo-side-subtitle {
+					font-size: 11px;
+					color: #777;
+					line-height: 1.35;
+					margin-bottom: 10px;
+				}
 
-			#geo_canvas {
-				width: 100%;
-				height: 100%;
-				display: block;
-				cursor: grab;
-			}
+				.geo-filter-section {
+					border-top: 1px solid #eee;
+					padding-top: 10px;
+					margin-top: 10px;
+				}
 
-			#geo_canvas.dragging {
-				cursor: grabbing;
-			}
+				.geo-filter-slot {
+					margin-bottom: 9px;
+				}
 
-			.geo-info-box {
-				position: absolute;
-				top: 12px;
-				left: 12px;
-				background: rgba(255, 255, 255, 0.94);
-				border: 1px solid #ddd;
-				border-radius: 8px;
-				padding: 9px 11px;
-				font-size: 12px;
-				line-height: 1.45;
-				pointer-events: none;
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-				min-width: 205px;
-			}
+				.geo-button-row {
+					display: grid;
+					grid-template-columns: 1fr 1fr;
+					gap: 6px;
+					margin-top: 8px;
+				}
 
-			.geo-hover-box {
-				position: absolute;
-				display: none;
-				background: rgba(20, 20, 20, 0.92);
-				color: #fff;
-				border-radius: 7px;
-				padding: 8px 10px;
-				font-size: 12px;
-				line-height: 1.45;
-				pointer-events: none;
-				z-index: 5;
-				box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-				max-width: 340px;
-			}
+				.geo-button-row .btn {
+					width: 100%;
+				}
 
-			.geo-legend {
-				position: absolute;
-				right: 12px;
-				bottom: 12px;
-				background: rgba(255, 255, 255, 0.96);
-				border: 1px solid #ddd;
-				border-radius: 9px;
-				padding: 10px 12px;
-				font-size: 12px;
-				pointer-events: none;
-				min-width: 270px;
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-			}
+				.geo-button-row .btn.geo-active-tool {
+					background: #111;
+					color: #fff;
+					border-color: #111;
+				}
 
-			.geo-legend-title {
-				font-weight: 700;
-				margin-bottom: 3px;
-			}
+				.geo-note {
+					padding: 8px;
+					border-radius: 8px;
+					background: #fff8e1;
+					border: 1px solid #ead89a;
+					font-size: 11px;
+					line-height: 1.4;
+					color: #4d4218;
+					margin-top: 8px;
+				}
 
-			.geo-legend-subtitle {
-				color: #555;
-				margin-bottom: 8px;
-				max-width: 245px;
-				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-			}
+				.geo-selected-info {
+					margin-top: 8px;
+					padding: 8px;
+					border: 1px dashed #bbb;
+					border-radius: 7px;
+					font-size: 11px;
+					color: #444;
+					background: #fafafa;
+				}
 
-			.geo-legend-bar {
-				width: 245px;
-				height: 15px;
-				background: linear-gradient(to right, blue, cyan, lime, yellow, red);
-				border: 1px solid #aaa;
-				margin: 4px 0;
-			}
+				.geo-main-panel {
+					position: relative;
+					min-width: 0;
+					background: #fff;
+					border: 1px solid #e0e0e0;
+					border-radius: 10px;
+					overflow: hidden;
+					box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+				}
 
-			.geo-legend-ticks {
-				width: 245px;
-				display: flex;
-				justify-content: space-between;
-				font-size: 10px;
-				color: #333;
-			}
+				.geo-canvas-wrap {
+					position: absolute;
+					inset: 0;
+					background: #fbfbfb;
+					overflow: hidden;
+				}
 
-			.geo-legend-stats {
-				margin-top: 8px;
-				display: grid;
-				grid-template-columns: 1fr 1fr;
-				gap: 3px 10px;
-			}
+				#geo_canvas {
+					width: 100%;
+					height: 100%;
+					display: block;
+					cursor: grab;
+				}
 
-			.geo-help-text {
-				font-size: 11px;
-				color: #777;
-				line-height: 1.35;
-				margin-top: 4px;
-			}
-		</style>
+				#geo_canvas.dragging {
+					cursor: grabbing;
+				}
 
-		<div class="geo-viewer-shell">
-			<div class="geo-side-panel">
-				<div class="geo-side-title">Geo Planning Viewer</div>
+				.geo-info-box {
+					position: absolute;
+					top: 12px;
+					left: 12px;
+					background: rgba(255, 255, 255, 0.95);
+					border: 1px solid #ddd;
+					border-radius: 8px;
+					padding: 9px 11px;
+					font-size: 12px;
+					line-height: 1.45;
+					pointer-events: none;
+					box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+					min-width: 240px;
+					max-width: 420px;
+				}
 
-				<div class="geo-filter-slot" id="data_source_filter"></div>
-				<div class="geo-filter-slot" id="geo_project_filter"></div>
-				<div class="geo-filter-slot" id="geo_model_output_filter"></div>
-				<div class="geo-filter-slot" id="version_filter"></div>
-				<div class="geo-filter-slot" id="variable_filter"></div>
+				.geo-hover-box {
+					position: absolute;
+					display: none;
+					background: rgba(20, 20, 20, 0.92);
+					color: #fff;
+					border-radius: 7px;
+					padding: 8px 10px;
+					font-size: 12px;
+					line-height: 1.45;
+					pointer-events: none;
+					z-index: 5;
+					box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+					max-width: 360px;
+				}
 
-				<div class="geo-filter-section">
-					<div class="geo-filter-slot" id="batch_filter"></div>
-					<div class="geo-filter-slot" id="geo_depth_filter"></div>
-					<div class="geo-filter-slot" id="pit_outline_filter"></div>
-				</div>
+				.geo-legend {
+					position: absolute;
+					right: 12px;
+					bottom: 12px;
+					background: rgba(255, 255, 255, 0.96);
+					border: 1px solid #ddd;
+					border-radius: 9px;
+					padding: 10px 12px;
+					font-size: 12px;
+					pointer-events: none;
+					min-width: 270px;
+					box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+				}
 
-				<div class="geo-filter-section">
-					<div class="geo-filter-slot" id="z_filter_enabled"></div>
-					<div class="geo-filter-slot" id="z_filter_mode"></div>
-					<div class="geo-filter-slot" id="z_filter_value"></div>
-					<div class="geo-filter-slot" id="z_filter_value_to"></div>
+				.geo-legend-title {
+					font-weight: 700;
+					margin-bottom: 3px;
+				}
+
+				.geo-legend-subtitle {
+					color: #555;
+					margin-bottom: 8px;
+					max-width: 245px;
+					white-space: nowrap;
+					overflow: hidden;
+					text-overflow: ellipsis;
+				}
+
+				.geo-legend-bar {
+					width: 245px;
+					height: 15px;
+					background: linear-gradient(to right, blue, cyan, lime, yellow, red);
+					border: 1px solid #aaa;
+					margin: 4px 0;
+				}
+
+				.geo-legend-ticks {
+					width: 245px;
+					display: flex;
+					justify-content: space-between;
+					font-size: 10px;
+					color: #333;
+				}
+
+				.geo-legend-stats {
+					margin-top: 8px;
+					display: grid;
+					grid-template-columns: 1fr 1fr;
+					gap: 3px 10px;
+				}
+
+				.geo-help-text {
+					font-size: 11px;
+					color: #777;
+					line-height: 1.35;
+					margin-top: 4px;
+				}
+
+				@media (max-width: 1000px) {
+					.geo-viewer-shell {
+						grid-template-columns: 1fr;
+						height: auto;
+					}
+
+					.geo-main-panel {
+						height: 700px;
+					}
+				}
+			</style>
+
+			<div class="geo-viewer-shell">
+				<div class="geo-side-panel">
+					<div class="geo-side-title">Geo Planning Viewer</div>
+					<div class="geo-side-subtitle">
+						Light visual viewer. Reads imported points and optional pit outline only. Nothing is saved from this page.
+					</div>
+
+					<div class="geo-filter-slot" id="geo_project_filter"></div>
+					<div class="geo-filter-slot" id="geo_import_batch_filter"></div>
+
+					<div class="geo-filter-section">
+						<div class="geo-filter-slot" id="pit_outline_batch_filter"></div>
+						<div class="geo-filter-slot" id="pit_outline_mode_filter"></div>
+						<div class="geo-help-text">
+							Use <b>Point Order</b> for a proper permit/pit boundary. Use <b>Convex Hull</b> only for unordered points.
+						</div>
+					</div>
+
+					<div class="geo-filter-section">
+						<div class="geo-filter-slot" id="block_size_filter"></div>
+						<div class="geo-filter-slot" id="block_angle_filter"></div>
+						<div class="geo-filter-slot" id="minimum_inside_filter"></div>
+						<div class="geo-help-text">
+							Preview blocks are drawn in the browser only. They are not saved.
+						</div>
+					</div>
+
 					<div class="geo-button-row">
-						<button class="btn btn-default btn-sm" id="apply_z_filter">Apply Z Filter</button>
-						<button class="btn btn-default btn-sm" id="clear_z_filter">Clear Z Filter</button>
-					</div>
-					<div class="geo-help-text">
-						Use this to show only certain Z values. Example: enable filter, choose <b>Less Than</b>, value <b>60</b> to show only Z &lt; 60.
-						This works for depth, thickness, elevation, or any loaded Z value.
-					</div>
-				</div>
-
-				<div class="geo-filter-section">
-					<div class="geo-filter-slot" id="mesh_size_filter"></div>
-					<div class="geo-filter-slot" id="block_size_filter"></div>
-					<div class="geo-filter-slot" id="block_angle_filter"></div>
-					<div class="geo-filter-slot" id="minimum_inside_filter"></div>
-					<div class="geo-help-text">
-						Mesh and block size are flexible. Leave mesh on <b>Auto</b> to detect it from loaded points.
-						For <b>Geo Depth</b>, Z is the calculated depth from Geo Calculated Points.
-					</div>
-				</div>
-
-				<div class="geo-button-row">
-					<button class="btn btn-primary btn-sm" id="load_geo_points">Load View</button>
-					<button class="btn btn-default btn-sm" id="fit_geo_view">Fit</button>
-					<button class="btn btn-default btn-sm" id="toggle_blocks">Blocks On/Off</button>
-					<button class="btn btn-default btn-sm" id="toggle_pit_outline">Pit On/Off</button>
-					<button class="btn btn-default btn-sm" id="toggle_rotate_view">Rotate View</button>
-					<button class="btn btn-default btn-sm" id="reset_view_rotation">Reset Rotation</button>
-				</div>
-
-				<div class="geo-filter-section">
-					<div class="geo-filter-slot" id="layout_name_filter"></div>
-					<div class="geo-button-row">
-						<button class="btn btn-default btn-sm" id="generate_blocks">Generate Blocks</button>
+						<button class="btn btn-primary btn-sm" id="load_view">Load View</button>
+						<button class="btn btn-default btn-sm" id="fit_view">Fit</button>
+						<button class="btn btn-default btn-sm" id="preview_blocks">Preview Blocks</button>
 						<button class="btn btn-default btn-sm" id="clear_blocks">Clear Blocks</button>
-						<button class="btn btn-default btn-sm" id="toggle_auto_numbering">Auto Number: Off</button>
-						<button class="btn btn-default btn-sm" id="number_from_selected">Number From Selected</button>
-						<button class="btn btn-default btn-sm" id="clear_block_numbers">Clear Numbers</button>
-						<button class="btn btn-primary btn-sm" id="save_layout">Save Layout</button>
 					</div>
-					<div class="geo-selected-info" id="geo_selected_block_info">No block selected. Click a generated block, then click <b>Number From Selected</b>.</div>
-					<div class="geo-help-text">
-						Generate Blocks fills the loaded model/depth/pit area with mining blocks.
+
+					<div class="geo-button-row">
+						<button class="btn btn-default btn-sm" id="toggle_points">Points On/Off</button>
+						<button class="btn btn-default btn-sm" id="toggle_pit">Pit On/Off</button>
+						<button class="btn btn-default btn-sm" id="toggle_blocks">Blocks On/Off</button>
+						<button class="btn btn-default btn-sm" id="clear_view">Clear View</button>
+					</div>
+
+					<div class="geo-button-row">
+						<button class="btn btn-default btn-sm" id="toggle_rotate_view">Rotate View</button>
+						<button class="btn btn-default btn-sm" id="reset_rotation">Reset Rotation</button>
+					</div>
+
+					<div class="geo-note">
+						Use this page to check imported data, permit overlays, block size and block angle visually before using the real Geo Pit Layout workflow.
+					</div>
+
+					<div class="geo-selected-info" id="selected_info">
+						No preview block selected.
+					</div>
+				</div>
+
+				<div class="geo-main-panel">
+					<div class="geo-canvas-wrap" id="geo_canvas_wrap">
+						<canvas id="geo_canvas"></canvas>
+
+						<div class="geo-info-box" id="geo_info_box">
+							No data loaded.
+						</div>
+
+						<div class="geo-hover-box" id="geo_hover_box"></div>
+
+						<div class="geo-legend" id="geo_legend" style="display:none;">
+							<div class="geo-legend-title">Z Value</div>
+							<div class="geo-legend-subtitle" id="geo_legend_variable">No batch selected</div>
+							<div class="geo-legend-bar"></div>
+							<div class="geo-legend-ticks">
+								<span id="geo_tick_0"></span>
+								<span id="geo_tick_1"></span>
+								<span id="geo_tick_2"></span>
+								<span id="geo_tick_3"></span>
+								<span id="geo_tick_4"></span>
+							</div>
+							<div class="geo-legend-stats">
+								<div><b>Min:</b> <span id="geo_min_z"></span></div>
+								<div><b>Max:</b> <span id="geo_max_z"></span></div>
+								<div><b>Avg:</b> <span id="geo_avg_z"></span></div>
+								<div><b>Range:</b> <span id="geo_range_z"></span></div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
+		`);
 
-			<div class="geo-main-panel">
-				<div class="geo-canvas-wrap" id="geo_canvas_wrap">
-					<canvas id="geo_canvas"></canvas>
+		this.canvas = document.getElementById("geo_canvas");
+		this.ctx = this.canvas.getContext("2d");
+		this.hoverBox = document.getElementById("geo_hover_box");
+	}
 
-					<div class="geo-info-box" id="geo_info_box">
-						No data loaded.
-					</div>
+	make_controls() {
+		const make_control = (parent, df) => {
+			return frappe.ui.form.make_control({
+				parent: $(parent),
+				df,
+				render_input: true
+			});
+		};
 
-					<div class="geo-hover-box" id="geo_hover_box"></div>
+		this.filters.geo_project = make_control("#geo_project_filter", {
+			fieldtype: "Link",
+			options: "Geo Project",
+			label: "Project",
+			fieldname: "geo_project",
+			reqd: 1,
+			change: () => {
+				this.filters.geo_import_batch.set_value("");
+				this.filters.pit_outline_batch.set_value("");
+				this.clear_all_data();
+				this.setup_queries();
+			}
+		});
 
-					<div class="geo-legend" id="geo_legend" style="display:none;">
-						<div class="geo-legend-title" id="geo_legend_title">Z Value</div>
-						<div class="geo-legend-subtitle" id="geo_legend_variable">No variable selected</div>
-						<div class="geo-legend-bar"></div>
-						<div class="geo-legend-ticks">
-							<span id="geo_tick_0"></span>
-							<span id="geo_tick_1"></span>
-							<span id="geo_tick_2"></span>
-							<span id="geo_tick_3"></span>
-							<span id="geo_tick_4"></span>
-						</div>
-						<div class="geo-legend-stats">
-							<div><b>Min:</b> <span id="geo_min_z"></span></div>
-							<div><b>Max:</b> <span id="geo_max_z"></span></div>
-							<div><b>Avg:</b> <span id="geo_avg_z"></span></div>
-							<div><b>Range:</b> <span id="geo_range_z"></span></div>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	`);
+		this.filters.geo_import_batch = make_control("#geo_import_batch_filter", {
+			fieldtype: "Link",
+			options: "Geo Import Batch",
+			label: "Geo Import Batch",
+			fieldname: "geo_import_batch",
+			reqd: 1,
+			description: "The imported model/variable batch to view."
+		});
 
-	const filters = {};
-	let showBlocks = true;
-	let showPitOutline = true;
+		this.filters.pit_outline_batch = make_control("#pit_outline_batch_filter", {
+			fieldtype: "Link",
+			options: "Geo Import Batch",
+			label: "Pit Outline / Permit Batch",
+			fieldname: "pit_outline_batch",
+			description: "Optional. Imported boundary batch sent to Pit Outline Points."
+		});
 
-	function make_control(parent, df) {
-		return frappe.ui.form.make_control({
-			parent: $(parent),
-			df,
-			render_input: true
+		this.filters.pit_outline_mode = make_control("#pit_outline_mode_filter", {
+			fieldtype: "Select",
+			label: "Pit Outline Mode",
+			fieldname: "pit_outline_mode",
+			options: "Point Order\nConvex Hull",
+			default: "Point Order"
+		});
+
+		this.filters.block_size = make_control("#block_size_filter", {
+			fieldtype: "Data",
+			label: "Preview Block Size",
+			fieldname: "block_size",
+			default: "100 x 40",
+			description: "Example: 100 x 40, 50 x 50, 20."
+		});
+
+		this.filters.block_angle = make_control("#block_angle_filter", {
+			fieldtype: "Float",
+			label: "Preview Block Angle",
+			fieldname: "block_angle",
+			default: 0,
+			description: "Degrees. Visual only."
+		});
+
+		this.filters.minimum_inside = make_control("#minimum_inside_filter", {
+			fieldtype: "Percent",
+			label: "Minimum Inside %",
+			fieldname: "minimum_inside",
+			default: 50,
+			description: "For visual pit-outline clipping only."
 		});
 	}
 
-	function get_data_source() {
-		return filters.data_source ? filters.data_source.get_value() || "Geo Model" : "Geo Model";
-	}
+	setup_queries() {
+		const get_project = () => this.filters.geo_project ? this.filters.geo_project.get_value() : "";
 
-	function is_geo_depth() {
-		return get_data_source() === "Geo Depth";
-	}
-
-	function is_z_filter_enabled() {
-		return !!(filters.z_filter_enabled && Number(filters.z_filter_enabled.get_value() || 0));
-	}
-
-	function get_z_filter_description() {
-		if (!is_z_filter_enabled()) {
-			return "Off";
-		}
-
-		const mode = filters.z_filter_mode.get_value() || "Less Than";
-		const value = filters.z_filter_value.get_value();
-		const valueTo = filters.z_filter_value_to.get_value();
-
-		if (mode === "Between" || mode === "Outside") {
-			return `${mode} ${value} and ${valueTo}`;
-		}
-
-		return `${mode} ${value}`;
-	}
-
-	filters.data_source = make_control("#data_source_filter", {
-		fieldtype: "Select",
-		label: "Data Source",
-		fieldname: "data_source",
-		options: "Geo Model\nGeo Depth",
-		default: "Geo Model",
-		change: function() {
-			reset_data_source_filters();
-			toggle_data_source_fields();
-			setup_project_filtered_queries();
-			draw();
-		}
-	});
-
-	filters.geo_project = make_control("#geo_project_filter", {
-		fieldtype: "Link",
-		options: "Geo Project",
-		label: "Project",
-		fieldname: "geo_project",
-		change: function() {
-			reset_project_dependent_filters();
-			setup_project_filtered_queries();
-		}
-	});
-
-	filters.geo_model_output = make_control("#geo_model_output_filter", {
-		fieldtype: "Link",
-		options: "Geo Model Output",
-		label: "Model Output",
-		fieldname: "geo_model_output"
-	});
-
-	filters.version_tag = make_control("#version_filter", {
-		fieldtype: "Data",
-		label: "Version",
-		fieldname: "version_tag"
-	});
-
-	filters.variable_name = make_control("#variable_filter", {
-		fieldtype: "Data",
-		label: "Variable",
-		fieldname: "variable_name"
-	});
-
-	filters.import_batch = make_control("#batch_filter", {
-		fieldtype: "Link",
-		options: "Geo Import Batch",
-		label: "Model Batch",
-		fieldname: "import_batch"
-	});
-
-	filters.geo_depth_batch = make_control("#geo_depth_filter", {
-		fieldtype: "Link",
-		options: "Geo Calculation Batch",
-		label: "Geo Depth",
-		fieldname: "geo_depth_batch"
-	});
-
-	filters.pit_outline_batch = make_control("#pit_outline_filter", {
-		fieldtype: "Link",
-		options: "Geo Import Batch",
-		label: "Pit Outline",
-		fieldname: "pit_outline_batch"
-	});
-
-	filters.z_filter_enabled = make_control("#z_filter_enabled", {
-		fieldtype: "Check",
-		label: "Use Z Filter",
-		fieldname: "z_filter_enabled",
-		default: 0,
-		change: function() {
-			clear_generated_blocks();
-			draw();
-		}
-	});
-
-	filters.z_filter_mode = make_control("#z_filter_mode", {
-		fieldtype: "Select",
-		label: "Z Filter Rule",
-		fieldname: "z_filter_mode",
-		options: "Less Than\nLess Than Or Equal\nGreater Than\nGreater Than Or Equal\nEqual\nBetween\nOutside",
-		default: "Less Than",
-		change: function() {
-			clear_generated_blocks();
-			draw();
-		}
-	});
-
-	filters.z_filter_value = make_control("#z_filter_value", {
-		fieldtype: "Float",
-		label: "Z Filter Value",
-		fieldname: "z_filter_value",
-		default: 60,
-		change: function() {
-			clear_generated_blocks();
-			draw();
-		}
-	});
-
-	filters.z_filter_value_to = make_control("#z_filter_value_to", {
-		fieldtype: "Float",
-		label: "Z Filter To",
-		fieldname: "z_filter_value_to",
-		default: 0,
-		description: "Only used for Between / Outside.",
-		change: function() {
-			clear_generated_blocks();
-			draw();
-		}
-	});
-
-	filters.mesh_size = make_control("#mesh_size_filter", {
-		fieldtype: "Data",
-		label: "Model Mesh Size",
-		fieldname: "mesh_size",
-		default: "Auto",
-		description: "Use Auto or enter 20 x 20, 10 x 10, etc.",
-		change: function() {
-			clear_generated_blocks();
-			draw();
-		}
-	});
-
-	filters.block_size = make_control("#block_size_filter", {
-		fieldtype: "Data",
-		label: "Mining Block Size",
-		fieldname: "block_size",
-		default: "100 x 40",
-		description: "Examples: 20, 20 x 20, 100 x 40.",
-		change: function() {
-			clear_generated_blocks();
-			draw();
-		}
-	});
-
-	filters.block_angle = make_control("#block_angle_filter", {
-		fieldtype: "Float",
-		label: "Block Angle Degrees",
-		fieldname: "block_angle",
-		default: 0,
-		description: "0 means normal X/Y grid. Change this if blocks must follow the mining direction.",
-		change: function() {
-			clear_generated_blocks();
-			draw();
-		}
-	});
-
-	filters.minimum_inside = make_control("#minimum_inside_filter", {
-		fieldtype: "Percent",
-		label: "Minimum Inside %",
-		fieldname: "minimum_inside",
-		default: 50,
-		description: "Edge filter. 50% keeps blocks with at least half the expected model cells.",
-		change: function() {
-			clear_generated_blocks();
-			draw();
-		}
-	});
-
-	filters.layout_name = make_control("#layout_name_filter", {
-		fieldtype: "Data",
-		label: "Layout Name",
-		fieldname: "layout_name",
-		default: "Draft Mining Blocks"
-	});
-
-	setup_project_filtered_queries();
-	toggle_data_source_fields();
-
-	const canvas = document.getElementById("geo_canvas");
-	const ctx = canvas.getContext("2d");
-	const hoverBox = document.getElementById("geo_hover_box");
-
-	function toggle_data_source_fields() {
-		const depth = is_geo_depth();
-
-		$("#batch_filter").toggle(!depth);
-		$("#geo_depth_filter").toggle(depth);
-
-		if (depth) {
-			filters.variable_name.df.label = "Depth Variable";
-		} else {
-			filters.variable_name.df.label = "Variable";
-		}
-
-		filters.variable_name.refresh();
-	}
-
-	function reset_data_source_filters() {
-		filters.import_batch.set_value("");
-		filters.geo_depth_batch.set_value("");
-		filters.variable_name.set_value("");
-
-		points = [];
-		hoverPoint = null;
-		hoverBlock = null;
-		selectedBlock = null;
-
-		clear_generated_blocks();
-		invalidate_geometry_cache();
-		hide_hover_box();
-	}
-
-	function reset_project_dependent_filters() {
-		filters.geo_model_output.set_value("");
-		filters.import_batch.set_value("");
-		filters.geo_depth_batch.set_value("");
-		filters.pit_outline_batch.set_value("");
-		filters.variable_name.set_value("");
-		filters.version_tag.set_value("");
-
-		points = [];
-		pitOutlinePoints = [];
-		hoverPoint = null;
-		hoverBlock = null;
-		selectedBlock = null;
-
-		clear_generated_blocks();
-		invalidate_geometry_cache();
-		hide_hover_box();
-		draw();
-	}
-
-	function setup_project_filtered_queries() {
-		const getProject = () => filters.geo_project.get_value();
-
-		filters.import_batch.df.get_query = function() {
-			return {
-				query: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.get_model_batch_query",
-				filters: {
-					geo_project: getProject()
-				}
+		if (this.filters.geo_import_batch) {
+			this.filters.geo_import_batch.df.get_query = () => {
+				return {
+					query: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.get_geo_import_batch_query",
+					filters: {
+						geo_project: get_project()
+					}
+				};
 			};
-		};
+		}
 
-		filters.geo_depth_batch.df.get_query = function() {
-			return {
-				query: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.get_geo_depth_batch_query",
-				filters: {
-					geo_project: getProject()
-				}
+		if (this.filters.pit_outline_batch) {
+			this.filters.pit_outline_batch.df.get_query = () => {
+				return {
+					query: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.get_pit_outline_batch_query",
+					filters: {
+						geo_project: get_project()
+					}
+				};
 			};
-		};
-
-		filters.pit_outline_batch.df.get_query = function() {
-			return {
-				query: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.get_pit_outline_batch_query",
-				filters: {
-					geo_project: getProject()
-				}
-			};
-		};
-
-		filters.geo_model_output.df.get_query = function() {
-			const project = getProject();
-
-			if (!project) return {};
-
-			return {
-				filters: {
-					geo_project: project
-				}
-			};
-		};
+		}
 	}
 
-	function invalidate_geometry_cache() {
-		outlineEdgesCache = null;
-		pitCellSizeCache = null;
-		blockCacheKey = "";
+	bind_actions() {
+		$("#load_view").on("click", () => this.load_view());
+
+		$("#fit_view").on("click", () => {
+			this.fit_view();
+			this.draw();
+		});
+
+		$("#preview_blocks").on("click", () => {
+			this.generate_preview_blocks();
+			this.draw();
+		});
+
+		$("#clear_blocks").on("click", () => {
+			this.previewBlocks = [];
+			this.selectedBlock = null;
+			this.update_selected_info();
+			this.draw();
+		});
+
+		$("#toggle_points").on("click", () => {
+			this.showPoints = !this.showPoints;
+			this.draw();
+		});
+
+		$("#toggle_pit").on("click", () => {
+			this.showPitOutline = !this.showPitOutline;
+			this.draw();
+		});
+
+		$("#toggle_blocks").on("click", () => {
+			this.showBlocks = !this.showBlocks;
+			this.draw();
+		});
+
+		$("#clear_view").on("click", () => {
+			this.clear_all_data();
+			this.draw();
+		});
+
+		$("#toggle_rotate_view").on("click", (event) => {
+			this.rotateViewMode = !this.rotateViewMode;
+			$(event.currentTarget).toggleClass("geo-active-tool", this.rotateViewMode);
+			this.canvas.style.cursor = this.rotateViewMode ? "crosshair" : "grab";
+		});
+
+		$("#reset_rotation").on("click", () => {
+			this.view.rotation = 0;
+			this.draw();
+		});
+
+		this.bind_canvas_events();
 	}
 
-	function clear_generated_blocks() {
-		generatedBlocks = [];
-		hoverBlock = null;
-		selectedBlock = null;
-		blockCacheKey = "";
-		update_selected_block_info();
+	setup_resize() {
+		window.addEventListener("resize", () => this.resize_canvas());
+		setTimeout(() => this.resize_canvas(), 100);
 	}
 
-	function resize_canvas() {
+	resize_canvas() {
 		const wrap = document.getElementById("geo_canvas_wrap");
+
+		if (!wrap || !this.canvas) {
+			return;
+		}
+
 		const rect = wrap.getBoundingClientRect();
 
-		canvas.width = Math.max(900, Math.floor(rect.width));
-		canvas.height = Math.max(620, Math.floor(rect.height));
+		this.canvas.width = Math.max(900, Math.floor(rect.width));
+		this.canvas.height = Math.max(620, Math.floor(rect.height));
 
-		if (points.length || pitOutlinePoints.length) {
-			fit_view();
-			draw();
+		if (this.points.length || this.pitOutlinePoints.length || this.previewBlocks.length) {
+			this.fit_view();
 		}
+
+		this.draw();
 	}
 
-	window.addEventListener("resize", resize_canvas);
-	setTimeout(resize_canvas, 100);
+	clear_all_data() {
+		this.points = [];
+		this.pitOutlinePoints = [];
+		this.previewBlocks = [];
+		this.hoverPoint = null;
+		this.hoverBlock = null;
+		this.selectedBlock = null;
+		this.hide_hover_box();
+		this.update_selected_info();
+	}
 
-	$("#load_geo_points").on("click", function() {
-		load_all_data();
-	});
+	load_view() {
+		const geo_project = this.filters.geo_project.get_value();
+		const geo_import_batch = this.filters.geo_import_batch.get_value();
+		const pit_outline_batch = this.filters.pit_outline_batch.get_value();
 
-	$("#apply_z_filter").on("click", function() {
-		if (!points.length) {
-			load_all_data();
+		if (!geo_project) {
+			frappe.msgprint("Please select a Project.");
 			return;
 		}
 
-		load_all_data();
-	});
-
-	$("#clear_z_filter").on("click", function() {
-		filters.z_filter_enabled.set_value(0);
-		filters.z_filter_mode.set_value("Less Than");
-		filters.z_filter_value.set_value(60);
-		filters.z_filter_value_to.set_value(0);
-		clear_generated_blocks();
-		load_all_data();
-	});
-
-	$("#fit_geo_view").on("click", function() {
-		fit_view();
-		draw();
-	});
-
-	$("#toggle_blocks").on("click", function() {
-		showBlocks = !showBlocks;
-		draw();
-	});
-
-	$("#toggle_pit_outline").on("click", function() {
-		showPitOutline = !showPitOutline;
-		draw();
-	});
-
-	$("#toggle_rotate_view").on("click", function() {
-		rotateViewMode = !rotateViewMode;
-		$(this).toggleClass("geo-active-tool", rotateViewMode);
-		canvas.style.cursor = rotateViewMode ? "crosshair" : "grab";
-		draw();
-	});
-
-	$("#reset_view_rotation").on("click", function() {
-		view.rotation = 0;
-		draw();
-	});
-
-	$("#generate_blocks").on("click", function() {
-		generate_blocks_backend();
-	});
-
-	$("#clear_blocks").on("click", function() {
-		clear_generated_blocks();
-		draw();
-	});
-
-	$("#toggle_auto_numbering").on("click", function() {
-		autoNumberBlocks = !autoNumberBlocks;
-		update_auto_numbering_button();
-	});
-
-	$("#number_from_selected").on("click", function() {
-		number_blocks_from_selected();
-		draw();
-	});
-
-	$("#clear_block_numbers").on("click", function() {
-		clear_block_numbers();
-		draw();
-	});
-
-	$("#save_layout").on("click", function() {
-		save_current_layout();
-	});
-
-	function load_all_data() {
-		points = [];
-		pitOutlinePoints = [];
-		hoverPoint = null;
-		hoverBlock = null;
-
-		clear_generated_blocks();
-		invalidate_geometry_cache();
-		hide_hover_box();
-
-		const hasMainData =
-			is_geo_depth()
-				? (
-					!!filters.geo_depth_batch.get_value() ||
-					!!filters.geo_project.get_value() ||
-					!!filters.geo_model_output.get_value() ||
-					!!filters.version_tag.get_value() ||
-					!!filters.variable_name.get_value()
-				)
-				: (
-					!!filters.import_batch.get_value() ||
-					!!filters.geo_project.get_value() ||
-					!!filters.geo_model_output.get_value() ||
-					!!filters.version_tag.get_value() ||
-					!!filters.variable_name.get_value()
-				);
-
-		const hasPitOutline = !!filters.pit_outline_batch.get_value();
-
-		if (!hasMainData && !hasPitOutline) {
-			$("#geo_info_box").html("Please select a project, model batch, Geo Depth batch, model filters, or a pit outline.");
-			$("#geo_legend").hide();
-			draw();
+		if (!geo_import_batch && !pit_outline_batch) {
+			frappe.msgprint("Please select a Geo Import Batch, a Pit Outline batch, or both.");
 			return;
 		}
 
-		frappe.dom.freeze("Loading view...");
+		this.clear_all_data();
 
 		const calls = [];
 
-		if (hasMainData) {
-			calls.push(load_geo_model_points_promise());
+		frappe.dom.freeze("Loading viewer data...");
+
+		if (geo_import_batch) {
+			calls.push(this.load_import_batch_points());
 		}
 
-		if (hasPitOutline) {
-			calls.push(load_pit_outline_points_promise());
+		if (pit_outline_batch) {
+			calls.push(this.load_pit_outline_points());
 		}
 
 		Promise.allSettled(calls).then((results) => {
 			frappe.dom.unfreeze();
 
-			const rejected = results.filter(r => r.status === "rejected");
+			const failed = results.filter(r => r.status === "rejected");
 
-			if (rejected.length) {
-				console.error("Geo Planning Viewer load errors:", rejected);
+			if (failed.length) {
+				console.error("Geo Planning Viewer load errors:", failed);
 
 				frappe.msgprint({
 					title: "Partial Load Warning",
 					indicator: "orange",
-					message: "Some viewer data could not load, but successful data will still be shown."
+					message: "Some layers could not load, but successful layers will still be shown."
 				});
 			}
 
-			fit_view();
-			draw();
-
-			if (!points.length && pitOutlinePoints.length) {
-				frappe.show_alert({
-					message: "Pit outline loaded. No model/depth points matched the selected filters.",
-					indicator: "orange"
-				});
-			}
+			this.fit_view();
+			this.draw();
 		});
 	}
 
-	function load_geo_model_points_promise() {
+	load_import_batch_points() {
 		return new Promise((resolve, reject) => {
 			frappe.call({
-				method: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.get_geo_points",
+				method: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.get_import_batch_points",
 				args: {
-					data_source: get_data_source(),
-					geo_project: filters.geo_project.get_value(),
-					geo_model_output: filters.geo_model_output.get_value(),
-					version_tag: filters.version_tag.get_value(),
-					variable_name: filters.variable_name.get_value(),
-					import_batch: filters.import_batch.get_value(),
-					calculation_batch: filters.geo_depth_batch.get_value(),
-					z_filter_enabled: is_z_filter_enabled() ? 1 : 0,
-					z_filter_mode: filters.z_filter_mode.get_value(),
-					z_filter_value: filters.z_filter_value.get_value(),
-					z_filter_value_to: filters.z_filter_value_to.get_value()
+					geo_project: this.filters.geo_project.get_value(),
+					geo_import_batch: this.filters.geo_import_batch.get_value()
 				},
-				callback(r) {
-					points = (r.message || []).map(p => ({
-						x: Number(p.x),
-						y: Number(p.y),
-						z: Number(p.z),
-						calculated_z: p.calculated_z !== undefined ? Number(p.calculated_z) : null,
-						reference_z: p.reference_z !== undefined ? Number(p.reference_z) : null,
-						target_z: p.target_z !== undefined ? Number(p.target_z) : null,
-						reference_variable_code: p.reference_variable_code || "",
-						target_variable_code: p.target_variable_code || "",
-						variable_name: p.variable_name || p.full_name || p.variable_code || "",
-						variable_code: p.variable_code || "",
-						full_name: p.full_name || "",
-						version_tag: p.version_tag || "",
-						import_batch: p.import_batch || p.geo_import_batch || p.calculation_batch || "",
-						calculation_batch: p.calculation_batch || "",
-						geo_model_output: p.geo_model_output || "",
-						data_source: p.data_source || get_data_source()
-					})).filter(p => isFinite(p.x) && isFinite(p.y) && isFinite(p.z));
-
-					resolve();
-				},
-				error(err) {
-					reject(err);
-				}
-			});
-		});
-	}
-
-	function load_pit_outline_points_promise() {
-		return new Promise((resolve, reject) => {
-			const pitBatch = filters.pit_outline_batch.get_value();
-
-			if (!pitBatch) {
-				pitOutlinePoints = [];
-				resolve();
-				return;
-			}
-
-			frappe.call({
-				method: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.get_pit_outline_points",
-				args: {
-					geo_import_batch: pitBatch
-				},
-				callback(r) {
-					pitOutlinePoints = (r.message || []).map(p => ({
+				callback: (r) => {
+					this.points = (r.message || []).map(p => ({
+						name: p.name || "",
 						x: Number(p.x),
 						y: Number(p.y),
 						z: Number(p.z || 0),
 						variable_name: p.variable_name || p.full_name || p.variable_code || "",
+						variable_code: p.variable_code || "",
+						full_name: p.full_name || "",
 						version_tag: p.version_tag || "",
-						geo_import_batch: p.geo_import_batch || p.import_batch || "",
-						geo_model_output: p.geo_model_output || ""
-					})).filter(p => isFinite(p.x) && isFinite(p.y));
+						batch: p.geo_import_batch || p.import_batch || "",
+						geo_model_output: p.geo_model_output || "",
+						row_no: p.row_no
+					})).filter(p => isFinite(p.x) && isFinite(p.y) && isFinite(p.z));
 
 					resolve();
 				},
-				error(err) {
-					reject(err);
-				}
+				error: (err) => reject(err)
 			});
 		});
 	}
 
-	function parse_size(value) {
-		if (!value) return null;
+	load_pit_outline_points() {
+		return new Promise((resolve, reject) => {
+			frappe.call({
+				method: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.get_pit_outline_points",
+				args: {
+					geo_project: this.filters.geo_project.get_value(),
+					geo_import_batch: this.filters.pit_outline_batch.get_value(),
+					outline_mode: this.filters.pit_outline_mode.get_value() || "Point Order"
+				},
+				callback: (r) => {
+					this.pitOutlinePoints = (r.message || []).map(p => ({
+						name: p.name || "",
+						x: Number(p.x),
+						y: Number(p.y),
+						z: Number(p.z || 0),
+						row_no: p.row_no,
+						source_point_no: p.source_point_no,
+						source_line_no: p.source_line_no,
+						source_x: p.source_x,
+						source_y: p.source_y,
+						latitude: p.latitude,
+						longitude: p.longitude,
+						variable_name: p.variable_name || p.full_name || p.variable_code || "",
+						version_tag: p.version_tag || "",
+						batch: p.geo_import_batch || p.import_batch || "",
+						coordinate_transform: p.coordinate_transform || ""
+					})).filter(p => isFinite(p.x) && isFinite(p.y));
+
+					resolve();
+				},
+				error: (err) => reject(err)
+			});
+		});
+	}
+
+	parse_size(value) {
+		if (!value) {
+			return null;
+		}
 
 		let clean = String(value).trim().toLowerCase();
 
-		if (!clean || clean === "auto") return null;
+		if (!clean) {
+			return null;
+		}
 
 		clean = clean
 			.replace(/×/g, "x")
@@ -895,171 +682,296 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 			.replace(/,/g, ".")
 			.replace(/\s+/g, " ");
 
-		let xSize = 0;
-		let ySize = 0;
+		let x_size = 0;
+		let y_size = 0;
 
 		if (clean.includes("x")) {
 			const parts = clean.split("x").map(p => p.trim()).filter(Boolean);
 
 			if (parts.length >= 2) {
-				xSize = Number(parts[0]);
-				ySize = Number(parts[1]);
+				x_size = Number(parts[0]);
+				y_size = Number(parts[1]);
 			}
 		} else {
-			const parts = clean.split(" ").map(p => p.trim()).filter(Boolean);
-
-			if (parts.length >= 2) {
-				xSize = Number(parts[0]);
-				ySize = Number(parts[1]);
-			} else {
-				xSize = Number(clean);
-				ySize = xSize;
-			}
+			x_size = Number(clean);
+			y_size = x_size;
 		}
 
-		if (!isFinite(xSize) || !isFinite(ySize) || xSize <= 0 || ySize <= 0) {
+		if (!isFinite(x_size) || !isFinite(y_size) || x_size <= 0 || y_size <= 0) {
 			return null;
 		}
 
 		return {
-			x: xSize,
-			y: ySize,
-			label: `${xSize} x ${ySize}`
+			x: x_size,
+			y: y_size,
+			label: `${x_size} x ${y_size}`
 		};
 	}
 
-	function get_selected_block_size() {
-		return parse_size(filters.block_size.get_value()) || {
-			x: 0,
-			y: 0,
-			label: "Off"
+	get_block_size() {
+		return this.parse_size(this.filters.block_size.get_value()) || {
+			x: 100,
+			y: 40,
+			label: "100 x 40"
 		};
 	}
 
-	function get_manual_or_auto_mesh_size() {
-		const manual = parse_size(filters.mesh_size.get_value());
+	get_angle_radians() {
+		return Number(this.filters.block_angle.get_value() || 0) * Math.PI / 180;
+	}
 
-		if (manual) {
-			return {
-				...manual,
-				source: "Manual"
-			};
-		}
-
-		const auto = estimate_model_cell_size_world();
+	rotate_to_local(point, anchor, angle) {
+		const dx = point.x - anchor.x;
+		const dy = point.y - anchor.y;
+		const cos = Math.cos(-angle);
+		const sin = Math.sin(-angle);
 
 		return {
-			x: auto.x,
-			y: auto.y,
-			label: `${auto.x} x ${auto.y}`,
-			source: "Auto"
+			x: dx * cos - dy * sin,
+			y: dx * sin + dy * cos
 		};
 	}
 
-	function median_gap(values, fallback) {
-		const cleanValues = values.filter(v => isFinite(v)).sort((a, b) => a - b);
-		const gaps = [];
+	local_to_world(local, anchor, angle) {
+		const cos = Math.cos(angle);
+		const sin = Math.sin(angle);
 
-		for (let i = 1; i < cleanValues.length; i++) {
-			const gap = cleanValues[i] - cleanValues[i - 1];
+		return {
+			x: anchor.x + local.x * cos - local.y * sin,
+			y: anchor.y + local.x * sin + local.y * cos
+		};
+	}
 
-			if (gap > 0.0001) {
-				gaps.push(gap);
+	get_generation_source_points() {
+		if (this.pitOutlinePoints.length >= 3) {
+			return this.pitOutlinePoints;
+		}
+
+		return this.points;
+	}
+
+	get_generation_bounds_local(anchor, angle) {
+		const source = this.get_generation_source_points();
+
+		if (!source.length) {
+			return null;
+		}
+
+		const locals = source.map(p => this.rotate_to_local(p, anchor, angle));
+
+		return {
+			minX: Math.min(...locals.map(p => p.x)),
+			maxX: Math.max(...locals.map(p => p.x)),
+			minY: Math.min(...locals.map(p => p.y)),
+			maxY: Math.max(...locals.map(p => p.y))
+		};
+	}
+
+	get_anchor() {
+		const source = this.get_generation_source_points();
+
+		if (!source.length) {
+			return { x: 0, y: 0 };
+		}
+
+		return {
+			x: Math.min(...source.map(p => p.x)),
+			y: Math.min(...source.map(p => p.y))
+		};
+	}
+
+	generate_preview_blocks() {
+		const block_size = this.get_block_size();
+		const angle = this.get_angle_radians();
+		const anchor = this.get_anchor();
+		const bounds = this.get_generation_bounds_local(anchor, angle);
+		const min_inside = Number(this.filters.minimum_inside.get_value() || 0);
+
+		if (!bounds) {
+			frappe.msgprint("Please load a Geo Import Batch or Pit Outline first.");
+			return;
+		}
+
+		this.previewBlocks = [];
+
+		const start_col = Math.floor(bounds.minX / block_size.x) - 1;
+		const end_col = Math.ceil(bounds.maxX / block_size.x) + 1;
+		const start_row = Math.floor(bounds.minY / block_size.y) - 1;
+		const end_row = Math.ceil(bounds.maxY / block_size.y) + 1;
+
+		let block_no = 1;
+
+		if (this.pitOutlinePoints.length >= 3) {
+			for (let row = start_row; row <= end_row; row++) {
+				for (let col = start_col; col <= end_col; col++) {
+					const block = this.make_block_from_row_col(row, col, block_size, anchor, angle, block_no);
+					const inside_percent = this.estimate_block_inside_percent(block, this.pitOutlinePoints);
+
+					if (inside_percent >= min_inside) {
+						block.inside_percent = inside_percent;
+						block.block_no = block_no;
+						block.label = `B${block_no}`;
+						this.previewBlocks.push(block);
+						block_no += 1;
+					}
+				}
+			}
+		} else {
+			const bucket = {};
+
+			for (const point of this.points) {
+				const local = this.rotate_to_local(point, anchor, angle);
+				const col = Math.floor(local.x / block_size.x);
+				const row = Math.floor(local.y / block_size.y);
+				const key = `${row}|${col}`;
+
+				if (!bucket[key]) {
+					bucket[key] = {
+						row,
+						col,
+						points: []
+					};
+				}
+
+				bucket[key].points.push(point);
+			}
+
+			const keys = Object.keys(bucket).sort();
+
+			for (const key of keys) {
+				const item = bucket[key];
+				const block = this.make_block_from_row_col(item.row, item.col, block_size, anchor, angle, block_no);
+
+				block.point_count = item.points.length;
+				block.inside_percent = 100;
+				block.block_no = block_no;
+				block.label = `B${block_no}`;
+
+				this.previewBlocks.push(block);
+				block_no += 1;
 			}
 		}
 
-		if (!gaps.length) return fallback;
+		this.selectedBlock = null;
+		this.update_selected_info();
 
-		gaps.sort((a, b) => a - b);
-
-		return Number(gaps[Math.floor(gaps.length / 2)].toFixed(4));
+		frappe.show_alert({
+			message: `Previewed ${this.previewBlocks.length.toLocaleString()} visual block(s). Nothing was saved.`,
+			indicator: "green"
+		});
 	}
 
-	function estimate_model_cell_size_world() {
-		if (points.length < 2) {
-			return {
-				x: 20,
-				y: 20
-			};
+	make_block_from_row_col(row, col, block_size, anchor, angle, block_no) {
+		const x0 = col * block_size.x;
+		const y0 = row * block_size.y;
+
+		const local_corners = [
+			{ x: x0, y: y0 },
+			{ x: x0 + block_size.x, y: y0 },
+			{ x: x0 + block_size.x, y: y0 + block_size.y },
+			{ x: x0, y: y0 + block_size.y }
+		];
+
+		const corners = local_corners.map(p => this.local_to_world(p, anchor, angle));
+
+		const centroid = this.local_to_world(
+			{
+				x: x0 + block_size.x / 2,
+				y: y0 + block_size.y / 2
+			},
+			anchor,
+			angle
+		);
+
+		return {
+			row,
+			col,
+			block_no,
+			label: `B${block_no}`,
+			x: centroid.x,
+			y: centroid.y,
+			width: block_size.x,
+			height: block_size.y,
+			angle_degrees: Number(this.filters.block_angle.get_value() || 0),
+			corners,
+			point_count: 0,
+			inside_percent: 0,
+			area: block_size.x * block_size.y
+		};
+	}
+
+	estimate_block_inside_percent(block, polygon) {
+		if (!polygon || polygon.length < 3) {
+			return 100;
 		}
 
-		const sample = points.slice(0, Math.min(points.length, 10000));
-		const uniqueX = [...new Set(sample.map(p => p.x))];
-		const uniqueY = [...new Set(sample.map(p => p.y))];
+		const samples = [];
 
-		return {
-			x: median_gap(uniqueX, 20),
-			y: median_gap(uniqueY, 20)
-		};
+		const c = this.get_block_centroid(block);
+		samples.push(c);
+
+		for (const corner of block.corners) {
+			samples.push(corner);
+		}
+
+		for (let i = 0; i < block.corners.length; i++) {
+			const a = block.corners[i];
+			const b = block.corners[(i + 1) % block.corners.length];
+
+			samples.push({
+				x: (a.x + b.x) / 2,
+				y: (a.y + b.y) / 2
+			});
+		}
+
+		const inside = samples.filter(p => this.point_in_polygon(p, polygon)).length;
+
+		return inside / samples.length * 100;
 	}
 
-	function estimate_model_cell_size_screen() {
-		const worldCell = estimate_model_cell_size_world();
-
-		return {
-			x: Math.max(1, worldCell.x * view.scale),
-			y: Math.max(1, worldCell.y * view.scale)
-		};
-	}
-
-	function get_all_visible_points() {
+	get_all_visible_points() {
 		const all = [];
 
-		for (const p of points) {
+		for (const p of this.points) {
 			all.push(p);
 		}
 
-		if (showPitOutline) {
-			for (const p of pitOutlinePoints) {
+		if (this.showPitOutline) {
+			for (const p of this.pitOutlinePoints) {
 				all.push(p);
+			}
+		}
+
+		for (const block of this.previewBlocks) {
+			for (const corner of block.corners || []) {
+				all.push(corner);
 			}
 		}
 
 		return all;
 	}
 
-	function get_bounds() {
-		const all = get_all_visible_points();
+	get_bounds() {
+		const all = this.get_all_visible_points();
 
 		if (!all.length) {
 			return null;
 		}
 
-		const xs = all.map(p => p.x);
-		const ys = all.map(p => p.y);
-		const zs = points.length ? points.map(p => p.z) : [0];
-
 		return {
-			minX: Math.min(...xs),
-			maxX: Math.max(...xs),
-			minY: Math.min(...ys),
-			maxY: Math.max(...ys),
-			minZ: Math.min(...zs),
-			maxZ: Math.max(...zs)
+			minX: Math.min(...all.map(p => p.x)),
+			maxX: Math.max(...all.map(p => p.x)),
+			minY: Math.min(...all.map(p => p.y)),
+			maxY: Math.max(...all.map(p => p.y))
 		};
 	}
 
-	function get_model_bounds_only() {
-		if (!points.length) return null;
+	get_stats() {
+		if (!this.points.length) {
+			return null;
+		}
 
-		const xs = points.map(p => p.x);
-		const ys = points.map(p => p.y);
-		const zs = points.map(p => p.z);
-
-		return {
-			minX: Math.min(...xs),
-			maxX: Math.max(...xs),
-			minY: Math.min(...ys),
-			maxY: Math.max(...ys),
-			minZ: Math.min(...zs),
-			maxZ: Math.max(...zs)
-		};
-	}
-
-	function get_model_stats() {
-		if (!points.length) return null;
-
-		const zs = points.map(p => p.z);
+		const zs = this.points.map(p => p.z);
 		const minZ = Math.min(...zs);
 		const maxZ = Math.max(...zs);
 		const sumZ = zs.reduce((a, b) => a + b, 0);
@@ -1072,37 +984,39 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 		};
 	}
 
-	function fit_view() {
-		const b = get_bounds();
+	fit_view() {
+		const b = this.get_bounds();
 
-		if (!b) return;
+		if (!b) {
+			return;
+		}
 
 		const pad = 70;
 		const width = b.maxX - b.minX || 1;
 		const height = b.maxY - b.minY || 1;
-		const scaleX = (canvas.width - pad * 2) / width;
-		const scaleY = (canvas.height - pad * 2) / height;
+		const scaleX = (this.canvas.width - pad * 2) / width;
+		const scaleY = (this.canvas.height - pad * 2) / height;
 
-		view.scale = Math.min(scaleX, scaleY);
+		this.view.scale = Math.min(scaleX, scaleY);
 
-		const drawnWidth = width * view.scale;
-		const drawnHeight = height * view.scale;
+		const drawnWidth = width * this.view.scale;
+		const drawnHeight = height * this.view.scale;
 
-		view.offsetX = (canvas.width - drawnWidth) / 2 - b.minX * view.scale;
-		view.offsetY = (canvas.height - drawnHeight) / 2 + b.maxY * view.scale;
+		this.view.offsetX = (this.canvas.width - drawnWidth) / 2 - b.minX * this.view.scale;
+		this.view.offsetY = (this.canvas.height - drawnHeight) / 2 + b.maxY * this.view.scale;
 	}
 
-	function rotate_screen_point(x, y) {
-		if (!view.rotation) {
+	rotate_screen_point(x, y) {
+		if (!this.view.rotation) {
 			return { x, y };
 		}
 
-		const cx = canvas.width / 2;
-		const cy = canvas.height / 2;
+		const cx = this.canvas.width / 2;
+		const cy = this.canvas.height / 2;
 		const dx = x - cx;
 		const dy = y - cy;
-		const cos = Math.cos(view.rotation);
-		const sin = Math.sin(view.rotation);
+		const cos = Math.cos(this.view.rotation);
+		const sin = Math.sin(this.view.rotation);
 
 		return {
 			x: cx + dx * cos - dy * sin,
@@ -1110,17 +1024,17 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 		};
 	}
 
-	function unrotate_screen_point(x, y) {
-		if (!view.rotation) {
+	unrotate_screen_point(x, y) {
+		if (!this.view.rotation) {
 			return { x, y };
 		}
 
-		const cx = canvas.width / 2;
-		const cy = canvas.height / 2;
+		const cx = this.canvas.width / 2;
+		const cy = this.canvas.height / 2;
 		const dx = x - cx;
 		const dy = y - cy;
-		const cos = Math.cos(-view.rotation);
-		const sin = Math.sin(-view.rotation);
+		const cos = Math.cos(-this.view.rotation);
+		const sin = Math.sin(-this.view.rotation);
 
 		return {
 			x: cx + dx * cos - dy * sin,
@@ -1128,26 +1042,28 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 		};
 	}
 
-	function world_to_screen_point(x, y) {
-		return rotate_screen_point(
-			x * view.scale + view.offsetX,
-			-y * view.scale + view.offsetY
+	world_to_screen(point) {
+		return this.rotate_screen_point(
+			point.x * this.view.scale + this.view.offsetX,
+			-point.y * this.view.scale + this.view.offsetY
 		);
 	}
 
-	function screen_to_world_point(x, y) {
-		const p = unrotate_screen_point(x, y);
+	screen_to_world(x, y) {
+		const p = this.unrotate_screen_point(x, y);
 
 		return {
-			x: (p.x - view.offsetX) / view.scale,
-			y: -(p.y - view.offsetY) / view.scale
+			x: (p.x - this.view.offsetX) / this.view.scale,
+			y: -(p.y - this.view.offsetY) / this.view.scale
 		};
 	}
 
-	function value_colour(z, minZ, maxZ) {
+	value_colour(z, minZ, maxZ) {
 		const t = (z - minZ) / (maxZ - minZ || 1);
 
-		let r, g, b;
+		let r;
+		let g;
+		let b;
 
 		if (t < 0.25) {
 			r = 0;
@@ -1170,73 +1086,461 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 		return `rgb(${r},${g},${b})`;
 	}
 
-	function rotate_to_local(x, y, anchor, angle) {
-		const dx = x - anchor.x;
-		const dy = y - anchor.y;
-		const cos = Math.cos(-angle);
-		const sin = Math.sin(-angle);
+	draw() {
+		if (!this.ctx || !this.canvas) {
+			return;
+		}
 
-		return {
-			x: dx * cos - dy * sin,
-			y: dx * sin + dy * cos
-		};
+		const ctx = this.ctx;
+
+		ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+		this.draw_background_grid();
+
+		if (this.showPoints) {
+			this.draw_points();
+		}
+
+		if (this.showPitOutline) {
+			this.draw_pit_outline();
+		}
+
+		if (this.showBlocks) {
+			this.draw_preview_blocks();
+		}
+
+		this.update_info_box();
+		this.update_legend();
 	}
 
-	function local_to_world(localX, localY, anchor, angle) {
-		const cos = Math.cos(angle);
-		const sin = Math.sin(angle);
+	draw_background_grid() {
+		const ctx = this.ctx;
+		const step = 28;
 
-		return {
-			x: anchor.x + localX * cos - localY * sin,
-			y: anchor.y + localX * sin + localY * cos
-		};
+		ctx.save();
+		ctx.strokeStyle = "rgba(0, 0, 0, 0.05)";
+		ctx.lineWidth = 1;
+
+		for (let x = 0; x <= this.canvas.width; x += step) {
+			ctx.beginPath();
+			ctx.moveTo(x, 0);
+			ctx.lineTo(x, this.canvas.height);
+			ctx.stroke();
+		}
+
+		for (let y = 0; y <= this.canvas.height; y += step) {
+			ctx.beginPath();
+			ctx.moveTo(0, y);
+			ctx.lineTo(this.canvas.width, y);
+			ctx.stroke();
+		}
+
+		ctx.restore();
 	}
 
-	function get_generation_anchor() {
-		const source = pitOutlinePoints.length ? pitOutlinePoints : points;
+	draw_points() {
+		if (!this.points.length) {
+			return;
+		}
 
-		if (!source.length) {
+		const ctx = this.ctx;
+		const stats = this.get_stats();
+		const radius = this.points.length > 5000 ? 2 : 3;
+
+		ctx.save();
+
+		for (const p of this.points) {
+			const s = this.world_to_screen(p);
+
+			if (s.x < -20 || s.x > this.canvas.width + 20 || s.y < -20 || s.y > this.canvas.height + 20) {
+				continue;
+			}
+
+			ctx.fillStyle = stats ? this.value_colour(p.z, stats.minZ, stats.maxZ) : "rgba(80, 140, 220, 0.8)";
+			ctx.globalAlpha = 0.75;
+			ctx.fillRect(s.x - radius, s.y - radius, radius * 2, radius * 2);
+		}
+
+		ctx.restore();
+	}
+
+	draw_pit_outline() {
+		if (!this.pitOutlinePoints.length) {
+			return;
+		}
+
+		const ctx = this.ctx;
+		const points = this.pitOutlinePoints;
+
+		ctx.save();
+
+		if (points.length >= 3) {
+			ctx.beginPath();
+
+			points.forEach((p, index) => {
+				const s = this.world_to_screen(p);
+
+				if (index === 0) {
+					ctx.moveTo(s.x, s.y);
+				} else {
+					ctx.lineTo(s.x, s.y);
+				}
+			});
+
+			ctx.closePath();
+
+			ctx.fillStyle = "rgba(243, 156, 18, 0.13)";
+			ctx.strokeStyle = "rgba(230, 126, 34, 1)";
+			ctx.lineWidth = 3;
+			ctx.setLineDash([9, 6]);
+			ctx.fill();
+			ctx.stroke();
+			ctx.setLineDash([]);
+		}
+
+		for (let i = 0; i < points.length; i++) {
+			const p = points[i];
+			const s = this.world_to_screen(p);
+
+			ctx.beginPath();
+			ctx.arc(s.x, s.y, 4.5, 0, Math.PI * 2);
+			ctx.fillStyle = "rgba(230, 126, 34, 1)";
+			ctx.strokeStyle = "#fff";
+			ctx.lineWidth = 1.5;
+			ctx.fill();
+			ctx.stroke();
+
+			ctx.fillStyle = "#222";
+			ctx.font = "11px sans-serif";
+			ctx.fillText(String(p.source_point_no || p.row_no || i + 1), s.x + 7, s.y - 7);
+		}
+
+		ctx.restore();
+	}
+
+	draw_preview_blocks() {
+		if (!this.previewBlocks.length) {
+			return;
+		}
+
+		const ctx = this.ctx;
+
+		ctx.save();
+
+		for (const block of this.previewBlocks) {
+			if (!block.corners || block.corners.length < 3) {
+				continue;
+			}
+
+			const isSelected = this.selectedBlock === block;
+			const isHover = this.hoverBlock === block;
+
+			ctx.beginPath();
+
+			block.corners.forEach((p, index) => {
+				const s = this.world_to_screen(p);
+
+				if (index === 0) {
+					ctx.moveTo(s.x, s.y);
+				} else {
+					ctx.lineTo(s.x, s.y);
+				}
+			});
+
+			ctx.closePath();
+
+			if (isSelected) {
+				ctx.fillStyle = "rgba(46, 204, 113, 0.42)";
+				ctx.strokeStyle = "rgba(39, 174, 96, 1)";
+				ctx.lineWidth = 3;
+			} else if (isHover) {
+				ctx.fillStyle = "rgba(52, 152, 219, 0.34)";
+				ctx.strokeStyle = "rgba(41, 128, 185, 1)";
+				ctx.lineWidth = 2.5;
+			} else {
+				ctx.fillStyle = "rgba(80, 140, 220, 0.14)";
+				ctx.strokeStyle = "rgba(80, 140, 220, 0.85)";
+				ctx.lineWidth = 1.2;
+			}
+
+			ctx.fill();
+			ctx.stroke();
+
+			const c = this.get_block_centroid(block);
+			const s = this.world_to_screen(c);
+
+			ctx.fillStyle = "#111";
+			ctx.font = "10px sans-serif";
+			ctx.textAlign = "center";
+			ctx.textBaseline = "middle";
+			ctx.fillText(block.label || "", s.x, s.y);
+		}
+
+		ctx.restore();
+	}
+
+	update_info_box() {
+		const stats = this.get_stats();
+		const block_size = this.get_block_size();
+		const angle = Number(this.filters.block_angle ? this.filters.block_angle.get_value() || 0 : 0);
+		const outline_mode = this.filters.pit_outline_mode ? this.filters.pit_outline_mode.get_value() : "Point Order";
+
+		let html = `
+			<b>Geo Planning Viewer</b><br>
+			Imported points: ${this.points.length.toLocaleString()}<br>
+			Pit outline points: ${this.pitOutlinePoints.length.toLocaleString()}<br>
+			Outline mode: ${frappe.utils.escape_html(outline_mode || "")}<br>
+			Preview blocks: ${this.previewBlocks.length.toLocaleString()}<br>
+			Block size: ${frappe.utils.escape_html(block_size.label)}<br>
+			Block angle: ${this.format_number(angle, 2)}°<br>
+			<span style="color:#777;">Read-only visual page. Nothing saved.</span>
+		`;
+
+		if (stats) {
+			html += `
+				<hr style="margin:6px 0;">
+				Z Min: ${this.format_number(stats.minZ, 3)}<br>
+				Z Max: ${this.format_number(stats.maxZ, 3)}<br>
+				Z Avg: ${this.format_number(stats.avgZ, 3)}
+			`;
+		}
+
+		$("#geo_info_box").html(html);
+	}
+
+	update_legend() {
+		const stats = this.get_stats();
+
+		if (!stats) {
+			$("#geo_legend").hide();
+			return;
+		}
+
+		$("#geo_legend").show();
+
+		const variable = this.points[0]
+			? this.points[0].variable_name || this.points[0].variable_code || "Z Value"
+			: "Z Value";
+
+		$("#geo_legend_variable").text(variable);
+		$("#geo_min_z").text(this.format_number(stats.minZ, 3));
+		$("#geo_max_z").text(this.format_number(stats.maxZ, 3));
+		$("#geo_avg_z").text(this.format_number(stats.avgZ, 3));
+		$("#geo_range_z").text(this.format_number(stats.rangeZ, 3));
+
+		for (let i = 0; i <= 4; i++) {
+			const value = stats.minZ + (stats.rangeZ * i / 4);
+			$(`#geo_tick_${i}`).text(this.format_number(value, 1));
+		}
+	}
+
+	bind_canvas_events() {
+		this.canvas.addEventListener("mousedown", (event) => {
+			const rect = this.canvas.getBoundingClientRect();
+			const x = event.clientX - rect.left;
+			const y = event.clientY - rect.top;
+
+			this.view.dragMoved = false;
+			this.view.lastX = x;
+			this.view.lastY = y;
+
+			if (this.rotateViewMode) {
+				this.view.isRotating = true;
+				this.view.startRotation = this.view.rotation;
+				this.view.startAngle = Math.atan2(y - this.canvas.height / 2, x - this.canvas.width / 2);
+				return;
+			}
+
+			this.view.isDragging = true;
+			this.canvas.classList.add("dragging");
+		});
+
+		this.canvas.addEventListener("mousemove", (event) => {
+			const rect = this.canvas.getBoundingClientRect();
+			const x = event.clientX - rect.left;
+			const y = event.clientY - rect.top;
+
+			if (this.view.isRotating) {
+				const angle = Math.atan2(y - this.canvas.height / 2, x - this.canvas.width / 2);
+				this.view.rotation = this.view.startRotation + angle - this.view.startAngle;
+				this.view.dragMoved = true;
+				this.draw();
+				return;
+			}
+
+			if (this.view.isDragging) {
+				const dx = x - this.view.lastX;
+				const dy = y - this.view.lastY;
+
+				this.view.offsetX += dx;
+				this.view.offsetY += dy;
+				this.view.lastX = x;
+				this.view.lastY = y;
+				this.view.dragMoved = true;
+
+				this.draw();
+				return;
+			}
+
+			this.update_hover(x, y, event.clientX, event.clientY);
+		});
+
+		this.canvas.addEventListener("mouseup", (event) => {
+			this.canvas.classList.remove("dragging");
+
+			if (!this.view.dragMoved && !this.rotateViewMode) {
+				const rect = this.canvas.getBoundingClientRect();
+				const x = event.clientX - rect.left;
+				const y = event.clientY - rect.top;
+
+				this.select_block_at(x, y);
+			}
+
+			this.view.isDragging = false;
+			this.view.isRotating = false;
+		});
+
+		this.canvas.addEventListener("mouseleave", () => {
+			this.view.isDragging = false;
+			this.view.isRotating = false;
+			this.canvas.classList.remove("dragging");
+			this.hide_hover_box();
+		});
+
+		this.canvas.addEventListener("wheel", (event) => {
+			event.preventDefault();
+
+			const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+			const rect = this.canvas.getBoundingClientRect();
+			const sx = event.clientX - rect.left;
+			const sy = event.clientY - rect.top;
+
+			const before = this.screen_to_world(sx, sy);
+
+			this.view.scale *= factor;
+			this.view.scale = Math.max(0.0001, Math.min(this.view.scale, 100000));
+
+			const after = this.screen_to_world(sx, sy);
+
+			this.view.offsetX += (after.x - before.x) * this.view.scale;
+			this.view.offsetY -= (after.y - before.y) * this.view.scale;
+
+			this.draw();
+		});
+	}
+
+	update_hover(screenX, screenY, clientX, clientY) {
+		const world = this.screen_to_world(screenX, screenY);
+		let block = null;
+
+		for (let i = this.previewBlocks.length - 1; i >= 0; i--) {
+			const candidate = this.previewBlocks[i];
+
+			if (candidate.corners && this.point_in_polygon(world, candidate.corners)) {
+				block = candidate;
+				break;
+			}
+		}
+
+		if (block) {
+			this.hoverBlock = block;
+			this.show_hover_box(
+				clientX,
+				clientY,
+				`
+					<b>${frappe.utils.escape_html(block.label || "")}</b><br>
+					Row: ${block.row}<br>
+					Column: ${block.col}<br>
+					Inside: ${this.format_number(block.inside_percent, 1)}%<br>
+					Area: ${this.format_number(block.area, 2)}
+				`
+			);
+			this.draw();
+			return;
+		}
+
+		this.hoverBlock = null;
+		this.hide_hover_box();
+		this.draw();
+	}
+
+	show_hover_box(clientX, clientY, html) {
+		this.hoverBox.innerHTML = html;
+		this.hoverBox.style.display = "block";
+
+		const wrapRect = document.getElementById("geo_canvas_wrap").getBoundingClientRect();
+
+		this.hoverBox.style.left = `${clientX - wrapRect.left + 14}px`;
+		this.hoverBox.style.top = `${clientY - wrapRect.top + 14}px`;
+	}
+
+	hide_hover_box() {
+		if (this.hoverBox) {
+			this.hoverBox.style.display = "none";
+		}
+	}
+
+	select_block_at(screenX, screenY) {
+		const world = this.screen_to_world(screenX, screenY);
+		let found = null;
+
+		for (let i = this.previewBlocks.length - 1; i >= 0; i--) {
+			const block = this.previewBlocks[i];
+
+			if (block.corners && this.point_in_polygon(world, block.corners)) {
+				found = block;
+				break;
+			}
+		}
+
+		this.selectedBlock = found;
+		this.update_selected_info();
+		this.draw();
+	}
+
+	update_selected_info() {
+		if (!this.selectedBlock) {
+			$("#selected_info").html("No preview block selected.");
+			return;
+		}
+
+		const block = this.selectedBlock;
+
+		$("#selected_info").html(`
+			<b>Selected preview block</b><br>
+			Label: ${frappe.utils.escape_html(block.label || "")}<br>
+			Row: ${block.row}<br>
+			Column: ${block.col}<br>
+			Inside: ${this.format_number(block.inside_percent, 1)}%<br>
+			Area: ${this.format_number(block.area, 2)}<br>
+			<span style="color:#777;">Visual only. Not saved.</span>
+		`);
+	}
+
+	get_block_centroid(block) {
+		if (!block.corners || !block.corners.length) {
 			return {
-				x: 0,
-				y: 0
+				x: block.x || 0,
+				y: block.y || 0
 			};
 		}
 
-		const xs = source.map(p => p.x);
-		const ys = source.map(p => p.y);
+		const sum = block.corners.reduce((acc, p) => {
+			acc.x += p.x;
+			acc.y += p.y;
+			return acc;
+		}, { x: 0, y: 0 });
 
 		return {
-			x: Math.min(...xs),
-			y: Math.min(...ys)
+			x: sum.x / block.corners.length,
+			y: sum.y / block.corners.length
 		};
 	}
 
-	function get_block_key_for_point(p, blockSize, anchor, angle) {
-		const local = rotate_to_local(p.x, p.y, anchor, angle);
-		const col = Math.floor(local.x / blockSize.x);
-		const row = Math.floor(local.y / blockSize.y);
-
-		return {
-			key: `${col}|${row}`,
-			col,
-			row
-		};
-	}
-
-	function get_block_corners(col, row, blockSize, anchor, angle) {
-		const x0 = col * blockSize.x;
-		const y0 = row * blockSize.y;
-
-		return [
-			local_to_world(x0, y0, anchor, angle),
-			local_to_world(x0 + blockSize.x, y0, anchor, angle),
-			local_to_world(x0 + blockSize.x, y0 + blockSize.y, anchor, angle),
-			local_to_world(x0, y0 + blockSize.y, anchor, angle)
-		];
-	}
-
-	function point_in_polygon(point, polygon) {
-		if (!polygon || polygon.length < 3) return false;
+	point_in_polygon(point, polygon) {
+		if (!polygon || polygon.length < 3) {
+			return false;
+		}
 
 		let inside = false;
 		const x = point.x;
@@ -1251,999 +1555,24 @@ frappe.pages["geo-planning-viewer"].on_page_load = function(wrapper) {
 			const intersect = ((yi > y) !== (yj > y)) &&
 				(x < (xj - xi) * (y - yi) / ((yj - yi) || 0.0000001) + xi);
 
-			if (intersect) inside = !inside;
+			if (intersect) {
+				inside = !inside;
+			}
 		}
 
 		return inside;
 	}
 
-	function point_in_block(point, block) {
-		if (block.corners && block.corners.length >= 3) {
-			return point_in_polygon(point, block.corners);
+	format_number(value, decimals) {
+		const number = Number(value || 0);
+
+		if (!isFinite(number)) {
+			return "0";
 		}
 
-		const local = rotate_to_local(point.x, point.y, block.anchor, block.angle);
-		const x0 = block.col * block.width;
-		const y0 = block.row * block.height;
-
-		return (
-			local.x >= x0 &&
-			local.x < x0 + block.width &&
-			local.y >= y0 &&
-			local.y < y0 + block.height
-		);
-	}
-
-
-	function normalise_backend_block(block, index) {
-		const angleDegrees = Number(block.angle_degrees || 0);
-		const angle = angleDegrees * Math.PI / 180;
-		const corners = (block.corners || []).map(p => ({
-			x: Number(p.x),
-			y: Number(p.y)
-		})).filter(p => isFinite(p.x) && isFinite(p.y));
-
-		const x = Number(block.x || block.centroid_x || 0);
-		const y = Number(block.y || block.centroid_y || 0);
-		const width = Number(block.width || block.block_width || 0);
-		const height = Number(block.height || block.block_height || 0);
-		const row = Number(block.row || block.row_no || 0);
-		const col = Number(block.col || block.column_no || 0);
-		const blockNo = Number(block.block_no || index + 1);
-		const cutNo = Number(block.cut_no || 1);
-		const label = block.label || `C${cutNo}B${blockNo}`;
-
-		return {
-			...block,
-			cut_no: cutNo,
-			block_no: blockNo,
-			label,
-			key: block.key || `${col}|${row}|${index}`,
-			col,
-			row,
-			x,
-			y,
-			width,
-			height,
-			angle,
-			angle_degrees: angleDegrees,
-			anchor: block.anchor || get_generation_anchor(),
-			corners,
-			avg_z: Number(block.avg_z || 0),
-			min_z: Number(block.min_z || 0),
-			max_z: Number(block.max_z || 0),
-			point_count: Number(block.point_count || 0),
-			expected_point_count: Number(block.expected_point_count || 0),
-			inside_percent: Number(block.inside_percent || 0),
-			effective_area: Number(block.effective_area || 0),
-			area: Number(block.area || 0),
-			status: block.status || "Draft"
-		};
-	}
-
-	function generate_blocks_backend() {
-		const blockSize = get_selected_block_size();
-		const meshSize = get_manual_or_auto_mesh_size();
-
-		if (!points.length && !pitOutlinePoints.length) {
-			frappe.msgprint("Please load the view before generating mining blocks.");
-			return;
-		}
-
-		if (!blockSize.x || !blockSize.y) {
-			frappe.msgprint("Please enter a valid Mining Block Size, for example 100 x 40.");
-			return;
-		}
-
-		const hasMainData =
-			is_geo_depth()
-				? !!filters.geo_depth_batch.get_value()
-				: !!filters.import_batch.get_value();
-
-		if (!hasMainData) {
-			frappe.msgprint("Please select a Model Batch or Geo Depth batch before generating backend blocks.");
-			return;
-		}
-
-		frappe.call({
-			method: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.generate_backend_preview_blocks",
-			args: {
-				data_source: get_data_source(),
-				geo_project: filters.geo_project.get_value(),
-				geo_model_output: filters.geo_model_output.get_value(),
-				version_tag: filters.version_tag.get_value(),
-				variable_name: filters.variable_name.get_value(),
-				import_batch: filters.import_batch.get_value(),
-				calculation_batch: filters.geo_depth_batch.get_value(),
-				pit_outline_batch: filters.pit_outline_batch.get_value(),
-				z_filter_enabled: is_z_filter_enabled() ? 1 : 0,
-				z_filter_mode: filters.z_filter_mode.get_value(),
-				z_filter_value: filters.z_filter_value.get_value(),
-				z_filter_value_to: filters.z_filter_value_to.get_value(),
-				block_size_x: blockSize.x,
-				block_size_y: blockSize.y,
-				mesh_size_x: meshSize.x,
-				mesh_size_y: meshSize.y,
-				block_angle_degrees: Number(filters.block_angle.get_value() || 0),
-				minimum_inside_percent: Number(filters.minimum_inside.get_value() || 50),
-				auto_number_blocks: autoNumberBlocks ? 1 : 0,
-				cut_no: 1
-			},
-			freeze: true,
-			freeze_message: "Generating blocks with backend geometry...",
-			callback(r) {
-				const rawBlocks = r.message || [];
-				generatedBlocks = rawBlocks.map((b, index) => normalise_backend_block(b, index));
-				selectedBlock = null;
-				blockCacheKey = `${points.length}|${pitOutlinePoints.length}|${blockSize.label}|${meshSize.label}|backend-filter|${filters.block_angle.get_value()}|${filters.minimum_inside.get_value()}`;
-				update_selected_block_info();
-				draw();
-
-				frappe.show_alert({
-					message: `Generated ${generatedBlocks.length.toLocaleString()} backend mining blocks.`,
-					indicator: "green"
-				});
-			}
+		return number.toLocaleString(undefined, {
+			minimumFractionDigits: decimals,
+			maximumFractionDigits: decimals
 		});
 	}
-
-
-	function generate_blocks() {
-		const blockSize = get_selected_block_size();
-		const meshSize = get_manual_or_auto_mesh_size();
-		const minInside = Number(filters.minimum_inside.get_value() || 0);
-		const angleDegrees = Number(filters.block_angle.get_value() || 0);
-		const angle = angleDegrees * Math.PI / 180;
-
-		if (!points.length) {
-			frappe.msgprint("Please load points before generating mining blocks.");
-			return;
-		}
-
-		if (!blockSize.x || !blockSize.y) {
-			frappe.msgprint("Please enter a valid Mining Block Size, for example 100 x 40.");
-			return;
-		}
-
-		if (!meshSize.x || !meshSize.y) {
-			frappe.msgprint("Please enter a valid Model Mesh Size, for example 20 x 20, or use Auto.");
-			return;
-		}
-
-		const expectedPointCount = Math.max(
-			1,
-			Math.round((blockSize.x / meshSize.x) * (blockSize.y / meshSize.y))
-		);
-
-		const minPointCount = Math.max(
-			1,
-			Math.ceil(expectedPointCount * Math.max(0, minInside) / 100)
-		);
-
-		const anchor = get_generation_anchor();
-		const sourcePoints = pitOutlinePoints.length ? pitOutlinePoints : points;
-		const blockMap = {};
-
-		for (const p of sourcePoints) {
-			const keyInfo = get_block_key_for_point(p, blockSize, anchor, angle);
-
-			if (!blockMap[keyInfo.key]) {
-				blockMap[keyInfo.key] = {
-					key: keyInfo.key,
-					col: keyInfo.col,
-					row: keyInfo.row,
-					source_count: 0,
-					sum: 0,
-					count: 0,
-					min_z: null,
-					max_z: null
-				};
-			}
-
-			blockMap[keyInfo.key].source_count += 1;
-		}
-
-		for (const p of points) {
-			const keyInfo = get_block_key_for_point(p, blockSize, anchor, angle);
-
-			if (!blockMap[keyInfo.key]) {
-				if (pitOutlinePoints.length) {
-					continue;
-				}
-
-				blockMap[keyInfo.key] = {
-					key: keyInfo.key,
-					col: keyInfo.col,
-					row: keyInfo.row,
-					source_count: 0,
-					sum: 0,
-					count: 0,
-					min_z: null,
-					max_z: null
-				};
-			}
-
-			const b = blockMap[keyInfo.key];
-
-			b.sum += p.z;
-			b.count += 1;
-			b.min_z = b.min_z === null ? p.z : Math.min(b.min_z, p.z);
-			b.max_z = b.max_z === null ? p.z : Math.max(b.max_z, p.z);
-		}
-
-		let blockNo = 0;
-
-		selectedBlock = null;
-
-		generatedBlocks = Object.values(blockMap)
-			.filter(b => b.count >= minPointCount)
-			.sort((a, b) => a.row - b.row || a.col - b.col)
-			.map(b => {
-				blockNo += 1;
-				const assignedBlockNo = autoNumberBlocks ? blockNo : 0;
-
-				const corners = get_block_corners(b.col, b.row, blockSize, anchor, angle);
-				const cx = corners.reduce((s, p) => s + p.x, 0) / 4;
-				const cy = corners.reduce((s, p) => s + p.y, 0) / 4;
-				const insidePercent = Math.min(100, (b.count / expectedPointCount) * 100);
-
-				let status = "Full Block";
-
-				if (insidePercent < 100) {
-					status = "Partial Block";
-				}
-
-				if (insidePercent < minInside) {
-					status = "Review";
-				}
-
-				return {
-					cut_no: 0,
-					block_no: assignedBlockNo,
-					label: assignedBlockNo ? `C1B${assignedBlockNo}` : "",
-					key: b.key,
-					col: b.col,
-					row: b.row,
-					x: cx,
-					y: cy,
-					width: blockSize.x,
-					height: blockSize.y,
-					angle,
-					angle_degrees: angleDegrees,
-					anchor,
-					corners,
-					avg_z: b.count ? b.sum / b.count : 0,
-					min_z: b.min_z || 0,
-					max_z: b.max_z || 0,
-					point_count: b.count,
-					expected_point_count: expectedPointCount,
-					inside_percent: insidePercent,
-					status
-				};
-			});
-
-		blockCacheKey = `${points.length}|${pitOutlinePoints.length}|${blockSize.label}|${meshSize.label}|${angleDegrees}|${minInside}`;
-
-		update_selected_block_info();
-
-		frappe.show_alert({
-			message: `Generated ${generatedBlocks.length} mining blocks. Expected points per full block: ${expectedPointCount}. ${autoNumberBlocks ? "Blocks were numbered automatically." : "Blocks are unnumbered until you select a start block."}`,
-			indicator: "green"
-		});
-	}
-
-	function update_auto_numbering_button() {
-		const label = autoNumberBlocks ? "Auto Number: On" : "Auto Number: Off";
-		$("#toggle_auto_numbering")
-			.text(label)
-			.toggleClass("geo-active-tool", autoNumberBlocks);
-	}
-
-	function update_selected_block_info() {
-		const el = $("#geo_selected_block_info");
-
-		if (!el.length) return;
-
-		if (!selectedBlock) {
-			el.html("No block selected. Click a generated block, then click <b>Number From Selected</b>.");
-			return;
-		}
-
-		const currentLabel = selectedBlock.label || "Unnumbered";
-
-		el.html(
-			`<b>Selected:</b> ${frappe.utils.escape_html(currentLabel)} ` +
-			`(row ${selectedBlock.row}, col ${selectedBlock.col})<br>` +
-			`Centre X/Y: ${selectedBlock.x.toFixed(2)}, ${selectedBlock.y.toFixed(2)}`
-		);
-	}
-
-	function get_sorted_blocks_for_numbering() {
-		return [...generatedBlocks].sort((a, b) => a.row - b.row || a.col - b.col);
-	}
-
-	function number_blocks_from_selected() {
-		if (!generatedBlocks.length) {
-			frappe.msgprint("Please generate mining blocks first.");
-			return;
-		}
-
-		if (!selectedBlock) {
-			frappe.msgprint("Please click the block where numbering must start, then click Number From Selected.");
-			return;
-		}
-
-		const sorted = get_sorted_blocks_for_numbering();
-		const startIndex = sorted.findIndex(b => b.key === selectedBlock.key);
-
-		if (startIndex < 0) {
-			frappe.msgprint("The selected block could not be found in the current layout. Please select it again.");
-			return;
-		}
-
-		const numberingOrder = sorted.slice(startIndex).concat(sorted.slice(0, startIndex));
-
-		numberingOrder.forEach((block, index) => {
-			const blockNo = index + 1;
-			block.block_no = blockNo;
-			block.label = `C1B${blockNo}`;
-		});
-
-		selectedBlock = numberingOrder[0];
-		update_selected_block_info();
-
-		frappe.show_alert({
-			message: `Numbered ${numberingOrder.length} blocks from ${selectedBlock.label}.`,
-			indicator: "green"
-		});
-	}
-
-	function clear_block_numbers() {
-		if (!generatedBlocks.length) {
-			return;
-		}
-
-		for (const block of generatedBlocks) {
-			block.block_no = 0;
-			block.label = "";
-		}
-
-		update_selected_block_info();
-
-		frappe.show_alert({
-			message: "Block numbers cleared. Select a start block and number again when ready.",
-			indicator: "blue"
-		});
-	}
-
-	function save_current_layout() {
-		if (!generatedBlocks.length) {
-			frappe.msgprint("Please click Generate Blocks before saving the layout.");
-			return;
-		}
-
-		if (!filters.geo_project.get_value()) {
-			frappe.msgprint("Please select a project before saving the layout.");
-			return;
-		}
-
-		const blockSize = get_selected_block_size();
-		const meshSize = get_manual_or_auto_mesh_size();
-
-		const blocksForSave = generatedBlocks.map(b => ({
-			cut_no: b.cut_no,
-			block_no: b.block_no,
-			label: b.label,
-			col: b.col,
-			row: b.row,
-			x: b.x,
-			y: b.y,
-			width: b.width,
-			height: b.height,
-			angle_degrees: b.angle_degrees,
-			avg_z: b.avg_z,
-			min_z: b.min_z,
-			max_z: b.max_z,
-			point_count: b.point_count,
-			expected_point_count: b.expected_point_count,
-			inside_percent: b.inside_percent,
-			status: b.status,
-			area: b.area || 0,
-			effective_area: b.effective_area || 0,
-			corners: b.corners
-		}));
-
-		frappe.call({
-			method: "is_production.geo_planning.page.geo_planning_viewer.geo_planning_viewer.save_mining_block_layout",
-			args: {
-				layout_name: filters.layout_name.get_value() || "Draft Mining Blocks",
-				geo_project: filters.geo_project.get_value(),
-				geo_model_output: filters.geo_model_output.get_value(),
-				model_batch: is_geo_depth() ? "" : filters.import_batch.get_value(),
-				geo_depth_batch: is_geo_depth() ? filters.geo_depth_batch.get_value() : "",
-				pit_outline_batch: filters.pit_outline_batch.get_value(),
-				data_source: get_data_source(),
-				block_size_x: blockSize.x,
-				block_size_y: blockSize.y,
-				mesh_size_x: meshSize.x,
-				mesh_size_y: meshSize.y,
-				block_angle_degrees: Number(filters.block_angle.get_value() || 0),
-				minimum_inside_percent: Number(filters.minimum_inside.get_value() || 0),
-				blocks_json: JSON.stringify(blocksForSave)
-			},
-			freeze: true,
-			freeze_message: "Saving block layout...",
-			callback(r) {
-				if (r.message) {
-					frappe.msgprint({
-						title: "Layout Saved",
-						indicator: "green",
-						message:
-							"Layout: " + r.message.layout +
-							"<br>Blocks saved: " + r.message.blocks_created
-					});
-				}
-			}
-		});
-	}
-
-	function draw_heatmap(modelBounds) {
-		if (!points.length || !modelBounds) return;
-
-		const cell = estimate_model_cell_size_screen();
-
-		for (const p of points) {
-			const sp = world_to_screen_point(p.x, p.y);
-			const x = sp.x;
-			const y = sp.y;
-
-			ctx.fillStyle = value_colour(p.z, modelBounds.minZ, modelBounds.maxZ);
-			ctx.fillRect(
-				x - cell.x / 2,
-				y - cell.y / 2,
-				cell.x + 0.5,
-				cell.y + 0.5
-			);
-		}
-	}
-
-	function estimate_outline_cell_size(pointsForOutline) {
-		if (pitCellSizeCache) {
-			return pitCellSizeCache;
-		}
-
-		if (pointsForOutline.length < 2) {
-			pitCellSizeCache = {
-				x: 20,
-				y: 20
-			};
-
-			return pitCellSizeCache;
-		}
-
-		const sample = pointsForOutline.slice(0, Math.min(pointsForOutline.length, 5000));
-		const uniqueX = [...new Set(sample.map(p => p.x))];
-		const uniqueY = [...new Set(sample.map(p => p.y))];
-
-		pitCellSizeCache = {
-			x: median_gap(uniqueX, 20),
-			y: median_gap(uniqueY, 20)
-		};
-
-		return pitCellSizeCache;
-	}
-
-	function get_outline_boundary_edges(pointsForOutline) {
-		if (outlineEdgesCache) {
-			return outlineEdgesCache;
-		}
-
-		if (!pointsForOutline.length) {
-			outlineEdgesCache = [];
-			return outlineEdgesCache;
-		}
-
-		const cellSize = estimate_outline_cell_size(pointsForOutline);
-		const halfX = cellSize.x / 2;
-		const halfY = cellSize.y / 2;
-		const edgeMap = {};
-
-		function key_for_edge(x1, y1, x2, y2) {
-			return `${x1.toFixed(3)},${y1.toFixed(3)}|${x2.toFixed(3)},${y2.toFixed(3)}`;
-		}
-
-		function add_or_remove_edge(x1, y1, x2, y2) {
-			const keyA = key_for_edge(x1, y1, x2, y2);
-			const keyB = key_for_edge(x2, y2, x1, y1);
-
-			if (edgeMap[keyB]) {
-				delete edgeMap[keyB];
-			} else {
-				edgeMap[keyA] = {
-					x1,
-					y1,
-					x2,
-					y2
-				};
-			}
-		}
-
-		for (const p of pointsForOutline) {
-			const x1 = p.x - halfX;
-			const x2 = p.x + halfX;
-			const y1 = p.y - halfY;
-			const y2 = p.y + halfY;
-
-			add_or_remove_edge(x1, y1, x2, y1);
-			add_or_remove_edge(x2, y1, x2, y2);
-			add_or_remove_edge(x2, y2, x1, y2);
-			add_or_remove_edge(x1, y2, x1, y1);
-		}
-
-		outlineEdgesCache = Object.values(edgeMap);
-
-		return outlineEdgesCache;
-	}
-
-	function draw_pit_outline() {
-		if (!showPitOutline || !pitOutlinePoints.length) return;
-
-		const edges = get_outline_boundary_edges(pitOutlinePoints);
-
-		ctx.save();
-		ctx.strokeStyle = "#000";
-		ctx.lineWidth = 3;
-
-		for (const e of edges) {
-			const p1 = world_to_screen_point(e.x1, e.y1);
-			const p2 = world_to_screen_point(e.x2, e.y2);
-
-			ctx.beginPath();
-			ctx.moveTo(p1.x, p1.y);
-			ctx.lineTo(p2.x, p2.y);
-			ctx.stroke();
-		}
-
-		ctx.restore();
-	}
-
-	function draw_generated_blocks(modelBounds) {
-		if (!showBlocks || !generatedBlocks.length) return;
-
-		ctx.save();
-
-		for (const b of generatedBlocks) {
-			if (modelBounds && b.point_count) {
-				ctx.fillStyle = value_colour(b.avg_z, modelBounds.minZ, modelBounds.maxZ);
-				ctx.globalAlpha = 0.22;
-
-				const first = world_to_screen_point(b.corners[0].x, b.corners[0].y);
-
-				ctx.beginPath();
-				ctx.moveTo(first.x, first.y);
-
-				for (let i = 1; i < b.corners.length; i++) {
-					const p = world_to_screen_point(b.corners[i].x, b.corners[i].y);
-					ctx.lineTo(p.x, p.y);
-				}
-
-				ctx.closePath();
-				ctx.fill();
-			}
-
-			ctx.globalAlpha = 1;
-			const isSelected = selectedBlock && selectedBlock.key === b.key;
-			ctx.strokeStyle = isSelected ? "rgba(0,70,180,0.95)" : (b.status === "Full Block" ? "rgba(0,0,0,0.72)" : "rgba(160,80,0,0.95)");
-			ctx.lineWidth = isSelected ? 3 : (b.status === "Full Block" ? 1 : 1.5);
-
-			const first = world_to_screen_point(b.corners[0].x, b.corners[0].y);
-
-			ctx.beginPath();
-			ctx.moveTo(first.x, first.y);
-
-			for (let i = 1; i < b.corners.length; i++) {
-				const p = world_to_screen_point(b.corners[i].x, b.corners[i].y);
-				ctx.lineTo(p.x, p.y);
-			}
-
-			ctx.closePath();
-			ctx.stroke();
-
-			if (b.label && ((b.width || 100) * view.scale >= 45) && ((b.height || 40) * view.scale >= 20)) {
-				ctx.save();
-				const blockScreen = world_to_screen_point(b.x, b.y);
-				ctx.translate(blockScreen.x, blockScreen.y);
-				ctx.rotate(view.rotation - b.angle);
-				ctx.fillStyle = "rgba(0,0,0,0.72)";
-				ctx.font = "10px Arial";
-				ctx.textAlign = "center";
-				ctx.fillText(b.label, 0, 3);
-				ctx.restore();
-			}
-		}
-
-		ctx.restore();
-	}
-
-	function update_legend(modelBounds) {
-		if (!modelBounds || !points.length) {
-			$("#geo_legend").hide();
-			return;
-		}
-
-		const stats = get_model_stats();
-		const variable = filters.variable_name.get_value() || points[0]?.variable_name || "Selected variable";
-		const minZ = stats.minZ;
-		const maxZ = stats.maxZ;
-		const range = stats.rangeZ;
-
-		$("#geo_legend_title").text(is_geo_depth() ? "Depth Value" : "Z Value");
-		$("#geo_legend_variable").text(variable);
-		$("#geo_min_z").text(minZ.toFixed(2));
-		$("#geo_max_z").text(maxZ.toFixed(2));
-		$("#geo_avg_z").text(stats.avgZ.toFixed(2));
-		$("#geo_range_z").text(range.toFixed(2));
-
-		$("#geo_tick_0").text(minZ.toFixed(1));
-		$("#geo_tick_1").text((minZ + range * 0.25).toFixed(1));
-		$("#geo_tick_2").text((minZ + range * 0.50).toFixed(1));
-		$("#geo_tick_3").text((minZ + range * 0.75).toFixed(1));
-		$("#geo_tick_4").text(maxZ.toFixed(1));
-
-		$("#geo_legend").show();
-	}
-
-	function draw_hover_marker(modelBounds) {
-		if (!hoverPoint || !modelBounds) return;
-
-		const hp = world_to_screen_point(hoverPoint.x, hoverPoint.y);
-		const x = hp.x;
-		const y = hp.y;
-
-		ctx.save();
-		ctx.strokeStyle = "#000";
-		ctx.lineWidth = 1.5;
-		ctx.beginPath();
-		ctx.arc(x, y, 5, 0, Math.PI * 2);
-		ctx.stroke();
-
-		ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-		ctx.beginPath();
-		ctx.arc(x, y, 3, 0, Math.PI * 2);
-		ctx.fill();
-
-		ctx.restore();
-	}
-
-	function draw_hover_block() {
-		if (!hoverBlock) return;
-
-		ctx.save();
-		ctx.strokeStyle = "#111";
-		ctx.lineWidth = 2.5;
-		ctx.setLineDash([6, 3]);
-
-		const first = world_to_screen_point(hoverBlock.corners[0].x, hoverBlock.corners[0].y);
-
-		ctx.beginPath();
-		ctx.moveTo(first.x, first.y);
-
-		for (let i = 1; i < hoverBlock.corners.length; i++) {
-			const p = world_to_screen_point(hoverBlock.corners[i].x, hoverBlock.corners[i].y);
-			ctx.lineTo(p.x, p.y);
-		}
-
-		ctx.closePath();
-		ctx.stroke();
-
-		ctx.setLineDash([]);
-		ctx.restore();
-	}
-
-	function draw() {
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-		const modelBounds = get_model_bounds_only();
-
-		if (!points.length && !pitOutlinePoints.length) {
-			$("#geo_info_box").html("No data loaded.");
-			$("#geo_legend").hide();
-			return;
-		}
-
-		if (points.length && modelBounds) {
-			draw_heatmap(modelBounds);
-		}
-
-		draw_generated_blocks(modelBounds);
-		draw_pit_outline();
-		draw_hover_block();
-		draw_hover_marker(modelBounds);
-
-		const blockSize = get_selected_block_size();
-		const meshSize = get_manual_or_auto_mesh_size();
-
-		const infoParts = [];
-
-		infoParts.push(`<b>Data Source:</b> ${frappe.utils.escape_html(get_data_source())}`);
-
-		if (is_geo_depth()) {
-			infoParts.push(`<b>Geo Depth:</b> ${filters.geo_depth_batch.get_value() || "None"}`);
-		} else {
-			infoParts.push(`<b>Model Batch:</b> ${filters.import_batch.get_value() || "None"}`);
-		}
-
-		infoParts.push(`<b>Z Filter:</b> ${frappe.utils.escape_html(get_z_filter_description())}`);
-
-		if (modelBounds) {
-			infoParts.push(`<b>Points:</b> ${points.length.toLocaleString()}`);
-			infoParts.push(`<b>X:</b> ${modelBounds.minX.toFixed(2)} - ${modelBounds.maxX.toFixed(2)}`);
-			infoParts.push(`<b>Y:</b> ${modelBounds.minY.toFixed(2)} - ${modelBounds.maxY.toFixed(2)}`);
-			infoParts.push(`<b>${is_geo_depth() ? "Depth" : "Z"}:</b> ${modelBounds.minZ.toFixed(2)} - ${modelBounds.maxZ.toFixed(2)}`);
-		} else {
-			infoParts.push(`<b>Points:</b> 0`);
-		}
-
-		infoParts.push(`<b>Pit Outline Points:</b> ${pitOutlinePoints.length.toLocaleString()}`);
-		infoParts.push(`<b>Mesh Size:</b> ${meshSize.label} (${meshSize.source})`);
-		infoParts.push(`<b>Block Size:</b> ${blockSize.x && blockSize.y ? blockSize.label : "Off"}`);
-		infoParts.push(`<b>Blocks:</b> ${generatedBlocks.length.toLocaleString()}`);
-		infoParts.push(`<b>Numbering:</b> ${autoNumberBlocks ? "Auto" : "Manual"}`);
-		infoParts.push(`<b>Selected Block:</b> ${selectedBlock ? (selectedBlock.label || "Unnumbered") : "None"}`);
-		infoParts.push(`<b>View Rotation:</b> ${(view.rotation * 180 / Math.PI).toFixed(1)}°`);
-		infoParts.push(`<b>Pit Outline:</b> ${showPitOutline && pitOutlinePoints.length ? "On" : "Off"}`);
-
-		$("#geo_info_box").html(infoParts.join("<br>"));
-
-		update_legend(modelBounds);
-	}
-
-	function find_nearest_point(screenX, screenY) {
-		if (!points.length) return null;
-
-		const worldPoint = screen_to_world_point(screenX, screenY);
-		const worldX = worldPoint.x;
-		const worldY = worldPoint.y;
-		const cellWorld = estimate_model_cell_size_world();
-		const maxDistanceWorld = Math.max(cellWorld.x, cellWorld.y) * 1.2;
-
-		let best = null;
-		let bestDist = Infinity;
-
-		for (const p of points) {
-			const dx = p.x - worldX;
-			const dy = p.y - worldY;
-			const dist = Math.sqrt(dx * dx + dy * dy);
-
-			if (dist < bestDist) {
-				bestDist = dist;
-				best = p;
-			}
-		}
-
-		if (best && bestDist <= maxDistanceWorld) {
-			return best;
-		}
-
-		return null;
-	}
-
-	function find_block_for_point(point) {
-		if (!point || !generatedBlocks.length) return null;
-
-		for (const block of generatedBlocks) {
-			if (point_in_block(point, block)) {
-				return block;
-			}
-		}
-
-		return null;
-	}
-
-	function find_block_at_screen(screenX, screenY) {
-		if (!generatedBlocks.length) return null;
-
-		const worldPoint = screen_to_world_point(screenX, screenY);
-
-		for (let i = generatedBlocks.length - 1; i >= 0; i--) {
-			const block = generatedBlocks[i];
-
-			if (point_in_block(worldPoint, block)) {
-				return block;
-			}
-		}
-
-		return null;
-	}
-
-	function select_block_at_screen(screenX, screenY) {
-		const block = find_block_at_screen(screenX, screenY);
-
-		if (!block) {
-			selectedBlock = null;
-			update_selected_block_info();
-			draw();
-			return;
-		}
-
-		selectedBlock = block;
-		update_selected_block_info();
-		draw();
-	}
-
-	function get_mouse_angle_from_canvas_centre(clientX, clientY) {
-		const rect = canvas.getBoundingClientRect();
-		const x = clientX - rect.left - canvas.width / 2;
-		const y = clientY - rect.top - canvas.height / 2;
-
-		return Math.atan2(y, x);
-	}
-
-	function show_hover_box(mouseX, mouseY, point) {
-		if (!point) {
-			hide_hover_box();
-			return;
-		}
-
-		const variable = point.variable_name || filters.variable_name.get_value() || "";
-		const batch = point.import_batch || "";
-
-		hoverBlock = find_block_for_point(point);
-
-		let depthHtml = "";
-
-		if (is_geo_depth()) {
-			depthHtml = `
-				<div><b>Depth:</b> ${point.z.toFixed(3)}</div>
-				${isFinite(point.reference_z) ? `<div><b>Reference Z:</b> ${point.reference_z.toFixed(3)}</div>` : ""}
-				${isFinite(point.target_z) ? `<div><b>Target Z:</b> ${point.target_z.toFixed(3)}</div>` : ""}
-				${point.reference_variable_code ? `<div><b>Reference:</b> ${frappe.utils.escape_html(point.reference_variable_code)}</div>` : ""}
-				${point.target_variable_code ? `<div><b>Target:</b> ${frappe.utils.escape_html(point.target_variable_code)}</div>` : ""}
-			`;
-		} else {
-			depthHtml = `<div><b>Point Z:</b> ${point.z.toFixed(3)}</div>`;
-		}
-
-		let blockHtml = "";
-
-		if (hoverBlock) {
-			blockHtml = `
-				<div><b>Block:</b> ${hoverBlock.label || "Unnumbered"}</div>
-				<div><b>Block Size:</b> ${hoverBlock.width} x ${hoverBlock.height} m</div>
-				<div><b>Block Avg ${is_geo_depth() ? "Depth" : "Z"}:</b> ${hoverBlock.avg_z.toFixed(3)}</div>
-				<div><b>Block Points:</b> ${hoverBlock.point_count} / ${hoverBlock.expected_point_count}</div>
-				<div><b>Inside %:</b> ${hoverBlock.inside_percent.toFixed(1)}%</div>
-				<div><b>Status:</b> ${frappe.utils.escape_html(hoverBlock.status)}</div>
-			`;
-		}
-
-		hoverBox.innerHTML = `
-			${depthHtml}
-			<div><b>X:</b> ${point.x.toFixed(2)}</div>
-			<div><b>Y:</b> ${point.y.toFixed(2)}</div>
-			${variable ? `<div><b>Variable:</b> ${frappe.utils.escape_html(variable)}</div>` : ""}
-			${batch ? `<div><b>Batch:</b> ${frappe.utils.escape_html(batch)}</div>` : ""}
-			${blockHtml}
-		`;
-
-		const wrapRect = document.getElementById("geo_canvas_wrap").getBoundingClientRect();
-		const left = Math.min(mouseX + 14, wrapRect.width - 355);
-		const top = Math.max(8, mouseY + 14);
-
-		hoverBox.style.left = `${left}px`;
-		hoverBox.style.top = `${top}px`;
-		hoverBox.style.display = "block";
-	}
-
-	function hide_hover_box() {
-		hoverBox.style.display = "none";
-		hoverBlock = null;
-	}
-
-	canvas.addEventListener("mousedown", function(e) {
-		view.dragMoved = false;
-		view.lastX = e.clientX;
-		view.lastY = e.clientY;
-
-		if (rotateViewMode) {
-			view.isRotating = true;
-			view.startRotation = view.rotation;
-			view.startAngle = get_mouse_angle_from_canvas_centre(e.clientX, e.clientY);
-			canvas.classList.add("dragging");
-			hide_hover_box();
-			return;
-		}
-
-		view.isDragging = true;
-		canvas.classList.add("dragging");
-		hide_hover_box();
-	});
-
-	window.addEventListener("mouseup", function() {
-		view.isDragging = false;
-		view.isRotating = false;
-		canvas.classList.remove("dragging");
-	});
-
-	window.addEventListener("mousemove", function(e) {
-		const rect = canvas.getBoundingClientRect();
-
-		if (view.isRotating) {
-			const currentAngle = get_mouse_angle_from_canvas_centre(e.clientX, e.clientY);
-			view.rotation = view.startRotation + currentAngle - view.startAngle;
-
-			if (Math.abs(e.clientX - view.lastX) + Math.abs(e.clientY - view.lastY) > 3) {
-				view.dragMoved = true;
-			}
-
-			draw();
-			return;
-		}
-
-		if (view.isDragging) {
-			const dx = e.clientX - view.lastX;
-			const dy = e.clientY - view.lastY;
-
-			if (Math.abs(dx) + Math.abs(dy) > 3) {
-				view.dragMoved = true;
-			}
-
-			view.offsetX += dx;
-			view.offsetY += dy;
-
-			view.lastX = e.clientX;
-			view.lastY = e.clientY;
-
-			draw();
-			return;
-		}
-
-		const mouseX = e.clientX - rect.left;
-		const mouseY = e.clientY - rect.top;
-
-		hoverPoint = find_nearest_point(mouseX, mouseY);
-
-		if (hoverPoint) {
-			show_hover_box(mouseX, mouseY, hoverPoint);
-		} else {
-			hide_hover_box();
-		}
-
-		draw();
-	});
-
-	canvas.addEventListener("click", function(e) {
-		if (view.dragMoved || rotateViewMode) {
-			return;
-		}
-
-		const rect = canvas.getBoundingClientRect();
-		select_block_at_screen(e.clientX - rect.left, e.clientY - rect.top);
-	});
-
-	canvas.addEventListener("mouseleave", function() {
-		hoverPoint = null;
-		hide_hover_box();
-		draw();
-	});
-
-	canvas.addEventListener("wheel", function(e) {
-		e.preventDefault();
-
-		if (!points.length && !pitOutlinePoints.length) return;
-
-		const rect = canvas.getBoundingClientRect();
-		const mouseX = e.clientX - rect.left;
-		const mouseY = e.clientY - rect.top;
-		const rawMouse = unrotate_screen_point(mouseX, mouseY);
-		const zoom = e.deltaY < 0 ? 1.15 : 0.87;
-
-		view.offsetX = rawMouse.x - (rawMouse.x - view.offsetX) * zoom;
-		view.offsetY = rawMouse.y - (rawMouse.y - view.offsetY) * zoom;
-		view.scale *= zoom;
-
-		draw();
-	}, {
-		passive: false
-	});
-};
+}

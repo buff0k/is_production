@@ -869,7 +869,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Technical Mine Planning-Reports",
-   "link_count": 8,
+   "link_count": 9,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -937,7 +937,7 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Schedule Setup",
+   "label": "Mining Block Selector",
    "link_count": 0,
    "link_to": "mining-block-selecto",
    "link_type": "Page",
@@ -953,9 +953,19 @@
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Schedule Results",
+   "link_count": 0,
+   "link_to": "mining-schedule-gant",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-05-22 14:46:37.725705",
+ "modified": "2026-05-25 10:01:16.492171",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",

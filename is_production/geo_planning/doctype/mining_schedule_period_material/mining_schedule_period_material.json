@@ -23,7 +23,16 @@
   "min_value",
   "max_value",
   "point_count",
-  "remarks"
+  "remarks",
+  "section_break_orak",
+  "task_no",
+  "sequence_no",
+  "dependency_group",
+  "mining_block",
+  "mining_block_code",
+  "mining_unit",
+  "scheduled_quantity",
+  "scheduled_fraction"
  ],
  "fields": [
   {
@@ -116,13 +125,59 @@
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
+  },
+  {
+   "fieldname": "section_break_orak",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "task_no",
+   "fieldtype": "Int",
+   "label": "Task No"
+  },
+  {
+   "fieldname": "sequence_no",
+   "fieldtype": "Int",
+   "label": "Sequence No"
+  },
+  {
+   "fieldname": "dependency_group",
+   "fieldtype": "Data",
+   "label": "Planning Cut"
+  },
+  {
+   "fieldname": "mining_block",
+   "fieldtype": "Link",
+   "label": "Mining Block",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "mining_block_code",
+   "fieldtype": "Data",
+   "label": "Mining Block Code"
+  },
+  {
+   "fieldname": "mining_unit",
+   "fieldtype": "Select",
+   "label": "Mining Unit",
+   "options": "\nBCM\nTonnes"
+  },
+  {
+   "fieldname": "scheduled_quantity",
+   "fieldtype": "Float",
+   "label": "Scheduled Quantity"
+  },
+  {
+   "fieldname": "scheduled_fraction",
+   "fieldtype": "Float",
+   "label": "Scheduled Fraction"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-05-22 12:35:57.344155",
+ "modified": "2026-05-25 09:38:41.772976",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Mining Schedule Period Material",

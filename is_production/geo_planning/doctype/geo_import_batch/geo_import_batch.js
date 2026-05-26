@@ -1,6 +1,20 @@
 frappe.ui.form.on("Geo Import Batch", {
 	refresh(frm) {
+		apply_import_type_ui(frm);
 		add_buttons(frm);
+		update_full_name(frm);
+	},
+
+	import_type(frm) {
+		apply_import_type_ui(frm);
+		frm.clear_custom_buttons();
+		add_buttons(frm);
+	},
+
+	boundary_type(frm) {
+		if (is_boundary_polygon(frm) && !frm.doc.variable_name) {
+			frm.set_value("variable_name", frm.doc.boundary_type || "");
+		}
 		update_full_name(frm);
 	},
 
@@ -22,7 +36,56 @@ frappe.ui.form.on("Geo Import Batch", {
 	}
 });
 
+function is_boundary_polygon(frm) {
+	return frm.doc.import_type === "Boundary Polygon";
+}
+
+function apply_import_type_ui(frm) {
+	const boundary_mode = is_boundary_polygon(frm);
+
+	frm.toggle_display("variable_code", !boundary_mode);
+	frm.toggle_display("variable_name", true);
+	frm.toggle_display("full_name", true);
+
+	frm.toggle_display("boundary_format", boundary_mode);
+	frm.toggle_display("boundary_type", boundary_mode);
+	frm.toggle_display("coordinate_transform", boundary_mode);
+
+	frm.toggle_reqd("variable_code", !boundary_mode);
+	frm.toggle_reqd("boundary_format", boundary_mode);
+	frm.toggle_reqd("boundary_type", boundary_mode);
+
+	if (boundary_mode) {
+		if (!frm.doc.boundary_format) {
+			frm.set_value("boundary_format", "Auto Detect");
+		}
+
+		if (!frm.doc.boundary_type) {
+			frm.set_value("boundary_type", "Pit Outline");
+		}
+
+		if (!frm.doc.coordinate_transform) {
+			frm.set_value("coordinate_transform", "None");
+		}
+
+		if (!frm.doc.variable_name && frm.doc.boundary_type) {
+			frm.set_value("variable_name", frm.doc.boundary_type);
+		}
+	}
+}
+
 function add_buttons(frm) {
+	frm.clear_custom_buttons();
+
+	if (is_boundary_polygon(frm)) {
+		if (!frm.is_new()) {
+			frm.add_custom_button("Import Boundary To Pit Outline Points", () => {
+				start_boundary_pit_outline_import(frm);
+			});
+		}
+		return;
+	}
+
 	frm.add_custom_button("Detect Variables", () => {
 		if (!frm.doc.raw_file_attachment) {
 			frappe.msgprint({
@@ -108,21 +171,12 @@ function add_buttons(frm) {
 	}
 }
 
-function validate_import_ready(frm) {
+function validate_common_import_ready(frm) {
 	if (!frm.doc.raw_file_attachment) {
 		frappe.msgprint({
 			title: "File Required",
 			indicator: "orange",
 			message: "Please attach the raw geo file first."
-		});
-		return false;
-	}
-
-	if (!frm.doc.variable_code) {
-		frappe.msgprint({
-			title: "Variable Code Required",
-			indicator: "orange",
-			message: "Please click Detect Variables and select a variable before importing."
 		});
 		return false;
 	}
@@ -139,8 +193,51 @@ function validate_import_ready(frm) {
 	return true;
 }
 
+function validate_grid_import_ready(frm) {
+	if (!validate_common_import_ready(frm)) {
+		return false;
+	}
+
+	if (!frm.doc.variable_code) {
+		frappe.msgprint({
+			title: "Variable Code Required",
+			indicator: "orange",
+			message: "Please click Detect Variables and select a variable before importing."
+		});
+		return false;
+	}
+
+	return true;
+}
+
+function validate_boundary_import_ready(frm) {
+	if (!validate_common_import_ready(frm)) {
+		return false;
+	}
+
+	if (!frm.doc.boundary_type) {
+		frappe.msgprint({
+			title: "Boundary Type Required",
+			indicator: "orange",
+			message: "Please select a Boundary Type before importing."
+		});
+		return false;
+	}
+
+	if (!frm.doc.boundary_format) {
+		frappe.msgprint({
+			title: "Boundary Format Required",
+			indicator: "orange",
+			message: "Please select a Boundary Format before importing."
+		});
+		return false;
+	}
+
+	return true;
+}
+
 function start_geo_model_points_import(frm) {
-	if (!validate_import_ready(frm)) {
+	if (!validate_grid_import_ready(frm)) {
 		return;
 	}
 
@@ -178,12 +275,12 @@ function start_geo_model_points_import(frm) {
 }
 
 function start_pit_outline_import(frm) {
-	if (!validate_import_ready(frm)) {
+	if (!validate_grid_import_ready(frm)) {
 		return;
 	}
 
 	frappe.confirm(
-		"This will import the selected variable into <b>Pit Outline Points</b>:<br><br><b>" +
+		"This will import the selected grid variable into <b>Pit Outline Points</b>:<br><br><b>" +
 		(frm.doc.full_name || frm.doc.variable_code) +
 		"</b><br><br>Continue?",
 		() => {
@@ -215,9 +312,57 @@ function start_pit_outline_import(frm) {
 	);
 }
 
+function start_boundary_pit_outline_import(frm) {
+	if (!validate_boundary_import_ready(frm)) {
+		return;
+	}
+
+	frappe.confirm(
+		"This will import the boundary polygon directly into <b>Pit Outline Points</b>:<br><br>" +
+		"<b>Boundary Type:</b> " + (frm.doc.boundary_type || "") + "<br>" +
+		"<b>Boundary Format:</b> " + (frm.doc.boundary_format || "") + "<br>" +
+		"<b>Transform:</b> " + (frm.doc.coordinate_transform || "None") + "<br><br>" +
+		"Continue?",
+		() => {
+			frappe.call({
+				method: "is_production.geo_planning.doctype.geo_import_batch.geo_import_batch.enqueue_create_boundary_pit_outline_points",
+				args: {
+					docname: frm.doc.name,
+					replace_existing: 1
+				},
+				freeze: true,
+				freeze_message: "Starting Boundary Polygon import...",
+				callback(r) {
+					if (r.message) {
+						frappe.msgprint({
+							title: "Boundary Import Started",
+							indicator: "blue",
+							message:
+								"Boundary polygon import is running in the background.<br>" +
+								"Target: Pit Outline Points<br>" +
+								"Boundary Type: " + (frm.doc.boundary_type || "") + "<br>" +
+								"Job ID: " + r.message.job_id
+						});
+
+						frm.reload_doc();
+					}
+				}
+			});
+		}
+	);
+}
+
 function update_full_name(frm) {
+	const boundary_mode = is_boundary_polygon(frm);
 	const code = frm.doc.variable_code || "";
 	const name = frm.doc.variable_name || "";
+	const boundary_type = frm.doc.boundary_type || "";
+
+	if (boundary_mode) {
+		const boundary_name = name || boundary_type || "Boundary Polygon";
+		frm.set_value("full_name", boundary_name);
+		return;
+	}
 
 	if (code && name) {
 		frm.set_value("full_name", code + " - " + name);
@@ -245,7 +390,7 @@ function show_import_complete_message(data, label) {
 		message:
 			"Batch: " + data.batch +
 			"<br>Status: " + data.status +
-			"<br>Variable: " + (data.full_name || data.variable_code || "") +
+			"<br>Variable/Boundary: " + (data.full_name || data.variable_code || "") +
 			"<br>Rows found: " + (data.row_count || 0) +
 			"<br>Created: " + (data.success_count || 0) +
 			"<br>Errors: " + (data.error_count || 0)

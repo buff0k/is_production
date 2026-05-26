@@ -7,6 +7,10 @@
  "engine": "InnoDB",
  "field_order": [
   "geo_batch",
+  "import_type",
+  "boundary_format",
+  "boundary_type",
+  "coordinate_transform",
   "batch_id",
   "geo_project",
   "source_system",
@@ -185,12 +189,36 @@
    "fieldname": "full_name",
    "fieldtype": "Data",
    "label": "Full Name"
+  },
+  {
+   "fieldname": "import_type",
+   "fieldtype": "Select",
+   "label": "Import Type",
+   "options": "\nGrid Model\nBoundary Polygon"
+  },
+  {
+   "fieldname": "boundary_format",
+   "fieldtype": "Select",
+   "label": "Boundary Format",
+   "options": "\nAuto Detect\nPermit CSV\nSimple XY\nSimple XYZ"
+  },
+  {
+   "fieldname": "boundary_type",
+   "fieldtype": "Select",
+   "label": "Boundary Type",
+   "options": "\nPit Outline\nPermit Area\nReserve Boundary"
+  },
+  {
+   "fieldname": "coordinate_transform",
+   "fieldtype": "Select",
+   "label": "Coordinate Transform",
+   "options": "\nNone\nLo29 Permit CSV to Mine Grid"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-04 10:30:47.038540",
+ "modified": "2026-05-25 11:09:03.910830",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Import Batch",

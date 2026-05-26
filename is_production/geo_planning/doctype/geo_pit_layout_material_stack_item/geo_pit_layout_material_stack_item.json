@@ -20,7 +20,8 @@
   "required",
   "allow_missing_data",
   "default_value",
-  "remarks"
+  "remarks",
+  "mining_sequence_no"
  ],
  "fields": [
   {
@@ -107,13 +108,19 @@
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
+  },
+  {
+   "fieldname": "mining_sequence_no",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Mining Sequence No"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-05-19 07:17:13.178536",
+ "modified": "2026-05-25 08:21:52.328331",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Geo Pit Layout Material Stack Item",

@@ -15,7 +15,16 @@
   "variable_name",
   "version_tag",
   "status",
-  "remarks_comments"
+  "remarks_comments",
+  "boundary_type",
+  "boundary_format",
+  "coordinate_transform",
+  "source_point_no",
+  "source_line_no",
+  "source_x",
+  "source_y",
+  "latitude",
+  "longitude"
  ],
  "fields": [
   {
@@ -88,12 +97,58 @@
    "fieldname": "remarks_comments",
    "fieldtype": "Small Text",
    "label": "Remarks / Comments"
+  },
+  {
+   "fieldname": "boundary_type",
+   "fieldtype": "Select",
+   "label": "Boundary Type",
+   "options": "\nPit Outline\nPermit Area\nReserve Boundary"
+  },
+  {
+   "fieldname": "boundary_format",
+   "fieldtype": "Data",
+   "label": "Boundary Format"
+  },
+  {
+   "fieldname": "coordinate_transform",
+   "fieldtype": "Data",
+   "label": "Coordinate Transform"
+  },
+  {
+   "fieldname": "source_point_no",
+   "fieldtype": "Data",
+   "label": "Source Point No"
+  },
+  {
+   "fieldname": "source_line_no",
+   "fieldtype": "Int",
+   "label": "Source Line No"
+  },
+  {
+   "fieldname": "source_x",
+   "fieldtype": "Float",
+   "label": "Source X"
+  },
+  {
+   "fieldname": "source_y",
+   "fieldtype": "Float",
+   "label": "Source Y"
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "label": "Latitude"
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "label": "Longitude"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-12 10:35:09.025487",
+ "modified": "2026-05-25 11:11:42.793173",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Pit Outline Points",

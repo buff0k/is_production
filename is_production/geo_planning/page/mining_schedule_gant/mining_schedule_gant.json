@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2026-05-25 09:39:31.609040",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-05-25 09:39:31.609040",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "mining-schedule-gant",
+ "owner": "Administrator",
+ "page_name": "mining-schedule-gant",
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Mining Schedule Gantt"
+}

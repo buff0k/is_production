@@ -1,5 +1,6 @@
 frappe.ui.form.on('Rental Equipment', {
     refresh(frm) {
+        set_plant_number_query(frm);
         frm.add_custom_button(__('Generate Month Rows'), function () {
             generate_month_rows(frm);
         });
@@ -23,22 +24,13 @@ frappe.ui.form.on('Rental Equipment', {
             });
         }
     },
-
     site(frm) {
-        if (frm.doc.month && frm.doc.rental_equipment_logs && frm.doc.rental_equipment_logs.length) {
-            frappe.show_alert({
-                message: __('Site changed. Click Populate Hours & Diesel to refresh logs.'),
-                indicator: 'orange'
-            });
-        }
-    }
-});
-
-
-frappe.ui.form.on('Rental Equipment Log Row', {
-    start(frm, cdt, cdn) {
-        calculate_row(frm, cdt, cdn);
+        set_plant_number_query(frm);
+        frm.set_value("plant_number", "");
+        frm.set_value("make", "");
+        frm.set_value("model", "");
     },
+
 
     stop(frm, cdt, cdn) {
         calculate_row(frm, cdt, cdn);
@@ -57,6 +49,18 @@ frappe.ui.form.on('Rental Equipment Log Row', {
     }
 });
 
+
+
+function set_plant_number_query(frm) {
+    frm.set_query("plant_number", function () {
+        return {
+            query: "is_production.production.doctype.rental_equipment.rental_equipment.get_submitted_assets_by_site",
+            filters: {
+                site: frm.doc.site || ""
+            }
+        };
+    });
+}
 
 function fetch_asset_details(frm) {
     if (!frm.doc.plant_number) {
