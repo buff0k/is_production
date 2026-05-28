@@ -268,7 +268,7 @@ def get_msr_time_map(filters):
             CAST(msr.start_time AS CHAR) AS start_time,
             CAST(msr.end_time AS CHAR) AS end_time,
             msr.total_time,
-            msr.total_time_unavailable,
+            msr.total_time AS total_time_unavailable,
             msr.service_breakdown
         FROM `tabMechanical Service Report` msr
         LEFT JOIN `tabAsset` asset

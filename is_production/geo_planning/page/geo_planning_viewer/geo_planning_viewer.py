@@ -81,6 +81,30 @@ def _dedupe_xy(rows):
 	return output
 
 
+def _normalise_rows(rows):
+	return [
+		point
+		for point in (_normalise_point(row) for row in rows)
+		if point.get("x") is not None and point.get("y") is not None
+	]
+
+
+def _safe_order_by(doctype, preferred_fields=None):
+	preferred_fields = preferred_fields or []
+	parts = []
+
+	for item in preferred_fields:
+		fieldname = item.split()[0]
+
+		if _doctype_has_field(doctype, fieldname):
+			parts.append(item)
+
+	if not parts:
+		return "modified desc" if _doctype_has_field(doctype, "modified") else "name asc"
+
+	return ", ".join(parts)
+
+
 def _boundary_sort_key(row):
 	def number_or_large(value):
 		try:
@@ -187,10 +211,10 @@ def get_import_batch_points(
 		filters=filters,
 		fields=fields,
 		limit_page_length=0,
-		order_by="row_no asc",
+		order_by=_safe_order_by(doctype, ["y asc", "x asc", "row_no asc", "name asc"]),
 	)
 
-	return rows
+	return _normalise_rows(rows)
 
 
 @frappe.whitelist()
@@ -255,7 +279,7 @@ def get_pit_outline_points(
 		filters=filters,
 		fields=fields,
 		limit_page_length=0,
-		order_by="row_no asc",
+		order_by=_safe_order_by(doctype, ["row_no asc", "source_point_no asc", "source_line_no asc", "name asc"]),
 	)
 
 	return _prepare_outline_points(rows, outline_mode=outline_mode)

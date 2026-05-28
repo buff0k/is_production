@@ -14,6 +14,7 @@ class GeoPlanningViewerPage {
 		this.wrapper = $(page.body);
 
 		this.points = [];
+		this.heatmapMetrics = null;
 		this.pitOutlinePoints = [];
 		this.previewBlocks = [];
 
@@ -31,6 +32,12 @@ class GeoPlanningViewerPage {
 		this.canvas = null;
 		this.ctx = null;
 		this.hoverBox = null;
+
+		this.pixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+		this.canvasCssWidth = 900;
+		this.canvasCssHeight = 620;
+
+		this.heatmapMetrics = null;
 
 		this.view = {
 			scale: 1,
@@ -529,9 +536,23 @@ class GeoPlanningViewerPage {
 		}
 
 		const rect = wrap.getBoundingClientRect();
+		const cssWidth = Math.max(900, Math.floor(rect.width));
+		const cssHeight = Math.max(620, Math.floor(rect.height));
+		const nextPixelRatio = Math.max(1, Math.min(window.devicePixelRatio || 1, 3));
+		const bufferWidth = Math.floor(cssWidth * nextPixelRatio);
+		const bufferHeight = Math.floor(cssHeight * nextPixelRatio);
 
-		this.canvas.width = Math.max(900, Math.floor(rect.width));
-		this.canvas.height = Math.max(620, Math.floor(rect.height));
+		this.pixelRatio = nextPixelRatio;
+		this.canvasCssWidth = cssWidth;
+		this.canvasCssHeight = cssHeight;
+
+		this.canvas.style.width = `${cssWidth}px`;
+		this.canvas.style.height = `${cssHeight}px`;
+
+		if (this.canvas.width !== bufferWidth || this.canvas.height !== bufferHeight) {
+			this.canvas.width = bufferWidth;
+			this.canvas.height = bufferHeight;
+		}
 
 		if (this.points.length || this.pitOutlinePoints.length || this.previewBlocks.length) {
 			this.fit_view();
@@ -542,6 +563,7 @@ class GeoPlanningViewerPage {
 
 	clear_all_data() {
 		this.points = [];
+		this.heatmapMetrics = null;
 		this.pitOutlinePoints = [];
 		this.previewBlocks = [];
 		this.hoverPoint = null;
@@ -622,6 +644,8 @@ class GeoPlanningViewerPage {
 						geo_model_output: p.geo_model_output || "",
 						row_no: p.row_no
 					})).filter(p => isFinite(p.x) && isFinite(p.y) && isFinite(p.z));
+
+					this.heatmapMetrics = this.calculate_heatmap_metrics(this.points);
 
 					resolve();
 				},
@@ -984,6 +1008,117 @@ class GeoPlanningViewerPage {
 		};
 	}
 
+	get_canvas_width() {
+		return this.canvasCssWidth || Math.max(1, Math.floor((this.canvas ? this.canvas.width : 900) / (this.pixelRatio || 1)));
+	}
+
+	get_canvas_height() {
+		return this.canvasCssHeight || Math.max(1, Math.floor((this.canvas ? this.canvas.height : 620) / (this.pixelRatio || 1)));
+	}
+
+	calculate_heatmap_metrics(points) {
+		if (!points || points.length < 2) {
+			return null;
+		}
+
+		const xValues = points.map(p => p.x).filter(isFinite).sort((a, b) => a - b);
+		const yValues = points.map(p => p.y).filter(isFinite).sort((a, b) => a - b);
+		const xStep = this.get_representative_spacing(xValues);
+		const yStep = this.get_representative_spacing(yValues);
+		const fallback = xStep || yStep || 1;
+
+		return {
+			xStep: xStep || fallback,
+			yStep: yStep || fallback
+		};
+	}
+
+	get_representative_spacing(sortedValues) {
+		if (!sortedValues || sortedValues.length < 2) {
+			return 0;
+		}
+
+		const deltas = [];
+		let previous = sortedValues[0];
+
+		for (let i = 1; i < sortedValues.length; i++) {
+			const value = sortedValues[i];
+			const delta = value - previous;
+
+			if (delta > 0.000001 && isFinite(delta)) {
+				deltas.push(delta);
+			}
+
+			previous = value;
+		}
+
+		if (!deltas.length) {
+			return 0;
+		}
+
+		deltas.sort((a, b) => a - b);
+		const index = Math.min(deltas.length - 1, Math.max(0, Math.floor(deltas.length * 0.10)));
+		return deltas[index];
+	}
+
+	get_heatmap_cell_size() {
+		if (!this.heatmapMetrics) {
+			this.heatmapMetrics = this.calculate_heatmap_metrics(this.points);
+		}
+
+		const metrics = this.heatmapMetrics || { xStep: 1, yStep: 1 };
+
+		return {
+			x: metrics.xStep * 1.04,
+			y: metrics.yStep * 1.04
+		};
+	}
+
+	draw_heatmap_cell(point, cellSize, fillStyle) {
+		const ctx = this.ctx;
+		const halfX = cellSize.x / 2;
+		const halfY = cellSize.y / 2;
+		const cw = this.get_canvas_width();
+		const ch = this.get_canvas_height();
+
+		if (!this.view.rotation) {
+			const s = this.world_to_screen(point);
+			const w = Math.max(1.15, cellSize.x * this.view.scale);
+			const h = Math.max(1.15, cellSize.y * this.view.scale);
+
+			if (s.x + w / 2 < -30 || s.x - w / 2 > cw + 30 || s.y + h / 2 < -30 || s.y - h / 2 > ch + 30) {
+				return;
+			}
+
+			ctx.fillStyle = fillStyle;
+			ctx.fillRect(s.x - w / 2, s.y - h / 2, w, h);
+			return;
+		}
+
+		const corners = [
+			{ x: point.x - halfX, y: point.y - halfY },
+			{ x: point.x + halfX, y: point.y - halfY },
+			{ x: point.x + halfX, y: point.y + halfY },
+			{ x: point.x - halfX, y: point.y + halfY }
+		].map(p => this.world_to_screen(p));
+
+		if (corners.every(s => s.x < -30 || s.x > cw + 30 || s.y < -30 || s.y > ch + 30)) {
+			return;
+		}
+
+		ctx.beginPath();
+		corners.forEach((s, index) => {
+			if (index === 0) {
+				ctx.moveTo(s.x, s.y);
+			} else {
+				ctx.lineTo(s.x, s.y);
+			}
+		});
+		ctx.closePath();
+		ctx.fillStyle = fillStyle;
+		ctx.fill();
+	}
+
 	fit_view() {
 		const b = this.get_bounds();
 
@@ -994,16 +1129,16 @@ class GeoPlanningViewerPage {
 		const pad = 70;
 		const width = b.maxX - b.minX || 1;
 		const height = b.maxY - b.minY || 1;
-		const scaleX = (this.canvas.width - pad * 2) / width;
-		const scaleY = (this.canvas.height - pad * 2) / height;
+		const scaleX = (this.get_canvas_width() - pad * 2) / width;
+		const scaleY = (this.get_canvas_height() - pad * 2) / height;
 
 		this.view.scale = Math.min(scaleX, scaleY);
 
 		const drawnWidth = width * this.view.scale;
 		const drawnHeight = height * this.view.scale;
 
-		this.view.offsetX = (this.canvas.width - drawnWidth) / 2 - b.minX * this.view.scale;
-		this.view.offsetY = (this.canvas.height - drawnHeight) / 2 + b.maxY * this.view.scale;
+		this.view.offsetX = (this.get_canvas_width() - drawnWidth) / 2 - b.minX * this.view.scale;
+		this.view.offsetY = (this.get_canvas_height() - drawnHeight) / 2 + b.maxY * this.view.scale;
 	}
 
 	rotate_screen_point(x, y) {
@@ -1011,8 +1146,8 @@ class GeoPlanningViewerPage {
 			return { x, y };
 		}
 
-		const cx = this.canvas.width / 2;
-		const cy = this.canvas.height / 2;
+		const cx = this.get_canvas_width() / 2;
+		const cy = this.get_canvas_height() / 2;
 		const dx = x - cx;
 		const dy = y - cy;
 		const cos = Math.cos(this.view.rotation);
@@ -1029,8 +1164,8 @@ class GeoPlanningViewerPage {
 			return { x, y };
 		}
 
-		const cx = this.canvas.width / 2;
-		const cy = this.canvas.height / 2;
+		const cx = this.get_canvas_width() / 2;
+		const cy = this.get_canvas_height() / 2;
 		const dx = x - cx;
 		const dy = y - cy;
 		const cos = Math.cos(-this.view.rotation);
@@ -1092,8 +1227,12 @@ class GeoPlanningViewerPage {
 		}
 
 		const ctx = this.ctx;
+		const ratio = this.pixelRatio || 1;
 
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
 		ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+		ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+		ctx.imageSmoothingEnabled = false;
 
 		this.draw_background_grid();
 
@@ -1116,22 +1255,24 @@ class GeoPlanningViewerPage {
 	draw_background_grid() {
 		const ctx = this.ctx;
 		const step = 28;
+		const cw = this.get_canvas_width();
+		const ch = this.get_canvas_height();
 
 		ctx.save();
 		ctx.strokeStyle = "rgba(0, 0, 0, 0.05)";
 		ctx.lineWidth = 1;
 
-		for (let x = 0; x <= this.canvas.width; x += step) {
+		for (let x = 0; x <= cw; x += step) {
 			ctx.beginPath();
 			ctx.moveTo(x, 0);
-			ctx.lineTo(x, this.canvas.height);
+			ctx.lineTo(x, ch);
 			ctx.stroke();
 		}
 
-		for (let y = 0; y <= this.canvas.height; y += step) {
+		for (let y = 0; y <= ch; y += step) {
 			ctx.beginPath();
 			ctx.moveTo(0, y);
-			ctx.lineTo(this.canvas.width, y);
+			ctx.lineTo(cw, y);
 			ctx.stroke();
 		}
 
@@ -1145,20 +1286,17 @@ class GeoPlanningViewerPage {
 
 		const ctx = this.ctx;
 		const stats = this.get_stats();
-		const radius = this.points.length > 5000 ? 2 : 3;
+		const cellSize = this.get_heatmap_cell_size();
 
 		ctx.save();
+		ctx.globalAlpha = 1;
 
 		for (const p of this.points) {
-			const s = this.world_to_screen(p);
+			const fillStyle = stats
+				? this.value_colour(p.z, stats.minZ, stats.maxZ)
+				: "rgba(80, 140, 220, 0.95)";
 
-			if (s.x < -20 || s.x > this.canvas.width + 20 || s.y < -20 || s.y > this.canvas.height + 20) {
-				continue;
-			}
-
-			ctx.fillStyle = stats ? this.value_colour(p.z, stats.minZ, stats.maxZ) : "rgba(80, 140, 220, 0.8)";
-			ctx.globalAlpha = 0.75;
-			ctx.fillRect(s.x - radius, s.y - radius, radius * 2, radius * 2);
+			this.draw_heatmap_cell(p, cellSize, fillStyle);
 		}
 
 		ctx.restore();
@@ -1347,7 +1485,7 @@ class GeoPlanningViewerPage {
 			if (this.rotateViewMode) {
 				this.view.isRotating = true;
 				this.view.startRotation = this.view.rotation;
-				this.view.startAngle = Math.atan2(y - this.canvas.height / 2, x - this.canvas.width / 2);
+				this.view.startAngle = Math.atan2(y - this.get_canvas_height() / 2, x - this.get_canvas_width() / 2);
 				return;
 			}
 
@@ -1361,7 +1499,7 @@ class GeoPlanningViewerPage {
 			const y = event.clientY - rect.top;
 
 			if (this.view.isRotating) {
-				const angle = Math.atan2(y - this.canvas.height / 2, x - this.canvas.width / 2);
+				const angle = Math.atan2(y - this.get_canvas_height() / 2, x - this.get_canvas_width() / 2);
 				this.view.rotation = this.view.startRotation + angle - this.view.startAngle;
 				this.view.dragMoved = true;
 				this.draw();
