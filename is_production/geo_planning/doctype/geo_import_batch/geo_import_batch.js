@@ -2,25 +2,33 @@ frappe.ui.form.on("Geo Import Batch", {
 	refresh(frm) {
 		apply_import_type_ui(frm);
 		add_buttons(frm);
-		update_full_name(frm);
+
+		// Important:
+		// Do NOT call update_full_name(frm) here.
+		// Calling frm.set_value() on refresh can mark the document dirty
+		// immediately after a successful save, causing "Saved" toast +
+		// "Not Saved" header at the same time.
 	},
 
 	import_type(frm) {
 		apply_import_type_ui(frm);
 		frm.clear_custom_buttons();
 		add_buttons(frm);
+		update_full_name(frm);
 	},
 
 	boundary_type(frm) {
 		if (is_boundary_polygon(frm) && !frm.doc.variable_name) {
 			frm.set_value("variable_name", frm.doc.boundary_type || "");
 		}
+
 		update_full_name(frm);
 	},
 
 	raw_file_attachment(frm) {
-		frm.set_value("variable_code", "");
-		frm.set_value("full_name", "");
+		// Only clear dependent values when the attachment is changed.
+		set_value_if_changed(frm, "variable_code", "");
+		set_value_if_changed(frm, "full_name", "");
 	},
 
 	variable_code(frm) {
@@ -32,12 +40,49 @@ frappe.ui.form.on("Geo Import Batch", {
 	},
 
 	before_save(frm) {
-		update_full_name(frm);
+		// Important:
+		// Do NOT use frm.set_value() inside before_save for this.
+		// Direct assignment avoids async dirty-state issues during save.
+		frm.doc.full_name = build_full_name(frm);
 	}
 });
 
 function is_boundary_polygon(frm) {
 	return frm.doc.import_type === "Boundary Polygon";
+}
+
+function set_value_if_changed(frm, fieldname, value) {
+	const current = frm.doc[fieldname] || "";
+	const next = value || "";
+
+	if (current !== next) {
+		frm.set_value(fieldname, next);
+	}
+}
+
+function build_full_name(frm) {
+	const boundary_mode = is_boundary_polygon(frm);
+	const code = frm.doc.variable_code || "";
+	const name = frm.doc.variable_name || "";
+	const boundary_type = frm.doc.boundary_type || "";
+
+	if (boundary_mode) {
+		return name || boundary_type || "Boundary Polygon";
+	}
+
+	if (code && name) {
+		return code + " - " + name;
+	}
+
+	if (code) {
+		return code;
+	}
+
+	return "";
+}
+
+function update_full_name(frm) {
+	set_value_if_changed(frm, "full_name", build_full_name(frm));
 }
 
 function apply_import_type_ui(frm) {
@@ -57,19 +102,19 @@ function apply_import_type_ui(frm) {
 
 	if (boundary_mode) {
 		if (!frm.doc.boundary_format) {
-			frm.set_value("boundary_format", "Auto Detect");
+			set_value_if_changed(frm, "boundary_format", "Auto Detect");
 		}
 
 		if (!frm.doc.boundary_type) {
-			frm.set_value("boundary_type", "Pit Outline");
+			set_value_if_changed(frm, "boundary_type", "Pit Outline");
 		}
 
 		if (!frm.doc.coordinate_transform) {
-			frm.set_value("coordinate_transform", "None");
+			set_value_if_changed(frm, "coordinate_transform", "None");
 		}
 
 		if (!frm.doc.variable_name && frm.doc.boundary_type) {
-			frm.set_value("variable_name", frm.doc.boundary_type);
+			set_value_if_changed(frm, "variable_name", frm.doc.boundary_type);
 		}
 	}
 }
@@ -83,6 +128,7 @@ function add_buttons(frm) {
 				start_boundary_pit_outline_import(frm);
 			});
 		}
+
 		return;
 	}
 
@@ -352,27 +398,6 @@ function start_boundary_pit_outline_import(frm) {
 	);
 }
 
-function update_full_name(frm) {
-	const boundary_mode = is_boundary_polygon(frm);
-	const code = frm.doc.variable_code || "";
-	const name = frm.doc.variable_name || "";
-	const boundary_type = frm.doc.boundary_type || "";
-
-	if (boundary_mode) {
-		const boundary_name = name || boundary_type || "Boundary Polygon";
-		frm.set_value("full_name", boundary_name);
-		return;
-	}
-
-	if (code && name) {
-		frm.set_value("full_name", code + " - " + name);
-	} else if (code) {
-		frm.set_value("full_name", code);
-	} else {
-		frm.set_value("full_name", "");
-	}
-}
-
 frappe.realtime.on("geo_model_points_import_complete", function(data) {
 	show_import_complete_message(data, "Geo Model Points");
 });
@@ -382,7 +407,9 @@ frappe.realtime.on("pit_outline_points_import_complete", function(data) {
 });
 
 function show_import_complete_message(data, label) {
-	if (!data) return;
+	if (!data) {
+		return;
+	}
 
 	frappe.msgprint({
 		title: data.status === "success" ? label + " Import Complete" : label + " Import Failed",
@@ -396,5 +423,7 @@ function show_import_complete_message(data, label) {
 			"<br>Errors: " + (data.error_count || 0)
 	});
 
-	cur_frm && cur_frm.reload_doc();
+	if (cur_frm) {
+		cur_frm.reload_doc();
+	}
 }
