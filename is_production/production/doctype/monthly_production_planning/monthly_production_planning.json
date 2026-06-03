@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:{prod_month_end}-{location}",
+ "autoname": "format:{prod_month_end_date}-{location}",
  "creation": "2024-10-11 20:47:33.946485",
  "doctype": "DocType",
  "engine": "InnoDB",

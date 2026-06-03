@@ -101,7 +101,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Shift",
-   "options": "Day\nNight\nMorning\nAfternoon",
+   "options": "\nDay\nNight",
    "reqd": 1
   },
   {

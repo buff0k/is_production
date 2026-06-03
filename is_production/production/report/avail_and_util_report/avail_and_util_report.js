@@ -20,6 +20,18 @@ frappe.query_reports["Avail and Util report"] = {
             fieldtype: "Link",
             options: "Location",
             reqd: 0
+        },
+        {
+            fieldname: "machine_scope",
+            label: __("Production Machines, Swing/Spare Machines AND Include Swing/Spare"),
+            fieldtype: "Select",
+            options: [
+                "Production Machines",
+                "Swing/Spare Machines",
+                "Include Swing/Spare"
+            ].join("\n"),
+            default: "Include Swing/Spare",
+            reqd: 1
         }
     ],
 
@@ -39,9 +51,6 @@ frappe.query_reports["Avail and Util report"] = {
 
     get_datatable_options(options) {
         return Object.assign(options, {
-            // 6 because the table also has the row number column on the far left.
-            // This freezes:
-            // Row No | Asset Category | Shift Date | Asset Name | Shift | Location
             freezeColumns: 6
         });
     },
@@ -59,21 +68,49 @@ frappe.query_reports["Avail and Util report"] = {
             apply_avail_util_freeze_columns();
         }, 100);
 
-        if (column.fieldname === "breakdown_reason" && data.breakdown_reason) {
-            value = `<span style="color:#d9534f;font-weight:600;" title="${data.breakdown_reason}">
-                        ${data.breakdown_reason}
-                     </span>`;
+        if (data && column.fieldname === "breakdown_reason" && data.breakdown_reason) {
+            const reason = escape_avail_util_html(data.breakdown_reason);
+            value = `<span style="color:#d9534f;font-weight:600;" title="${reason}">${reason}</span>`;
         }
 
-        if (column.fieldname === "other_delay_reason" && data.other_delay_reason) {
-            value = `<span style="color:#f0ad4e;" title="${data.other_delay_reason}">
-                        ${data.other_delay_reason}
-                     </span>`;
+        if (data && column.fieldname === "other_delay_reason" && data.other_delay_reason) {
+            const reason = escape_avail_util_html(data.other_delay_reason);
+            value = `<span style="color:#f0ad4e;" title="${reason}">${reason}</span>`;
+        }
+
+        if (data && Number(data.is_spare_swing_unit || 0) === 1) {
+            const spare_reason = data.spare_swing_reason || "Spare/Swing unit in Monthly Production Planning";
+            value = apply_spare_swing_purple_highlight(value, spare_reason);
         }
 
         return value;
     }
 };
+
+function escape_avail_util_html(value) {
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function apply_spare_swing_purple_highlight(value, reason) {
+    const safe_reason = escape_avail_util_html(reason || "Spare/Swing unit in Monthly Production Planning");
+
+    return `<span class="avail-util-spare-swing-cell"
+                  title="${safe_reason}"
+                  style="display:block;margin:-8px -10px;padding:8px 10px;
+                         background:#e6d6ff;color:#4b0082;font-weight:600;
+                         min-height:100%;border-left:3px solid #7b2cbf;">
+                ${value || ""}
+            </span>`;
+}
 
 function apply_avail_util_freeze_columns() {
     if (!frappe.query_report || !frappe.query_report.datatable) {
@@ -99,16 +136,6 @@ function apply_avail_util_freeze_columns() {
     style.id = style_id;
 
     style.innerHTML = `
-        /*
-            Freeze first 6 datatable columns:
-            col 0 = Row number
-            col 1 = Asset Category
-            col 2 = Shift Date
-            col 3 = Asset Name
-            col 4 = Shift
-            col 5 = Location
-        */
-
         .dt-cell--col-0,
         .dt-cell--col-1,
         .dt-cell--col-2,
@@ -162,11 +189,16 @@ function apply_avail_util_freeze_columns() {
         .dt-cell--col-5 {
             left: 438px !important;
         }
+
+        .avail-util-spare-swing-cell {
+            background: #e6d6ff !important;
+            color: #4b0082 !important;
+            font-weight: 600 !important;
+            border-left: 3px solid #7b2cbf !important;
+        }
     `;
 
     document.head.appendChild(style);
-
-    console.log("Avail and Util report: freeze columns applied");
 }
 
 $(document).on("page-change", function() {
@@ -180,3 +212,29 @@ $(document).on("click", ".query-report button, .query-report .btn", function() {
         apply_avail_util_freeze_columns();
     }, 1200);
 });
+
+
+const avail_util_tree_arrow_style = document.createElement('style');
+avail_util_tree_arrow_style.innerHTML = `
+/* Keep tree dropdown arrows visible on purple Swing/Spare rows */
+.query-report[data-report-name="Avail and Util report"] .dt-cell__tree-node,
+.query-report[data-report-name="Avail and Util report"] .dt-tree-node,
+.query-report[data-report-name="Avail and Util report"] .dt-row-tree-node,
+.query-report[data-report-name="Avail and Util report"] .tree-node,
+.query-report[data-report-name="Avail and Util report"] .dt-cell__toggle,
+.query-report[data-report-name="Avail and Util report"] .dt-toggle,
+.query-report[data-report-name="Avail and Util report"] .octicon,
+.query-report[data-report-name="Avail and Util report"] .indicator-pill {
+    position: relative !important;
+    z-index: 20 !important;
+    color: #111111 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.query-report[data-report-name="Avail and Util report"] .avail-util-spare-swing-cell {
+    position: relative !important;
+    z-index: 1 !important;
+}
+`;
+document.head.appendChild(avail_util_tree_arrow_style);

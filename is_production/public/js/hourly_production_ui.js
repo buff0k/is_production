@@ -1026,3 +1026,223 @@ async handleDozerServiceChange(row) {
 };
 
 console.log('HourlyProductionUI class registered');
+
+// === FORCE HOUR REPORT MPP MONTHLY STATS START ===
+(function () {
+  function n(v) {
+    const x = flt(v || 0);
+    return isFinite(x) ? x : 0;
+  }
+
+  function fmt(v, decimals) {
+    v = n(v);
+
+    const rounded = Number(v.toFixed(decimals));
+
+    return rounded.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals
+    });
+  }
+
+  function getPlanName(frm) {
+    return (
+      frm.doc.month_prod_planning ||
+      frm.doc.monthly_production_planning ||
+      frm.doc.monthly_planning ||
+      ''
+    );
+  }
+
+  async function getMPP(frm) {
+    const linkedPlan = getPlanName(frm);
+
+    if (linkedPlan) {
+      try {
+        return await frappe.db.get_doc('Monthly Production Planning', linkedPlan);
+      } catch (e) {
+        console.warn('Could not fetch linked MPP:', linkedPlan, e);
+      }
+    }
+
+    const site = frm.doc.location || frm.doc.site || '';
+    const date = frm.doc.prod_date || frm.doc.date || frm.doc.shift_date || '';
+
+    if (!site || !date) return null;
+
+    try {
+      const docs = await frappe.db.get_list('Monthly Production Planning', {
+        filters: [
+          ['location', '=', site],
+          ['prod_month_start_date', '<=', date],
+          ['prod_month_end_date', '>=', date]
+        ],
+        fields: ['name'],
+        limit: 1
+      });
+
+      if (!docs || !docs.length) return null;
+
+      return await frappe.db.get_doc('Monthly Production Planning', docs[0].name);
+    } catch (e) {
+      console.warn('Could not fetch MPP by site/date', e);
+      return null;
+    }
+  }
+
+  function getRows(root) {
+    const rows = {};
+
+    $(root).find('table').each(function () {
+      const tableText = $(this).text();
+
+      if (!tableText.includes('Monthly Statistics')) return;
+
+      $(this).find('tr').each(function () {
+        const cells = $(this).find('td, th');
+
+        if (cells.length < 2) return;
+
+        const label = $(cells[0]).text().trim();
+
+        if (!label) return;
+
+        rows[label.toLowerCase()] = $(cells[1]);
+      });
+    });
+
+    return rows;
+  }
+
+  function setRow(rows, label, value, decimals) {
+    const cell = rows[String(label).toLowerCase()];
+
+    if (!cell || !cell.length) return;
+
+    cell.text(fmt(value, decimals));
+  }
+
+  async function forceMonthlyStatsFromMPP(frm) {
+    try {
+      if (!frm || frm.doctype !== 'Hourly Production') return;
+
+      const mpp = await getMPP(frm);
+
+      if (!mpp) {
+        console.warn('DISPLAY MPP STATS: No Monthly Production Planning found.');
+        return;
+      }
+
+      const root =
+        frm.fields_dict.hp_report && frm.fields_dict.hp_report.$wrapper
+          ? frm.fields_dict.hp_report.$wrapper
+          : frm.$wrapper;
+
+      const rows = getRows(root);
+
+      if (!rows['monthly target bcm']) {
+        console.warn('DISPLAY MPP STATS: Monthly Statistics table not found yet.');
+        return;
+      }
+
+      const monthlyTarget = n(mpp.monthly_target_bcm);
+      const dailyTarget = n(mpp.target_bcm_day);
+      const targetHourlyRate = n(mpp.target_bcm_hour);
+      const productionToDate = n(mpp.month_actual_bcm);
+      const remainingBcm = Math.max(monthlyTarget - productionToDate, 0);
+      const currentRate = n(mpp.mtd_bcm_hour);
+      const remainingHours = n(mpp.month_remaining_prod_hours);
+      const requiredRate = remainingHours > 0 ? remainingBcm / remainingHours : 0;
+      const stripRatio = n(mpp.strip_ratio);
+      const forecastedBcm = n(mpp.month_forecated_bcm);
+
+      setRow(rows, 'Monthly Target BCM', monthlyTarget, 0);
+      setRow(rows, 'Daily Target', dailyTarget, 0);
+      setRow(rows, 'Target Hourly Rate', targetHourlyRate, 0);
+      setRow(rows, 'Production to Date', productionToDate, 0);
+      setRow(rows, 'Remaining BCM', remainingBcm, 0);
+      setRow(rows, 'Current Rate', currentRate, 3);
+      setRow(rows, 'Required Rate', requiredRate, 3);
+      setRow(rows, 'Strip Ratio', stripRatio, 3);
+      setRow(rows, 'Forecasted BCM', forecastedBcm, 1);
+
+      console.log('DISPLAYED HOUR REPORT MONTHLY STATS FROM MPP OK', {
+        mpp: mpp.name,
+        monthlyTarget,
+        dailyTarget,
+        targetHourlyRate,
+        productionToDate,
+        remainingBcm,
+        currentRate,
+        requiredRate,
+        stripRatio,
+        forecastedBcm
+      });
+    } catch (e) {
+      console.error('forceMonthlyStatsFromMPP failed', e);
+    }
+  }
+
+  function runForce(frm) {
+    setTimeout(() => forceMonthlyStatsFromMPP(frm), 100);
+    setTimeout(() => forceMonthlyStatsFromMPP(frm), 500);
+    setTimeout(() => forceMonthlyStatsFromMPP(frm), 1200);
+    setTimeout(() => forceMonthlyStatsFromMPP(frm), 2500);
+    setTimeout(() => forceMonthlyStatsFromMPP(frm), 4000);
+  }
+
+  function installPatch() {
+    if (!window.is_production || !is_production.ui || !is_production.ui.HourlyProductionUI) {
+      setTimeout(installPatch, 300);
+      return;
+    }
+
+    const proto = is_production.ui.HourlyProductionUI.prototype;
+
+    if (proto.__display_mpp_monthly_stats_installed) return;
+
+    proto.__display_mpp_monthly_stats_installed = true;
+
+    const originalLoadUI = proto.loadUI;
+
+    proto.loadUI = function () {
+      const result = originalLoadUI.apply(this, arguments);
+      runForce(this.frm);
+      return result;
+    };
+
+    if (proto.renderReport) {
+      const originalRenderReport = proto.renderReport;
+
+      proto.renderReport = function () {
+        const result = originalRenderReport.apply(this, arguments);
+        runForce(this.frm);
+        return result;
+      };
+    }
+
+    console.log('Installed display-only HourlyProductionUI MPP Monthly Statistics patch.');
+  }
+
+  installPatch();
+
+  $(document).on('shown.bs.tab click', function () {
+    if (window.cur_frm && window.cur_frm.doctype === 'Hourly Production') {
+      runForce(window.cur_frm);
+    }
+  });
+
+  const observer = new MutationObserver(function () {
+    if (window.cur_frm && window.cur_frm.doctype === 'Hourly Production') {
+      runForce(window.cur_frm);
+    }
+  });
+
+  $(function () {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+})();
+// === FORCE HOUR REPORT MPP MONTHLY STATS END ===

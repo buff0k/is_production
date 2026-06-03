@@ -20,6 +20,18 @@ frappe.query_reports["Avail and Util summary"] = {
             fieldtype: "Link",
             options: "Location",
             reqd: 0
+        },
+        {
+            fieldname: "machine_scope",
+            label: __("Production Machines, Swing/Spare Machines AND Include Swing/Spare"),
+            fieldtype: "Select",
+            options: [
+                "Production Machines",
+                "Swing/Spare Machines",
+                "Include Swing/Spare"
+            ].join("\n"),
+            default: "Include Swing/Spare",
+            reqd: 1
         }
     ],
 
@@ -30,17 +42,17 @@ frappe.query_reports["Avail and Util summary"] = {
 
         setTimeout(function() {
             apply_avail_util_summary_freeze_columns();
+            colour_avail_util_summary_spare_swing_asset_names();
         }, 1000);
 
         setTimeout(function() {
             apply_avail_util_summary_freeze_columns();
+            colour_avail_util_summary_spare_swing_asset_names();
         }, 2500);
     },
 
     get_datatable_options(options) {
         return Object.assign(options, {
-            // Freeze first 5 visible columns:
-            // Row No | Asset Category | Shift Date | Asset Name | Location
             freezeColumns: 5
         });
     },
@@ -48,7 +60,12 @@ frappe.query_reports["Avail and Util summary"] = {
     after_datatable_render: function(datatable) {
         setTimeout(function() {
             apply_avail_util_summary_freeze_columns();
+            colour_avail_util_summary_spare_swing_asset_names();
         }, 300);
+
+        setTimeout(function() {
+            colour_avail_util_summary_spare_swing_asset_names();
+        }, 1000);
     },
 
     formatter: function(value, row, column, data, default_formatter) {
@@ -56,11 +73,73 @@ frappe.query_reports["Avail and Util summary"] = {
 
         setTimeout(function() {
             apply_avail_util_summary_freeze_columns();
+            colour_avail_util_summary_spare_swing_asset_names();
         }, 100);
 
         return value;
     }
 };
+
+function colour_avail_util_summary_spare_swing_asset_names() {
+    if (!frappe.query_report || frappe.query_report.report_name !== "Avail and Util summary") {
+        return;
+    }
+
+    const data = frappe.query_report.data || [];
+
+    if (!data.length) {
+        return;
+    }
+
+    /*
+        Column positions:
+        0 = row number
+        1 = Asset Category
+        2 = Shift Date
+        3 = Asset Name
+        4 = Location
+
+        We colour only column 3, not the whole row.
+    */
+
+    data.forEach(function(row, index) {
+        const is_spare = Number(row.is_spare_swing_unit || 0) === 1;
+        const has_asset_name = row.asset_name && String(row.asset_name).trim() !== "";
+
+        if (!is_spare || !has_asset_name) {
+            return;
+        }
+
+        const reason = row.spare_swing_reason || "Spare/Swing unit in Monthly Production Planning";
+
+        const possible_row_indexes = [
+            index,
+            index + 1
+        ];
+
+        possible_row_indexes.forEach(function(row_index) {
+            const selectors = [
+                `.dt-cell--row-${row_index}.dt-cell--col-3`,
+                `.dt-cell[data-row-index="${row_index}"][data-col-index="3"]`,
+                `.dt-row-${row_index} .dt-cell--col-3`
+            ];
+
+            selectors.forEach(function(selector) {
+                document.querySelectorAll(selector).forEach(function(cell) {
+                    cell.classList.add("avail-util-summary-spare-swing-asset-cell");
+                    cell.setAttribute("title", reason);
+
+                    const content = cell.querySelector(".dt-cell__content");
+
+                    if (content) {
+                        content.classList.add("avail-util-summary-spare-swing-asset-content");
+                        content.setAttribute("title", reason);
+                    }
+                });
+            });
+        });
+    });
+}
 
 function apply_avail_util_summary_freeze_columns() {
     if (!frappe.query_report || !frappe.query_report.datatable) {
@@ -86,15 +165,6 @@ function apply_avail_util_summary_freeze_columns() {
     style.id = style_id;
 
     style.innerHTML = `
-        /*
-            Freeze only attached summary columns:
-            col 0 = Row number
-            col 1 = Asset Category
-            col 2 = Shift Date
-            col 3 = Asset Name
-            col 4 = Location
-        */
-
         .dt-cell--col-0,
         .dt-cell--col-1,
         .dt-cell--col-2,
@@ -141,21 +211,42 @@ function apply_avail_util_summary_freeze_columns() {
         .dt-cell--col-4 {
             left: 378px !important;
         }
+
+        .avail-util-summary-spare-swing-asset-cell {
+            background: #e6d6ff !important;
+            color: #4b0082 !important;
+            font-weight: 700 !important;
+            border-left: 3px solid #7b2cbf !important;
+        }
+
+        .avail-util-summary-spare-swing-asset-cell .dt-cell__content,
+        .avail-util-summary-spare-swing-asset-content,
+        .avail-util-summary-spare-swing-asset-content a {
+            background: #e6d6ff !important;
+            color: #4b0082 !important;
+            font-weight: 700 !important;
+        }
     `;
 
     document.head.appendChild(style);
-
-    console.log("Avail and Util summary: freeze columns applied");
 }
 
 $(document).on("page-change", function() {
     setTimeout(function() {
         apply_avail_util_summary_freeze_columns();
+        colour_avail_util_summary_spare_swing_asset_names();
     }, 1200);
 });
 
 $(document).on("click", ".query-report button, .query-report .btn", function() {
     setTimeout(function() {
         apply_avail_util_summary_freeze_columns();
+        colour_avail_util_summary_spare_swing_asset_names();
     }, 1200);
+});
+
+$(document).on("scroll", ".dt-scrollable", function() {
+    setTimeout(function() {
+        colour_avail_util_summary_spare_swing_asset_names();
+    }, 100);
 });

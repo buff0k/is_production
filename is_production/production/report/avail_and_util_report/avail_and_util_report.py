@@ -1,5 +1,6 @@
 import frappe
 import datetime
+from frappe.utils import now_datetime
 
 
 EXCLUDED_ASSET_CATEGORIES = {
@@ -12,6 +13,204 @@ EXCLUDED_ASSET_CATEGORIES = {
     "Loader",
 }
 
+
+
+SPARE_SWING_PURPLE = "#e6d6ff"
+SPARE_SWING_TEXT = "#4b0082"
+
+
+def add_asset_identifiers(asset_set, asset_name):
+    """Add both Asset.name and Asset.asset_name where possible, so matching works
+    whether Availability and Utilisation stores the asset ID or display name.
+    """
+    if not asset_name:
+        return
+
+    value = str(asset_name).strip()
+    if not value:
+        return
+
+    asset_set.add(value)
+
+    try:
+        asset_doc = frappe.db.get_value("Asset", value, ["name", "asset_name"], as_dict=True)
+        if asset_doc:
+            if asset_doc.get("name"):
+                asset_set.add(str(asset_doc.get("name")).strip())
+            if asset_doc.get("asset_name"):
+                asset_set.add(str(asset_doc.get("asset_name")).strip())
+    except Exception:
+        pass
+
+
+def get_spare_swing_asset_map(filters):
+    """Find Spare/Swing machines from saved Monthly Production Planning data."""
+    filters = filters or {}
+    start_date = filters.get("start_date")
+    end_date = filters.get("end_date")
+
+    if not start_date or not end_date:
+        return {}
+
+    args = {
+        "start_date": start_date,
+        "end_date": end_date,
+    }
+
+    conditions = [
+        "mpp.docstatus < 2",
+        "mpp.prod_month_start_date <= %(end_date)s",
+        "mpp.prod_month_end_date >= %(start_date)s",
+    ]
+
+    if filters.get("location"):
+        conditions.append("mpp.location = %(location)s")
+        args["location"] = filters.get("location")
+
+    condition_sql = " AND ".join(conditions)
+    spare_map = {}
+
+    def add_reason(asset_name, reason):
+        identifiers = set()
+        add_asset_identifiers(identifiers, asset_name)
+
+        for identifier in identifiers:
+            spare_map.setdefault(identifier, set()).add(reason)
+
+    try:
+        truck_rows = frappe.db.sql(f"""
+            SELECT DISTINCT etl.truck AS asset_name
+            FROM `tabMonthly Production Planning` mpp
+            INNER JOIN `tabExcavator Truck Link` etl
+                ON etl.parent = mpp.name
+               AND etl.parenttype = 'Monthly Production Planning'
+            WHERE {condition_sql}
+              AND IFNULL(etl.truck, '') != ''
+              AND IFNULL(etl.excavator, '') = ''
+        """, args, as_dict=True)
+
+        for row in truck_rows:
+            add_reason(row.get("asset_name"), "Spare/Swing unit Truck")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Avail and Util Spare/Swing Trucks")
+        frappe.clear_messages()
+
+    try:
+        excavator_rows = frappe.db.sql(f"""
+            SELECT DISTINCT etl.excavator AS asset_name
+            FROM `tabMonthly Production Planning` mpp
+            INNER JOIN `tabExcavator Truck Link` etl
+                ON etl.parent = mpp.name
+               AND etl.parenttype = 'Monthly Production Planning'
+            WHERE {condition_sql}
+              AND IFNULL(etl.excavator, '') != ''
+              AND IFNULL(etl.truck, '') = ''
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM `tabExcavator Truck Link` assigned_etl
+                  WHERE assigned_etl.parent = etl.parent
+                    AND assigned_etl.parenttype = etl.parenttype
+                    AND assigned_etl.excavator = etl.excavator
+                    AND IFNULL(assigned_etl.truck, '') != ''
+              )
+        """, args, as_dict=True)
+
+        for row in excavator_rows:
+            add_reason(row.get("asset_name"), "Spare/Swing unit Excavator")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Avail and Util Spare/Swing Excavators")
+        frappe.clear_messages()
+
+    try:
+        dozer_rows = frappe.db.sql(f"""
+            SELECT DISTINCT dp.asset_name AS asset_name
+            FROM `tabMonthly Production Planning` mpp
+            INNER JOIN `tabDozers Planned` dp
+                ON dp.parent = mpp.name
+               AND dp.parenttype = 'Monthly Production Planning'
+            WHERE {condition_sql}
+              AND IFNULL(dp.asset_name, '') != ''
+              AND IFNULL(dp.dozing_type, '') = ''
+        """, args, as_dict=True)
+
+        for row in dozer_rows:
+            add_reason(row.get("asset_name"), "Spare/Swing unit Dozer")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Avail and Util Spare/Swing Dozers")
+        frappe.clear_messages()
+
+    return {
+        asset_name: ", ".join(sorted(reasons))
+        for asset_name, reasons in spare_map.items()
+    }
+
+
+def is_spare_swing_asset(asset_name, spare_swing_asset_map):
+    if not asset_name or not spare_swing_asset_map:
+        return False
+
+    value = str(asset_name).strip()
+    if value in spare_swing_asset_map:
+        return True
+
+    identifiers = set()
+    add_asset_identifiers(identifiers, value)
+    return any(identifier in spare_swing_asset_map for identifier in identifiers)
+
+
+def get_spare_swing_reason(asset_name, spare_swing_asset_map):
+    if not asset_name or not spare_swing_asset_map:
+        return ""
+
+    value = str(asset_name).strip()
+    if value in spare_swing_asset_map:
+        return spare_swing_asset_map.get(value) or ""
+
+    identifiers = set()
+    add_asset_identifiers(identifiers, value)
+    for identifier in identifiers:
+        if identifier in spare_swing_asset_map:
+            return spare_swing_asset_map.get(identifier) or ""
+
+    return ""
+
+
+def apply_machine_scope_filter(records, filters, spare_swing_asset_map):
+    """Filter detail records before grouping so summary totals and averages follow the filter."""
+    filters = filters or {}
+    machine_scope = filters.get("machine_scope") or "Include Swing/Spare"
+
+    if machine_scope == "Include Swing/Spare":
+        return records
+
+    filtered_records = []
+
+    for record in records:
+        is_spare = is_spare_swing_asset(record.get("asset_name"), spare_swing_asset_map)
+
+        if machine_scope == "Production Machines" and not is_spare:
+            filtered_records.append(record)
+        elif machine_scope == "Swing/Spare Machines" and is_spare:
+            filtered_records.append(record)
+
+    return filtered_records
+
+
+def apply_spare_swing_flags(data, spare_swing_asset_map):
+    if not spare_swing_asset_map:
+        return data
+
+    for row in data:
+        asset_name = row.get("asset_name")
+        reason = get_spare_swing_reason(asset_name, spare_swing_asset_map)
+
+        if reason:
+            row["is_spare_swing_unit"] = 1
+            row["spare_swing_reason"] = reason
+            row["spare_swing_background"] = SPARE_SWING_PURPLE
+            row["spare_swing_text_colour"] = SPARE_SWING_TEXT
+
+    return data
 
 
 def execute(filters=None):
@@ -37,7 +236,9 @@ def get_columns():
         {"label": "Actual Planned Maintenance Time", "fieldname": "actual_planned_maintenance_time", "fieldtype": "Float", "width": 210, "precision": 1},
         {"label": "Actual Inspection Time", "fieldname": "actual_inspection_time", "fieldtype": "Float", "width": 160, "precision": 1},
         {"label": "Actual Service Time", "fieldname": "actual_service_time", "fieldtype": "Float", "width": 150, "precision": 1},
-        {"label": "Other Lost Hrs", "fieldname": "shift_other_lost_hours", "fieldtype": "Float", "width": 110, "precision": 1},
+        {"label": "Actual Unplanned Maintenance Time", "fieldname": "actual_unplanned_maintenance_time", "fieldtype": "Float", "width": 220, "precision": 1},
+        {"label": "Mechanical Outsourced Work", "fieldname": "mechanical_outsourced_work", "fieldtype": "Float", "width": 200, "precision": 1},
+        {"label": "Other Lost Hrs", "fieldname": "shift_other_lost_hours", "fieldtype": "Float", "width": 110, "precision": 1},        
         {"label": "General & Specific Other Lost Hours", "fieldname": "captured_other_lost_hours", "fieldtype": "Float", "width": 235, "precision": 1},
         {"label": "Other Lost Hours Variance", "fieldname": "other_lost_hours_variance", "fieldtype": "Float", "width": 190, "precision": 1},
         {"label": "Avail (%)", "fieldname": "plant_shift_availability", "fieldtype": "Percent", "width": 85, "precision": 1},
@@ -53,6 +254,8 @@ MSR_TIME_FIELDS = [
     "actual_breakdown_time",
     "actual_planned_maintenance_time",
     "actual_inspection_time",
+    "actual_unplanned_maintenance_time",
+    "mechanical_outsourced_work",
 ]
 
 SUM_FIELDS = [
@@ -65,6 +268,8 @@ SUM_FIELDS = [
     "actual_breakdown_time",
     "actual_planned_maintenance_time",
     "actual_inspection_time",
+    "actual_unplanned_maintenance_time",
+    "mechanical_outsourced_work",
     "shift_available_hours",
     "shift_other_lost_hours",
     "captured_other_lost_hours",
@@ -132,7 +337,7 @@ def get_shift_window(shift, shift_date):
 
     if shift == "Night":
         start = frappe.utils.get_datetime(f"{shift_date} 18:00:00")
-        end = frappe.utils.add_to_date(start, days=1, as_datetime=True, hours=12)
+        end = frappe.utils.add_to_date(start, hours=12, as_datetime=True)
         return start, end
 
     if shift == "Morning":
@@ -250,10 +455,17 @@ def safe_msr_datetime(value, service_date=None):
 
 
 def get_msr_time_map(filters):
-    conditions = ["msr.service_date >= %(start_date)s", "msr.service_date <= %(end_date)s"]
+    report_start = frappe.utils.get_datetime(f"{filters.get('start_date')} 00:00:00")
+    report_end = frappe.utils.get_datetime(f"{filters.get('end_date')} 23:59:59")
+
+    conditions = [
+        "msr.start_time <= %(report_end)s",
+        "(msr.end_time >= %(report_start)s OR IFNULL(msr.end_time, '') = '')",
+    ]
+
     args = {
-        "start_date": filters.get("start_date"),
-        "end_date": filters.get("end_date"),
+        "report_start": report_start,
+        "report_end": report_end,
     }
 
     if filters.get("location"):
@@ -269,7 +481,8 @@ def get_msr_time_map(filters):
             CAST(msr.end_time AS CHAR) AS end_time,
             msr.total_time,
             msr.total_time AS total_time_unavailable,
-            msr.service_breakdown
+            msr.service_breakdown,
+            msr.outsourced
         FROM `tabMechanical Service Report` msr
         LEFT JOIN `tabAsset` asset
             ON asset.name = msr.asset
@@ -281,11 +494,12 @@ def get_msr_time_map(filters):
     for row in msr_rows:
         if not row.get("location") or not row.get("service_date") or not row.get("asset_name"):
             continue
-        if not row.get("start_time") or not row.get("end_time"):
+
+        if not row.get("start_time"):
             continue
 
         start_dt = safe_msr_datetime(row.start_time, row.service_date)
-        end_dt = safe_msr_datetime(row.end_time, row.service_date)
+        end_dt = safe_msr_datetime(row.end_time, row.service_date) if row.get("end_time") else now_datetime()
 
         if not start_dt or not end_dt:
             continue
@@ -293,24 +507,39 @@ def get_msr_time_map(filters):
         if end_dt <= start_dt:
             end_dt = frappe.utils.add_to_date(end_dt, days=1, as_datetime=True)
 
-        for shift in ("Day", "Night", "Morning", "Afternoon"):
-            shift_start, shift_end = get_shift_window(shift, row.service_date)
-            overlap_hours = get_overlap_hours(start_dt, end_dt, shift_start, shift_end)
+        effective_start = max(start_dt, report_start)
+        effective_end = min(end_dt, report_end)
 
-            if overlap_hours <= 0:
-                continue
+        if effective_end <= effective_start:
+            continue
 
-            key = (row.location, str(row.service_date), row.asset_name, shift)
-            bucket = time_map.setdefault(key, {field: 0.0 for field in MSR_TIME_FIELDS})
+        loop_date = frappe.utils.getdate(effective_start)
 
-            if row.service_breakdown == "Service":
-                bucket["actual_service_time"] += overlap_hours
-            elif row.service_breakdown == "Breakdown":
-                bucket["actual_breakdown_time"] += overlap_hours
-            elif row.service_breakdown == "Planned Maintenance":
-                bucket["actual_planned_maintenance_time"] += overlap_hours
-            elif row.service_breakdown == "Inspection":
-                bucket["actual_inspection_time"] += overlap_hours
+        while loop_date <= frappe.utils.getdate(effective_end):
+            for shift in ("Day", "Night", "Morning", "Afternoon"):
+                shift_start, shift_end = get_shift_window(shift, loop_date)
+                overlap_hours = get_overlap_hours(effective_start, effective_end, shift_start, shift_end)
+
+                if overlap_hours <= 0:
+                    continue
+
+                key = (row.location, str(loop_date), row.asset_name, shift)
+                bucket = time_map.setdefault(key, {field: 0.0 for field in MSR_TIME_FIELDS})
+
+                if row.outsourced == "Yes":
+                    bucket["mechanical_outsourced_work"] += overlap_hours
+                elif row.service_breakdown == "Service":
+                    bucket["actual_service_time"] += overlap_hours
+                elif row.service_breakdown == "Breakdown":
+                    bucket["actual_breakdown_time"] += overlap_hours
+                elif row.service_breakdown == "Planned Maintenance":
+                    bucket["actual_planned_maintenance_time"] += overlap_hours
+                elif row.service_breakdown == "Inspection":
+                    bucket["actual_inspection_time"] += overlap_hours
+                elif row.service_breakdown == "Unplanned Maintenance":
+                    bucket["actual_unplanned_maintenance_time"] += overlap_hours
+
+            loop_date = frappe.utils.add_days(loop_date, 1)
 
     return time_map
 
@@ -451,6 +680,9 @@ def get_grouped_data(filters):
         if (record.get("asset_category") or "") not in EXCLUDED_ASSET_CATEGORIES
     ]
 
+    spare_swing_asset_map = get_spare_swing_asset_map(filters)
+    records = apply_machine_scope_filter(records, filters, spare_swing_asset_map)
+
     if not records:
         frappe.msgprint("No records found for the selected filters.")
         return []
@@ -514,6 +746,8 @@ def get_grouped_data(filters):
                         "actual_breakdown_time",
                         "actual_planned_maintenance_time",
                         "actual_inspection_time",
+                        "actual_unplanned_maintenance_time",
+                        "mechanical_outsourced_work",
                         "shift_available_hours",
                         "shift_other_lost_hours",
                         "captured_other_lost_hours",
@@ -534,6 +768,7 @@ def get_grouped_data(filters):
     attach_msr_actuals(data, filters)
     attach_planned_and_actual_hours(data)
     recalculate_summary_rows(data)
+    apply_spare_swing_flags(data, spare_swing_asset_map)
 
     return data
 
@@ -551,6 +786,8 @@ def combine_shifts(rows):
         "actual_breakdown_time",
         "actual_planned_maintenance_time",
         "actual_inspection_time",
+        "actual_unplanned_maintenance_time",
+        "mechanical_outsourced_work",
         "shift_available_hours",
         "shift_other_lost_hours",
     ]:
@@ -585,6 +822,8 @@ def summary_row(rows, indent, **extra_fields):
         "actual_breakdown_time": r1(combined.get("actual_breakdown_time")),
         "actual_planned_maintenance_time": r1(combined.get("actual_planned_maintenance_time")),
         "actual_inspection_time": r1(combined.get("actual_inspection_time")),
+        "actual_unplanned_maintenance_time": r1(combined.get("actual_unplanned_maintenance_time")),
+        "mechanical_outsourced_work": r1(combined.get("mechanical_outsourced_work")),
         "shift_available_hours": r1(combined.get("shift_available_hours")),
         "shift_other_lost_hours": r1(combined.get("shift_other_lost_hours")),
         "captured_other_lost_hours": r1(combined.get("captured_other_lost_hours")),

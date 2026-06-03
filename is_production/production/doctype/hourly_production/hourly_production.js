@@ -2016,3 +2016,252 @@ function is_weekend(frm) {
         return false;
     }
 }
+
+// === FORCE HOUR REPORT MONTHLY STATS HTML START ===
+(function () {
+  const HP_DOCTYPE = "Hourly Production";
+  const HP_FIELD = {
+  "month_plan": "month_prod_planning",
+  "site": "location",
+  "date": "prod_date",
+  "total_ts": "total_ts_bcm",
+  "total_dozing": "total_dozing_bcm",
+  "current_rate": "",
+  "forecasted_bcm": "month_forecated_bcm"
+};
+
+  function toNum(value) {
+    const n = flt(
+      String(value || '')
+        .replace(/,/g, '')
+        .replace(/[^0-9.\-]/g, '')
+    );
+
+    return isFinite(n) ? n : 0;
+  }
+
+  function fmt(value, decimals) {
+    value = Math.max(toNum(value), 0);
+
+    const rounded = Number(value.toFixed(decimals));
+
+    return rounded.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals
+    });
+  }
+
+  function getDocValue(frm, fieldname) {
+    if (!fieldname) return 0;
+    return toNum(frm.doc[fieldname]);
+  }
+
+  function getMonthlyStatsRows() {
+    const rows = {};
+
+    $('table').each(function () {
+      const tableText = $(this).text();
+
+      if (!tableText.includes('Monthly Statistics')) return;
+
+      $(this).find('tr').each(function () {
+        const cells = $(this).find('td, th');
+
+        if (cells.length < 2) return;
+
+        const label = $(cells[0]).text().trim();
+
+        if (!label) return;
+
+        rows[label.toLowerCase()] = {
+          label: label,
+          valueCell: $(cells[1])
+        };
+      });
+    });
+
+    return rows;
+  }
+
+  function getRowValue(rows, label) {
+    const row = rows[String(label).toLowerCase()];
+    if (!row) return 0;
+    return toNum(row.valueCell.text());
+  }
+
+  function setRowValue(rows, label, value, decimals) {
+    const row = rows[String(label).toLowerCase()];
+    if (!row) return;
+    row.valueCell.text(fmt(value, decimals));
+  }
+
+  async function getMonthlyPlanningDoc(frm) {
+    const directName = HP_FIELD.month_plan ? frm.doc[HP_FIELD.month_plan] : null;
+
+    if (directName) {
+      try {
+        return await frappe.db.get_doc('Monthly Production Planning', directName);
+      } catch (e) {
+        console.warn('Direct Monthly Production Planning link failed:', directName, e);
+      }
+    }
+
+    // Fallback: find MPP by site and date.
+    const site = HP_FIELD.site ? frm.doc[HP_FIELD.site] : null;
+    const date = HP_FIELD.date ? frm.doc[HP_FIELD.date] : null;
+
+    if (!site || !date) return null;
+
+    try {
+      const docs = await frappe.db.get_list('Monthly Production Planning', {
+        filters: [
+          ['location', '=', site],
+          ['prod_month_start_date', '<=', date],
+          ['prod_month_end_date', '>=', date]
+        ],
+        fields: [
+          'name',
+          'total_month_prod_hours',
+          'month_prod_hours_completed',
+          'month_remaining_prod_hours',
+          'month_actual_bcm',
+          'monthly_target_bcm'
+        ],
+        limit: 1
+      });
+
+      if (docs && docs.length) {
+        return await frappe.db.get_doc('Monthly Production Planning', docs[0].name);
+      }
+    } catch (e) {
+      console.warn('Could not find Monthly Production Planning by site/date', e);
+    }
+
+    return null;
+  }
+
+  async function forceMonthlyStatsTable(frm) {
+    if (!frm || frm.doctype !== HP_DOCTYPE) return;
+
+    const rows = getMonthlyStatsRows();
+
+    if (!rows['current rate'] || !rows['forecasted bcm']) return;
+
+    const plan = await getMonthlyPlanningDoc(frm);
+
+    let totalMonthHours = 0;
+    let completedHours = 0;
+    let remainingHours = 0;
+
+    if (plan) {
+      totalMonthHours = toNum(plan.total_month_prod_hours);
+      completedHours = toNum(plan.month_prod_hours_completed);
+      remainingHours = toNum(plan.month_remaining_prod_hours);
+    }
+
+    const monthlyTarget = getRowValue(rows, 'Monthly Target BCM');
+    const targetHourlyRate = getRowValue(rows, 'Target Hourly Rate');
+    const productionToDate = getRowValue(rows, 'Production to Date');
+    const remainingBcm = getRowValue(rows, 'Remaining BCM');
+
+    // Fallbacks if Monthly Planning was not linked/found.
+    if (!totalMonthHours && monthlyTarget && targetHourlyRate) {
+      totalMonthHours = monthlyTarget / targetHourlyRate;
+    }
+
+    // If completed hours are missing, do not leave current rate as 0.
+    // Use production-to-date against target hourly rate as a last fallback.
+    if (!completedHours && productionToDate && targetHourlyRate) {
+      completedHours = productionToDate / targetHourlyRate;
+    }
+
+    if (!remainingHours && totalMonthHours && completedHours) {
+      remainingHours = totalMonthHours - completedHours;
+    }
+
+    let currentRate = 0;
+    let forecastedBcm = 0;
+    let requiredRate = 0;
+
+    if (completedHours > 0) {
+      currentRate = productionToDate / completedHours;
+    }
+
+    if (totalMonthHours > 0) {
+      forecastedBcm = currentRate * totalMonthHours;
+    }
+
+    if (remainingHours > 0) {
+      requiredRate = remainingBcm / remainingHours;
+    }
+
+    currentRate = Math.max(currentRate, 0);
+    forecastedBcm = Math.max(forecastedBcm, 0);
+    requiredRate = Math.max(requiredRate, 0);
+
+    setRowValue(rows, 'Current Rate', currentRate, 3);
+    setRowValue(rows, 'Required Rate', requiredRate, 3);
+    setRowValue(rows, 'Forecasted BCM', forecastedBcm, 1);
+
+    const values = {};
+
+    if (HP_FIELD.current_rate && frappe.meta.has_field(frm.doctype, HP_FIELD.current_rate)) {
+      values[HP_FIELD.current_rate] = currentRate;
+    }
+
+    if (HP_FIELD.forecasted_bcm && frappe.meta.has_field(frm.doctype, HP_FIELD.forecasted_bcm)) {
+      values[HP_FIELD.forecasted_bcm] = forecastedBcm;
+    }
+
+    if (Object.keys(values).length) {
+      frm.set_value(values);
+      frm.refresh_fields(Object.keys(values));
+    }
+
+    console.log('Forced Hour Report Monthly Statistics', {
+      totalMonthHours,
+      completedHours,
+      remainingHours,
+      productionToDate,
+      remainingBcm,
+      currentRate,
+      requiredRate,
+      forecastedBcm
+    });
+  }
+
+  function runForcedStats(frm) {
+    setTimeout(() => forceMonthlyStatsTable(frm), 100);
+    setTimeout(() => forceMonthlyStatsTable(frm), 500);
+    setTimeout(() => forceMonthlyStatsTable(frm), 1000);
+    setTimeout(() => forceMonthlyStatsTable(frm), 2000);
+  }
+
+  frappe.ui.form.on(HP_DOCTYPE, {
+    refresh(frm) {
+      runForcedStats(frm);
+    },
+
+    validate(frm) {
+      runForcedStats(frm);
+    },
+
+    after_save(frm) {
+      runForcedStats(frm);
+    }
+  });
+
+  const observer = new MutationObserver(function () {
+    if (window.cur_frm && window.cur_frm.doctype === HP_DOCTYPE) {
+      runForcedStats(window.cur_frm);
+    }
+  });
+
+  $(function () {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  });
+})();
+// === FORCE HOUR REPORT MONTHLY STATS HTML END ===

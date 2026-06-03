@@ -14,6 +14,172 @@ EXCLUDED_ASSET_CATEGORIES = {
 
 
 
+
+SPARE_SWING_PURPLE = "#e6d6ff"
+SPARE_SWING_TEXT = "#4b0082"
+
+
+def get_spare_swing_asset_map(filters):
+    filters = filters or {}
+    start_date = filters.get("start_date")
+    end_date = filters.get("end_date")
+
+    if not start_date or not end_date:
+        return {}
+
+    args = {
+        "start_date": start_date,
+        "end_date": end_date,
+    }
+
+    conditions = [
+        "mpp.docstatus < 2",
+        "mpp.prod_month_start_date <= %(end_date)s",
+        "mpp.prod_month_end_date >= %(start_date)s",
+    ]
+
+    if filters.get("location"):
+        conditions.append("mpp.location = %(location)s")
+        args["location"] = filters.get("location")
+
+    condition_sql = " AND ".join(conditions)
+    spare_map = {}
+
+    def add_reason(asset_name, reason):
+        if not asset_name:
+            return
+
+        asset_name = str(asset_name).strip()
+
+        if not asset_name:
+            return
+
+        spare_map.setdefault(asset_name, set()).add(reason)
+
+    try:
+        truck_rows = frappe.db.sql(f"""
+            SELECT DISTINCT etl.truck AS asset_name
+            FROM `tabMonthly Production Planning` mpp
+            INNER JOIN `tabExcavator Truck Link` etl
+                ON etl.parent = mpp.name
+               AND etl.parenttype = 'Monthly Production Planning'
+            WHERE {condition_sql}
+              AND IFNULL(etl.truck, '') != ''
+              AND IFNULL(etl.excavator, '') = ''
+        """, args, as_dict=True)
+
+        for row in truck_rows:
+            add_reason(row.get("asset_name"), "Spare/Swing unit Truck")
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Avail and Util Summary Spare/Swing Trucks")
+        frappe.clear_messages()
+
+    try:
+        excavator_rows = frappe.db.sql(f"""
+            SELECT DISTINCT etl.excavator AS asset_name
+            FROM `tabMonthly Production Planning` mpp
+            INNER JOIN `tabExcavator Truck Link` etl
+                ON etl.parent = mpp.name
+               AND etl.parenttype = 'Monthly Production Planning'
+            WHERE {condition_sql}
+              AND IFNULL(etl.excavator, '') != ''
+              AND IFNULL(etl.truck, '') = ''
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM `tabExcavator Truck Link` assigned_etl
+                  WHERE assigned_etl.parent = etl.parent
+                    AND assigned_etl.parenttype = etl.parenttype
+                    AND assigned_etl.excavator = etl.excavator
+                    AND IFNULL(assigned_etl.truck, '') != ''
+              )
+        """, args, as_dict=True)
+
+        for row in excavator_rows:
+            add_reason(row.get("asset_name"), "Spare/Swing unit Excavator")
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Avail and Util Summary Spare/Swing Excavators")
+        frappe.clear_messages()
+
+    try:
+        dozer_meta = frappe.get_meta("Dozers Planned")
+
+        dozer_asset_field = None
+        for fieldname in ("asset_name", "dozer", "asset"):
+            if dozer_meta.has_field(fieldname):
+                dozer_asset_field = fieldname
+                break
+
+        dozer_type_field = "dozing_type" if dozer_meta.has_field("dozing_type") else None
+
+        if dozer_asset_field and dozer_type_field:
+            dozer_rows = frappe.db.sql(f"""
+                SELECT DISTINCT dp.`{dozer_asset_field}` AS asset_name
+                FROM `tabMonthly Production Planning` mpp
+                INNER JOIN `tabDozers Planned` dp
+                    ON dp.parent = mpp.name
+                   AND dp.parenttype = 'Monthly Production Planning'
+                WHERE {condition_sql}
+                  AND IFNULL(dp.`{dozer_asset_field}`, '') != ''
+                  AND IFNULL(dp.`{dozer_type_field}`, '') = ''
+            """, args, as_dict=True)
+
+            for row in dozer_rows:
+                add_reason(row.get("asset_name"), "Spare/Swing unit Dozer")
+
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Avail and Util Summary Spare/Swing Dozers")
+        frappe.clear_messages()
+
+    return {
+        asset_name: ", ".join(sorted(reasons))
+        for asset_name, reasons in spare_map.items()
+    }
+
+
+def apply_machine_scope_filter(records, filters, spare_swing_asset_map):
+    filters = filters or {}
+    machine_scope = filters.get("machine_scope") or "Include Swing/Spare"
+
+    if machine_scope == "Include Swing/Spare":
+        return records
+
+    if not spare_swing_asset_map:
+        if machine_scope == "Production Machines":
+            return records
+        return []
+
+    filtered_records = []
+
+    for record in records:
+        asset_name = record.get("asset_name")
+        is_spare = bool(asset_name and asset_name in spare_swing_asset_map)
+
+        if machine_scope == "Production Machines" and not is_spare:
+            filtered_records.append(record)
+
+        elif machine_scope == "Swing/Spare Machines" and is_spare:
+            filtered_records.append(record)
+
+    return filtered_records
+
+
+def apply_spare_swing_flags(data, spare_swing_asset_map):
+    if not spare_swing_asset_map:
+        return data
+
+    for row in data:
+        asset_name = row.get("asset_name")
+
+        if asset_name and asset_name in spare_swing_asset_map:
+            row["is_spare_swing_unit"] = 1
+            row["spare_swing_reason"] = spare_swing_asset_map.get(asset_name)
+            row["spare_swing_background"] = SPARE_SWING_PURPLE
+            row["spare_swing_text_colour"] = SPARE_SWING_TEXT
+
+    return data
+
 def execute(filters=None):
     columns = get_columns()
     data = get_grouped_data(filters)
@@ -409,6 +575,9 @@ def get_grouped_data(filters):
             record for record in records
             if (record.get("asset_category") or "") not in EXCLUDED_ASSET_CATEGORIES
         ]
+
+    spare_swing_asset_map = get_spare_swing_asset_map(filters)
+    records = apply_machine_scope_filter(records, filters, spare_swing_asset_map)
 
     if not records:
         frappe.msgprint("No records found for the selected filters.")

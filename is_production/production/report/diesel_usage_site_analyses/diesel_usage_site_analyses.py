@@ -29,7 +29,7 @@ def execute(filters=None):
                 "group_value": group_value,
                 "litres_issued": total,
                 "asset_category": None,
-                "docstatus": "Draft + Submitted + Cancelled"
+                "docstatus": "Draft + Submitted"
             }
             for group_value, total in grouped_totals.items()
         ]
@@ -106,7 +106,7 @@ def get_data(filters):
         `tabAsset` AS a ON dde.asset_name = a.name
     WHERE
         dds.daily_sheet_date IS NOT NULL
-        AND dds.docstatus IN (0, 1, 2)  -- Draft (0) + Submitted (1) + Cancelled (2)
+        AND dds.docstatus IN (0, 1)  -- Draft (0) + Submitted (1)
     """
 
     # Apply filters dynamically

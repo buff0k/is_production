@@ -239,166 +239,184 @@ refresh_machines_from_assets(frm) {
 
 
   // Section 2: Populate Monthly Production Days
+
+
   populate_monthly_prod_days(frm) {
     try {
       if (!frm.doc.prod_month_start_date || !frm.doc.prod_month_end_date) {
         frappe.msgprint(__('Please select production start and end dates.'));
         return;
       }
+
       if (
         [frm.doc.weekday_shift_hours, frm.doc.saturday_shift_hours, frm.doc.num_sat_shifts]
-          .some(v => v == null)
+          .some(v => v == null || v === '')
       ) {
         frappe.msgprint(__('Please enter shift hours and number of Saturday shifts.'));
         return;
       }
+
       const start = frappe.datetime.str_to_obj(frm.doc.prod_month_start_date);
-      const end   = frappe.datetime.str_to_obj(frm.doc.prod_month_end_date);
-      frm.clear_table('month_prod_days');
-      let totals = { day: 0, night: 0, morning: 0, afternoon: 0 };
-      const wH  = +frm.doc.weekday_shift_hours;
-      const sH  = +frm.doc.saturday_shift_hours;
-      const sSh = +frm.doc.num_sat_shifts;
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dow = d.toLocaleDateString('en-US', { weekday: 'long' });
-        let hours = { day: 0, night: 0, morning: 0, afternoon: 0 };
-        if (frm.doc.shift_system === '2x12Hour') {
-          if (dow === 'Saturday') {
-            hours.day   = sH;
-            hours.night = sSh > 1 ? sH : 0;
-          } else if (dow !== 'Sunday') {
-            hours.day   = hours.night = wH;
-          }
-        } else {
-          if (dow === 'Saturday') {
-            hours.morning = sH;
-            if (sSh > 1) hours.afternoon = sH;
-            if (sSh > 2) hours.night     = sH;
-          } else if (dow !== 'Sunday') {
-            hours.morning = hours.afternoon = hours.night = wH;
-          }
-        }
-        totals.day      += hours.day;
-        totals.night    += hours.night;
-        totals.morning  += hours.morning;
-        totals.afternoon+= hours.afternoon;
+      const end = frappe.datetime.str_to_obj(frm.doc.prod_month_end_date);
 
-      const row = frm.add_child('month_prod_days');
-
-row.shift_start_date      = frappe.datetime.obj_to_str(d);
-row.day_week              = dow;
-row.shift_day_hours       = hours.day;
-row.shift_night_hours     = hours.night;
-row.shift_morning_hours   = hours.morning;
-row.shift_afternoon_hours = hours.afternoon;
-
-// ─────────────────────────────────────────────
-// NEW LOGIC: Default Production Excavators
-// ─────────────────────────────────────────────
-
-// Default from parent, but allow manual override later
-row.production_excavators = frm.doc.num_excavators || 0;
-
-// Calculate BCM per day
-const totalShiftHours =
-  (row.shift_day_hours || 0) +
-  (row.shift_night_hours || 0);
-
-row.bcm_per_day =
-  (row.production_excavators || 0) *
-  totalShiftHours *
-  220;
-
+      if (end < start) {
+        frappe.msgprint(__('Production Month End Date cannot be before Production Month Start Date.'));
+        return;
       }
 
-      frm.set_value({
-        tot_shift_day_hours:       totals.day,
-        tot_shift_night_hours:     totals.night,
-        tot_shift_morning_hours:   totals.morning,
-        tot_shift_afternoon_hours: totals.afternoon,
-        total_month_prod_hours:    totals.day + totals.night + totals.morning + totals.afternoon
-      });
-      frm.trigger('recalculate_totals');
+      frm.clear_table('month_prod_days');
+
+      const weekdayHours = flt(frm.doc.weekday_shift_hours);
+      const saturdayHours = flt(frm.doc.saturday_shift_hours);
+      const saturdayShifts = cint(frm.doc.num_sat_shifts);
+
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dow = d.toLocaleDateString('en-US', { weekday: 'long' });
+
+        let dayHours = 0;
+        let nightHours = 0;
+
+        // Control must use Day/Night only for 2x12Hour.
+        if (dow === 'Saturday') {
+          dayHours = saturdayHours;
+          nightHours = saturdayShifts > 1 ? saturdayHours : 0;
+        } else if (dow !== 'Sunday') {
+          dayHours = weekdayHours;
+          nightHours = weekdayHours;
+        }
+
+        const row = frm.add_child('month_prod_days');
+
+        row.shift_start_date = frappe.datetime.obj_to_str(d);
+        row.day_week = dow;
+
+        row.shift_day_hours = dayHours;
+        row.shift_night_hours = nightHours;
+
+        // Keep Morning/Afternoon zero for 2x12Hour.
+        row.shift_morning_hours = 0;
+        row.shift_afternoon_hours = 0;
+
+        row.production_excavators = frm.doc.num_excavators || 0;
+
+        const totalShiftHours =
+          flt(row.shift_day_hours) +
+          flt(row.shift_night_hours);
+
+        row.bcm_per_day =
+          flt(row.production_excavators) *
+          totalShiftHours *
+          220;
+      }
+
       frm.refresh_field('month_prod_days');
-      recalc_pre_target(frm);
-      frappe.msgprint(__('Monthly Production Days populated.'));
+
+      calculateAndSetProductionStats(frm);
+      frm.trigger('recalculate_totals');
+
+      if (typeof renderProductionDaysUI === 'function') {
+        renderProductionDaysUI(frm);
+      }
+
+      if (typeof recalc_pre_target === 'function') {
+        recalc_pre_target(frm);
+      }
+
+      frappe.msgprint(__('Monthly Production Days populated with Day/Night shifts.'));
     } catch (e) {
       logError('populate_monthly_prod_days', e);
     }
   },
 
+
+
   // Section 4: Clear Production Days
+
   clear_production_days(frm) {
     try {
       frm.clear_table('month_prod_days');
       frm.refresh_field('month_prod_days');
-      [
+
+      frm.set_value({
+        tot_shift_day_hours: 0,
+        tot_shift_night_hours: 0,
+        tot_shift_morning_hours: 0,
+        tot_shift_afternoon_hours: 0,
+        total_month_prod_hours: 0,
+        num_prod_days: 0,
+        prod_days_completed: 0,
+        month_prod_hours_completed: 0,
+        month_remaining_production_days: 0,
+        month_remaining_prod_hours: 0,
+        target_bcm_day: 0,
+        target_bcm_hour: 0
+      });
+
+      frm.refresh_fields([
         'tot_shift_day_hours',
         'tot_shift_night_hours',
         'tot_shift_morning_hours',
         'tot_shift_afternoon_hours',
         'total_month_prod_hours',
         'num_prod_days',
+        'prod_days_completed',
+        'month_prod_hours_completed',
+        'month_remaining_production_days',
+        'month_remaining_prod_hours',
         'target_bcm_day',
-        'target_bcm_hour',
-        'num_excavators',
-        'num_trucks',
-        'num_dozers'
-      ].forEach(f => frm.set_value(f, 0));
+        'target_bcm_hour'
+      ]);
+
       frappe.msgprint(__('Production Days cleared.'));
     } catch (e) {
       logError('clear_production_days', e);
     }
   },
 
+
   // Section 5: prod_month_end_date
+
   prod_month_end_date(frm) {
     try {
-      if (!frm.doc.prod_month_end_date) return;
-      const d    = new Date(frm.doc.prod_month_end_date);
-      const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-      frm.set_value('prod_month_end', frappe.datetime.obj_to_str(last));
-      frappe.msgprint(__('Month end set to last day.'));
-    } catch (e) {
+      // Naming uses Production Month End Date directly.
+      // Do not force Production Month End Invoicing to month-end here.
+      } catch (e) {
       logError('prod_month_end_date', e);
     }
   },
 
+
   // Section 6: recalculate_totals
   //monthly_target_bcm: frm => frm.trigger('recalculate_totals'),
+
+
   recalculate_totals(frm) {
     try {
-      console.log('🔁 recalculate_totals() called');
-
-      let sums = { day: 0, night: 0, morning: 0, afternoon: 0, days: 0 };
       (frm.doc.month_prod_days || []).forEach(r => {
-        const d = +r.shift_day_hours      || 0;
-        const n = +r.shift_night_hours    || 0;
-        const m = +r.shift_morning_hours  || 0;
-        const a = +r.shift_afternoon_hours|| 0;
-        const hrs = d + n + m + a;
+        const totalShiftHours =
+          flt(r.shift_day_hours) +
+          flt(r.shift_night_hours);
 
-        if (hrs) sums.days++;
-        sums.day       += d;
-        sums.night     += n;
-        sums.morning   += m;
-        sums.afternoon += a;
+        if (!r.production_excavators) {
+          r.production_excavators = frm.doc.num_excavators || 0;
+        }
+
+        r.bcm_per_day =
+          flt(r.production_excavators) *
+          totalShiftHours *
+          220;
       });
 
-      const totalHrs = sums.day + sums.night + sums.morning + sums.afternoon;
+      frm.refresh_field('month_prod_days');
 
-      frm.set_value({
-        tot_shift_day_hours:       sums.day,
-        tot_shift_night_hours:     sums.night,
-        tot_shift_morning_hours:   sums.morning,
-        tot_shift_afternoon_hours: sums.afternoon,
-        total_month_prod_hours:    totalHrs,
-        num_prod_days:             sums.days
-      });
+      calculateAndSetProductionStats(frm);
 
-      if (frm.doc.monthly_target_bcm) {
-        frm.set_value('target_bcm_day',  frm.doc.monthly_target_bcm / (sums.days || 1));
-        frm.set_value('target_bcm_hour', frm.doc.monthly_target_bcm / (totalHrs   || 1));
+      if (typeof renderProductionDaysUI === 'function') {
+        renderProductionDaysUI(frm);
+      }
+
+      if (typeof recalc_pre_target === 'function') {
+        recalc_pre_target(frm);
       }
     } catch (e) {
       logError('recalculate_totals', e);
@@ -406,29 +424,35 @@ row.bcm_per_day =
   },
 
 
+
+
   // Section 7: Update MTD Production
+
+
+
   update_mtd_production(frm) {
     try {
       if (!frm.doc.name) {
         frappe.msgprint(__('Save first.'));
         return;
       }
-      const refs = frm.doc.month_prod_days
+
+      const refs = (frm.doc.month_prod_days || [])
         .map(r => r.hourly_production_reference)
         .filter(Boolean);
+
       if (!refs.length) {
-        frappe.msgprint(__('No refs to query.'));
+        frappe.msgprint(__('No hourly production references found. Save or populate production days first.'));
         return;
       }
 
-      // Fetch ALL Hourly Production
       frappe.call({
         method: 'frappe.client.get_list',
         args: {
           doctype: 'Hourly Production',
           filters: [
-            ['month_prod_planning','=', frm.doc.name],
-            ['monthly_production_child_ref','in', refs]
+            ['month_prod_planning', '=', frm.doc.name],
+            ['monthly_production_child_ref', 'in', refs]
           ],
           fields: [
             'name',
@@ -440,246 +464,158 @@ row.bcm_per_day =
           limit_page_length: 0,
           limit_start: 0
         },
-        callback: r => {
+        callback: hp => {
           try {
-            const records = r.message || [];
-
-            // Matching Records
-            const matchEntries = records.map(e => {
-              const matched = frm.doc.month_prod_days
-                .some(row => row.hourly_production_reference === e.ref);
-              return `${e.name}: ${e.ref}${matched ? '-x' : ''}`;
-            });
-            logError('Matching Records', matchEntries.join('; '));
-
-            // Fetch Summary
-            const recordCount = records.length;
-            const totalTS     = records.reduce((s,e) => s + (e.total_ts_bcm    || 0), 0);
-            const totalDZ     = records.reduce((s,e) => s + (e.total_dozing_bcm || 0), 0);
-            const totalBCM    = totalTS + totalDZ;
-            logError('Hourly Production Fetch Summary', { recordCount, totalTS, totalDZ, totalBCM });
-
-            // Aggregate & Write-back
+            const hpRecords = hp.message || [];
             const sumsMap = {};
-            records.forEach(e => {
-              const ts  = e.total_ts_bcm     || 0;
-              const dz  = e.total_dozing_bcm  || 0;
+
+            hpRecords.forEach(e => {
+              const ts = flt(e.total_ts_bcm);
+              const dz = flt(e.total_dozing_bcm);
               const bcm = ts + dz;
-              sumsMap[e.ref] = sumsMap[e.ref] || { Day:0, Night:0, Morning:0, Afternoon:0, total:0, ts:0, dz:0 };
-              sumsMap[e.ref][e.shift] += bcm;
-              sumsMap[e.ref].total    += bcm;
-              sumsMap[e.ref].ts       += ts;
-              sumsMap[e.ref].dz       += dz;
+              const shift = e.shift || '';
+
+              sumsMap[e.ref] = sumsMap[e.ref] || {
+                Day: 0,
+                Night: 0,
+                total: 0,
+                ts: 0,
+                dz: 0,
+                record_count: 0
+              };
+
+              // Control/report must use Day and Night only.
+              // Legacy Morning/Afternoon reports are not used for shift totals.
+              if (shift === 'Day') {
+                sumsMap[e.ref].Day += bcm;
+                sumsMap[e.ref].record_count += 1;
+              }
+
+              if (shift === 'Night') {
+                sumsMap[e.ref].Night += bcm;
+                sumsMap[e.ref].record_count += 1;
+              }
+
+              if (shift === 'Day' || shift === 'Night') {
+                sumsMap[e.ref].total += bcm;
+                sumsMap[e.ref].ts += ts;
+                sumsMap[e.ref].dz += dz;
+              }
             });
-            frm.doc.month_prod_days.forEach(row => {
-              const s = sumsMap[row.hourly_production_reference] || { Day:0, Night:0, Morning:0, Afternoon:0, total:0, ts:0, dz:0 };
+
+            (frm.doc.month_prod_days || []).forEach(row => {
+              const s = sumsMap[row.hourly_production_reference] || {
+                Day: 0,
+                Night: 0,
+                total: 0,
+                ts: 0,
+                dz: 0
+              };
+
               frappe.model.set_value(row.doctype, row.name, {
-                day_shift_bcms:      s.Day,
-                night_shift_bcms:    s.Night,
-                morning_shift_bcms:  s.Morning,
-                afternoon_shift_bcms:s.Afternoon,
-                total_daily_bcms:    s.total,
-                total_ts_bcms:       s.ts,
-                total_dozing_bcms:   s.dz
+                day_shift_bcms: s.Day,
+                night_shift_bcms: s.Night,
+                morning_shift_bcms: 0,
+                afternoon_shift_bcms: 0,
+                total_daily_bcms: s.total,
+                total_ts_bcms: s.ts,
+                total_dozing_bcms: s.dz
               });
             });
+
             frm.refresh_field('month_prod_days');
 
-            // Checksum
-            const expected = Object.keys(sumsMap).length;
-            const updated  = frm.doc.month_prod_days.filter(r => sumsMap[r.hourly_production_reference]).length;
-            logError('HP Update Checksum', { expected, updated });
+            let runTs = 0;
+            let runDz = 0;
 
-            // Post-update Totals
-            const tableTotals = frm.doc.month_prod_days.reduce((acc,row) => {
-              acc.day      += row.day_shift_bcms    || 0;
-              acc.night    += row.night_shift_bcms  || 0;
-              acc.morning  += row.morning_shift_bcms|| 0;
-              acc.afternoon+= row.afternoon_shift_bcms|| 0;
-              acc.total    += row.total_daily_bcms  || 0;
-              return acc;
-            }, { day:0, night:0, morning:0, afternoon:0, total:0 });
-            logError('Monthly Prod Days BCM Totals', tableTotals);
-
-            // Cumulative Totals (fixed field names)
-            let runTs = 0, runDz = 0;
-            frm.doc.month_prod_days
+            (frm.doc.month_prod_days || [])
               .slice()
               .sort((a, b) => new Date(a.shift_start_date) - new Date(b.shift_start_date))
               .forEach(rw => {
-                runTs += rw.total_ts_bcms     || 0;
-                runDz += rw.total_dozing_bcms || 0;
+                runTs += flt(rw.total_ts_bcms);
+                runDz += flt(rw.total_dozing_bcms);
+
                 frappe.model.set_value(rw.doctype, rw.name, {
-                  cum_ts_bcms:                 runTs,
-                  tot_cumulative_dozing_bcms:  runDz
+                  cum_ts_bcms: runTs,
+                  tot_cumulative_dozing_bcms: runDz
                 });
               });
-            frm.refresh_field('month_prod_days');
-
-          } catch (inner) {
-            logError('Processing HP Callback', inner);
-          }
-        },
-        error: err => {
-          logError('Call HP', err);
-          frappe.msgprint(__('Unable to load Hourly Production data. See Error Log.'));
-        }
-      });
-
-      // Section 3: Fetch ALL Survey & calculate variances (last‐only) + parent-level updates
-      frappe.call({
-        method: 'frappe.client.get_list',
-        args: {
-          doctype: 'Survey',
-          filters: [
-            ['hourly_prod_ref', 'in', refs],
-            ['docstatus', '=', 1]
-          ],
-          fields: [
-            'hourly_prod_ref as ref',
-            'total_dozing_bcm',
-            'total_ts_bcm'
-          ],
-          limit_page_length: 0,
-          limit_start: 0
-        },
-        callback: function(srv) {
-          try {
-            // 1) Build survey map
-            const surveyMap = {};
-            (srv.message || []).forEach(s => {
-              surveyMap[s.ref] = {
-                dz: s.total_dozing_bcm || 0,
-                ts: s.total_ts_bcm     || 0
-              };
-            });
-
-            // 2) Determine which ref is the latest
-            const surveyRows = frm.doc.month_prod_days
-              .filter(r => surveyMap[r.hourly_production_reference]);
-            let lastRef = null;
-            if (surveyRows.length) {
-              const lastRow = surveyRows.reduce((prev, curr) =>
-                new Date(curr.shift_start_date) > new Date(prev.shift_start_date)
-                  ? curr
-                  : prev,
-                surveyRows[0]
-              );
-              lastRef = lastRow.hourly_production_reference;
-            }
-
-            // 3) Loop every child-row: keep variance only on lastRef, zero out others
-            frm.doc.month_prod_days.forEach(row => {
-              const ref    = row.hourly_production_reference;
-              const baseDz = row.tot_cumulative_dozing_bcms || 0;
-              const baseTs = row.cum_ts_bcms             || 0;
-
-              if (ref === lastRef) {
-                const survey = surveyMap[ref];
-                frappe.model.set_value(row.doctype, row.name, {
-                  tot_cum_dozing_survey: survey.dz,
-                  tot_cum_ts_survey:     survey.ts,
-                  cum_dozing_variance:   survey.dz - baseDz,
-                  cum_ts_variance:       survey.ts - baseTs
-                });
-              } else {
-                frappe.model.set_value(row.doctype, row.name, {
-                  tot_cum_dozing_survey: 0,
-                  tot_cum_ts_survey:     0,
-                  cum_dozing_variance:   0,
-                  cum_ts_variance:       0
-                });
-              }
-            });
 
             frm.refresh_field('month_prod_days');
 
-            // --- Final parent-level updates ---
+            let totalTs = 0;
+            let totalDz = 0;
 
-            // 4) Parent-level tallies
-            let totalTs = 0, totalDz = 0;
-            frm.doc.month_prod_days.forEach(r => {
-              totalTs += r.total_ts_bcms    || 0;
-              totalDz += r.total_dozing_bcms|| 0;
+            (frm.doc.month_prod_days || []).forEach(r => {
+              totalTs += flt(r.total_ts_bcms);
+              totalDz += flt(r.total_dozing_bcms);
             });
 
-            // 5) ORIGINAL survey-variance from most recent non-zero child variance
-            let varRows = frm.doc.month_prod_days
-              .filter(r => (r.cum_dozing_variance || 0) !== 0
-                         || (r.cum_ts_variance     || 0) !== 0)
-              .sort((a, b) => new Date(b.shift_start_date) - new Date(a.shift_start_date));
-            let surveyVar = 0;
-            if (varRows.length) {
-              const latest = varRows[0];
-              surveyVar = (latest.cum_dozing_variance || 0)
-                        + (latest.cum_ts_variance     || 0);
-            }
+            calculateAndSetProductionStats(frm);
 
-            // 6) Completed days & hours (up to yesterday)
-            const today = new Date();
-            const yest  = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
-            let doneDays = 0, doneHrs = 0;
-            frm.doc.month_prod_days.forEach(r => {
-              const rd = frappe.datetime.str_to_obj(r.shift_start_date);
-              if (rd <= yest) {
-                const hrs =
-                  (r.shift_day_hours     || 0) +
-                  (r.shift_night_hours   || 0) +
-                  (r.shift_morning_hours || 0) +
-                  (r.shift_afternoon_hours || 0);
-                if (hrs) doneDays++;
-                doneHrs += hrs;
-              }
-            });
+            const actual =
+              totalTs +
+              totalDz +
+              flt(frm.doc.monthly_act_tally_survey_variance);
 
-            // 7) Final parent-level updates
-            const actual   = totalTs + totalDz + surveyVar;
-            const mtdDay   = actual / doneDays;
-            const mtdHr    = actual / doneHrs;
-            const forecast = mtdHr * (frm.doc.total_month_prod_hours || 0);
+            const doneDays = flt(frm.doc.prod_days_completed);
+            const doneHrs = flt(frm.doc.month_prod_hours_completed);
+
+            const mtdDay = doneDays ? actual / doneDays : 0;
+            const mtdHr = doneHrs ? actual / doneHrs : 0;
+            const forecast = mtdHr * flt(frm.doc.total_month_prod_hours);
 
             frm.set_value({
-              month_act_ts_bcm_tallies:          totalTs,
-              month_act_dozing_bcm_tallies:      totalDz,
-              monthly_act_tally_survey_variance: surveyVar,
-              month_actual_bcm:                  actual,
-              prod_days_completed:               doneDays,
-              month_prod_hours_completed:        doneHrs,
-              month_remaining_production_days:   frm.doc.num_prod_days - doneDays,
-              month_remaining_prod_hours:        frm.doc.total_month_prod_hours - doneHrs,
-              mtd_bcm_day:                       mtdDay,
-              mtd_bcm_hour:                      mtdHr,
-              month_forecated_bcm:               forecast
+              month_act_ts_bcm_tallies: totalTs,
+              month_act_dozing_bcm_tallies: totalDz,
+              month_actual_bcm: actual,
+              mtd_bcm_day: mtdDay,
+              mtd_bcm_hour: mtdHr,
+              month_forecated_bcm: forecast
             });
+
             frm.refresh_fields([
               'month_act_ts_bcm_tallies',
               'month_act_dozing_bcm_tallies',
-              'monthly_act_tally_survey_variance',
               'month_actual_bcm',
+              'mtd_bcm_day',
+              'mtd_bcm_hour',
+              'month_forecated_bcm',
+              'tot_shift_day_hours',
+              'tot_shift_night_hours',
+              'tot_shift_morning_hours',
+              'tot_shift_afternoon_hours',
+              'total_month_prod_hours',
               'prod_days_completed',
               'month_prod_hours_completed',
               'month_remaining_production_days',
-              'month_remaining_prod_hours',
-              'mtd_bcm_day',
-              'mtd_bcm_hour',
-              'month_forecated_bcm'
+              'month_remaining_prod_hours'
             ]);
 
+            if (typeof renderProductionDaysUI === 'function') {
+              renderProductionDaysUI(frm);
+            }
+
+            frm.save().then(() => {
+              frappe.msgprint(__('Month to Date Production updated using Day/Night shifts.'));
+            });
           } catch (inner) {
-            logError('Processing Survey Callback', inner);
+            logError('Processing Hourly Production Callback', inner);
           }
         },
-        error: function(err) {
-          logError('Call Survey', err);
-          frappe.msgprint(__('Unable to load Survey data. See Error Log.'));
+        error: err => {
+          logError('Call Hourly Production', err);
+          frappe.msgprint(__('Unable to load Hourly Production data. See Error Log.'));
         }
       });
-
     } catch (e) {
       logError('update_mtd_production', e);
       frappe.msgprint(__('An unexpected error occurred. Check the Error Log.'));
     }
   },
+
+
+
 
   // Section 8: Child Table Triggers
   //'Monthly Production Days': {
@@ -690,34 +626,46 @@ row.bcm_per_day =
   //},
 
    // Section 9: Update Equipment Counts (with logging)
-  update_equipment_counts(frm) {
-    try {
-      // Count unique Excavator groups (as reflected in the UI)
-      const assignments = frm.doc.excavator_truck_assignments || [];
-      const excavatorIds = [...new Set(
-        assignments
-          .filter(r => !!r.excavator)
-          .map(r => r.excavator)
-      )];
-      const numExcavators = excavatorIds.length;
-      // Count only trucks assigned to excavator groups
-      const numTrucks     = assignments.filter(r => r.excavator && r.truck).length;
-      // Count only dozer rows with Production dozing_type
-      const numDozers     = (frm.doc.dozer_table || []).filter(r => r.dozing_type === 'Production').length;
+  
+update_equipment_counts(frm) {
+  try {
+    const assignments = frm.doc.excavator_truck_assignments || [];
 
-      // Log calculations
-      console.log(`🧮 Equipment counts -> Excavators: ${numExcavators}, Trucks: ${numTrucks}, Dozers (Production): ${numDozers}`);
+    const productionExcavators = new Set();
 
-      frm.set_value({
-        num_excavators: numExcavators,
-        num_trucks:     numTrucks,
-        num_dozers:     numDozers
-      });
-      frm.refresh_fields(['num_excavators', 'num_trucks', 'num_dozers']);
-    } catch (e) {
-      logError('update_equipment_counts', e);
-    }
-  },
+    // Excavators with assigned ADTs are production excavators.
+    assignments.forEach(r => {
+      if (r.excavator && r.truck) {
+        productionExcavators.add(r.excavator);
+      }
+    });
+
+    // Empty excavators that user dragged to Assigned side must still count.
+    getActiveEmptyExcavators(frm).forEach(excavatorId => {
+      productionExcavators.add(excavatorId);
+    });
+
+    const numExcavators = productionExcavators.size;
+
+    // Only ADTs assigned to production excavators count.
+    const numTrucks = assignments.filter(r => r.excavator && r.truck).length;
+
+    // Any dozer with a selected dozing_type is a production dozer.
+    const numDozers = (frm.doc.dozer_table || []).filter(r => !!r.dozing_type).length;
+
+    console.log(`Equipment counts -> Excavators: ${numExcavators}, Trucks: ${numTrucks}, Dozers: ${numDozers}`);
+
+    frm.set_value({
+      num_excavators: numExcavators,
+      num_trucks: numTrucks,
+      num_dozers: numDozers
+    });
+
+    frm.refresh_fields(['num_excavators', 'num_trucks', 'num_dozers']);
+  } catch (e) {
+    logError('update_equipment_counts', e);
+  }
+},
 
   // Section X: Update TS Planned Volumes (with logging, using precomputed excavator count)
   update_ts_planned_volumes(frm) {
@@ -952,6 +900,219 @@ function recalc_bcm_per_day(cdt, cdn) {
   frappe.model.set_value(cdt, cdn, 'bcm_per_day', bcm);
 }
 
+
+function updateProductionTimeSummary(frm) {
+  try {
+    let sums = {
+      day: 0,
+      night: 0,
+      morning: 0,
+      afternoon: 0,
+      prodDays: 0
+    };
+
+    const rows = frm.doc.month_prod_days || [];
+
+    rows.forEach(r => {
+      const day = flt(r.shift_day_hours);
+      const night = flt(r.shift_night_hours);
+      const morning = flt(r.shift_morning_hours);
+      const afternoon = flt(r.shift_afternoon_hours);
+      const hrs = day + night + morning + afternoon;
+
+      sums.day += day;
+      sums.night += night;
+      sums.morning += morning;
+      sums.afternoon += afternoon;
+
+      if (hrs > 0) {
+        sums.prodDays += 1;
+      }
+    });
+
+    const totalHours = sums.day + sums.night + sums.morning + sums.afternoon;
+
+    const today = frappe.datetime.str_to_obj(frappe.datetime.get_today());
+    let completedDays = 0;
+    let completedHours = 0;
+
+    rows.forEach(r => {
+      if (!r.shift_start_date) return;
+
+      const rowDate = frappe.datetime.str_to_obj(r.shift_start_date);
+      const day = flt(r.shift_day_hours);
+      const night = flt(r.shift_night_hours);
+      const morning = flt(r.shift_morning_hours);
+      const afternoon = flt(r.shift_afternoon_hours);
+      const hrs = day + night + morning + afternoon;
+
+      // Completed means production date is before today.
+      // Today's date is still in progress, so it remains incomplete.
+      if (hrs > 0 && rowDate < today) {
+        completedDays += 1;
+        completedHours += hrs;
+      }
+    });
+
+    const remainingDays = Math.max(sums.prodDays - completedDays, 0);
+    const remainingHours = Math.max(totalHours - completedHours, 0);
+
+    frm.set_value({
+      tot_shift_day_hours: sums.day,
+      tot_shift_night_hours: sums.night,
+      tot_shift_morning_hours: sums.morning,
+      tot_shift_afternoon_hours: sums.afternoon,
+      total_month_prod_hours: totalHours,
+      num_prod_days: sums.prodDays,
+      prod_days_completed: completedDays,
+      month_prod_hours_completed: completedHours,
+      month_remaining_production_days: remainingDays,
+      month_remaining_prod_hours: remainingHours
+    });
+
+    if (frm.doc.monthly_target_bcm) {
+      frm.set_value({
+        target_bcm_day: flt(frm.doc.monthly_target_bcm) / (sums.prodDays || 1),
+        target_bcm_hour: flt(frm.doc.monthly_target_bcm) / (totalHours || 1)
+      });
+    } else {
+      frm.set_value({
+        target_bcm_day: 0,
+        target_bcm_hour: 0
+      });
+    }
+
+    frm.refresh_fields([
+      'tot_shift_day_hours',
+      'tot_shift_night_hours',
+      'tot_shift_morning_hours',
+      'tot_shift_afternoon_hours',
+      'total_month_prod_hours',
+      'num_prod_days',
+      'prod_days_completed',
+      'month_prod_hours_completed',
+      'month_remaining_production_days',
+      'month_remaining_prod_hours',
+      'target_bcm_day',
+      'target_bcm_hour'
+    ]);
+  } catch (e) {
+    logError('updateProductionTimeSummary', e);
+  }
+}
+
+
+
+
+function calculateAndSetProductionStats(frm) {
+  try {
+    let sums = {
+      day: 0,
+      night: 0,
+      morning: 0,
+      afternoon: 0,
+      days: 0
+    };
+
+    const rows = frm.doc.month_prod_days || [];
+
+    rows.forEach(r => {
+      const d = flt(r.shift_day_hours);
+      const n = flt(r.shift_night_hours);
+      const m = flt(r.shift_morning_hours);
+      const a = flt(r.shift_afternoon_hours);
+      const hrs = d + n + m + a;
+
+      if (hrs > 0) {
+        sums.days += 1;
+      }
+
+      sums.day += d;
+      sums.night += n;
+      sums.morning += m;
+      sums.afternoon += a;
+    });
+
+    const totalHrs =
+      sums.day +
+      sums.night +
+      sums.morning +
+      sums.afternoon;
+
+    let completedDays = 0;
+    let completedHours = 0;
+
+    rows.forEach(r => {
+      const actualBcm =
+        flt(r.total_daily_bcms) +
+        flt(r.total_ts_bcms) +
+        flt(r.total_dozing_bcms) +
+        flt(r.day_shift_bcms) +
+        flt(r.night_shift_bcms);
+
+      const plannedHours =
+        flt(r.shift_day_hours) +
+        flt(r.shift_night_hours) +
+        flt(r.shift_morning_hours) +
+        flt(r.shift_afternoon_hours);
+
+      if (actualBcm > 0 && plannedHours > 0) {
+        completedDays += 1;
+        completedHours += plannedHours;
+      }
+    });
+
+    const remainingDays = Math.max(sums.days - completedDays, 0);
+    const remainingHrs = Math.max(totalHrs - completedHours, 0);
+
+    frm.set_value({
+      tot_shift_day_hours: sums.day,
+      tot_shift_night_hours: sums.night,
+      tot_shift_morning_hours: sums.morning,
+      tot_shift_afternoon_hours: sums.afternoon,
+      total_month_prod_hours: totalHrs,
+      num_prod_days: sums.days,
+      prod_days_completed: completedDays,
+      month_prod_hours_completed: completedHours,
+      month_remaining_production_days: remainingDays,
+      month_remaining_prod_hours: remainingHrs
+    });
+
+    if (frm.doc.monthly_target_bcm) {
+      frm.set_value({
+        target_bcm_day: flt(frm.doc.monthly_target_bcm) / (sums.days || 1),
+        target_bcm_hour: flt(frm.doc.monthly_target_bcm) / (totalHrs || 1)
+      });
+    } else {
+      frm.set_value({
+        target_bcm_day: 0,
+        target_bcm_hour: 0
+      });
+    }
+
+    frm.refresh_fields([
+      'tot_shift_day_hours',
+      'tot_shift_night_hours',
+      'tot_shift_morning_hours',
+      'tot_shift_afternoon_hours',
+      'total_month_prod_hours',
+      'num_prod_days',
+      'prod_days_completed',
+      'month_prod_hours_completed',
+      'month_remaining_production_days',
+      'month_remaining_prod_hours',
+      'target_bcm_day',
+      'target_bcm_hour'
+    ]);
+  } catch (e) {
+    logError('calculateAndSetProductionStats', e);
+  }
+}
+
+
+
+
+
 function recalc_pre_target(frm) {
   const ts     = flt(frm.doc.total_ts_planned_volumes);
   const dozing = flt(frm.doc.planned_dozer_volumes);
@@ -1001,32 +1162,246 @@ function renderTeam(container, excavatorId, excavatorModel, truckList) {
 
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function getMppLocalKey(frm, key) {
+  return `mpp_${frm.doc.name}_${key}`;
+}
+
+function getActiveEmptyExcavators(frm) {
+  try {
+    return JSON.parse(localStorage.getItem(getMppLocalKey(frm, 'active_empty_excavators')) || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function setActiveEmptyExcavators(frm, list) {
+  localStorage.setItem(
+    getMppLocalKey(frm, 'active_empty_excavators'),
+    JSON.stringify([...new Set(list.filter(Boolean))])
+  );
+}
+
+function addActiveEmptyExcavator(frm, excavatorId) {
+  if (!excavatorId) return;
+
+  const list = getActiveEmptyExcavators(frm);
+
+  if (!list.includes(excavatorId)) {
+    list.push(excavatorId);
+  }
+
+  setActiveEmptyExcavators(frm, list);
+}
+
+function removeActiveEmptyExcavator(frm, excavatorId) {
+  const list = getActiveEmptyExcavators(frm).filter(x => x !== excavatorId);
+  setActiveEmptyExcavators(frm, list);
+}
+
+function moveTruckBackToSpare(frm, truckId) {
+  console.log("Moving ADT back to Spare/Swing unit:", truckId);
+
+  const row = (frm.doc.excavator_truck_assignments || []).find(r => r.truck === truckId);
+
+  if (!row) {
+    console.warn("Truck row not found:", truckId);
+    return;
+  }
+
+  const oldExcavator = row.excavator;
+
+  // Keep excavator on production side after its ADT is moved back to spare.
+  if (oldExcavator) {
+    addActiveEmptyExcavator(frm, oldExcavator);
+  }
+
+  row.excavator = null;
+  row.excavator_model = null;
+
+  frm.refresh_field('excavator_truck_assignments');
+  frm.dirty();
+
+  frm.save().then(() => {
+    frm.trigger('update_equipment_counts');
+    renderTruckAssignmentUI(frm);
+  });
+}
+
 function enableDragAndDrop(frm) {
+  enableTruckDragAndDrop(frm);
+  enableExcavatorDragAndDrop(frm);
+  enableDozerDragAndDrop(frm);
+}
+
+function enableTruckDragAndDrop(frm) {
   $('.truck-bin').each(function () {
     Sortable.create(this, {
       group: 'trucks',
       animation: 150,
+      draggable: '.truck-item',
+      filter: 'button, select, input, textarea',
+      preventOnFilter: false,
       onAdd(evt) {
         const truckId = evt.item.dataset.truck;
-        const newExcavator = evt.to.dataset.excavator === 'unassigned' ? null : evt.to.dataset.excavator;
+        const newExcavator = evt.to.dataset.excavator === 'spare'
+          ? null
+          : evt.to.dataset.excavator;
 
-        console.log(`📦 Truck '${truckId}' moved to → ${newExcavator || 'Unassigned'}`);
+        const excavatorModel = newExcavator
+          ? (
+              (frm.doc.excavator_truck_assignments || [])
+                .find(r => r.excavator === newExcavator)?.excavator_model || ''
+            )
+          : null;
 
-        // Find matching row and update its excavator field
-        const row = frm.doc.excavator_truck_assignments.find(r => r.truck === truckId);
+        console.log(`Truck '${truckId}' moved to -> ${newExcavator || 'Spare/Swing unit'}`);
+
+        const row = (frm.doc.excavator_truck_assignments || []).find(r => r.truck === truckId);
+
         if (row) {
           row.excavator = newExcavator;
+          row.excavator_model = excavatorModel;
+
+          if (newExcavator) {
+            removeActiveEmptyExcavator(frm, newExcavator);
+          }
+
+          frm.refresh_field('excavator_truck_assignments');
           frm.dirty();
+
           frm.save()
-            .then(() => console.log(`✅ Saved: ${truckId} → ${newExcavator || 'Unassigned'}`))
-            .catch(err => console.error(`❌ Save failed for ${truckId}:`, err));
+            .then(() => {
+              frm.trigger('update_equipment_counts');
+              renderTruckAssignmentUI(frm);
+            })
+            .catch(err => console.error(`Save failed for ${truckId}:`, err));
         } else {
-          console.warn("⚠️ Could not find truck row:", truckId);
+          console.warn("Could not find truck row:", truckId);
         }
       }
     });
   });
 }
+
+function enableExcavatorDragAndDrop(frm) {
+  $('.excavator-bin').each(function () {
+    Sortable.create(this, {
+      group: 'excavators',
+      animation: 150,
+      draggable: '.excavator-item',
+      filter: 'button, select, input, textarea, .truck-bin, .truck-item',
+      preventOnFilter: false,
+      onAdd(evt) {
+        const excavatorId = evt.item.dataset.excavator;
+        const movedTo = evt.to.dataset.zone;
+
+        console.log(`Excavator '${excavatorId}' moved to -> ${movedTo}`);
+
+        if (movedTo === 'assigned') {
+          addActiveEmptyExcavator(frm, excavatorId);
+          renderTruckAssignmentUI(frm);
+          return;
+        }
+
+        if (movedTo === 'spare') {
+          removeActiveEmptyExcavator(frm, excavatorId);
+
+          (frm.doc.excavator_truck_assignments || []).forEach(row => {
+            if (row.excavator === excavatorId && row.truck) {
+              row.excavator = null;
+              row.excavator_model = null;
+            }
+          });
+
+          frm.refresh_field('excavator_truck_assignments');
+          frm.dirty();
+
+          frm.save()
+            .then(() => renderTruckAssignmentUI(frm))
+            .catch(err => console.error("Save failed while moving excavator:", err));
+        }
+      }
+    });
+  });
+}
+
+
+function enableDozerDragAndDrop(frm) {
+  $('.dozer-bin').each(function () {
+    Sortable.create(this, {
+      group: 'dozers',
+      animation: 150,
+      draggable: '.dozer-card',
+      handle: '.dozer-drag-handle',
+      filter: 'button, select, input, textarea',
+      preventOnFilter: false,
+
+      onAdd(evt) {
+        const dozerName = evt.item.dataset.dozer;
+        const movedTo = evt.to.dataset.zone;
+
+        console.log(`Dozer '${dozerName}' moved to -> ${movedTo}`);
+
+        const row = (frm.doc.dozer_table || []).find(r => r.asset_name === dozerName);
+
+        if (!row) {
+          console.warn("Could not find dozer row:", dozerName);
+          renderDozerAssignmentUI(frm);
+          return;
+        }
+
+        const df = frappe.meta.get_docfield('Dozers Planned', 'dozing_type', frm.doc.name);
+        const options = (df.options || '').split('\n').filter(Boolean);
+        const defaultType = options[0] || 'Tip';
+
+        const newType = movedTo === 'assigned'
+          ? (row.dozing_type || defaultType)
+          : '';
+
+        frappe.model.set_value(row.doctype, row.name, 'dozing_type', newType)
+          .then(() => {
+            frm.refresh_field('dozer_table');
+            frm.dirty();
+
+            frm.save().then(() => {
+              frm.trigger('update_equipment_counts');
+              renderDozerAssignmentUI(frm);
+            });
+          });
+      }
+    });
+  });
+}
+
+
 
 function addExcavatorsOnce(frm) {
   console.log("🔄 Attempting to add unassigned Excavators...");
@@ -1088,30 +1463,45 @@ function addTrucksOnce(frm) {
   });
 }
 
+
+
 // Add Dozers handler
 function addDozersOnce(frm) {
-  console.log("🔄 Attempting to add unassigned Dozers...");
+  console.log("Attempting to add Spare/Swing unit Dozers...");
+
   frappe.db.get_list('Asset', {
-    filters: { asset_category: 'Dozer', location: frm.doc.location, docstatus: 1 },
+    filters: {
+      asset_category: 'Dozer',
+      location: frm.doc.location,
+      docstatus: 1
+    },
     fields: ['name', 'item_name'],
     limit: 100
   }).then(dozers => {
     console.log('Assets fetched for dozers:', dozers);
+
     let added = 0;
+
     dozers.forEach(asset => {
-      const exists = frm.doc.dozer_table.some(r => r.asset_name === asset.name);
+      const exists = (frm.doc.dozer_table || []).some(r => r.asset_name === asset.name);
+
       if (!exists) {
-        console.log('Adding dozer:', asset.name, asset.item_name);
+        console.log('Adding dozer as Spare/Swing unit:', asset.name, asset.item_name);
+
         const row = frm.add_child('dozer_table');
         row.asset_name = asset.name;
         row.item_name = asset.item_name;
+        row.dozing_type = '';
+
         added++;
       }
     });
-    console.log(`Added ${added} new dozer(s)`);
+
     if (added) {
+      frm.refresh_field('dozer_table');
+
       frm.save().then(() => {
-        console.log(`✅ Added ${added} dozer(s) and saved form`);
+        console.log(`Added ${added} dozer(s) and saved form`);
         renderDozerAssignmentUI(frm);
       });
     } else {
@@ -1121,16 +1511,16 @@ function addDozersOnce(frm) {
 }
 
 
-function renderTruckAssignmentUI(frm) {
-  console.log("🎯 Rendering Excavator/Truck UI");
 
-  // 1) Clear previous HTML
+function renderTruckAssignmentUI(frm) {
+  console.log("Rendering Excavator/Truck UI");
+
   const wrapper = frm.get_field('dnd_html_truck_ui').$wrapper.empty();
 
- const controls = $(`
+  const controls = $(`
     <div style="margin-bottom:12px;display:flex;gap:8px;">
-      <button id="add-excavators" class="btn btn-primary btn-sm">➕ Add Excavators</button>
-      <button id="add-trucks"     class="btn btn-secondary btn-sm">➕ Add Trucks</button>
+      <button id="add-excavators" class="btn btn-primary btn-sm">+ Add Excavators</button>
+      <button id="add-trucks" class="btn btn-secondary btn-sm">+ Add Trucks</button>
     </div>
   `).appendTo(wrapper);
 
@@ -1138,235 +1528,431 @@ function renderTruckAssignmentUI(frm) {
     .find('#add-excavators')
     .off('click')
     .on('click', () => addExcavatorsOnce(frm));
+
   controls
     .find('#add-trucks')
     .off('click')
     .on('click', () => addTrucksOnce(frm));
 
-  // 3) Build a map of { excavator → [ trucks ] } and list of unassigned
   const assignments = frm.doc.excavator_truck_assignments || [];
-  const teamsMap    = {};
-  const unassigned  = [];
+  const teamsMap = {};
+  const spareTrucks = [];
+  const spareExcavators = [];
+  const excavatorModels = {};
+  const activeEmptyExcavators = getActiveEmptyExcavators(frm);
 
   assignments.forEach(r => {
     if (r.excavator) {
+      excavatorModels[r.excavator] = r.excavator_model || excavatorModels[r.excavator] || '';
+    }
+
+    if (r.excavator && r.truck) {
       teamsMap[r.excavator] = teamsMap[r.excavator] || {
-        model:  r.excavator_model || '',
+        model: r.excavator_model || '',
         trucks: []
       };
-      if (r.truck) {
-        teamsMap[r.excavator].trucks.push({
-          id:    r.truck,
-          model: r.truck_model || ''
-        });
-      }
-    } else if (r.truck) {
-      unassigned.push({
-        id:    r.truck,
+
+      teamsMap[r.excavator].trucks.push({
+        id: r.truck,
         model: r.truck_model || ''
       });
     }
   });
 
-  // 4) Two-column layout
+  activeEmptyExcavators.forEach(excId => {
+    if (!teamsMap[excId]) {
+      teamsMap[excId] = {
+        model: excavatorModels[excId] || '',
+        trucks: []
+      };
+    }
+  });
+
+  assignments.forEach(r => {
+    if (!r.excavator && r.truck) {
+      spareTrucks.push({
+        id: r.truck,
+        model: r.truck_model || ''
+      });
+    }
+
+    if (r.excavator && !r.truck && !teamsMap[r.excavator]) {
+      const alreadyListed = spareExcavators.some(e => e.id === r.excavator);
+
+      if (!alreadyListed) {
+        spareExcavators.push({
+          id: r.excavator,
+          model: r.excavator_model || ''
+        });
+      }
+    }
+  });
+
   const container = $(`
     <div style="display:flex;gap:24px;">
-      <div id="teams-col"      style="flex:1;"></div>
-      <div id="unassigned-col" style="flex:1;"></div>
+      <div id="teams-col" style="flex:1;"></div>
+      <div id="spare-col" style="flex:1;"></div>
     </div>
   `).appendTo(wrapper);
 
-  //
-  // 5) Render each Excavator team
-  //
   const teamsCol = container.find('#teams-col');
+  const spareCol = container.find('#spare-col');
+
+  const assignedExcSec = $(`
+    <div style="padding:12px;margin-bottom:20px;
+                background:#fafafa;border:1px solid #ddd;border-radius:4px;">
+      <h4>Assigned Excavators</h4>
+      <div class="excavator-bin" data-zone="assigned"
+           style="min-height:80px;padding:4px;"></div>
+    </div>
+  `).appendTo(teamsCol);
+
+  const assignedExcBin = assignedExcSec.find('.excavator-bin');
+
+  if (!Object.keys(teamsMap).length) {
+    assignedExcBin.append('<p><em>Drag excavators here to assign them.</em></p>');
+  }
+
   Object.entries(teamsMap).forEach(([excId, data]) => {
     const section = $(`
-      <div style="position:relative;padding:12px;margin-bottom:20px;
-                  background:#fafafa;border:1px solid #ddd;border-radius:4px;">
-        <h4>⛏️ ${excId} — ${data.model}</h4>
+      <div class="excavator-item"
+           data-excavator="${excId}"
+           style="position:relative;padding:12px;margin-bottom:16px;
+                  background:#ffffff;border:1px solid #ddd;border-radius:4px;
+                  cursor:grab;">
+        <div style="font-weight:bold;margin-bottom:8px;">
+          ⛏️ ${excId} — ${data.model || ''}
+        </div>
         <ul class="truck-bin" data-excavator="${excId}"
-            style="min-height:50px;list-style:none;padding:0;margin:0;">
+            style="min-height:50px;list-style:none;padding:0;margin:0;cursor:default;">
         </ul>
       </div>
     `);
 
-    // • Unassign all trucks in team
     $('<button class="btn btn-danger btn-xs" ' +
       'style="position:absolute;background:transparent;top:8px;right:8px;">🗑️</button>')
       .appendTo(section)
+      .off('click')
       .on('click', () => {
-        console.log("🗑️ Unassigning all trucks from team:", excId);
-        // Find all rows with this excavator and unassign them
+        console.log("Moving excavator team to Spare/Swing unit:", excId);
+
+        removeActiveEmptyExcavator(frm, excId);
+
         (frm.doc.excavator_truck_assignments || []).forEach(row => {
-          if (row.excavator === excId) {
+          if (row.excavator === excId && row.truck) {
             row.excavator = null;
             row.excavator_model = null;
           }
         });
+
         frm.refresh_field('excavator_truck_assignments');
-        
-          console.log("✅ All trucks unassigned from team");
+        frm.dirty();
+
+        frm.save().then(() => {
           renderTruckAssignmentUI(frm);
-        frm.save();
+        });
       });
 
-    // • Unassign individual trucks
+    if (!data.trucks.length) {
+      section.find('.truck-bin').append('<li><em>No trucks assigned. Drag ADTs here.</em></li>');
+    }
+
     data.trucks.forEach(t => {
       const li = $(`
         <li class="truck-item"
             data-truck="${t.id}"
-            style="display:flex;justify-content:space-between;
-                  padding:6px 12px;margin:4px 0;
-                  background:#e3f2fd;border-radius:3px;">
-          🚚 ${t.id} — ${t.model}
+            style="display:flex;justify-content:space-between;align-items:center;
+                   padding:6px 12px;margin:4px 0;
+                   background:#e3f2fd;border-radius:3px;cursor:grab;">
+          <span>🚚 ${t.id} — ${t.model}</span>
         </li>
       `);
 
-      $('<button class="btn btn-danger btn-xs" style = "background:transparent;">🗑️</button>')
+      $('<button class="btn btn-danger btn-xs" style="background:transparent;">🗑️</button>')
         .appendTo(li)
+        .off('click')
         .on('click', () => {
-          console.log("🗑️ Unassigning truck:", t.id);
-          // Find the row by truck ID and unassign it
-          const row = (frm.doc.excavator_truck_assignments || []).find(r => r.truck === t.id);
-          if (row) {
-            frappe.model.set_value(row.doctype, row.name, {
-              excavator: null,
-              excavator_model: null
-            }).then(() => {
-              frm.refresh_field('excavator_truck_assignments');
-              renderTruckAssignmentUI(frm);
-            });
-          }
+          moveTruckBackToSpare(frm, t.id);
         });
+
       section.find('.truck-bin').append(li);
     });
 
-    teamsCol.append(section);
+    assignedExcBin.append(section);
   });
 
-  //
-  // 6) Render Unassigned Trucks (keep existing delete functionality)
-  //
-  const uaCol = container.find('#unassigned-col');
-  const uaSec = $(`
+  const spareExcSec = $(`
+    <div style="padding:12px;margin-bottom:20px;
+                background:#f5f5f5;border:1px solid #ddd;border-radius:4px;">
+      <h4>Spare/Swing unit Excavators</h4>
+      <div class="excavator-bin" data-zone="spare"
+           style="min-height:80px;padding:4px;"></div>
+    </div>
+  `).appendTo(spareCol);
+
+  const spareExcBin = spareExcSec.find('.excavator-bin');
+
+  if (!spareExcavators.length) {
+    spareExcBin.append('<p><em>No Spare/Swing unit excavators.</em></p>');
+  }
+
+  spareExcavators.forEach(e => {
+    const excCard = $(`
+      <div class="excavator-item"
+           data-excavator="${e.id}"
+           style="position:relative;padding:10px;margin:8px 0;
+                  background:#ffffff;border:1px solid #ddd;border-radius:4px;
+                  cursor:grab;">
+        <strong>⛏️ ${e.id} — ${e.model || ''}</strong>
+      </div>
+    `);
+
+    $('<button class="btn btn-danger btn-xs" ' +
+      'style="position:absolute;background:transparent;top:6px;right:6px;">🗑️</button>')
+      .appendTo(excCard)
+      .off('click')
+      .on('click', () => {
+        console.log("Removing Spare/Swing unit excavator:", e.id);
+
+        const row = (frm.doc.excavator_truck_assignments || [])
+          .find(r => r.excavator === e.id && !r.truck);
+
+        if (row) {
+          frappe.model.clear_doc(row.doctype, row.name);
+
+          frm.doc.excavator_truck_assignments = frm.doc.excavator_truck_assignments
+            .filter(r => r.name !== row.name);
+
+          removeActiveEmptyExcavator(frm, e.id);
+
+          frm.refresh_field('excavator_truck_assignments');
+
+          frm.save().then(() => {
+            renderTruckAssignmentUI(frm);
+          });
+        }
+      });
+
+    spareExcBin.append(excCard);
+  });
+
+  const spareTruckSec = $(`
     <div style="padding:12px;margin-bottom:20px;
                 background:#fff8e1;border:1px solid #f0e6a1;border-radius:4px;">
-      <h4>📦 Unassigned Trucks</h4>
-      <ul class="truck-bin" data-excavator="unassigned"
+      <h4>Spare/Swing unit Trucks</h4>
+      <ul class="truck-bin" data-excavator="spare"
           style="min-height:50px;list-style:none;padding:0;margin:0;">
       </ul>
     </div>
-  `).appendTo(uaCol);
+  `).appendTo(spareCol);
 
-  unassigned.forEach(t => {
+  if (!spareTrucks.length) {
+    spareTruckSec.find('.truck-bin').append('<li><em>No Spare/Swing unit trucks.</em></li>');
+  }
+
+  spareTrucks.forEach(t => {
     const li = $(`
       <li class="truck-item"
           data-truck="${t.id}"
-          style="display:flex;justify-content:space-between;
-                padding:6px 12px;margin:4px 0;
-                background:#ffefd5;border-radius:3px;">
-        🚚 ${t.id} — ${t.model}
+          style="display:flex;justify-content:space-between;align-items:center;
+                 padding:6px 12px;margin:4px 0;
+                 background:#ffefd5;border-radius:3px;cursor:grab;">
+        <span>🚚 ${t.id} — ${t.model}</span>
       </li>
     `);
 
-   
-    
+    $('<button class="btn btn-danger btn-xs" style="background:transparent;">🗑️</button>')
+      .appendTo(li)
+      .off('click')
+      .on('click', () => {
+        moveTruckBackToSpare(frm, t.id);
+      });
 
-    uaSec.find('.truck-bin').append(li);
+    spareTruckSec.find('.truck-bin').append(li);
   });
 
-  // 7) Wire up drag & drop
   enableDragAndDrop(frm);
 }
+
+
+
 
 //
 // Single, canonical renderDozerAssignmentUI
 //
-function renderDozerAssignmentUI(frm) {
-  console.log("🎯 Rendering Dozer UI");
 
-  // Clear previous HTML
+//
+// Single, canonical renderDozerAssignmentUI
+//
+
+function renderDozerAssignmentUI(frm) {
+  console.log("Rendering Dozer UI");
+
   const wrapper = frm.get_field('dnd_dozer_assigned').$wrapper.empty();
 
-  // Add Dozers button
   $('<div style="margin-bottom:12px;">' +
     '<button type="button" id="add-dozers" class="btn btn-primary btn-sm">' +
-    '➕ Add Dozers' +
+    '+ Add Dozers' +
     '</button>' +
     '</div>').appendTo(wrapper)
     .find('#add-dozers')
+    .off('click')
     .on('click', () => addDozersOnce(frm));
 
-  const container = $('<div id="dozer-container">').appendTo(wrapper);
+  const container = $(`
+    <div style="display:flex;gap:24px;">
+      <div id="assigned-dozers-col" style="flex:1;"></div>
+      <div id="spare-dozers-col" style="flex:1;"></div>
+    </div>
+  `).appendTo(wrapper);
 
-  // Return if no dozers
+  const assignedCol = container.find('#assigned-dozers-col');
+  const spareCol = container.find('#spare-dozers-col');
+
   if (!frm.doc.dozer_table || !frm.doc.dozer_table.length) {
-    container.append('<p><em>No dozers assigned yet.</em></p>');
+    assignedCol.append('<p><em>No dozers added yet.</em></p>');
     return;
   }
 
-  // Load dozing_type options
   const df = frappe.meta.get_docfield('Dozers Planned', 'dozing_type', frm.doc.name);
-  const DOZING_TYPE_OPTIONS = (df.options || '').split('\n').filter(Boolean).map(o => ({ value: o, label: o }));
+  const DOZING_TYPE_OPTIONS = (df.options || '')
+    .split('\n')
+    .filter(Boolean)
+    .map(o => ({ value: o, label: o }));
 
-  // Create cards for each dozer
-  frm.doc.dozer_table.forEach((row, idx) => {
+  const assignedDozers = [];
+  const spareDozers = [];
+
+  (frm.doc.dozer_table || []).forEach((row, idx) => {
     if (!row || !row.asset_name) return;
 
+    if (row.dozing_type) {
+      assignedDozers.push({ row, idx });
+    } else {
+      spareDozers.push({ row, idx });
+    }
+  });
+
+  const assignedSection = $(`
+    <div style="padding:12px;margin-bottom:20px;
+                background:#fafafa;border:1px solid #ddd;border-radius:4px;">
+      <h4>Assigned Dozers</h4>
+      <div class="dozer-bin" data-zone="assigned"
+           style="min-height:140px;padding:8px;border:1px dashed #bbb;border-radius:4px;">
+      </div>
+    </div>
+  `).appendTo(assignedCol);
+
+  const spareSection = $(`
+    <div style="padding:12px;margin-bottom:20px;
+                background:#fff8e1;border:1px solid #f0e6a1;border-radius:4px;">
+      <h4>Spare/Swing unit Dozers</h4>
+      <div class="dozer-bin" data-zone="spare"
+           style="min-height:140px;padding:8px;border:1px dashed #d8bd63;border-radius:4px;">
+      </div>
+    </div>
+  `).appendTo(spareCol);
+
+  const assignedBin = assignedSection.find('.dozer-bin');
+  const spareBin = spareSection.find('.dozer-bin');
+
+  if (!assignedDozers.length) {
+    assignedBin.append('<p><em>Drag dozers here to assign them.</em></p>');
+  }
+
+  if (!spareDozers.length) {
+    spareBin.append('<p><em>No Spare/Swing unit dozers.</em></p>');
+  }
+
+  function makeDozerCard(row, idx, isAssigned) {
     const card = $(`
-      <div class="dozer-card" data-dozer-name="${row.asset_name}" 
+      <div class="dozer-card"
+           data-dozer="${row.asset_name}"
+           data-dozer-name="${row.asset_name}"
            style="position:relative;padding:12px;margin-bottom:16px;
-           background:#f0f0f0;border-radius:4px;">
-        <strong>🛠️ ${row.asset_name}</strong><br>
-        <small>${row.item_name}</small><br>
+                  background:${isAssigned ? '#f0f0f0' : '#fff3cd'};
+                  border:1px solid ${isAssigned ? '#ddd' : '#f0e6a1'};
+                  border-radius:4px;">
+        <div class="dozer-drag-handle"
+             style="cursor:grab;background:#eaf1ff;border:1px dashed #6f9cff;
+                    border-radius:4px;padding:7px 10px;margin-bottom:8px;
+                    font-weight:bold;">
+          Drag Dozer: ${row.asset_name}
+        </div>
+
+        <small>${row.item_name || ''}</small><br>
+
         <label style="display:block;margin-top:8px;">
           Dozing Type:
-          <select class="dozing-type-select"></select>
+          <select class="dozing-type-select">
+            <option value="">-- Spare/Swing unit --</option>
+          </select>
         </label>
       </div>
     `);
 
-    // Populate select options
     DOZING_TYPE_OPTIONS.forEach(opt => {
-      card.find('.dozing-type-select').append($(`<option value="${opt.value}">${opt.label}</option>`));
+      card.find('.dozing-type-select').append(
+        $(`<option value="${opt.value}">${opt.label}</option>`)
+      );
     });
 
-    // Set current value
     card.find('.dozing-type-select').val(row.dozing_type || '');
 
-    // Handle type changes
-    card.find('.dozing-type-select').on('change', e => {
-      const newType = e.target.value;
-      frm.doc.dozer_table[idx].dozing_type = newType;
-      frm.dirty();
-      frm.save().catch(console.error);
-    });
+    card.find('.dozing-type-select')
+      .off('change')
+      .on('change', e => {
+        const newType = e.target.value;
 
-    // Remove button - using the same reliable pattern as teams removal
+        frappe.model.set_value(row.doctype, row.name, 'dozing_type', newType)
+          .then(() => {
+            frm.refresh_field('dozer_table');
+            frm.dirty();
+
+            frm.save().then(() => {
+              frm.trigger('update_equipment_counts');
+              renderDozerAssignmentUI(frm);
+            });
+          });
+      });
+
     $('<button class="btn btn-danger btn-xs" ' +
-      'style="position:absolute;background:transparent;top:8px;right:8px;">🗑️</button>')
+      'style="position:absolute;background:transparent;top:8px;right:8px;">Trash</button>')
       .appendTo(card)
+      .off('click')
       .on('click', () => {
         const dozerName = card.attr('data-dozer-name');
-        console.log("🗑️ Removing dozer:", dozerName);
-        
-        // Find and remove the row from dozer_table
+
         frm.doc.dozer_table = (frm.doc.dozer_table || []).filter(
           r => r.asset_name !== dozerName
         );
-        
-        // Refresh and save
+
         frm.refresh_field('dozer_table');
-        
-          console.log("✅ Dozer removed successfully");
-          renderDozerAssignmentUI(frm); // Refresh UI
-        
+        frm.dirty();
+
+        frm.save().then(() => {
+          frm.trigger('update_equipment_counts');
+          renderDozerAssignmentUI(frm);
+        });
       });
 
-    container.append(card);
+    return card;
+  }
+
+  assignedDozers.forEach(({ row, idx }) => {
+    assignedBin.append(makeDozerCard(row, idx, true));
   });
+
+  spareDozers.forEach(({ row, idx }) => {
+    spareBin.append(makeDozerCard(row, idx, false));
+  });
+
+  enableDragAndDrop(frm);
 }
+
+
+
+
 
 function getMPPDaysMetaColumns(frm) {
   // UI JSON (DocType) is the control mechanism:
