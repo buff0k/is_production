@@ -1312,7 +1312,7 @@ after_save(frm) {
                 calculate_day_total(frm);
                 // Ensure form is marked as clean first
                 frm.doc.__unsaved = 0;
-                frm.dirty = false;
+
                 // Refresh the form toolbar to update save button state
                 if (frm.toolbar && frm.toolbar.refresh) {
                     frm.toolbar.refresh();

@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:{location}-{asset_name}-{daily_sheet_date}-{shift}",
+ "autoname": "format:{location}-{asset_name}-{daily_sheet_date}-{shift}-{#####}",
  "creation": "2024-10-18 13:21:54.256372",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -119,14 +119,15 @@
    "label": "Diesel Bowser Operator Name"
   }
  ],
+ "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2025-01-06 14:11:23.058247",
+ "modified": "2026-06-05 10:49:20.419338",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Diesel Sheet",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -172,6 +173,7 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

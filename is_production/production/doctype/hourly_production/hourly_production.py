@@ -70,11 +70,58 @@ class HourlyProduction(Document):
 
     def validate(self):
         """General validation before save"""
+        # Server-side fallback: rebuild truck rows if the browser only sent a blank row
+        self.populate_truck_loads_if_blank()
+
         # v16 migration safety: ensure Link fields store Asset.name (primary key)
         self.normalize_asset_links()
         self.validate_truck_loads()
         self.validate_dozer_production()
         self.before_save_logic()  # <-- NOW RUNS AUTOMATICALLY
+
+    def populate_truck_loads_if_blank(self):
+        """Populate truck_loads from Asset if the form only has blank/default rows."""
+        if not self.location:
+            return
+
+        valid_rows = [
+            row for row in (self.truck_loads or [])
+            if row.asset_name_truck and row.item_name
+        ]
+
+        if valid_rows:
+            return
+
+        self.set("truck_loads", [])
+
+        trucks = frappe.get_all(
+            "Asset",
+            filters=[
+                ["location", "=", self.location],
+                ["asset_category", "in", ["ADT", "RIGID"]],
+                ["docstatus", "=", 1],
+            ],
+            fields=[
+                "name",
+                "asset_name",
+                "item_name",
+            ],
+            order_by="asset_name asc",
+            limit_page_length=500,
+        )
+
+        for asset in trucks:
+            if not asset.name or not asset.item_name:
+                continue
+
+            self.append("truck_loads", {
+                "asset_name_truck": asset.name,
+                "truck_plant_no": asset.asset_name or "",
+                "item_name": asset.item_name or "",
+                "loads": 0,
+                "mat_type": "Softs",
+            })
+
     def validate_truck_loads(self):
         for row in getattr(self, "truck_loads", []):
             if (row.loads or 0) > 0:

@@ -2,11 +2,9 @@
 
 
 
-
-
 frappe.ui.form.on("Production Efficiency", {
   refresh(frm) {
-
+    hide_information_tabs(frm);
 
     if (!frm.__pe_rt_hooked) {
       frm.__pe_rt_hooked = true;
@@ -293,6 +291,50 @@ frappe.ui.form.on("Production Efficiency", {
 
 
 });
+
+
+function hide_information_tabs(frm) {
+  const hidden_labels = ["Information (Production)", "Information (A&U)"];
+  const hidden_fields = ["information_tab", "information_b_tab"];
+
+  const run = () => {
+    hidden_fields.forEach((fieldname) => {
+      const field = frm.fields_dict[fieldname];
+      if (field && field.wrapper) {
+        $(field.wrapper).hide();
+      }
+    });
+
+    $(".form-tabs a, .form-tabs-list a, .nav-tabs a, [role='tab']").each(function () {
+      const label = ($(this).text() || "").trim();
+      const href = $(this).attr("href") || "";
+      const fieldname = $(this).attr("data-fieldname") || "";
+
+      if (
+        hidden_labels.includes(label) ||
+        hidden_fields.includes(fieldname) ||
+        hidden_fields.some((f) => href.includes(f))
+      ) {
+        $(this).closest("li").hide();
+        $(this).hide();
+      }
+    });
+
+    const active_label = ($(".form-tabs a.active, .form-tabs-list a.active, .nav-tabs a.active").text() || "").trim();
+    if (hidden_labels.includes(active_label)) {
+      $(".form-tabs a, .form-tabs-list a, .nav-tabs a")
+        .filter(function () {
+          return !hidden_labels.includes(($(this).text() || "").trim());
+        })
+        .first()
+        .trigger("click");
+    }
+  };
+
+  run();
+  setTimeout(run, 300);
+  setTimeout(run, 1000);
+}
 
 const PE_THRESHOLD = 220;
 const PE_WARN = 200;
