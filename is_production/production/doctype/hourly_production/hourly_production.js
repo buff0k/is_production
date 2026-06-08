@@ -1413,6 +1413,15 @@ function populate_truck_loads_and_lookup(frm) {
     return new Promise((resolve) => {
         if (!frm.doc.location) return resolve();
 
+        const has_valid_truck_rows = (frm.doc.truck_loads || []).some(row => {
+            return row.asset_name_truck && row.item_name;
+        });
+
+        if (has_valid_truck_rows) {
+            console.log("Truck loads already populated. Skipping rebuild.");
+            return resolve();
+        }
+
         // First, try to get previous hour assignments AND mining areas
         get_previous_hour_excavator_assignments(frm).then(prevAssignments => {
             console.log('Previous hour assignments found:', prevAssignments);
@@ -1961,15 +1970,10 @@ function update_hour_slot(frm) {
         `🕓 Hour slot recalculated: ${hourSlot} | Base: ${baseHour} | Shift: ${shiftName} | Day: ${day}`
     );
 
-    // --- Refresh UI if needed ---
-    if (frm.doc.location && frm.doc.prod_date && frm.doc.shift && frm.doc.shift_num_hour) {
-        populate_truck_loads_and_lookup(frm).then(() => {
-            if (uiInitialized && frm.hourlyProductionUI) {
-                frm.hourlyProductionUI.loadUI();
-            } else {
-                initializeOrRefreshUI(frm);
-            }
-        });
+    // Do not populate truck rows from update_hour_slot.
+    // This function runs during save and must not wipe entered loads.
+    if (uiInitialized && frm.hourlyProductionUI) {
+        frm.hourlyProductionUI.loadUI();
     }
 }
 
