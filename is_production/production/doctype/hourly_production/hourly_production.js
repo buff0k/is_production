@@ -312,111 +312,79 @@ function fetch_whatsapp_from_user(frm) {
 
 
 
+
+
+
 function get_previous_hour_excavator_assignments(frm) {
-    // Ensure all required fields exist and are valid
-    if (!frm.doc?.location || !frm.doc?.prod_date || !frm.doc?.shift || !frm.doc?.shift_num_hour) {
-        console.log('Missing required fields:', {
-            location: frm.doc?.location,
-            prod_date: frm.doc?.prod_date,
-            shift: frm.doc?.shift,
-            shift_num_hour: frm.doc?.shift_num_hour
-        });
-        return Promise.resolve(null);
-    }
-
-    console.log('Current doc fields:', {
-        location: frm.doc.location,
-        prod_date: frm.doc.prod_date,
-        shift: frm.doc.shift,
-        shift_num_hour: frm.doc.shift_num_hour
-    });
-
-    // Parse current hour number from shift_num_hour (e.g., "Day-3" → 3)
-    const shiftParts = frm.doc.shift_num_hour.split('-');
-    if (shiftParts.length !== 2) {
-        console.log('Invalid shift_num_hour format:', frm.doc.shift_num_hour);
-        return Promise.resolve(null);
-    }
-
-    const currentHourNum = parseInt(shiftParts[1]);
-    if (isNaN(currentHourNum)) {
-        console.log('Invalid hour number in shift_num_hour:', shiftParts[1]);
-        return Promise.resolve(null);
-    }
-
-    // Calculate previous hour number
-    const prevHourNum = currentHourNum - 1;
-    if (prevHourNum < 1) {
-        console.log('First hour of shift - no previous hour');
-        return Promise.resolve(null);
-    }
-
-    const prevShiftNum = `${frm.doc.shift}-${prevHourNum}`;
-    console.log('Looking for previous hour with shift_num_hour:', prevShiftNum);
-
-    let formattedDate;
-    try {
-        formattedDate = frappe.datetime.str_to_obj(frm.doc.prod_date);
-        formattedDate = frappe.datetime.obj_to_str(formattedDate);
-    } catch (e) {
-        console.error('Error formatting date:', e);
+    if (!frm.doc?.location || !frm.doc?.prod_date) {
+        console.log("Missing site/date for previous Hourly Production lookup.");
         return Promise.resolve(null);
     }
 
     return new Promise((resolve) => {
-        // Step 1: Get the previous Hourly Production doc name
         frappe.call({
-            method: 'frappe.client.get_list',
+            method: "is_production.production.doctype.hourly_production.hourly_production.get_previous_hour_defaults",
             args: {
-                doctype: 'Hourly Production',
-                filters: [
-                    ['location', '=', frm.doc.location],
-                    ['prod_date', '=', formattedDate],
-                    ['shift', '=', frm.doc.shift],
-                    ['shift_num_hour', '=', prevShiftNum]
-                ],
-                fields: ['name'],
-                limit_page_length: 1
+                location: frm.doc.location,
+                prod_date: frm.doc.prod_date,
+                current_hour_sort_key: frm.doc.hour_sort_key,
+                current_name: frm.doc.name
             },
             callback: function(r) {
-                if (r.exc || !r.message || !r.message.length) {
-                    console.log('No previous hour found or error:', r.exc || 'Not found');
+                const data = r.message;
+
+                if (!data) {
+                    console.log("No previous Hourly Production record found for same site/date.");
                     return resolve(null);
                 }
 
-                const prevHourDoc = r.message[0];
+                console.log("Previous Hourly Production defaults found:", data);
 
-                // Step 2: Get full document to access truck_loads
-                frappe.call({
-                    method: 'frappe.client.get',
-                    args: {
-                        doctype: 'Hourly Production',
-                        name: prevHourDoc.name
-                    },
-                    callback: function(r2) {
-                        const fullDoc = r2.message;
-                        const assignments = {};
+                const shiftFields = [
+                    "day_shift_start",
+                    "day_shift_end",
+                    "total_working_hours",
+                    "night_shift_start",
+                    "night_shift_end",
+                    "total_working_hour"
+                ];
 
-                        // Collect previous hour truck setup, but NOT loads/BCMs
-                        (fullDoc.truck_loads || []).forEach(row => {
-                            if (row.asset_name_truck) {
-                                assignments[row.asset_name_truck] = {
-                                    excavator: row.asset_name_shoval || null,
-                                    mining_area: row.mining_areas_trucks || null,
-                                    geo_layer: row.geo_mat_layer_truck || null,
-                                    mat_type: row.mat_type || null
-                                };
-                            }
-                        });
-
-                        console.log('Previous assignments with mining area and geo layer:', assignments);
-                        resolve(Object.keys(assignments).length > 0 ? assignments : null);
+                shiftFields.forEach(field => {
+                    if (data[field] !== undefined && data[field] !== null && data[field] !== "") {
+                        frm.set_value(field, data[field]);
                     }
                 });
+
+                if (frm.doc.shift_num_hour) {
+                    update_hour_slot(frm);
+                }
+
+                resolve(data.assignments || null);
+            },
+            error: function(error) {
+                console.error("Previous Hourly Production lookup failed:", error);
+                resolve(null);
             }
         });
     });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // ——————————————————————
 // Utility: set day_number
 // ——————————————————————
@@ -1415,12 +1383,16 @@ function populate_truck_loads_and_lookup(frm) {
     return new Promise((resolve) => {
         if (!frm.doc.location) return resolve();
 
-        const has_valid_truck_rows = (frm.doc.truck_loads || []).some(row => {
-            return row.asset_name_truck && row.item_name;
+        const has_user_truck_setup = (frm.doc.truck_loads || []).some(row => {
+            return (
+                (parseFloat(row.loads || 0) > 0) ||
+                row.asset_name_shoval ||
+                row.geo_mat_layer_truck
+            );
         });
 
-        if (has_valid_truck_rows) {
-            console.log("Truck loads already populated. Skipping rebuild.");
+        if (has_user_truck_setup) {
+            console.log("Truck loads already have user setup. Skipping rebuild.");
             return resolve();
         }
 

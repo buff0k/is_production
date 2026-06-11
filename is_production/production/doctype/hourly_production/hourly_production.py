@@ -367,6 +367,83 @@ def get_user_whatsapp_number(user):
 
 
 @frappe.whitelist()
+def get_previous_hour_defaults(location, prod_date, current_hour_sort_key=None, current_name=None):
+    """
+    Return the latest previous Hourly Production record for same site/date.
+    Copies setup only: truck excavator, mining area, geo layer, mat type, shift start/end.
+    Does not copy loads or BCMs.
+    """
+    if not location or not prod_date:
+        return None
+
+    filters = [
+        ["location", "=", location],
+        ["prod_date", "=", prod_date],
+        ["docstatus", "<", 2],
+    ]
+
+    if current_name and not str(current_name).startswith("new-"):
+        filters.append(["name", "!=", current_name])
+
+    if current_hour_sort_key:
+        try:
+            filters.append(["hour_sort_key", "<", int(float(current_hour_sort_key))])
+        except Exception:
+            pass
+
+    previous = frappe.get_all(
+        "Hourly Production",
+        filters=filters,
+        fields=[
+            "name",
+            "shift",
+            "shift_num_hour",
+            "hour_slot",
+            "hour_sort_key",
+            "day_shift_start",
+            "day_shift_end",
+            "total_working_hours",
+            "night_shift_start",
+            "night_shift_end",
+            "total_working_hour",
+        ],
+        order_by="hour_sort_key desc, modified desc",
+        limit=1,
+    )
+
+    if not previous:
+        return None
+
+    prev_doc = frappe.get_doc("Hourly Production", previous[0].name)
+
+    assignments = {}
+
+    for row in prev_doc.truck_loads or []:
+        if not row.asset_name_truck:
+            continue
+
+        assignments[row.asset_name_truck] = {
+            "excavator": row.asset_name_shoval or None,
+            "mining_area": row.mining_areas_trucks or None,
+            "geo_layer": row.geo_mat_layer_truck or None,
+            "mat_type": row.mat_type or None,
+        }
+
+    return {
+        "previous_name": prev_doc.name,
+        "previous_shift_num_hour": prev_doc.shift_num_hour,
+        "previous_hour_slot": prev_doc.hour_slot,
+        "day_shift_start": prev_doc.day_shift_start,
+        "day_shift_end": prev_doc.day_shift_end,
+        "total_working_hours": prev_doc.total_working_hours,
+        "night_shift_start": prev_doc.night_shift_start,
+        "night_shift_end": prev_doc.night_shift_end,
+        "total_working_hour": prev_doc.total_working_hour,
+        "assignments": assignments,
+    }
+
+
+@frappe.whitelist()
 def update_hourly_references():
     threshold = add_to_date(nowdate(), days=-30)
     recs = frappe.get_all(

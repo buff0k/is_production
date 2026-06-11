@@ -16,6 +16,7 @@
   "day_shift_end",
   "total_working_hours",
   "mining_areas_options",
+  "adt_distance",
   "column_break_utop",
   "shift",
   "shift_num_hour",
@@ -483,16 +484,22 @@
   {
    "fieldname": "column_break_rupf",
    "fieldtype": "Column Break"
+  },
+  {
+   "description": "This information will be helpful for the Production Manager.",
+   "fieldname": "adt_distance",
+   "fieldtype": "Float",
+   "label": "ADT Distance"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2025-11-04 14:37:38.449493",
+ "modified": "2026-06-11 13:38:30.028172",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Hourly Production",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
