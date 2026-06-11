@@ -397,17 +397,19 @@ function get_previous_hour_excavator_assignments(frm) {
                         const fullDoc = r2.message;
                         const assignments = {};
 
-                        // Collect both excavator assignments AND mining areas
+                        // Collect previous hour truck setup, but NOT loads/BCMs
                         (fullDoc.truck_loads || []).forEach(row => {
                             if (row.asset_name_truck) {
                                 assignments[row.asset_name_truck] = {
                                     excavator: row.asset_name_shoval || null,
-                                    mining_area: row.mining_areas_trucks || null
+                                    mining_area: row.mining_areas_trucks || null,
+                                    geo_layer: row.geo_mat_layer_truck || null,
+                                    mat_type: row.mat_type || null
                                 };
                             }
                         });
 
-                        console.log('Previous assignments with mining areas:', assignments);
+                        console.log('Previous assignments with mining area and geo layer:', assignments);
                         resolve(Object.keys(assignments).length > 0 ? assignments : null);
                     }
                 });
@@ -1532,6 +1534,17 @@ function populate_truck_loads_and_lookup(frm) {
                                     if (prevData.mining_area) {
                                         frappe.model.set_value(loadRow.doctype, loadRow.name, 'mining_areas_trucks', prevData.mining_area);
                                     }
+
+                                    if (prevData.geo_layer) {
+                                        frappe.model.set_value(loadRow.doctype, loadRow.name, 'geo_mat_layer_truck', prevData.geo_layer);
+                                    }
+
+                                    if (prevData.mat_type) {
+                                        frappe.model.set_value(loadRow.doctype, loadRow.name, 'mat_type', prevData.mat_type);
+                                    }
+
+                                    frappe.model.set_value(loadRow.doctype, loadRow.name, 'loads', 0);
+                                    frappe.model.set_value(loadRow.doctype, loadRow.name, 'bcms', 0);
                                 });
                             } else if (frm.mppAssignments) {
                                 console.log('Applying MPP assignments (no mining areas)');
