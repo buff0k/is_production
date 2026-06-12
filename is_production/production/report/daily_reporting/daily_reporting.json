@@ -8,16 +8,9 @@
  "doctype": "Report",
  "filters": [
   {
-   "fieldname": "start_date",
-   "fieldtype": "Date",
-   "label": "Start Date",
-   "mandatory": 1,
-   "wildcard_filter": 0
-  },
-  {
    "fieldname": "end_date",
    "fieldtype": "Date",
-   "label": "End Date",
+   "label": "Report Date",
    "mandatory": 1,
    "wildcard_filter": 0
   },
