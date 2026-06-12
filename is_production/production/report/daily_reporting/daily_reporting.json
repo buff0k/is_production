@@ -27,14 +27,14 @@
    "fieldtype": "Select",
    "label": "Shift",
    "mandatory": 0,
-   "options": "Day, Night, ",
+   "options": "\nDay\nNight",
    "wildcard_filter": 0
   }
  ],
- "idx": 1,
+ "idx": 9,
  "is_standard": "Yes",
  "letter_head": null,
- "modified": "2026-02-03 05:23:24.534696",
+ "modified": "2026-06-12 08:21:41.748766",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Daily Reporting",
