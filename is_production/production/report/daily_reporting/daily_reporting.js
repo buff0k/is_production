@@ -26,6 +26,8 @@ frappe.query_reports["Daily Reporting"] = {
     ],
 
     onload: function (report) {
+        force_daily_reporting_non_prepared(report);
+
         $(document)
             .off("focus.daily_reporting blur.daily_reporting", ".comment-cell")
             .on("focus.daily_reporting", ".comment-cell", function () {
@@ -34,5 +36,19 @@ frappe.query_reports["Daily Reporting"] = {
             .on("blur.daily_reporting", ".comment-cell", function () {
                 $(this).css({ "background-color": "", "outline": "none" });
             });
+    },
+
+    before_refresh: function (report) {
+        force_daily_reporting_non_prepared(report);
     }
 };
+
+function force_daily_reporting_non_prepared(report) {
+    if (report && report.report_doc) {
+        report.report_doc.prepared_report = 0;
+    }
+
+    if (frappe.query_report && frappe.query_report.report_doc) {
+        frappe.query_report.report_doc.prepared_report = 0;
+    }
+}
