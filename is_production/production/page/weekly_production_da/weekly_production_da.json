@@ -1,0 +1,35 @@
+{
+ "content": null,
+ "creation": "2026-06-23 17:40:48.832018",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-06-23 17:40:48.832018",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "weekly-production-da",
+ "owner": "Administrator",
+ "page_name": "weekly-production-da",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Production Manager"
+  },
+  {
+   "role": "Production User"
+  },
+  {
+   "role": "Engineering Manager"
+  },
+  {
+   "role": "Engineering User"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Weekly Production Dashboard"
+}
