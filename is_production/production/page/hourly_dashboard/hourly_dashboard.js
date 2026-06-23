@@ -5,6 +5,13 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   const REPORT_NAME = "Hourly Dashboard";
   const STORAGE_KEY = "hourly_dash_define_monthly_production";
 
+  const SLOT_LABELS = [
+    "06-07", "07-08", "08-09", "09-10", "10-11", "11-12", "12-13",
+    "13-14", "14-15", "15-16", "16-17", "17-18",
+    "18-19", "19-20", "20-21", "21-22", "22-23", "23-24",
+    "24-01", "01-02", "02-03", "03-04", "04-05", "05-06"
+  ];
+
   const page = frappe.ui.make_app_page({
     parent: wrapper,
     title: "Hourly Dashboard",
@@ -12,7 +19,7 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   });
 
   // -------------------------
-  // Filter (Define Monthly Production)
+  // Filter
   // -------------------------
   const dmp = page.add_field({
     fieldtype: "Link",
@@ -22,7 +29,13 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     reqd: 1,
     change: () => {
       const val = dmp.get_value();
-      if (!val) return;
+
+      if (!val) {
+        localStorage.removeItem(STORAGE_KEY);
+        $status.text("Select a Define Monthly Production to load the dashboard.");
+        $dash.empty();
+        return;
+      }
 
       localStorage.setItem(STORAGE_KEY, val);
       load_and_render(false);
@@ -39,7 +52,6 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
 
   // -------------------------
   // Refresh scheduler (:10 and :30)
-  // Same pattern as the working CEO page / report JS
   // -------------------------
   let _auto_refresh_started = false;
   let _refreshing = false;
@@ -52,20 +64,26 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     const ms = now.getMilliseconds();
 
     let nextMinute;
-    if (minutes < 10) nextMinute = 10;
-    else if (minutes < 30) nextMinute = 30;
-    else nextMinute = 70; // next hour + 10
+
+    if (minutes < 10) {
+      nextMinute = 10;
+    } else if (minutes < 30) {
+      nextMinute = 30;
+    } else {
+      nextMinute = 70; // next hour + 10
+    }
 
     return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
   }
 
   function start_aligned_refresh() {
     if (_auto_refresh_started) return;
+
     _auto_refresh_started = true;
 
     const schedule_next = () => {
-      const delay = ms_until_next_refresh();
-      _timer = setTimeout(auto_refresh, delay);
+      clear_existing_timer();
+      _timer = setTimeout(auto_refresh, ms_until_next_refresh());
     };
 
     const auto_refresh = () => {
@@ -80,13 +98,22 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
       }
 
       _refreshing = true;
-      load_and_render(true).finally(() => {
-        _refreshing = false;
-        schedule_next();
-      });
+
+      load_and_render(true)
+        .finally(() => {
+          _refreshing = false;
+          schedule_next();
+        });
     };
 
     schedule_next();
+  }
+
+  function clear_existing_timer() {
+    if (_timer) {
+      clearTimeout(_timer);
+      _timer = null;
+    }
   }
 
   // -------------------------
@@ -104,111 +131,190 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   }
 
   // -------------------------
-  // Get selected Define Monthly Production doc order
-  // -------------------------
-  function get_site_order_map(docname) {
-    if (!docname) return Promise.resolve({});
-
-    return frappe.db.get_doc("Define Monthly Production", docname)
-      .then((doc) => {
-        const rows = Array.isArray(doc.define) ? doc.define : [];
-        const orderMap = {};
-
-        rows.forEach((row, idx) => {
-          const site = (row.site || "").trim();
-          if (site && !(site in orderMap)) {
-            orderMap[site] = idx;
-          }
-        });
-
-        return orderMap;
-      })
-      .catch((e) => {
-        console.error("Could not read Define Monthly Production order:", e);
-        return {};
-      });
-  }
-
-  // -------------------------
   // Helpers
   // -------------------------
-  function escape_html(text) {
-    return frappe.utils.escape_html(text == null ? "" : String(text));
+  function escape_html(value) {
+    return frappe.utils.escape_html(value == null ? "" : String(value));
   }
 
-  function extract_report_html(payload) {
-    // Be defensive because Frappe response shape can differ slightly
-    if (!payload) return "";
+  function slot_field(slotNumber) {
+    return `slot_${String(slotNumber).padStart(2, "0")}`;
+  }
 
-    // common possibilities
-    if (typeof payload.html === "string" && payload.html.trim()) return payload.html;
-    if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+  function normalise_int(value) {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
 
-    // sometimes message can itself be an object
-    if (payload.message && typeof payload.message.html === "string" && payload.message.html.trim()) {
-      return payload.message.html;
+  function get_cell_display(value) {
+    value = normalise_int(value);
+
+    if (value === 0) {
+      return {
+        css_class: "isd-blank",
+        display: "",
+        title: ""
+      };
     }
 
-    // some versions may expose the third return value differently
-    if (typeof payload.report_html === "string" && payload.report_html.trim()) return payload.report_html;
+    if (value >= 1 && value <= 199) {
+      return {
+        css_class: "isd-low",
+        display: String(value),
+        title: `${value} bcm`
+      };
+    }
 
-    return "";
+    if (value >= 200 && value <= 219) {
+      return {
+        css_class: "isd-medium",
+        display: String(value),
+        title: `${value} bcm`
+      };
+    }
+
+    return {
+      css_class: "isd-high",
+      display: String(value),
+      title: `${value} bcm`
+    };
   }
 
-  function extract_site_name_from_block(el) {
-    const headerText = $(el).find(".isd-site-header").first().text().trim();
-    const match = headerText.match(/Site:\s*(.+)/i);
-    return match ? match[1].trim() : "";
+  function extract_rows_from_response(res) {
+    const payload = res && res.message ? res.message : res;
+
+    if (!payload) return [];
+
+    if (Array.isArray(payload.result)) {
+      return payload.result;
+    }
+
+    if (Array.isArray(payload.data)) {
+      return payload.data;
+    }
+
+    if (Array.isArray(payload)) {
+      return payload;
+    }
+
+    return [];
   }
 
-  function reorder_hourly_sites(siteOrderMap) {
-    const $grid = $dash.find(".isd-hourly-dashboard .isd-grid").first();
-    if (!$grid.length) return;
+  function group_rows_by_site(rows) {
+    const siteMap = new Map();
 
-    const blocks = $grid.children(".isd-site").get();
-    if (!blocks.length) return;
+    rows.forEach((row) => {
+      const site = (row.site || "").trim();
+      if (!site) return;
 
-    blocks.sort((a, b) => {
-      const aSite = extract_site_name_from_block(a);
-      const bSite = extract_site_name_from_block(b);
-
-      const aHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, aSite);
-      const bHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, bSite);
-
-      if (aHasOrder && bHasOrder) {
-        return siteOrderMap[aSite] - siteOrderMap[bSite];
+      if (!siteMap.has(site)) {
+        siteMap.set(site, {
+          site: site,
+          site_order: normalise_int(row.site_order),
+          production_day: row.production_day || "",
+          header_colour: row.header_colour || "#FFFFFF",
+          rows: []
+        });
       }
 
-      if (aHasOrder) return -1;
-      if (bHasOrder) return 1;
+      const group = siteMap.get(site);
 
-      return aSite.localeCompare(bSite);
+      // Keep the first meaningful metadata values.
+      if (!group.production_day && row.production_day) {
+        group.production_day = row.production_day;
+      }
+
+      if ((!group.header_colour || group.header_colour === "#FFFFFF") && row.header_colour) {
+        group.header_colour = row.header_colour;
+      }
+
+      if (!row.is_empty_site) {
+        group.rows.push(row);
+      }
     });
 
-    blocks.forEach((block) => $grid.append(block));
+    return Array.from(siteMap.values()).sort((a, b) => {
+      if (a.site_order !== b.site_order) {
+        return a.site_order - b.site_order;
+      }
+
+      return a.site.localeCompare(b.site);
+    });
   }
 
-  function render_dashboard(payload, siteOrderMap) {
-    const html = extract_report_html(payload);
+  function render_hour_header() {
+    const hourHeaders = SLOT_LABELS.map((label) => {
+      const escapedLabel = escape_html(label);
+      const displayLabel = escapedLabel.replace("-", "<br>");
 
-    if (html) {
-      $dash.html(html);
-      reorder_hourly_sites(siteOrderMap);
-      return;
+      return `<th title="${escapedLabel}">${displayLabel}</th>`;
+    }).join("");
+
+    return `<tr><th>Excavator</th>${hourHeaders}</tr>`;
+  }
+
+  function render_excavator_row(row) {
+    const excavator = escape_html(row.excavator || "");
+
+    const cells = [
+      `<td class="isd-ex" title="${excavator}">${excavator}</td>`
+    ];
+
+    for (let slot = 1; slot <= 24; slot++) {
+      const value = normalise_int(row[slot_field(slot)]);
+      const cell = get_cell_display(value);
+      const titleAttr = cell.title ? ` title="${escape_html(cell.title)}"` : "";
+
+      cells.push(
+        `<td class="${cell.css_class}"${titleAttr}>${escape_html(cell.display)}</td>`
+      );
     }
 
-    const rows = payload.result || [];
+    return `<tr>${cells.join("")}</tr>`;
+  }
+
+  function render_site_block(group) {
+    const rowsHtml = group.rows.map(render_excavator_row).join("");
+
+    return `
+      <div class="isd-site">
+        <div class="isd-site-header" style="background-color: ${escape_html(group.header_colour)};">
+          <div>Site: ${escape_html(group.site)}</div>
+          <div class="isd-site-sub">Production Day: ${escape_html(group.production_day)}</div>
+        </div>
+
+        <div class="isd-table-wrap">
+          <table>
+            ${render_hour_header()}
+            ${rowsHtml}
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  function render_dashboard(rows) {
     if (!rows.length) {
       $dash.html(`<div class="text-muted">No data for the selected filter.</div>`);
       return;
     }
 
-    // Fallback only if HTML was not returned for some reason
-    $dash.html(`
-      <div class="text-warning">
-        Report returned data, but no HTML block was found in the response.
+    const groupedSites = group_rows_by_site(rows);
+
+    if (!groupedSites.length) {
+      $dash.html(`<div class="text-muted">No sites found for the selected filter.</div>`);
+      return;
+    }
+
+    const html = `
+      <div class="isd-hourly-dashboard">
+        <div class="isd-grid">
+          ${groupedSites.map(render_site_block).join("")}
+        </div>
       </div>
-    `);
+    `;
+
+    $dash.html(html);
   }
 
   // -------------------------
@@ -216,17 +322,17 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   // -------------------------
   function load_and_render(is_auto) {
     const val = dmp.get_value();
-    if (!val) return Promise.resolve();
 
-    $status.text(is_auto ? "Refreshing…" : "Loading…");
+    if (!val) {
+      return Promise.resolve();
+    }
 
-    return Promise.all([
-      run_report({ define_monthly_production: val }),
-      get_site_order_map(val)
-    ])
-      .then(([res, siteOrderMap]) => {
-        const payload = res.message || {};
-        render_dashboard(payload, siteOrderMap);
+    $status.text(is_auto ? "Refreshing..." : "Loading...");
+
+    return run_report({ define_monthly_production: val })
+      .then((res) => {
+        const rows = extract_rows_from_response(res);
+        render_dashboard(rows);
 
         const time = new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -256,8 +362,10 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   // Restore last selection
   // -------------------------
   const last = localStorage.getItem(STORAGE_KEY);
+
   if (last) {
     dmp.set_value(last);
+
     setTimeout(() => {
       if (dmp.get_value()) {
         load_and_render(false);
@@ -272,8 +380,7 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   // Cleanup
   // -------------------------
   frappe.pages["hourly-dashboard"].on_page_unload = function () {
-    if (_timer) clearTimeout(_timer);
-    _timer = null;
+    clear_existing_timer();
     _auto_refresh_started = false;
     _refreshing = false;
   };

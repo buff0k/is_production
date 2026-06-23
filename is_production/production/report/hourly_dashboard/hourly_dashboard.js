@@ -1,6 +1,7 @@
 // Copyright (c) 2026, Isambane Mining (Pty) Ltd
 // Hourly Dashboard – Multi-Site Monthly Production
 
+
 frappe.query_reports["Hourly Dashboard"] = {
     filters: [
         {
@@ -13,19 +14,6 @@ frappe.query_reports["Hourly Dashboard"] = {
     ],
 
     onload: function (report) {
-        const hide_table_bits = () => {
-            if (!report || !report.page || !report.page.main) return;
-            report.page.main.find(".datatable, .dt-scrollable, .dt-footer, .result .no-result, .no-result").hide();
-        };
-
-        hide_table_bits();
-
-        const page_el = report.page && report.page.main && report.page.main.get(0);
-        if (page_el && !report._isd_table_observer) {
-            report._isd_table_observer = new MutationObserver(() => hide_table_bits());
-            report._isd_table_observer.observe(page_el, { childList: true, subtree: true });
-        }
-
         if (report._auto_refresh_started) return;
 
         report._auto_refresh_started = true;
@@ -38,17 +26,28 @@ frappe.query_reports["Hourly Dashboard"] = {
             const ms = now.getMilliseconds();
 
             let nextMinute;
-            if (minutes < 10) nextMinute = 10;
-            else if (minutes < 30) nextMinute = 30;
-            else nextMinute = 70; // next hour + 10 minutes
 
-            const waitMinutes = nextMinute - minutes;
+            if (minutes < 10) {
+                nextMinute = 10;
+            } else if (minutes < 30) {
+                nextMinute = 30;
+            } else {
+                nextMinute = 70; // next hour + 10 minutes
+            }
 
             return (
-                waitMinutes * 60 * 1000
+                (nextMinute - minutes) * 60 * 1000
                 - seconds * 1000
                 - ms
             );
+        };
+
+        const schedule_next = () => {
+            if (report._auto_refresh_timer) {
+                clearTimeout(report._auto_refresh_timer);
+            }
+
+            report._auto_refresh_timer = setTimeout(auto_refresh, get_ms_until_next_refresh());
         };
 
         const auto_refresh = () => {
@@ -59,46 +58,37 @@ frappe.query_reports["Hourly Dashboard"] = {
 
             report._refreshing = true;
 
-            report.refresh().then(() => {
-                report._refreshing = false;
+            Promise.resolve(report.refresh())
+                .then(() => {
+                    const time = new Date().toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    });
 
-                hide_table_bits();
-
-                const time = new Date().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit"
+                    frappe.show_alert(
+                        {
+                            message: `Hourly Dashboard data updated at ${time}`,
+                            indicator: "green"
+                        },
+                        5
+                    );
+                })
+                .finally(() => {
+                    report._refreshing = false;
+                    schedule_next();
                 });
-
-                frappe.show_alert(
-                    {
-                        message: `Hourly Dashboard updated at ${time}`,
-                        indicator: "green"
-                    },
-                    5
-                );
-
-                schedule_next();
-            });
-        };
-
-        const schedule_next = () => {
-            report._auto_refresh_timer = setTimeout(auto_refresh, get_ms_until_next_refresh());
         };
 
         schedule_next();
     },
 
-    refresh: function (report) {
-        if (!report || !report.page || !report.page.main) return;
-        report.page.main.find(".datatable, .dt-scrollable, .dt-footer, .result .no-result, .no-result").hide();
-    },
-
     onunload: function (report) {
-        if (report._auto_refresh_timer) clearTimeout(report._auto_refresh_timer);
-
-        if (report._isd_table_observer) {
-            report._isd_table_observer.disconnect();
-            report._isd_table_observer = null;
+        if (report._auto_refresh_timer) {
+            clearTimeout(report._auto_refresh_timer);
+            report._auto_refresh_timer = null;
         }
+
+        report._auto_refresh_started = false;
+        report._refreshing = false;
     }
 };

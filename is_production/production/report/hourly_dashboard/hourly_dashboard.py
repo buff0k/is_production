@@ -1,12 +1,14 @@
 # Copyright (c) 2026, Isambane Mining (Pty) Ltd
-# CEO Dashboard Two – Hourly Excavator Production (Optimised)
+# Hourly Dashboard – Hourly Excavator Production
+#
+
 
 import frappe
 from datetime import datetime, timedelta
 
 
 # =========================================================
-# OPERATIONAL DAY (06:00 → 05:59)
+# OPERATIONAL DAY (06:00 -> 05:59)
 # =========================================================
 def get_operational_day():
     now = datetime.now()
@@ -58,8 +60,12 @@ HOUR_SLOT_MAP = {
 
 
 def execute(filters=None):
-    if not filters or not filters.get("define_monthly_production"):
-        return [], None, "<b>Please select a Monthly Production Plan</b>"
+    filters = filters or {}
+
+    columns = get_columns()
+
+    if not filters.get("define_monthly_production"):
+        return columns, []
 
     plan = frappe.get_doc(
         "Define Monthly Production",
@@ -71,99 +77,149 @@ def execute(filters=None):
     excavators_by_site = get_all_excavators()
     hourly_data = get_all_hourly_data(prod_date)
 
-    site_blocks = []
-    for row in plan.define:
-        site_blocks.append(
-            build_site_block(
-                site=row.site,
+    data = []
+    seen_sites = set()
+
+    for site_order, plan_row in enumerate(plan.define or []):
+        site = (plan_row.site or "").strip()
+        if not site:
+            continue
+
+        # Avoid duplicated site blocks if the plan accidentally contains
+        # the same site more than once.
+        if site in seen_sites:
+            continue
+        seen_sites.add(site)
+
+        excavators = excavators_by_site.get(site, [])
+        site_data = hourly_data.get(site, {})
+        header_colour = SITE_HEADER_COLOURS.get(site, "#FFFFFF")
+
+        # Preserve the old dashboard behaviour: a site from the selected plan
+        # should still render, even if there are no excavators for that site.
+        if not excavators:
+            data.append(build_data_row(
+                site=site,
+                site_order=site_order,
                 prod_date=prod_date,
-                excavators_by_site=excavators_by_site,
-                hourly_data=hourly_data
-            )
-        )
+                header_colour=header_colour,
+                excavator="",
+                slot_values={},
+                is_empty_site=1
+            ))
+            continue
 
-    html = f"""
-    <div class="isd-hourly-dashboard">
-        <div class="isd-grid">
-            {''.join(site_blocks)}
-        </div>
-    </div>
-    """
+        for excavator in excavators:
+            data.append(build_data_row(
+                site=site,
+                site_order=site_order,
+                prod_date=prod_date,
+                header_colour=header_colour,
+                excavator=excavator,
+                slot_values=site_data.get(excavator, {}),
+                is_empty_site=0
+            ))
 
-    # Dummy row so Frappe doesn't show "Nothing to show"
-    columns = [{"fieldname": "noop", "label": "", "fieldtype": "Data", "width": 1}]
-    data = [{"noop": ""}]
-    return columns, data, html
-
-
-def build_site_block(site, prod_date, excavators_by_site, hourly_data):
-    excavators = excavators_by_site.get(site, [])
-    site_data = hourly_data.get(site, {})
-    header_colour = SITE_HEADER_COLOURS.get(site, "#FFFFFF")
-
-    def _hour_label_html(label: str) -> str:
-        return frappe.utils.escape_html(label).replace("-", "<br>")
-
-    header = "<tr><th>Excavator</th>" + "".join(
-        f"<th title='{label}'>{_hour_label_html(label)}</th>" for label in SLOT_LABELS
-    ) + "</tr>"
-
-    rows = []
-    for ex in excavators:
-        cells = [f"<td class='isd-ex' title='{ex}'>{ex}</td>"]
-        ex_data = site_data.get(ex, {})
-
-        for slot in range(1, 25):
-            value = int(ex_data.get(str(slot), 0))
-            css_class, display, title = get_cell_display(value)
-            title_attr = f" title='{title}'" if title else ""
-            cells.append(f"<td class='{css_class}'{title_attr}>{display}</td>")
-
-        rows.append("<tr>" + "".join(cells) + "</tr>")
-
-    return f"""
-    <div class="isd-site">
-        <div class="isd-site-header" style="background-color: {header_colour};">
-            <div>Site: {site}</div>
-            <div class="isd-site-sub">Production Day: {prod_date}</div>
-        </div>
-
-        <div class="isd-table-wrap">
-            <table>
-                {header}
-                {''.join(rows)}
-            </table>
-        </div>
-    </div>
-    """
+    return columns, data
 
 
-def get_cell_display(value):
-    if value == 0:
-        return "isd-blank", "", ""
-    elif 1 <= value <= 199:
-        return "isd-low", value, f"{value} bcm"
-    elif 200 <= value <= 219:
-        return "isd-medium", value, f"{value} bcm"
-    else:
-        return "isd-high", value, f"{value} bcm"
+def get_columns():
+    columns = [
+        {
+            "fieldname": "site_order",
+            "label": "Site Order",
+            "fieldtype": "Int",
+            "width": 80,
+            "hidden": 1
+        },
+        {
+            "fieldname": "site",
+            "label": "Site",
+            "fieldtype": "Data",
+            "width": 180
+        },
+        {
+            "fieldname": "production_day",
+            "label": "Production Day",
+            "fieldtype": "Date",
+            "width": 120
+        },
+        {
+            "fieldname": "header_colour",
+            "label": "Header Colour",
+            "fieldtype": "Data",
+            "width": 120,
+            "hidden": 1
+        },
+        {
+            "fieldname": "is_empty_site",
+            "label": "Empty Site",
+            "fieldtype": "Check",
+            "width": 80,
+            "hidden": 1
+        },
+        {
+            "fieldname": "excavator",
+            "label": "Excavator",
+            "fieldtype": "Data",
+            "width": 160
+        },
+    ]
+
+    for idx, label in enumerate(SLOT_LABELS, start=1):
+        columns.append({
+            "fieldname": f"slot_{idx:02d}",
+            "label": label,
+            "fieldtype": "Int",
+            "width": 80
+        })
+
+    return columns
+
+
+def build_data_row(
+    site,
+    site_order,
+    prod_date,
+    header_colour,
+    excavator,
+    slot_values,
+    is_empty_site=0
+):
+    row = {
+        "site_order": site_order,
+        "site": site,
+        "production_day": prod_date,
+        "header_colour": header_colour,
+        "is_empty_site": is_empty_site,
+        "excavator": excavator,
+    }
+
+    for slot in range(1, 25):
+        row[f"slot_{slot:02d}"] = int(slot_values.get(str(slot), 0) or 0)
+
+    return row
 
 
 def get_all_excavators():
     rows = frappe.get_all(
         "Asset",
-        filters={"asset_category": "Excavator", "docstatus": 1},
+        filters={
+            "asset_category": "Excavator",
+            "docstatus": 1
+        },
         fields=["name", "location"]
     )
 
     excavators = {}
-    for r in rows:
-        if r.location:
-            excavators.setdefault(r.location, []).append(r.name)
 
-    # stable order helps readability
-    for k in excavators:
-        excavators[k].sort()
+    for row in rows:
+        if row.location:
+            excavators.setdefault(row.location, []).append(row.name)
+
+    # Stable ordering improves both report readability and dashboard rendering.
+    for site in excavators:
+        excavators[site].sort()
 
     return excavators
 
@@ -187,11 +243,11 @@ def get_all_hourly_data(prod_date):
 
     data = {}
 
-    for r in rows:
-        slot = HOUR_SLOT_MAP.get(r.hour_slot)
+    for row in rows:
+        slot = HOUR_SLOT_MAP.get(row.hour_slot)
         if not slot:
             continue
 
-        data.setdefault(r.site, {}).setdefault(r.excavator, {})[str(slot)] = int(r.bcm or 0)
+        data.setdefault(row.site, {}).setdefault(row.excavator, {})[str(slot)] = int(row.bcm or 0)
 
     return data
