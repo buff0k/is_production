@@ -3,11 +3,10 @@ name = "is_production"
 authors = [
     { name = "Isambane Mining (Pty) Ltd", email = "eben@isambane.co.za"}
 ]
-version = "16.0.0"
 description = "Isambane Mining Frappe App for Production Records"
 requires-python = ">=3.14"
 readme = "README.md"
-#dynamic = ["version"]
+dynamic = ["version"]
 dependencies = [
     # "frappe~=16.0.0" # Installed and managed by bench.
     "miningpy==0.6.3",

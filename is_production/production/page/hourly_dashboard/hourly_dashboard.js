@@ -1,3 +1,6 @@
+// Copyright (c) 2026, BuFf0k and contributors
+// For license information, please see license.txt
+
 frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   const REPORT_NAME = "Hourly Dashboard";
   const STORAGE_KEY = "hourly_dash_define_monthly_production";
