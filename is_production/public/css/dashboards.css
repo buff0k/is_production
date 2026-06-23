@@ -1,0 +1,478 @@
+/* apps/is_production/is_production/public/css/dashboards.css */
+
+/* =========================================================
+   Isambane Production Dashboards
+   Single source of truth for dashboard pages/reports
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   Design tokens
+   --------------------------------------------------------- */
+
+:root {
+  --isd-dashboard-black: #000000;
+  --isd-dashboard-card-bg: var(--card-bg, var(--fg-color, #ffffff));
+  --isd-dashboard-control-bg: var(--control-bg, #ffffff);
+  --isd-dashboard-muted-bg: var(--control-bg, #f7fafc);
+  --isd-dashboard-border: var(--border-color, #d1d8dd);
+  --isd-dashboard-text: var(--text-color, #1f272e);
+  --isd-dashboard-muted-text: var(--text-muted, #6b7280);
+  --isd-dashboard-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
+  --isd-dashboard-radius: 10px;
+
+  --isd-dashboard-green: #2fb344;
+  --isd-dashboard-red: #e24c4c;
+  --isd-dashboard-orange: #f59f00;
+
+  --isd-dashboard-var-good-bg: #C9F2D8;
+  --isd-dashboard-var-bad-bg: #F9CACA;
+
+  --isd-dashboard-grid-gap: 10px;
+  --isd-dashboard-card-border-width: 3px;
+  --isd-dashboard-table-border-width: 2px;
+  --isd-dashboard-cell-border-width: 1px;
+  --isd-dashboard-sep-width: 3px;
+  --isd-dashboard-subsep-width: 1px;
+}
+
+/* =========================================================
+   Shared dashboard shell
+   ========================================================= */
+
+.isd-dashboard {
+  display: block;
+  color: var(--isd-dashboard-text);
+}
+
+.isd-dashboard-status {
+  margin-bottom: 10px;
+}
+
+.isd-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(900px, 1fr));
+  gap: var(--isd-dashboard-grid-gap);
+  align-items: start;
+}
+
+.isd-dashboard-card {
+  background: transparent;
+  border: var(--isd-dashboard-card-border-width) solid var(--isd-dashboard-black);
+  border-radius: 8px;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+}
+
+.isd-dashboard-card-header {
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.isd-dashboard-card-title {
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 500;
+  color: var(--isd-dashboard-text);
+}
+
+.isd-dashboard-card-subtitle {
+  font-size: 12px;
+  line-height: 1.2;
+  margin-top: 2px;
+  color: var(--isd-dashboard-text);
+}
+
+/* =========================================================
+   Shared KPI row / boxes
+   ========================================================= */
+
+.isd-dashboard-kpi-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: stretch;
+}
+
+.isd-dashboard-kpi {
+  flex: 1 1 0;
+  min-width: 120px;
+  border: 3px solid var(--isd-dashboard-black);
+  border-radius: 7px;
+  background: #f5f5f5;
+  text-align: center;
+  padding: 5px 6px;
+  color: #222222;
+  line-height: 1.1;
+  box-sizing: border-box;
+}
+
+.isd-dashboard-kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  min-height: 14px;
+  color: inherit;
+}
+
+.isd-dashboard-kpi-sub-label {
+  font-size: 11px;
+  line-height: 1.1;
+  margin-top: 2px;
+  color: inherit;
+  opacity: 0.85;
+}
+
+.isd-dashboard-kpi-value {
+  font-size: 17px;
+  font-weight: 800;
+  margin-top: 3px;
+  color: inherit;
+}
+
+.isd-dashboard-kpi-trend {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.isd-dashboard-kpi-arrow {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.isd-dashboard-kpi.isd-dashboard-good {
+  background: var(--isd-dashboard-green);
+  color: #ffffff;
+}
+
+.isd-dashboard-kpi.isd-dashboard-bad {
+  background: var(--isd-dashboard-red);
+  color: #ffffff;
+}
+
+/* =========================================================
+   Shared table base
+   ========================================================= */
+
+.isd-dashboard-table-wrap {
+  padding: 6px;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.isd-dashboard-table {
+  width: 100%;
+  table-layout: auto;
+  border-collapse: collapse;
+  border: var(--isd-dashboard-table-border-width) solid var(--isd-dashboard-black);
+  background: #ffffff;
+}
+
+.isd-dashboard-table th,
+.isd-dashboard-table td {
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+  border: var(--isd-dashboard-cell-border-width) solid var(--isd-dashboard-black);
+  color: #333333;
+  background: #ffffff;
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+}
+
+.isd-dashboard-table th {
+  font-weight: 700;
+}
+
+.isd-dashboard-cell-inner {
+  display: block;
+  padding: 6px 6px;
+  min-height: 30px;
+  box-sizing: border-box;
+}
+
+/* Major and minor group separators */
+.isd-dashboard-table .isd-dashboard-sep {
+  border-right-width: var(--isd-dashboard-sep-width);
+  border-right-color: var(--isd-dashboard-black);
+  border-right-style: solid;
+}
+
+.isd-dashboard-table .isd-dashboard-subsep {
+  border-right-width: var(--isd-dashboard-subsep-width);
+  border-right-color: var(--isd-dashboard-black);
+  border-right-style: solid;
+}
+
+/*
+  Variance backgrounds live on the inner span, not the TD.
+  This keeps collapsed table borders clean and prevents coloured
+  variance cells from visually swallowing border lines.
+*/
+.isd-dashboard-var-good {
+  background: var(--isd-dashboard-var-good-bg);
+}
+
+.isd-dashboard-var-bad {
+  background: var(--isd-dashboard-var-bad-bg);
+}
+
+/* =========================================================
+   CEO Volume Dashboard modifier
+   Used by ceo_dashboard_1.js:
+   <div class="isd-dashboard isd-dashboard--ceo-volume">
+   ========================================================= */
+
+.isd-dashboard--ceo-volume .isd-dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(900px, 1fr));
+  gap: 10px;
+}
+
+.isd-dashboard--ceo-volume .isd-dashboard-card {
+  border-width: 3px;
+  border-color: var(--isd-dashboard-black);
+  border-style: solid;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.isd-dashboard--ceo-volume .isd-dashboard-table {
+  border-width: 2px;
+}
+
+.isd-dashboard--ceo-volume .isd-dashboard-table--summary {
+  table-layout: auto;
+}
+
+.isd-dashboard--ceo-volume .isd-dashboard-table--summary th,
+.isd-dashboard--ceo-volume .isd-dashboard-table--summary td {
+  font-size: 12px;
+}
+
+.isd-dashboard--ceo-volume .isd-dashboard-table--summary .isd-dashboard-cell-inner {
+  padding: 6px 6px;
+  min-height: 30px;
+}
+
+/* =========================================================
+   Hourly Dashboard modifier
+   Replaces the old .isd-hourly-dashboard-specific table CSS.
+   Use:
+   <div class="isd-dashboard isd-dashboard--hourly">
+   ========================================================= */
+
+.isd-dashboard--hourly {
+  display: grid;
+  gap: 8px;
+}
+
+.isd-dashboard--hourly .isd-dashboard-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+.isd-dashboard--hourly .isd-dashboard-card {
+  background: var(--isd-dashboard-card-bg);
+  border: 1px solid var(--isd-dashboard-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--isd-dashboard-shadow);
+  margin-bottom: 0;
+}
+
+.isd-dashboard--hourly .isd-dashboard-card-header {
+  padding: 10px 12px;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--isd-dashboard-text);
+  border-bottom: 1px solid var(--isd-dashboard-border);
+}
+
+.isd-dashboard--hourly .isd-dashboard-card-subtitle {
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--isd-dashboard-muted-text);
+  margin-top: 4px;
+}
+
+.isd-dashboard--hourly .isd-dashboard-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  border: 0;
+}
+
+.isd-dashboard--hourly .isd-dashboard-table th,
+.isd-dashboard--hourly .isd-dashboard-table td {
+  border: 0;
+  border-bottom: 1px solid var(--isd-dashboard-border);
+  border-right: 1px solid var(--isd-dashboard-border);
+  text-align: center;
+  font-size: 10px;
+  padding: 2px 1px;
+  height: 30px;
+  color: var(--isd-dashboard-text);
+  background: var(--isd-dashboard-control-bg);
+  font-variant-numeric: tabular-nums;
+}
+
+.isd-dashboard--hourly .isd-dashboard-table td {
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.isd-dashboard--hourly .isd-dashboard-table th {
+  white-space: normal;
+  line-height: 1.05;
+  padding: 2px 1px;
+  font-size: 9px;
+  background: var(--isd-dashboard-muted-bg);
+  font-weight: 800;
+}
+
+.isd-dashboard--hourly .isd-dashboard-table th:first-child,
+.isd-dashboard--hourly .isd-dashboard-table td:first-child {
+  text-align: left;
+  font-weight: 800;
+  width: 92px;
+  padding-left: 8px;
+  background: var(--isd-dashboard-muted-bg);
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.isd-dashboard--hourly .isd-dashboard-table th:not(:first-child),
+.isd-dashboard--hourly .isd-dashboard-table td:not(:first-child) {
+  width: 26px;
+  min-width: 26px;
+}
+
+.isd-dashboard--hourly .isd-hour-low,
+.isd-dashboard--hourly .isd-dashboard-cell-low {
+  background: color-mix(in srgb, var(--isd-dashboard-red) 18%, var(--isd-dashboard-control-bg));
+}
+
+.isd-dashboard--hourly .isd-hour-medium,
+.isd-dashboard--hourly .isd-dashboard-cell-medium {
+  background: color-mix(in srgb, var(--isd-dashboard-orange) 18%, var(--isd-dashboard-control-bg));
+}
+
+.isd-dashboard--hourly .isd-hour-high,
+.isd-dashboard--hourly .isd-dashboard-cell-high {
+  background: color-mix(in srgb, var(--isd-dashboard-green) 18%, var(--isd-dashboard-control-bg));
+}
+
+/* =========================================================
+   CEO Graph Dashboard modifier
+   Replaces old .isd-ceo-graphs rules.
+   Use:
+   <div class="isd-dashboard isd-dashboard--ceo-graphs">
+   ========================================================= */
+
+.isd-dashboard--ceo-graphs {
+  --isd-graph-gap: 14px;
+  --isd-graph-radius: 12px;
+
+  color: var(--isd-dashboard-text);
+}
+
+.isd-dashboard--ceo-graphs .isd-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(420px, 1fr));
+  gap: var(--isd-graph-gap);
+  padding: 14px;
+  align-items: start;
+}
+
+.isd-dashboard--ceo-graphs .isd-dashboard-card {
+  background: var(--isd-dashboard-card-bg);
+  border: 1px solid var(--isd-dashboard-border);
+  border-radius: var(--isd-graph-radius);
+  overflow: hidden;
+  box-shadow: var(--isd-dashboard-shadow);
+  height: 420px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.isd-dashboard--ceo-graphs .isd-dashboard-card-header {
+  padding: 10px 14px;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--isd-dashboard-text);
+  border-bottom: 1px solid var(--isd-dashboard-border);
+}
+
+.isd-dashboard--ceo-graphs .isd-dashboard-card-subtitle {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--isd-dashboard-muted-text);
+  margin-top: 4px;
+}
+
+.isd-dashboard-chart {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 12px 12px 26px;
+}
+
+.isd-dashboard-chart canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* =========================================================
+   Report datatable hiding
+   Only hide a Frappe datatable when the report/page explicitly
+   renders one of these dashboard roots.
+   ========================================================= */
+
+.isd-dashboard--hourly ~ .datatable,
+.isd-dashboard--ceo-graphs ~ .datatable,
+.isd-dashboard--ceo-volume ~ .datatable,
+.isd-dashboard--hide-datatable ~ .datatable {
+  display: none !important;
+}
+
+/* =========================================================
+   Responsive behaviour
+   ========================================================= */
+
+@media (max-width: 1200px) {
+  .isd-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .isd-dashboard-kpi-row {
+    flex-wrap: wrap;
+  }
+
+  .isd-dashboard-kpi {
+    flex: 1 1 180px;
+  }
+
+  .isd-dashboard--ceo-volume .isd-dashboard-table th,
+  .isd-dashboard--ceo-volume .isd-dashboard-table td {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 760px) {
+  .isd-dashboard--ceo-graphs .isd-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}

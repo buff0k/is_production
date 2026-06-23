@@ -1,0 +1,50 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-06-23 15:33:52.639586",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "site_colour_mapping"
+ ],
+ "fields": [
+  {
+   "fieldname": "site_colour_mapping",
+   "fieldtype": "Table",
+   "label": "Site Colour Mapping",
+   "options": "Production Dashboard Setup Colours"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-06-23 16:31:42.905151",
+ "modified_by": "Administrator",
+ "module": "Production",
+ "name": "Production Dashboard Setup",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "read": 1,
+   "role": "Production Manager",
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

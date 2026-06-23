@@ -1,199 +1,246 @@
+# Copyright (c) 2026, BuFf0k and contributors
+# For license information, please see license.txt
+
+
 import frappe
 from frappe.utils import getdate, nowdate
 from datetime import timedelta
 
+
 Y_AXIS_STEP = 10_000
-
-SITE_COLORS = {
-    "Klipfontein": "#EBF9FF",
-    "Gwab": "#f7d8ff",
-    "Kriel Rehabilitation": "#E6D3B1",
-    "Koppie": "#feff8d",
-    "Uitgevallen": "#ffd37f",
-    "Bankfontein": "#e3e3e3",
-}
-
-TARGET_LINE_COLOR = "#9E9E9E"
-ACTUAL_LINE_COLOR = "#0B2C4D"
 
 
 def execute(filters=None):
-    columns = [{"fieldname": "noop", "label": "", "fieldtype": "Data", "width": 1}]
-    data = [{"noop": ""}]
+    filters = frappe._dict(filters or {})
 
-    if not filters or not filters.get("monthly_production_plan"):
-        return columns, data, "<b>Please select a Monthly Production Plan.</b>"
+    define_monthly_production = (
+        filters.get("define_monthly_production")
+        or filters.get("monthly_production_plan")
+    )
+
+    if not define_monthly_production:
+        return get_columns(), []
 
     yesterday = getdate(nowdate()) - timedelta(days=1)
 
-    dmp = frappe.get_doc("Define Monthly Production", filters.get("monthly_production_plan"))
-    mpp_map = get_monthly_plans(dmp.define)
+    dmp = frappe.get_doc("Define Monthly Production", define_monthly_production)
+    define_rows = list(dmp.get("define") or [])
 
-    site_blocks = []
-    for row in dmp.define:
-        mpp = mpp_map.get(row.site)
-        if not mpp:
+    if not define_rows:
+        return get_columns(), []
+
+    monthly_plan_map = get_monthly_plans(define_rows)
+
+    data = []
+
+    for idx, define_row in enumerate(define_rows):
+        site = (define_row.site or "").strip()
+
+        if not site:
             continue
 
-        prod_start = getdate(mpp.prod_month_start_date)
-        prod_end = getdate(mpp.prod_month_end_date)
+        monthly_plan = monthly_plan_map.get(site)
 
-        actual_map = extract_actuals_mtd(
-            mpp.month_prod_days,
+        if not monthly_plan:
+            continue
+
+        prod_start = getdate(monthly_plan.prod_month_start_date)
+        prod_end = getdate(monthly_plan.prod_month_end_date)
+
+        labels, dates = build_date_axis(prod_start, prod_end)
+
+        cumulative_actual_map = extract_cumulative_actuals_mtd(
+            monthly_plan.get("month_prod_days") or [],
             prod_start,
             prod_end,
-            yesterday
+            yesterday,
         )
 
-        site_blocks.append(
-            build_site_block(
-                site=row.site,
-                prod_start=prod_start,
-                prod_end=prod_end,
-                monthly_target=mpp.monthly_target_bcm,
-                actual_map=actual_map,
-                yesterday=yesterday
-            )
+        monthly_target = monthly_plan.get("monthly_target_bcm") or 0
+
+        mtd_target_data = build_mtd_target(
+            monthly_target=monthly_target,
+            days=len(labels),
         )
 
-    html = f"""
-    <div class="isd-ceo-graphs">
-        <div class="isd-grid">
-            {''.join(site_blocks)}
-        </div>
-    </div>
-    """
+        mtd_actual_data = build_mtd_actual(
+            dates=dates,
+            cumulative_actual_map=cumulative_actual_map,
+            cutoff=yesterday,
+        )
 
-    return columns, data, html
+        data.append({
+            "site": site,
+            "site_order": idx,
+            "prod_start": prod_start,
+            "prod_end": prod_end,
+            "mtd_upto": yesterday,
+            "monthly_target_bcm": monthly_target,
+            "chart_labels": frappe.as_json(labels),
+            "mtd_target_data": frappe.as_json(mtd_target_data),
+            "mtd_actual_data": frappe.as_json(mtd_actual_data),
+            "y_axis_step": Y_AXIS_STEP,
+        })
+
+    return get_columns(), data
 
 
-def build_site_block(site, prod_start, prod_end, monthly_target, actual_map, yesterday):
-    labels, dates = build_date_axis(prod_start, prod_end)
-
-    target = build_mtd_target(monthly_target, len(labels))
-    actual = build_mtd_actual(dates, actual_map, yesterday)
-
-    chart_config = {
-        "type": "line",
-        "data": {
-            "labels": labels,
-            "datasets": [
-                {
-                    "label": "MTD Target",
-                    "data": target,
-                    "borderColor": TARGET_LINE_COLOR,
-                    "borderWidth": 2,
-                    "tension": 0.25,
-                    "pointRadius": 3,
-                    "pointBorderWidth": 1,
-                },
-                {
-                    "label": "MTD Actual",
-                    "data": actual,
-                    "borderColor": ACTUAL_LINE_COLOR,
-                    "borderWidth": 2,
-                    "tension": 0.25,
-                    "pointRadius": 3,
-                    "pointBorderWidth": 1,
-                    "spanGaps": False,
-                },
-            ],
+def get_columns():
+    return [
+        {
+            "fieldname": "site",
+            "label": "Site",
+            "fieldtype": "Data",
+            "width": 180,
         },
-        "options": {
-            "animation": False,
-            "maintainAspectRatio": False,
-            "layout": {
-                "padding": {
-                    "left": 32,
-                    "right": 12,
-                    "top": 10,
-                    "bottom": 10,
-                }
-            },
-            "plugins": {"legend": {"display": False}},
-            "scales": {
-                "x": {"ticks": {"autoSkip": True, "font": {"size": 11}}},
-                "y": {
-                    "beginAtZero": True,
-                    "ticks": {
-                        "stepSize": Y_AXIS_STEP,
-                        "font": {"size": 11},
-                        "padding": 6,
-                    }
-                },
-            },
+        {
+            "fieldname": "site_order",
+            "label": "Site Order",
+            "fieldtype": "Int",
+            "width": 90,
+            "hidden": 1,
         },
-    }
+        {
+            "fieldname": "prod_start",
+            "label": "Production Start",
+            "fieldtype": "Date",
+            "width": 120,
+        },
+        {
+            "fieldname": "prod_end",
+            "label": "Production End",
+            "fieldtype": "Date",
+            "width": 120,
+        },
+        {
+            "fieldname": "mtd_upto",
+            "label": "MTD Up To",
+            "fieldtype": "Date",
+            "width": 120,
+        },
+        {
+            "fieldname": "monthly_target_bcm",
+            "label": "Monthly Target BCM",
+            "fieldtype": "Float",
+            "width": 150,
+        },
+        {
+            "fieldname": "chart_labels",
+            "label": "Chart Labels",
+            "fieldtype": "Long Text",
+            "width": 80,
+            "hidden": 1,
+        },
+        {
+            "fieldname": "mtd_target_data",
+            "label": "MTD Target Data",
+            "fieldtype": "Long Text",
+            "width": 80,
+            "hidden": 1,
+        },
+        {
+            "fieldname": "mtd_actual_data",
+            "label": "MTD Actual Data",
+            "fieldtype": "Long Text",
+            "width": 80,
+            "hidden": 1,
+        },
+        {
+            "fieldname": "y_axis_step",
+            "label": "Y Axis Step",
+            "fieldtype": "Int",
+            "width": 80,
+            "hidden": 1,
+        },
+    ]
 
-    banner_bg = SITE_COLORS.get(site) or "#e5e7eb"
 
-    return f"""
-    <div class="isd-card">
-        <div class="isd-banner" style="background:{banner_bg}">
-            <div>Site: {site}</div>
-            <div class="isd-sub">
-                Production Period: {prod_start} → {prod_end}<br>
-                MTD up to: {yesterday}
-            </div>
-        </div>
-
-        <div class="isd-chart">
-            <canvas data-chart='{frappe.as_json(chart_config)}'></canvas>
-        </div>
-    </div>
-    """
-
-
-def extract_actuals_mtd(rows, prod_start, prod_end, cutoff):
+def extract_cumulative_actuals_mtd(rows, prod_start, prod_end, cutoff):
     actuals = {}
-    for r in rows:
-        if not r.shift_start_date:
+
+    for row in rows:
+        if not row.shift_start_date:
             continue
 
-        d = getdate(r.shift_start_date)
-        if d < prod_start or d > prod_end or d > cutoff:
+        production_date = getdate(row.shift_start_date)
+
+        if production_date < prod_start:
             continue
 
-        actuals[d] = round(
-            (r.cum_ts_bcms or 0) + (r.tot_cumulative_dozing_bcms or 0),
+        if production_date > prod_end:
+            continue
+
+        if production_date > cutoff:
+            continue
+
+        actuals[production_date] = round(
+            (row.cum_ts_bcms or 0)
+            + (row.tot_cumulative_dozing_bcms or 0),
             2,
         )
 
     return actuals
 
 
-def build_mtd_actual(dates, actual_map, cutoff):
-    return [None if d > cutoff else actual_map.get(d) for d in dates]
+def build_mtd_actual(dates, cumulative_actual_map, cutoff):
+    return [
+        None if production_date > cutoff else cumulative_actual_map.get(production_date)
+        for production_date in dates
+    ]
 
 
 def build_mtd_target(monthly_target, days):
-    daily = monthly_target / days if days else 0
-    total = 0
-    return [round((total := total + daily), 2) for _ in range(days)]
+    monthly_target = float(monthly_target or 0)
+    daily_target = monthly_target / days if days else 0
+
+    running_total = 0
+    values = []
+
+    for _ in range(days):
+        running_total += daily_target
+        values.append(round(running_total, 2))
+
+    return values
 
 
 def build_date_axis(start, end):
-    labels, dates = [], []
-    cur = start
-    while cur <= end:
-        labels.append(str(cur.day))
-        dates.append(cur)
-        cur += timedelta(days=1)
+    labels = []
+    dates = []
+
+    current = start
+
+    while current <= end:
+        labels.append(str(current.day))
+        dates.append(current)
+        current += timedelta(days=1)
+
     return labels, dates
 
 
 def get_monthly_plans(rows):
     plans = {}
-    for r in rows:
+
+    for row in rows:
+        site = (row.site or "").strip()
+
+        if not site:
+            continue
+
+        if not row.start_date or not row.end_date:
+            continue
+
         name = frappe.db.get_value(
             "Monthly Production Planning",
             {
-                "location": r.site,
-                "prod_month_start_date": ["<=", r.end_date],
-                "prod_month_end_date": [">=", r.start_date],
+                "location": site,
+                "prod_month_start_date": ["<=", row.end_date],
+                "prod_month_end_date": [">=", row.start_date],
             },
             "name",
+            order_by="modified desc",
         )
+
         if name:
-            plans[r.site] = frappe.get_doc("Monthly Production Planning", name)
+            plans[site] = frappe.get_doc("Monthly Production Planning", name)
+
     return plans

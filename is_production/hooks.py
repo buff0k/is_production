@@ -48,9 +48,7 @@ doctype_js = {
 }
 
 app_include_css = [
-   # "/assets/is_production/css/offline.css",
-    "/assets/is_production/css/hourly_production_ui.css",
-    "/assets/is_production/css/hourly_dashboard.css"
+    "/assets/is_production/css/dashboards.css"
 ]
 
 page_js = {

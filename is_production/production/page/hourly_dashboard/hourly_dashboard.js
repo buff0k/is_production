@@ -4,6 +4,8 @@
 frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   const REPORT_NAME = "Hourly Dashboard";
   const STORAGE_KEY = "hourly_dash_define_monthly_production";
+  const SITE_COLOUR_METHOD =
+    "is_production.production.doctype.production_dashboard_setup.production_dashboard_setup.get_site_colour_map";
 
   const SLOT_LABELS = [
     "06-07", "07-08", "08-09", "09-10", "10-11", "11-12", "12-13",
@@ -17,6 +19,36 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     title: "Hourly Dashboard",
     single_column: true
   });
+
+  // -------------------------
+  // Runtime site colour mapping
+  // Source: Production Dashboard Setup singleton via whitelisted method
+  // -------------------------
+  let _site_colour_map = null;
+
+  function get_site_colour_map() {
+    if (_site_colour_map) {
+      return Promise.resolve(_site_colour_map);
+    }
+
+    return frappe.call({
+      method: SITE_COLOUR_METHOD,
+      freeze: false
+    })
+      .then((r) => {
+        _site_colour_map = r.message || {};
+        return _site_colour_map;
+      })
+      .catch((e) => {
+        console.error("Could not load Production Dashboard Setup site colours:", e);
+        _site_colour_map = {};
+        return _site_colour_map;
+      });
+  }
+
+  function clear_site_colour_cache() {
+    _site_colour_map = null;
+  }
 
   // -------------------------
   // Filter
@@ -38,6 +70,7 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
       }
 
       localStorage.setItem(STORAGE_KEY, val);
+      clear_site_colour_cache();
       load_and_render(false);
       start_aligned_refresh();
     }
@@ -46,9 +79,9 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   // -------------------------
   // Dashboard container
   // -------------------------
-  const $wrap = $(`<div style="margin-top: 12px;"></div>`).appendTo(page.main);
-  const $status = $(`<div class="text-muted" style="margin-bottom: 10px;"></div>`).appendTo($wrap);
-  const $dash = $(`<div class="isd-hourly-dashboard-page"></div>`).appendTo($wrap);
+  const $wrap = $(`<div class="isd-dashboard isd-dashboard--hourly"></div>`).appendTo(page.main);
+  const $status = $(`<div class="isd-dashboard-status text-muted"></div>`).appendTo($wrap);
+  const $dash = $(`<div class="isd-dashboard-grid"></div>`).appendTo($wrap);
 
   // -------------------------
   // Refresh scheduler (:10 and :30)
@@ -76,8 +109,17 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
   }
 
+  function clear_existing_timer() {
+    if (_timer) {
+      clearTimeout(_timer);
+      _timer = null;
+    }
+  }
+
   function start_aligned_refresh() {
-    if (_auto_refresh_started) return;
+    if (_auto_refresh_started) {
+      return;
+    }
 
     _auto_refresh_started = true;
 
@@ -107,13 +149,6 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     };
 
     schedule_next();
-  }
-
-  function clear_existing_timer() {
-    if (_timer) {
-      clearTimeout(_timer);
-      _timer = null;
-    }
   }
 
   // -------------------------
@@ -146,12 +181,24 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  function get_header_background_style(site, siteColourMap) {
+    const mappedColour = siteColourMap && siteColourMap[site]
+      ? String(siteColourMap[site]).trim()
+      : "";
+
+    if (!mappedColour) {
+      return "background:transparent;";
+    }
+
+    return `background:${mappedColour};`;
+  }
+
   function get_cell_display(value) {
     value = normalise_int(value);
 
     if (value === 0) {
       return {
-        css_class: "isd-blank",
+        css_class: "",
         display: "",
         title: ""
       };
@@ -159,7 +206,7 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
 
     if (value >= 1 && value <= 199) {
       return {
-        css_class: "isd-low",
+        css_class: "isd-dashboard-cell-low",
         display: String(value),
         title: `${value} bcm`
       };
@@ -167,14 +214,14 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
 
     if (value >= 200 && value <= 219) {
       return {
-        css_class: "isd-medium",
+        css_class: "isd-dashboard-cell-medium",
         display: String(value),
         title: `${value} bcm`
       };
     }
 
     return {
-      css_class: "isd-high",
+      css_class: "isd-dashboard-cell-high",
       display: String(value),
       title: `${value} bcm`
     };
@@ -183,7 +230,9 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   function extract_rows_from_response(res) {
     const payload = res && res.message ? res.message : res;
 
-    if (!payload) return [];
+    if (!payload) {
+      return [];
+    }
 
     if (Array.isArray(payload.result)) {
       return payload.result;
@@ -204,28 +253,25 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     const siteMap = new Map();
 
     rows.forEach((row) => {
-      const site = (row.site || "").trim();
-      if (!site) return;
+      const site = String(row.site || "").trim();
+
+      if (!site) {
+        return;
+      }
 
       if (!siteMap.has(site)) {
         siteMap.set(site, {
           site: site,
           site_order: normalise_int(row.site_order),
           production_day: row.production_day || "",
-          header_colour: row.header_colour || "#FFFFFF",
           rows: []
         });
       }
 
       const group = siteMap.get(site);
 
-      // Keep the first meaningful metadata values.
       if (!group.production_day && row.production_day) {
         group.production_day = row.production_day;
-      }
-
-      if ((!group.header_colour || group.header_colour === "#FFFFFF") && row.header_colour) {
-        group.header_colour = row.header_colour;
       }
 
       if (!row.is_empty_site) {
@@ -242,49 +288,65 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     });
   }
 
+  // -------------------------
+  // Render helpers
+  // -------------------------
   function render_hour_header() {
     const hourHeaders = SLOT_LABELS.map((label) => {
       const escapedLabel = escape_html(label);
       const displayLabel = escapedLabel.replace("-", "<br>");
 
-      return `<th title="${escapedLabel}">${displayLabel}</th>`;
+      return `
+        <th class="isd-dashboard-th" title="${escapedLabel}">
+          ${displayLabel}
+        </th>
+      `;
     }).join("");
 
-    return `<tr><th>Excavator</th>${hourHeaders}</tr>`;
+    return `
+      <tr>
+        <th class="isd-dashboard-th">Excavator</th>
+        ${hourHeaders}
+      </tr>
+    `;
   }
 
   function render_excavator_row(row) {
     const excavator = escape_html(row.excavator || "");
 
     const cells = [
-      `<td class="isd-ex" title="${excavator}">${excavator}</td>`
+      `<td class="isd-dashboard-td isd-dashboard-excavator" title="${excavator}">${excavator}</td>`
     ];
 
     for (let slot = 1; slot <= 24; slot++) {
       const value = normalise_int(row[slot_field(slot)]);
       const cell = get_cell_display(value);
       const titleAttr = cell.title ? ` title="${escape_html(cell.title)}"` : "";
+      const cssClass = cell.css_class ? ` ${cell.css_class}` : "";
 
       cells.push(
-        `<td class="${cell.css_class}"${titleAttr}>${escape_html(cell.display)}</td>`
+        `<td class="isd-dashboard-td${cssClass}"${titleAttr}>${escape_html(cell.display)}</td>`
       );
     }
 
     return `<tr>${cells.join("")}</tr>`;
   }
 
-  function render_site_block(group) {
+  function render_site_block(group, siteColourMap) {
     const rowsHtml = group.rows.map(render_excavator_row).join("");
+    const headerBackground = get_header_background_style(group.site, siteColourMap);
 
     return `
-      <div class="isd-site">
-        <div class="isd-site-header" style="background-color: ${escape_html(group.header_colour)};">
-          <div>Site: ${escape_html(group.site)}</div>
-          <div class="isd-site-sub">Production Day: ${escape_html(group.production_day)}</div>
+      <div class="isd-dashboard-card">
+        <div class="isd-dashboard-card-header" style="${headerBackground}">
+          <div class="isd-dashboard-card-title">Site: ${escape_html(group.site)}</div>
+          <div class="isd-dashboard-card-subtitle">
+            Production Day: ${escape_html(group.production_day)}
+          </div>
         </div>
 
-        <div class="isd-table-wrap">
-          <table>
+        <div class="isd-dashboard-table-wrap">
+          <table class="isd-dashboard-table isd-dashboard-table--hourly">
             ${render_hour_header()}
             ${rowsHtml}
           </table>
@@ -293,7 +355,7 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     `;
   }
 
-  function render_dashboard(rows) {
+  function render_dashboard(rows, siteColourMap) {
     if (!rows.length) {
       $dash.html(`<div class="text-muted">No data for the selected filter.</div>`);
       return;
@@ -306,15 +368,9 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
       return;
     }
 
-    const html = `
-      <div class="isd-hourly-dashboard">
-        <div class="isd-grid">
-          ${groupedSites.map(render_site_block).join("")}
-        </div>
-      </div>
-    `;
-
-    $dash.html(html);
+    $dash.html(
+      groupedSites.map((group) => render_site_block(group, siteColourMap)).join("")
+    );
   }
 
   // -------------------------
@@ -329,10 +385,14 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
 
     $status.text(is_auto ? "Refreshing..." : "Loading...");
 
-    return run_report({ define_monthly_production: val })
-      .then((res) => {
+    return Promise.all([
+      run_report({ define_monthly_production: val }),
+      get_site_colour_map()
+    ])
+      .then(([res, siteColourMap]) => {
         const rows = extract_rows_from_response(res);
-        render_dashboard(rows);
+
+        render_dashboard(rows, siteColourMap);
 
         const time = new Date().toLocaleTimeString([], {
           hour: "2-digit",
