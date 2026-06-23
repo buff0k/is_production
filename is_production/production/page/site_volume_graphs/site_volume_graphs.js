@@ -1,7 +1,3 @@
-// Copyright (c) 2026, BuFf0k and contributors
-// For license information, please see license.txt
-
-
 (function () {
   const PAGE_KEYS = ["site-volume-graphs", "site_volume_graphs"];
 
@@ -21,8 +17,15 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     "is_production.production.doctype.production_dashboard_setup.production_dashboard_setup.get_site_colour_map";
 
   const TARGET_LINE_COLOR = "#9E9E9E";
-  const ACTUAL_LINE_COLOR = "#0B2C4D";
-  const Y_AXIS_STEP = 10000;
+  const ACTUAL_ABOVE_TARGET_COLOR = "#2fb344";
+  const ACTUAL_BELOW_TARGET_COLOR = "#e24c4c";
+  const CURRENT_DATE_POINT_COLOR = "#2fb344";
+
+  const TARGET_POINT_RADIUS = 3;
+  const ACTUAL_POINT_RADIUS = 3;
+  const CURRENT_DATE_POINT_RADIUS = 3.75;
+
+  const DEFAULT_Y_AXIS_STEP = 10000;
 
   const page = frappe.ui.make_app_page({
     parent: wrapper,
@@ -36,6 +39,9 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
   let _refreshing = false;
   let _timer = null;
 
+  // -------------------------
+  // Filter
+  // -------------------------
   const dmp = page.add_field({
     fieldtype: "Link",
     label: __("Define Monthly Production"),
@@ -60,10 +66,16 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     }
   });
 
+  // -------------------------
+  // Dashboard container
+  // -------------------------
   const $wrap = $(`<div class="isd-dashboard isd-dashboard--ceo-graphs"></div>`).appendTo(page.main);
   const $status = $(`<div class="isd-dashboard-status text-muted"></div>`).appendTo($wrap);
   const $dash = $(`<div class="isd-dashboard-grid"></div>`).appendTo($wrap);
 
+  // -------------------------
+  // Global site colours
+  // -------------------------
   function get_site_colour_map() {
     if (_site_colour_map) {
       return Promise.resolve(_site_colour_map);
@@ -100,6 +112,9 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     return `background:${mappedColour};`;
   }
 
+  // -------------------------
+  // Refresh scheduler (:10 and :30)
+  // -------------------------
   function ms_until_next_refresh() {
     const now = new Date();
     const minutes = now.getMinutes();
@@ -161,6 +176,9 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     schedule_next();
   }
 
+  // -------------------------
+  // Report runner
+  // -------------------------
   function run_report(filters) {
     return frappe.call({
       method: "frappe.desk.query_report.run",
@@ -194,6 +212,9 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     return [];
   }
 
+  // -------------------------
+  // Chart.js loader
+  // -------------------------
   function ensure_chartjs() {
     if (window.Chart) {
       return Promise.resolve();
@@ -263,12 +284,20 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     });
   }
 
+  // -------------------------
+  // Formatting helpers
+  // -------------------------
   function escape_html(value) {
     return frappe.utils.escape_html(value == null ? "" : String(value));
   }
 
   function normalise_int(value) {
     const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function normalise_float(value) {
+    const parsed = parseFloat(value);
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
@@ -289,7 +318,120 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     }
   }
 
-  function build_chart_config(labels, targetData, actualData) {
+  function get_current_actual_index(actualData) {
+    if (!Array.isArray(actualData)) {
+      return -1;
+    }
+
+    for (let i = actualData.length - 1; i >= 0; i--) {
+      const value = actualData[i];
+
+      if (value !== null && value !== undefined && value !== "") {
+        const numericValue = Number(value);
+
+        if (Number.isFinite(numericValue)) {
+          return i;
+        }
+      }
+    }
+
+    return -1;
+  }
+
+  function get_y_axis_step(rows) {
+    if (!Array.isArray(rows) || !rows.length) {
+      return DEFAULT_Y_AXIS_STEP;
+    }
+
+    for (const row of rows) {
+      const step = normalise_int(row.y_axis_step);
+
+      if (step > 0) {
+        return step;
+      }
+    }
+
+    return DEFAULT_Y_AXIS_STEP;
+  }
+
+  function get_max_numeric_value(values) {
+    if (!Array.isArray(values)) {
+      return 0;
+    }
+
+    let maxValue = 0;
+
+    values.forEach((value) => {
+      if (value === null || value === undefined || value === "") {
+        return;
+      }
+
+      const numericValue = Number(value);
+
+      if (Number.isFinite(numericValue) && numericValue > maxValue) {
+        maxValue = numericValue;
+      }
+    });
+
+    return maxValue;
+  }
+
+  function compute_shared_y_axis_max(rows) {
+    const yAxisStep = get_y_axis_step(rows);
+    let maxValue = 0;
+
+    rows.forEach((row) => {
+      const targetData = parse_json_array(row.mtd_target_data);
+      const actualData = parse_json_array(row.mtd_actual_data);
+
+      maxValue = Math.max(
+        maxValue,
+        get_max_numeric_value(targetData),
+        get_max_numeric_value(actualData),
+        normalise_float(row.monthly_target_bcm)
+      );
+    });
+
+    if (!maxValue || maxValue <= 0) {
+      return yAxisStep;
+    }
+
+    return Math.ceil(maxValue / yAxisStep) * yAxisStep;
+  }
+
+  // -------------------------
+  // Chart config
+  // -------------------------
+  function build_chart_config(labels, targetData, actualData, sharedYAxisMax, yAxisStep) {
+    const currentActualIndex = get_current_actual_index(actualData);
+
+    function actual_point_colour(index) {
+      const actual = Number(actualData[index]);
+      const target = Number(targetData[index]);
+
+      if (!Number.isFinite(actual)) {
+        return ACTUAL_BELOW_TARGET_COLOR;
+      }
+
+      if (!Number.isFinite(target)) {
+        return ACTUAL_ABOVE_TARGET_COLOR;
+      }
+
+      return actual >= target
+        ? ACTUAL_ABOVE_TARGET_COLOR
+        : ACTUAL_BELOW_TARGET_COLOR;
+    }
+
+    function actual_segment_colour(ctx) {
+      const index = ctx.p1DataIndex;
+
+      if (index == null) {
+        return ACTUAL_BELOW_TARGET_COLOR;
+      }
+
+      return actual_point_colour(index);
+    }
+
     return {
       type: "line",
       data: {
@@ -299,18 +441,60 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
             label: "MTD Target",
             data: targetData,
             borderColor: TARGET_LINE_COLOR,
+            backgroundColor: TARGET_LINE_COLOR,
+            pointBackgroundColor: TARGET_LINE_COLOR,
+            pointBorderColor: TARGET_LINE_COLOR,
             borderWidth: 2,
             tension: 0.25,
-            pointRadius: 3,
+            pointRadius: TARGET_POINT_RADIUS,
+            pointHoverRadius: TARGET_POINT_RADIUS + 2,
             pointBorderWidth: 1
           },
           {
             label: "MTD Actual",
             data: actualData,
-            borderColor: ACTUAL_LINE_COLOR,
+
+            // Fallback. Segment colouring below handles the actual line colour.
+            borderColor: ACTUAL_BELOW_TARGET_COLOR,
+
+            segment: {
+              borderColor: actual_segment_colour
+            },
+
+            backgroundColor: function (ctx) {
+              return actual_point_colour(ctx.dataIndex);
+            },
+
+            pointBackgroundColor: function (ctx) {
+              if (ctx.dataIndex === currentActualIndex) {
+                return CURRENT_DATE_POINT_COLOR;
+              }
+
+              return actual_point_colour(ctx.dataIndex);
+            },
+
+            pointBorderColor: function (ctx) {
+              if (ctx.dataIndex === currentActualIndex) {
+                return CURRENT_DATE_POINT_COLOR;
+              }
+
+              return actual_point_colour(ctx.dataIndex);
+            },
+
+            pointRadius: function (ctx) {
+              return ctx.dataIndex === currentActualIndex
+                ? CURRENT_DATE_POINT_RADIUS
+                : ACTUAL_POINT_RADIUS;
+            },
+
+            pointHoverRadius: function (ctx) {
+              return ctx.dataIndex === currentActualIndex
+                ? CURRENT_DATE_POINT_RADIUS + 2
+                : ACTUAL_POINT_RADIUS + 2;
+            },
+
             borderWidth: 2,
             tension: 0.25,
-            pointRadius: 3,
             pointBorderWidth: 1,
             spanGaps: false
           }
@@ -343,8 +527,9 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
           },
           y: {
             beginAtZero: true,
+            max: sharedYAxisMax,
             ticks: {
-              stepSize: Y_AXIS_STEP,
+              stepSize: yAxisStep,
               font: {
                 size: 11
               },
@@ -356,6 +541,9 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     };
   }
 
+  // -------------------------
+  // Rendering
+  // -------------------------
   function build_site_card(row, siteColourMap, idx) {
     const site = String(row.site || "").trim();
     const prodStart = row.prod_start || "";
@@ -399,12 +587,21 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
       return String(a.site || "").localeCompare(String(b.site || ""));
     });
 
+    const yAxisStep = get_y_axis_step(sorted);
+    const sharedYAxisMax = compute_shared_y_axis_max(sorted);
+
     const chartConfigs = sorted.map((row) => {
       const labels = parse_json_array(row.chart_labels);
       const targetData = parse_json_array(row.mtd_target_data);
       const actualData = parse_json_array(row.mtd_actual_data);
 
-      return build_chart_config(labels, targetData, actualData);
+      return build_chart_config(
+        labels,
+        targetData,
+        actualData,
+        sharedYAxisMax,
+        yAxisStep
+      );
     });
 
     $dash.html(
@@ -414,6 +611,9 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     render_charts(chartConfigs);
   }
 
+  // -------------------------
+  // Main loader
+  // -------------------------
   function load_and_render(is_auto) {
     const val = dmp.get_value();
 
@@ -457,6 +657,9 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
       });
   }
 
+  // -------------------------
+  // Restore last selection
+  // -------------------------
   const last = localStorage.getItem(STORAGE_KEY);
 
   if (last) {
@@ -472,6 +675,9 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     $status.text("Select a Define Monthly Production to load the graphs.");
   }
 
+  // -------------------------
+  // Cleanup
+  // -------------------------
   frappe.pages[pageKey].on_page_unload = function () {
     clear_existing_timer();
     destroy_charts();

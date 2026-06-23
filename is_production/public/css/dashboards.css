@@ -449,6 +449,30 @@
 }
 
 /* =========================================================
+   Hourly Dashboard heatmap cell colours
+   Must be more specific than the base hourly table td rule.
+   Supports both new and legacy class names.
+   ========================================================= */
+
+.isd-dashboard--hourly .isd-dashboard-table td.isd-dashboard-cell-low,
+.isd-dashboard--hourly .isd-dashboard-table td.isd-low {
+  background: #f9d6d6 !important;
+  background: color-mix(in srgb, var(--isd-dashboard-red, #e24c4c) 22%, var(--isd-dashboard-control-bg, #ffffff)) !important;
+}
+
+.isd-dashboard--hourly .isd-dashboard-table td.isd-dashboard-cell-medium,
+.isd-dashboard--hourly .isd-dashboard-table td.isd-medium {
+  background: #fde8bf !important;
+  background: color-mix(in srgb, var(--isd-dashboard-orange, #f59f00) 22%, var(--isd-dashboard-control-bg, #ffffff)) !important;
+}
+
+.isd-dashboard--hourly .isd-dashboard-table td.isd-dashboard-cell-high,
+.isd-dashboard--hourly .isd-dashboard-table td.isd-high {
+  background: #d7f2de !important;
+  background: color-mix(in srgb, var(--isd-dashboard-green, #2fb344) 22%, var(--isd-dashboard-control-bg, #ffffff)) !important;
+}
+
+/* =========================================================
    Responsive behaviour
    ========================================================= */
 
