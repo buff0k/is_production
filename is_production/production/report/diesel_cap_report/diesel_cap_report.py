@@ -23,6 +23,7 @@ def execute(filters: dict | None = None):
 	production_rows = get_production_totals_by_site_and_date(start_date, end_date, site)
 	survey_map = get_latest_survey_by_site(end_date, site)
 	diesel_map = get_diesel_totals_by_site(start_date, end_date, site)
+	tallies_cube_map = get_tallies_cubes_by_site(start_date, end_date, site)
 
 	production_map: dict[str, dict[date, float]] = {}
 	for row in production_rows:
@@ -41,7 +42,7 @@ def execute(filters: dict | None = None):
 	if site:
 		sites = [site]
 	else:
-		sites = sorted(set(production_map.keys()) | set(diesel_map.keys()))
+		sites = sorted(set(production_map.keys()) | set(diesel_map.keys()) | set(tallies_cube_map.keys()))
 
 	data = []
 	for row_site in sites:
@@ -71,6 +72,9 @@ def execute(filters: dict | None = None):
 		total_diesel_litres = diesel_map.get(row_site, 0)
 		diesel_cap = (total_diesel_litres / actual_bcm) if actual_bcm else 0
 
+		total_tallies_cubes = tallies_cube_map.get(row_site, 0)
+		tallies_fuel_cap = (total_diesel_litres / total_tallies_cubes) if total_tallies_cubes else 0
+
 		data.append(
 			{
 				"site": row_site,
@@ -79,8 +83,10 @@ def execute(filters: dict | None = None):
 				"survey_base_bcm": survey_base_bcm,
 				"hourly_after_survey_bcm": hourly_after_survey_bcm,
 				"actual_bcm": actual_bcm,
+				"total_tallies_cubes": total_tallies_cubes,
 				"total_diesel_litres": total_diesel_litres,
 				"diesel_cap": diesel_cap,
+				"tallies_fuel_cap": tallies_fuel_cap,
 				"survey_date_used": survey_date_used,
 			}
 		)
@@ -145,6 +151,13 @@ def get_columns() -> list[dict]:
 			"width": 130,
 		},
 		{
+			"label": _("Total Tallies Cubes"),
+			"fieldname": "total_tallies_cubes",
+			"fieldtype": "Float",
+			"precision": 2,
+			"width": 160,
+		},
+		{
 			"label": _("Total Diesel Litres"),
 			"fieldname": "total_diesel_litres",
 			"fieldtype": "Float",
@@ -157,6 +170,13 @@ def get_columns() -> list[dict]:
 			"fieldtype": "Float",
 			"precision": 2,
 			"width": 120,
+		},
+		{
+			"label": _("Tallies Fuel Cap"),
+			"fieldname": "tallies_fuel_cap",
+			"fieldtype": "Float",
+			"precision": 2,
+			"width": 140,
 		},
 		{
 			"label": _("Survey Date Used"),
@@ -294,3 +314,61 @@ def get_diesel_totals_by_site(start_date, end_date, site=None) -> dict[str, floa
 		for row in rows
 		if row.get("site")
 	}
+
+
+def get_tallies_cubes_by_site(start_date, end_date, site=None) -> dict[str, float]:
+	values = {
+		"start_date": start_date,
+		"end_date": end_date,
+	}
+
+	site_condition = ""
+	if site:
+		site_condition = " AND hp.location = %(site)s"
+		values["site"] = site
+
+	truck_rows = frappe.db.sql(
+		f"""
+		SELECT
+			hp.location AS site,
+			SUM(COALESCE(tl.bcms, 0)) AS total_cubes
+		FROM `tabHourly Production` hp
+		JOIN `tabTruck Loads` tl ON tl.parent = hp.name
+		WHERE hp.docstatus < 2
+		  AND hp.prod_date BETWEEN %(start_date)s AND %(end_date)s
+		  {site_condition}
+		GROUP BY hp.location
+		""",
+		values,
+		as_dict=True,
+	)
+
+	dozer_rows = frappe.db.sql(
+		f"""
+		SELECT
+			hp.location AS site,
+			SUM(COALESCE(dp.bcm_hour, 0)) AS total_cubes
+		FROM `tabHourly Production` hp
+		JOIN `tabDozer Production` dp ON dp.parent = hp.name
+		WHERE hp.docstatus < 2
+		  AND hp.prod_date BETWEEN %(start_date)s AND %(end_date)s
+		  {site_condition}
+		GROUP BY hp.location
+		""",
+		values,
+		as_dict=True,
+	)
+
+	out = {}
+
+	for row in truck_rows:
+		row_site = row.get("site")
+		if row_site:
+			out[row_site] = out.get(row_site, 0) + (row.get("total_cubes") or 0)
+
+	for row in dozer_rows:
+		row_site = row.get("site")
+		if row_site:
+			out[row_site] = out.get(row_site, 0) + (row.get("total_cubes") or 0)
+
+	return out
