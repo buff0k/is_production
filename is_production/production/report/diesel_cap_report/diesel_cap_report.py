@@ -144,11 +144,11 @@ def get_columns() -> list[dict]:
 			"width": 170,
 		},
 		{
-			"label": _("Actual BCM's"),
+			"label": _("Total Month to Date BCM"),
 			"fieldname": "actual_bcm",
 			"fieldtype": "Float",
 			"precision": 2,
-			"width": 130,
+			"width": 170,
 		},
 		{
 			"label": _("Total Tallies Cubes"),
