@@ -71,6 +71,12 @@ class PreUseHours(Document):
                 self.data_integrity_summary = "<p><b>✅ Plot 22 excluded from integrity checks.</b></p>"
                 return
 
+            # Users with Information Officer role are excluded from all Pre-Use Hours integrity checks
+            if "Information Officer" in frappe.get_roles(frappe.session.user):
+                self.data_integ_indicator = "🟢"
+                self.data_integrity_summary = "<p><b>✅ Information Officer excluded from integrity checks.</b></p>"
+                return
+
             check_previous_record_sequence(self, monthly_plan)
             self.validate_previous_shift_hours()
             self.evaluate_data_integrity()
