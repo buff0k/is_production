@@ -242,7 +242,9 @@ def get_columns():
         {"label": "General & Specific Other Lost Hours", "fieldname": "captured_other_lost_hours", "fieldtype": "Float", "width": 235, "precision": 1},
         {"label": "Other Lost Hours Variance", "fieldname": "other_lost_hours_variance", "fieldtype": "Float", "width": 190, "precision": 1},
         {"label": "Avail (%)", "fieldname": "plant_shift_availability", "fieldtype": "Percent", "width": 85, "precision": 1},
+        {"label": "Avail Target %", "fieldname": "avail_target_percent", "fieldtype": "Percent", "width": 115, "precision": 1},
         {"label": "Util (%)", "fieldname": "plant_shift_utilisation", "fieldtype": "Percent", "width": 85, "precision": 1},
+        {"label": "Util Target %", "fieldname": "util_target_percent", "fieldtype": "Percent", "width": 110, "precision": 1},
         {"label": "Emp Avail (%)", "fieldname": "employee_availability", "fieldtype": "Percent", "width": 100, "precision": 1},
         {"label": "Breakdown Reason", "fieldname": "breakdown_reason", "fieldtype": "Data", "width": 170},
         {"label": "Other Delay Reason", "fieldname": "other_delay_reason", "fieldtype": "Data", "width": 170},
@@ -323,6 +325,10 @@ def apply_formula_fields(row):
         row.get("shift_required_hours"),
         row.get("shift_other_lost_hours"),
     )
+
+    row["avail_target_percent"] = r1((row.get("plant_shift_availability") or 0) * 0.85)
+    row["util_target_percent"] = r1((row.get("plant_shift_utilisation") or 0) * 0.85)
+
     return row
 
 
@@ -829,7 +835,9 @@ def summary_row(rows, indent, **extra_fields):
         "captured_other_lost_hours": r1(combined.get("captured_other_lost_hours")),
         "other_lost_hours_variance": r1(combined.get("other_lost_hours_variance")),
         "plant_shift_availability": r1(combined.get("plant_shift_availability")),
+        "avail_target_percent": r1((combined.get("plant_shift_availability") or 0) * 0.85),
         "plant_shift_utilisation": r1(combined.get("plant_shift_utilisation")),
+        "util_target_percent": r1((combined.get("plant_shift_utilisation") or 0) * 0.85),
         "employee_availability": r1(combined.get("employee_availability")),
         "indent": indent,
     }
