@@ -15,6 +15,12 @@ ALLOWED_ROLES = [
 ]
 
 
+SITE_COLOUR_METHOD = (
+    "is_production.production.doctype.production_dashboard_setup."
+    "production_dashboard_setup.get_site_colour_map"
+)
+
+
 def _check_access():
     if frappe.session.user == "Guest":
         frappe.throw(_("Please log in first."), frappe.PermissionError)
@@ -55,6 +61,18 @@ def _get_site_order_map(docname):
             order_map[site] = idx
 
     return order_map
+
+
+def _get_site_colour_map():
+    try:
+        method = frappe.get_attr(SITE_COLOUR_METHOD)
+        return method() or {}
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "Portal Site Volume Tracking: could not load site colour map",
+        )
+        return {}
 
 
 def _get_active_employee_count(site):
@@ -178,16 +196,17 @@ def run_portal_report(define_monthly_production):
     run = frappe.get_attr("frappe.desk.query_report.run")
 
     payload = run(
-        report_name="CEO DASHBOARD",
+        report_name="CEO Dashboard 1",
         filters=json.dumps({
             "define_monthly_production": define_monthly_production
         })
     )
 
-    rows = payload.get("result") or []
+    rows = payload.get("result") or payload.get("data") or []
     enriched_rows = [_enrich_row(row) for row in rows]
 
     return {
         "rows": enriched_rows,
         "site_order_map": _get_site_order_map(define_monthly_production),
+        "site_colour_map": _get_site_colour_map(),
     }

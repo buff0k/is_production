@@ -2,10 +2,6 @@
 
 {% block page_content %}
 <style>
-/* =========================================================
-   FULL SCREEN PORTAL APP SHELL
-   ========================================================= */
-
 html,
 body {
     background: #ffffff !important;
@@ -43,13 +39,10 @@ main,
     background: #ffffff;
     overflow: auto;
     padding: 12px;
+    box-sizing: border-box;
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: #1f272e;
 }
-
-/* =========================================================
-   TOP BAR
-   ========================================================= */
 
 .portal-topbar {
     display: flex;
@@ -133,121 +126,69 @@ main,
     width: 100%;
 }
 
-/* =========================================================
-   SITE VOLUME GRAPH REPORT LAYOUT
-   Make portal match Desk 2-column card layout.
-   ========================================================= */
-
-#dashboard_content .isd-ceo-graphs {
+#dashboard_content.isd-dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
     width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: 0;
 }
 
-#dashboard_content .isd-ceo-graphs .isd-grid {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 12px !important;
-    align-items: start !important;
+#dashboard_content .isd-dashboard-card {
     width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: 0;
-}
-
-#dashboard_content .isd-ceo-graphs .isd-card {
-    width: 100% !important;
-    max-width: none !important;
-    min-width: 0 !important;
+    min-width: 0;
     background: #ffffff;
     border: 1px solid #d8dfe6;
     border-radius: 10px;
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
-    margin: 0 !important;
+    margin: 0;
 }
 
-/* Header/banner area */
-#dashboard_content .isd-ceo-graphs .isd-banner {
-    padding: 12px 14px !important;
-    font-size: 13px !important;
-    line-height: 1.25 !important;
-    font-weight: 400 !important;
-    color: #111827 !important;
-}
-
-#dashboard_content .isd-ceo-graphs .isd-banner strong,
-#dashboard_content .isd-ceo-graphs .isd-banner b {
-    font-weight: 700 !important;
-}
-
-#dashboard_content .isd-ceo-graphs .isd-banner div,
-#dashboard_content .isd-ceo-graphs .isd-banner span {
-    line-height: 1.25 !important;
-}
-
-/* Chart body */
-#dashboard_content .isd-ceo-graphs .isd-chart-wrap,
-#dashboard_content .isd-ceo-graphs .chart-wrap,
-#dashboard_content .isd-ceo-graphs .isd-card-body {
-    width: 100% !important;
-    padding: 16px 18px 14px 18px !important;
-    background: #ffffff !important;
-    box-sizing: border-box;
-}
-
-/* Canvas sizing: keep it like Desk cards */
-#dashboard_content .isd-ceo-graphs canvas {
-    display: block !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 300px !important;
-    max-height: 300px !important;
-}
-
-/* If the report wraps canvas in generic divs */
-#dashboard_content .isd-ceo-graphs .isd-card > div:not(.isd-banner) {
-    box-sizing: border-box;
-}
-
-/* Keep site header colours from report HTML */
-#dashboard_content .isd-ceo-graphs .isd-banner[style*="background"] {
-    background-clip: padding-box;
-}
-
-/* =========================================================
-   FALLBACKS IF REPORT HTML CLASS STRUCTURE DIFFERS SLIGHTLY
-   ========================================================= */
-
-#dashboard_content .isd-card {
-    width: 100%;
-    background: #ffffff;
-    border: 1px solid #d8dfe6;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
-}
-
-#dashboard_content .isd-banner {
+#dashboard_content .isd-dashboard-card-header {
     padding: 12px 14px;
     font-size: 13px;
     line-height: 1.25;
     font-weight: 400;
+    color: #111827;
 }
 
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
+#dashboard_content .isd-dashboard-card-title {
+    display: block;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+#dashboard_content .isd-dashboard-card-subtitle {
+    display: block;
+    font-weight: 400;
+    font-size: 12px;
+    margin-top: 5px;
+    line-height: 1.3;
+}
+
+#dashboard_content .isd-dashboard-chart {
+    width: 100%;
+    height: 300px;
+    padding: 16px 18px 14px 18px;
+    background: #ffffff;
+    box-sizing: border-box;
+}
+
+#dashboard_content canvas {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+}
 
 @media (max-width: 1100px) {
-    #dashboard_content .isd-ceo-graphs .isd-grid {
-        grid-template-columns: 1fr !important;
+    #dashboard_content.isd-dashboard-grid {
+        grid-template-columns: 1fr;
     }
 
-    #dashboard_content .isd-ceo-graphs canvas {
-        height: 300px !important;
-        max-height: 300px !important;
+    #dashboard_content .isd-dashboard-chart {
+        height: 300px;
     }
 }
 
@@ -266,9 +207,9 @@ main,
         width: 100%;
     }
 
-    #dashboard_content .isd-ceo-graphs canvas {
-        height: 240px !important;
-        max-height: 240px !important;
+    #dashboard_content .isd-dashboard-chart {
+        height: 240px;
+        padding: 12px 10px;
     }
 }
 </style>
@@ -281,32 +222,44 @@ main,
             <input
                 type="text"
                 id="monthly_production_plan"
-                placeholder="Search Monthly Production Plan"
+                placeholder="Search Define Monthly Production"
                 autocomplete="off"
             >
             <div id="monthly_production_plan_dropdown" class="portal-dropdown"></div>
         </div>
     </div>
 
-    <div id="dashboard_status">Select a Monthly Production Plan to load the graphs.</div>
-    <div id="dashboard_content" class="isd-site-volume-graphs-page"></div>
+    <div id="dashboard_status">Select a Define Monthly Production to load the graphs.</div>
+    <div id="dashboard_content" class="isd-dashboard-grid"></div>
 </div>
 
 <script>
 (function () {
     const STORAGE_KEY = "portal_site_volume_graphs_monthly_production_plan";
 
+    const TARGET_LINE_COLOR = "#9E9E9E";
+    const ACTUAL_ABOVE_TARGET_COLOR = "#2fb344";
+    const ACTUAL_BELOW_TARGET_COLOR = "#e24c4c";
+    const CURRENT_DATE_POINT_COLOR = "#2fb344";
+
+    const TARGET_POINT_RADIUS = 3;
+    const ACTUAL_POINT_RADIUS = 3;
+    const CURRENT_DATE_POINT_RADIUS = 3.75;
+
+    const DEFAULT_Y_AXIS_STEP = 10000;
+
     const input = document.getElementById("monthly_production_plan");
     const dropdown = document.getElementById("monthly_production_plan_dropdown");
     const statusEl = document.getElementById("dashboard_status");
     const dashEl = document.getElementById("dashboard_content");
 
+    let _charts = [];
     let _auto_refresh_started = false;
     let _refreshing = false;
     let _timer = null;
 
     function escapeHtml(value) {
-        return String(value || "")
+        return String(value == null ? "" : value)
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
@@ -314,19 +267,420 @@ main,
             .replace(/'/g, "&#39;");
     }
 
-    function extract_report_html(payload) {
-        if (!payload) return "";
+    function normaliseInt(value) {
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
 
-        if (typeof payload.html === "string" && payload.html.trim()) return payload.html;
-        if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+    function normaliseFloat(value) {
+        const parsed = parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
 
-        if (payload.message && typeof payload.message.html === "string" && payload.message.html.trim()) {
-            return payload.message.html;
+    function parseJsonArray(value) {
+        if (Array.isArray(value)) {
+            return value;
         }
 
-        if (typeof payload.report_html === "string" && payload.report_html.trim()) return payload.report_html;
+        if (value == null || value === "") {
+            return [];
+        }
 
-        return "";
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function extractRowsFromPayload(payload) {
+        if (!payload) return [];
+
+        if (Array.isArray(payload.result)) return payload.result;
+        if (Array.isArray(payload.data)) return payload.data;
+        if (Array.isArray(payload)) return payload;
+
+        return [];
+    }
+
+    function getCurrentActualIndex(actualData) {
+        if (!Array.isArray(actualData)) {
+            return -1;
+        }
+
+        for (let i = actualData.length - 1; i >= 0; i--) {
+            const value = actualData[i];
+
+            if (value !== null && value !== undefined && value !== "") {
+                const numericValue = Number(value);
+
+                if (Number.isFinite(numericValue)) {
+                    return i;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    function getYAxisStep(rows) {
+        if (!Array.isArray(rows) || !rows.length) {
+            return DEFAULT_Y_AXIS_STEP;
+        }
+
+        for (const row of rows) {
+            const step = normaliseInt(row.y_axis_step);
+
+            if (step > 0) {
+                return step;
+            }
+        }
+
+        return DEFAULT_Y_AXIS_STEP;
+    }
+
+    function getMaxNumericValue(values) {
+        if (!Array.isArray(values)) {
+            return 0;
+        }
+
+        let maxValue = 0;
+
+        values.forEach(function (value) {
+            if (value === null || value === undefined || value === "") {
+                return;
+            }
+
+            const numericValue = Number(value);
+
+            if (Number.isFinite(numericValue) && numericValue > maxValue) {
+                maxValue = numericValue;
+            }
+        });
+
+        return maxValue;
+    }
+
+    function computeSharedYAxisMax(rows) {
+        const yAxisStep = getYAxisStep(rows);
+        let maxValue = 0;
+
+        rows.forEach(function (row) {
+            const targetData = parseJsonArray(row.mtd_target_data);
+            const actualData = parseJsonArray(row.mtd_actual_data);
+
+            maxValue = Math.max(
+                maxValue,
+                getMaxNumericValue(targetData),
+                getMaxNumericValue(actualData),
+                normaliseFloat(row.monthly_target_bcm)
+            );
+        });
+
+        if (!maxValue || maxValue <= 0) {
+            return yAxisStep;
+        }
+
+        return Math.ceil(maxValue / yAxisStep) * yAxisStep;
+    }
+
+    function buildChartConfig(labels, targetData, actualData, sharedYAxisMax, yAxisStep) {
+        const currentActualIndex = getCurrentActualIndex(actualData);
+
+        function actualPointColour(index) {
+            const actual = Number(actualData[index]);
+            const target = Number(targetData[index]);
+
+            if (!Number.isFinite(actual)) {
+                return ACTUAL_BELOW_TARGET_COLOR;
+            }
+
+            if (!Number.isFinite(target)) {
+                return ACTUAL_ABOVE_TARGET_COLOR;
+            }
+
+            return actual >= target
+                ? ACTUAL_ABOVE_TARGET_COLOR
+                : ACTUAL_BELOW_TARGET_COLOR;
+        }
+
+        function actualSegmentColour(ctx) {
+            const index = ctx.p1DataIndex;
+
+            if (index == null) {
+                return ACTUAL_BELOW_TARGET_COLOR;
+            }
+
+            return actualPointColour(index);
+        }
+
+        return {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: "MTD Target",
+                        data: targetData,
+                        borderColor: TARGET_LINE_COLOR,
+                        backgroundColor: TARGET_LINE_COLOR,
+                        pointBackgroundColor: TARGET_LINE_COLOR,
+                        pointBorderColor: TARGET_LINE_COLOR,
+                        borderWidth: 2,
+                        tension: 0.25,
+                        pointRadius: TARGET_POINT_RADIUS,
+                        pointHoverRadius: TARGET_POINT_RADIUS + 2,
+                        pointBorderWidth: 1
+                    },
+                    {
+                        label: "MTD Actual",
+                        data: actualData,
+                        borderColor: ACTUAL_BELOW_TARGET_COLOR,
+                        segment: {
+                            borderColor: actualSegmentColour
+                        },
+                        backgroundColor: function (ctx) {
+                            return actualPointColour(ctx.dataIndex);
+                        },
+                        pointBackgroundColor: function (ctx) {
+                            if (ctx.dataIndex === currentActualIndex) {
+                                return CURRENT_DATE_POINT_COLOR;
+                            }
+
+                            return actualPointColour(ctx.dataIndex);
+                        },
+                        pointBorderColor: function (ctx) {
+                            if (ctx.dataIndex === currentActualIndex) {
+                                return CURRENT_DATE_POINT_COLOR;
+                            }
+
+                            return actualPointColour(ctx.dataIndex);
+                        },
+                        pointRadius: function (ctx) {
+                            return ctx.dataIndex === currentActualIndex
+                                ? CURRENT_DATE_POINT_RADIUS
+                                : ACTUAL_POINT_RADIUS;
+                        },
+                        pointHoverRadius: function (ctx) {
+                            return ctx.dataIndex === currentActualIndex
+                                ? CURRENT_DATE_POINT_RADIUS + 2
+                                : ACTUAL_POINT_RADIUS + 2;
+                        },
+                        borderWidth: 2,
+                        tension: 0.25,
+                        pointBorderWidth: 1,
+                        spanGaps: false
+                    }
+                ]
+            },
+            options: {
+                animation: false,
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 32,
+                        right: 12,
+                        top: 10,
+                        bottom: 10
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            autoSkip: true,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: sharedYAxisMax,
+                        ticks: {
+                            stepSize: yAxisStep,
+                            font: {
+                                size: 11
+                            },
+                            padding: 6
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    function ensureChartJs() {
+        if (window.Chart) {
+            return Promise.resolve();
+        }
+
+        if (window._isd_chartjs_promise) {
+            return window._isd_chartjs_promise;
+        }
+
+        window._isd_chartjs_promise = new Promise(function (resolve, reject) {
+            const existing = document.querySelector('script[data-isd-chartjs="1"]');
+
+            if (existing) {
+                existing.addEventListener("load", function () { resolve(); }, { once: true });
+                existing.addEventListener("error", function () { reject(new Error("Chart.js failed to load")); }, { once: true });
+                return;
+            }
+
+            const script = document.createElement("script");
+            script.src = "https://cdn.jsdelivr.net/npm/chart.js";
+            script.dataset.isdChartjs = "1";
+            script.onload = function () { resolve(); };
+            script.onerror = function () { reject(new Error("Chart.js failed to load")); };
+            document.head.appendChild(script);
+        });
+
+        return window._isd_chartjs_promise;
+    }
+
+    function destroyCharts() {
+        _charts.forEach(function (chart) {
+            try {
+                chart.destroy();
+            } catch (e) {
+                // ignore stale chart instances
+            }
+        });
+
+        _charts = [];
+    }
+
+    function renderCharts(chartConfigs) {
+        if (!window.Chart) {
+            return;
+        }
+
+        destroyCharts();
+
+        dashEl.querySelectorAll("canvas[data-chart-index]").forEach(function (canvas) {
+            const idx = parseInt(canvas.dataset.chartIndex, 10);
+            const config = chartConfigs[idx];
+
+            if (!config) {
+                return;
+            }
+
+            try {
+                const chart = new Chart(canvas.getContext("2d"), config);
+                _charts.push(chart);
+
+                setTimeout(function () { chart.resize(); }, 50);
+                setTimeout(function () { chart.resize(); }, 150);
+                setTimeout(function () { chart.resize(); }, 300);
+            } catch (e) {
+                console.error("Could not render site volume chart", e);
+            }
+        });
+    }
+
+    function getHeaderBackgroundStyle(site, siteColourMap) {
+        const mappedColour = siteColourMap && siteColourMap[site]
+            ? String(siteColourMap[site]).trim()
+            : "";
+
+        if (!mappedColour) {
+            return "background:transparent;";
+        }
+
+        return "background:" + escapeHtml(mappedColour) + ";";
+    }
+
+    function buildSiteCard(row, siteColourMap, idx) {
+        const site = String(row.site || "").trim();
+        const prodStart = row.prod_start || "";
+        const prodEnd = row.prod_end || "";
+        const mtdUpto = row.mtd_upto || "";
+        const headerBackground = getHeaderBackgroundStyle(site, siteColourMap);
+
+        return (
+            '<div class="isd-dashboard-card">' +
+                '<div class="isd-dashboard-card-header" style="' + headerBackground + '">' +
+                    '<div class="isd-dashboard-card-title">Site: ' + escapeHtml(site) + "</div>" +
+                    '<div class="isd-dashboard-card-subtitle">' +
+                        "Production Period: " + escapeHtml(prodStart) + " → " + escapeHtml(prodEnd) + "<br>" +
+                        "MTD up to: " + escapeHtml(mtdUpto) +
+                    "</div>" +
+                "</div>" +
+
+                '<div class="isd-dashboard-chart">' +
+                    '<canvas data-chart-index="' + idx + '"></canvas>' +
+                "</div>" +
+            "</div>"
+        );
+    }
+
+    function sortRows(rows, siteOrderMap) {
+        return rows.slice().sort(function (a, b) {
+            const aSite = String(a.site || "").trim();
+            const bSite = String(b.site || "").trim();
+
+            const aFallbackOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, aSite)
+                ? siteOrderMap[aSite]
+                : 999999;
+
+            const bFallbackOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, bSite)
+                ? siteOrderMap[bSite]
+                : 999999;
+
+            const aOrder = normaliseInt(a.site_order || aFallbackOrder);
+            const bOrder = normaliseInt(b.site_order || bFallbackOrder);
+
+            if (aOrder !== bOrder) {
+                return aOrder - bOrder;
+            }
+
+            return aSite.localeCompare(bSite);
+        });
+    }
+
+    function renderDashboard(response) {
+        const payload = response.payload || {};
+        const siteOrderMap = response.site_order_map || {};
+        const siteColourMap = response.site_colour_map || {};
+        const rows = extractRowsFromPayload(payload);
+
+        destroyCharts();
+
+        if (!rows.length) {
+            dashEl.innerHTML = '<div class="text-muted">No graph data for the selected filter.</div>';
+            return;
+        }
+
+        const sorted = sortRows(rows, siteOrderMap);
+        const yAxisStep = getYAxisStep(sorted);
+        const sharedYAxisMax = computeSharedYAxisMax(sorted);
+
+        const chartConfigs = sorted.map(function (row) {
+            const labels = parseJsonArray(row.chart_labels);
+            const targetData = parseJsonArray(row.mtd_target_data);
+            const actualData = parseJsonArray(row.mtd_actual_data);
+
+            return buildChartConfig(
+                labels,
+                targetData,
+                actualData,
+                sharedYAxisMax,
+                yAxisStep
+            );
+        });
+
+        dashEl.innerHTML = sorted.map(function (row, idx) {
+            return buildSiteCard(row, siteColourMap, idx);
+        }).join("");
+
+        renderCharts(chartConfigs);
     }
 
     function ms_until_next_refresh() {
@@ -336,20 +690,35 @@ main,
         const ms = now.getMilliseconds();
 
         let nextMinute;
-        if (minutes < 10) nextMinute = 10;
-        else if (minutes < 30) nextMinute = 30;
-        else nextMinute = 70;
+
+        if (minutes < 10) {
+            nextMinute = 10;
+        } else if (minutes < 30) {
+            nextMinute = 30;
+        } else {
+            nextMinute = 70;
+        }
 
         return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
     }
 
+    function clear_existing_timer() {
+        if (_timer) {
+            clearTimeout(_timer);
+            _timer = null;
+        }
+    }
+
     function start_aligned_refresh() {
-        if (_auto_refresh_started) return;
+        if (_auto_refresh_started) {
+            return;
+        }
+
         _auto_refresh_started = true;
 
         const schedule_next = function () {
-            const delay = ms_until_next_refresh();
-            _timer = setTimeout(auto_refresh, delay);
+            clear_existing_timer();
+            _timer = setTimeout(auto_refresh, ms_until_next_refresh());
         };
 
         const auto_refresh = function () {
@@ -364,6 +733,7 @@ main,
             }
 
             _refreshing = true;
+
             load_and_render(true).finally(function () {
                 _refreshing = false;
                 schedule_next();
@@ -383,191 +753,25 @@ main,
         });
     }
 
-    function load_chartjs() {
-        if (window.Chart) return Promise.resolve();
-
-        if (window._isd_chartjs_loading_promise) {
-            return window._isd_chartjs_loading_promise;
-        }
-
-        window._isd_chartjs_loading_promise = new Promise(function (resolve, reject) {
-            const existing = document.querySelector('script[data-isd-chartjs="1"]');
-            if (existing) {
-                existing.addEventListener("load", function () { resolve(); }, { once: true });
-                existing.addEventListener("error", function () { reject(new Error("Chart.js failed to load")); }, { once: true });
-                return;
-            }
-
-            const s = document.createElement("script");
-            s.src = "https://cdn.jsdelivr.net/npm/chart.js";
-            s.dataset.isdChartjs = "1";
-            s.onload = function () { resolve(); };
-            s.onerror = function () { reject(new Error("Chart.js failed to load")); };
-            document.head.appendChild(s);
-        });
-
-        return window._isd_chartjs_loading_promise;
-    }
-
-    function destroy_charts(root) {
-        try {
-            (root || document).querySelectorAll("canvas[data-chart]").forEach(function (canvas) {
-                if (canvas._isd_chart) {
-                    canvas._isd_chart.destroy();
-                    canvas._isd_chart = null;
-                }
-            });
-        } catch (e) {
-            console.error("Chart destroy failed", e);
-        }
-    }
-
-    function render_all_charts(root) {
-        if (!window.Chart || !root) return;
-
-        root.querySelectorAll("canvas[data-chart]").forEach(function (canvas) {
-            if (canvas._isd_chart) {
-                try {
-                    canvas._isd_chart.resize();
-                    setTimeout(function () {
-                        if (canvas._isd_chart) canvas._isd_chart.resize();
-                    }, 80);
-                } catch (e) {}
-                return;
-            }
-
-            try {
-                const config = JSON.parse(canvas.dataset.chart);
-
-                if (!config.options) config.options = {};
-                config.options.responsive = true;
-                config.options.maintainAspectRatio = false;
-
-                const chart = new Chart(canvas.getContext("2d"), config);
-                canvas._isd_chart = chart;
-                canvas.dataset.rendered = "1";
-
-                setTimeout(function () { chart.resize(); }, 50);
-                setTimeout(function () { chart.resize(); }, 150);
-                setTimeout(function () { chart.resize(); }, 300);
-            } catch (e) {
-                console.error("Chart render failed", e);
-            }
-        });
-    }
-
-    function extract_site_name_from_card(el) {
-        const bannerText = $(el).find(".isd-banner").first().text().trim();
-        const match = bannerText.match(/Site:\s*(.+)/i);
-        return match ? match[1].trim() : "";
-    }
-
-    function reorder_graph_cards(siteOrderMap) {
-        const $grid = $(dashEl).find(".isd-ceo-graphs .isd-grid").first();
-        if (!$grid.length) return;
-
-        const cards = $grid.children(".isd-card").get();
-        if (!cards.length) return;
-
-        cards.sort(function (a, b) {
-            const aSite = extract_site_name_from_card(a);
-            const bSite = extract_site_name_from_card(b);
-
-            const aHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, aSite);
-            const bHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, bSite);
-
-            if (aHasOrder && bHasOrder) return siteOrderMap[aSite] - siteOrderMap[bSite];
-            if (aHasOrder) return -1;
-            if (bHasOrder) return 1;
-
-            return aSite.localeCompare(bSite);
-        });
-
-        cards.forEach(function (card) {
-            $grid.append(card);
-        });
-    }
-
-    function normalize_graph_layout() {
-        const root = dashEl.querySelector(".isd-ceo-graphs");
-        if (!root) return;
-
-        const grid = root.querySelector(".isd-grid");
-        if (grid) {
-            grid.style.display = "grid";
-            grid.style.gridTemplateColumns = "repeat(2, minmax(0, 1fr))";
-            grid.style.gap = "12px";
-            grid.style.alignItems = "start";
-            grid.style.width = "100%";
-        }
-
-        root.querySelectorAll(".isd-card").forEach(function (card) {
-            card.style.width = "100%";
-            card.style.maxWidth = "none";
-            card.style.margin = "0";
-            card.style.overflow = "hidden";
-        });
-
-        root.querySelectorAll("canvas[data-chart]").forEach(function (canvas) {
-            canvas.style.width = "100%";
-            canvas.style.height = "300px";
-            canvas.style.maxHeight = "300px";
-            canvas.style.display = "block";
-        });
-    }
-
-    function render_dashboard(response) {
-        const payload = response.payload || {};
-        const siteOrderMap = response.site_order_map || {};
-        const html = extract_report_html(payload);
-
-        destroy_charts(dashEl);
-
-        if (html) {
-            dashEl.innerHTML = html;
-            reorder_graph_cards(siteOrderMap);
-            normalize_graph_layout();
-
-            load_chartjs()
-                .then(function () {
-                    render_all_charts(dashEl);
-                    normalize_graph_layout();
-                })
-                .catch(function (e) {
-                    console.error(e);
-                    if (frappe.show_alert) {
-                        frappe.show_alert({
-                            message: "Could not load chart library.",
-                            indicator: "red"
-                        }, 5);
-                    }
-                });
-
-            return;
-        }
-
-        const rows = payload.result || [];
-        if (!rows.length) {
-            dashEl.innerHTML = '<div class="text-muted">No data for the selected filter.</div>';
-            return;
-        }
-
-        dashEl.innerHTML = '<div class="text-warning">Report returned data, but no HTML block was found.</div>';
-    }
-
     function load_and_render(is_auto) {
         const val = input.value;
 
         if (!val) {
-            statusEl.textContent = "Select a Monthly Production Plan to load the graphs.";
+            statusEl.textContent = "Select a Define Monthly Production to load the graphs.";
+            dashEl.innerHTML = "";
             return Promise.resolve();
         }
 
         localStorage.setItem(STORAGE_KEY, val);
         statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
 
-        return run_report(val).then(function (r) {
-            render_dashboard(r.message || {});
+        return Promise.all([
+            ensureChartJs(),
+            run_report(val)
+        ]).then(function (results) {
+            const response = results[1];
+
+            renderDashboard(response.message || {});
 
             const time = new Date().toLocaleTimeString([], {
                 hour: "2-digit",
@@ -584,8 +788,8 @@ main,
             }
         }).catch(function (e) {
             console.error("Site Volume Graphs portal error:", e);
-            statusEl.textContent = "Error loading graph data. Check browser console and server logs.";
-            dashEl.innerHTML = '<div class="text-danger">Could not load graph data.</div>';
+            statusEl.textContent = "Error loading Site Volume Graphs. Check browser console and server logs.";
+            dashEl.innerHTML = '<div class="text-danger">Could not load graphs. Check console / server logs.</div>';
         });
     }
 
@@ -646,6 +850,7 @@ main,
     });
 
     const last = localStorage.getItem(STORAGE_KEY);
+
     if (last) {
         input.value = last;
         load_and_render(false);
@@ -653,8 +858,8 @@ main,
     }
 
     window.addEventListener("beforeunload", function () {
-        if (_timer) clearTimeout(_timer);
-        destroy_charts(dashEl);
+        clear_existing_timer();
+        destroyCharts();
     });
 })();
 </script>

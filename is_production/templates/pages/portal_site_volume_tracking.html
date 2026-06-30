@@ -2,10 +2,6 @@
 
 {% block page_content %}
 <style>
-/* =========================================================
-   FULL SCREEN PORTAL APP SHELL
-   ========================================================= */
-
 html,
 body {
     background: #ffffff !important;
@@ -43,13 +39,10 @@ main,
     background: #ffffff;
     overflow: auto;
     padding: 4px;
+    box-sizing: border-box;
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: #1f272e;
 }
-
-/* =========================================================
-   TOP BAR
-   ========================================================= */
 
 .portal-topbar {
     display: flex;
@@ -134,10 +127,10 @@ main,
 }
 
 /* =========================================================
-   DESK-LIKE SITE CARD
+   DESK-LIKE SITE VOLUME TRACKING CARD
    ========================================================= */
 
-.site-section {
+.isd-dashboard-card {
     border: 2px solid #000000;
     border-radius: 8px;
     margin: 0 0 10px 0;
@@ -145,11 +138,11 @@ main,
     background: #ffffff;
 }
 
-.site-header-block {
+.isd-dashboard-card-header {
     padding: 8px;
 }
 
-.site-title {
+.isd-dashboard-card-title {
     font-size: 18px;
     font-weight: 400;
     line-height: 1.2;
@@ -157,7 +150,7 @@ main,
     color: #1f272e;
 }
 
-.site-period {
+.isd-dashboard-card-subtitle {
     font-size: 12px;
     font-weight: 400;
     line-height: 1.2;
@@ -166,10 +159,10 @@ main,
 }
 
 /* =========================================================
-   KPI CARDS - MATCH DESK VERSION
+   KPI CARDS
    ========================================================= */
 
-.kpi-bar {
+.isd-dashboard-kpi-row {
     display: grid;
     grid-template-columns: 130px 130px 174px 130px 130px 132px 150px 130px;
     gap: 7px;
@@ -177,7 +170,7 @@ main,
     align-items: stretch;
 }
 
-.kpi-box {
+.isd-dashboard-kpi {
     background: #f4f4f4;
     border: 3px solid #000000;
     border-radius: 8px;
@@ -188,75 +181,58 @@ main,
     box-sizing: border-box;
 }
 
-.kpi-box .label {
+.isd-dashboard-kpi-label {
     font-size: 11px;
     line-height: 1.05;
     font-weight: 700;
     margin-bottom: 4px;
 }
 
-.kpi-box .sub-label {
+.isd-dashboard-kpi-sub-label {
     font-size: 11px;
     line-height: 1.05;
     margin-top: 1px;
 }
 
-.kpi-box .value {
+.isd-dashboard-kpi-value {
     font-size: 18px;
     font-weight: 800;
     line-height: 1.15;
     margin-top: 6px;
 }
 
-.kpi-box .trend {
+.isd-dashboard-kpi-trend {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 4px;
 }
 
-.kpi-box .arrow {
+.isd-dashboard-kpi-arrow {
     font-size: 18px;
     line-height: 1;
 }
 
-.kpi-box.isd-good {
+.isd-dashboard-good {
     background: #2fb34a !important;
     color: #ffffff !important;
 }
 
-.kpi-box.isd-bad {
+.isd-dashboard-bad {
     background: #e84f53 !important;
     color: #ffffff !important;
 }
 
-.kpi-box.projected-box {
-    background: #d9f0ff !important;
-    color: #000000 !important;
-}
-
-.kpi-box.projected-box .label {
-    color: #000000 !important;
-}
-
-.kpi-box.projected-box .sub-label {
-    color: #000000 !important;
-}
-
-.kpi-box.projected-box .value {
-    color: #000000 !important;
-}
-
 /* =========================================================
-   SUMMARY TABLE - MATCH DESK VERSION
+   SUMMARY TABLE
    ========================================================= */
 
-.summary-wrap {
+.isd-dashboard-table-wrap {
     padding: 6px;
     background: #ffffff;
 }
 
-.summary-table {
+.isd-dashboard-table {
     width: 100%;
     border-collapse: collapse;
     border: 4px solid #000000;
@@ -264,8 +240,8 @@ main,
     table-layout: auto;
 }
 
-.summary-table th,
-.summary-table td {
+.isd-dashboard-th,
+.isd-dashboard-td {
     border: 1px solid #000000;
     padding: 6px 6px;
     text-align: center;
@@ -277,27 +253,34 @@ main,
     white-space: nowrap;
 }
 
-.summary-table th {
+.isd-dashboard-th {
     font-weight: 800;
 }
 
-.summary-table td {
+.isd-dashboard-td {
     font-weight: 400;
 }
 
-.summary-table .sep {
+.isd-dashboard-sep {
     border-right: 3px solid #000000 !important;
 }
 
-.summary-table .subsep {
+.isd-dashboard-subsep {
     border-right: 1px solid #000000 !important;
 }
 
-.summary-table .isd-good-cell {
+.isd-dashboard-cell-inner {
+    display: inline-block;
+    padding: 2px 4px;
+    min-width: 100%;
+    box-sizing: border-box;
+}
+
+.isd-dashboard-var-good {
     background: #c9f2d8 !important;
 }
 
-.summary-table .isd-bad-cell {
+.isd-dashboard-var-bad {
     background: #f9caca !important;
 }
 
@@ -306,7 +289,7 @@ main,
    ========================================================= */
 
 @media (max-width: 1400px) {
-    .kpi-bar {
+    .isd-dashboard-kpi-row {
         grid-template-columns: repeat(4, minmax(130px, 1fr));
     }
 }
@@ -322,15 +305,15 @@ main,
         width: 100%;
     }
 
-    .kpi-bar {
+    .isd-dashboard-kpi-row {
         grid-template-columns: repeat(2, minmax(130px, 1fr));
     }
 
-    .summary-wrap {
+    .isd-dashboard-table-wrap {
         overflow-x: auto;
     }
 
-    .summary-table {
+    .isd-dashboard-table {
         min-width: 1300px;
     }
 }
@@ -352,21 +335,12 @@ main,
     </div>
 
     <div id="dashboard_status">Select a Define Monthly Production to load the dashboard.</div>
-    <div id="dashboard_content" class="dashboard-grid"></div>
+    <div id="dashboard_content" class="isd-dashboard-grid"></div>
 </div>
 
 <script>
 (function () {
     const STORAGE_KEY = "portal_site_volume_tracking_define_monthly_production";
-
-    const SITE_HEADER_COLOURS = {
-        "Klipfontein": "#EBF9FF",
-        "Gwab": "#f7d8ff",
-        "Kriel Rehabilitation": "#E6D3B1",
-        "Koppie": "#feff8d",
-        "Uitgevallen": "#ffd37f",
-        "Bankfontein": "#e3e3e3"
-    };
 
     const input = document.getElementById("define_monthly_production");
     const dropdown = document.getElementById("define_monthly_production_dropdown");
@@ -386,6 +360,306 @@ main,
             .replace(/'/g, "&#39;");
     }
 
+    function fmtInt(n) {
+        const x = Number(n || 0);
+        return Math.round(x).toLocaleString();
+    }
+
+    function fmtDecimal(n, decimals) {
+        decimals = decimals == null ? 1 : decimals;
+        const x = Number(n || 0);
+
+        return x.toLocaleString(undefined, {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        });
+    }
+
+    function goodBadClassFromValue(val) {
+        const v = Number(val || 0);
+        return v >= 0 ? "isd-dashboard-good" : "isd-dashboard-bad";
+    }
+
+    function arrowUpDown(val) {
+        const v = Number(val || 0);
+        return v >= 0 ? "▲" : "▼";
+    }
+
+    function varianceClass(value) {
+        return Number(value || 0) >= 0
+            ? "isd-dashboard-var-good"
+            : "isd-dashboard-var-bad";
+    }
+
+    function kpiBox(label, value, opts) {
+        opts = opts || {};
+
+        const coloured = !!opts.coloured;
+        const showArrow = !!opts.showArrow;
+        const sublabel = opts.sublabel || "";
+        const formatter = typeof opts.formatter === "function" ? opts.formatter : fmtInt;
+
+        let classes = "isd-dashboard-kpi";
+        let arrow = "";
+        let inlineStyle = "";
+
+        if (opts.customBackground) {
+            inlineStyle += "background:" + opts.customBackground + ";";
+        }
+
+        if (opts.customTextColor) {
+            inlineStyle += "color:" + opts.customTextColor + ";";
+        }
+
+        if (coloured) {
+            classes += " " + goodBadClassFromValue(value);
+
+            if (showArrow) {
+                arrow = arrowUpDown(value);
+            }
+        }
+
+        return (
+            '<div class="' + classes + '" style="' + inlineStyle + '">' +
+                '<div class="isd-dashboard-kpi-label">' + escapeHtml(label) + '</div>' +
+                (
+                    sublabel
+                        ? '<div class="isd-dashboard-kpi-sub-label">' + escapeHtml(sublabel) + '</div>'
+                        : '<div class="isd-dashboard-kpi-sub-label">&nbsp;</div>'
+                ) +
+                '<div class="isd-dashboard-kpi-value">' +
+                    '<span class="isd-dashboard-kpi-trend">' +
+                        (arrow ? '<span class="isd-dashboard-kpi-arrow">' + arrow + '</span>' : '') +
+                        '<span>' + formatter(value) + '</span>' +
+                    '</span>' +
+                '</div>' +
+            '</div>'
+        );
+    }
+
+    function kpiRequiredVsOriginal(label, required, original) {
+        const req = Number(required || 0);
+        const orig = Number(original || 0);
+
+        const good = req <= orig;
+        const cls = good ? "isd-dashboard-good" : "isd-dashboard-bad";
+        const arrow = good ? "▲" : "▼";
+
+        return (
+            '<div class="isd-dashboard-kpi ' + cls + '">' +
+                '<div class="isd-dashboard-kpi-label">' + escapeHtml(label) + '</div>' +
+                '<div class="isd-dashboard-kpi-sub-label">&nbsp;</div>' +
+                '<div class="isd-dashboard-kpi-value">' +
+                    '<span class="isd-dashboard-kpi-trend">' +
+                        '<span class="isd-dashboard-kpi-arrow">' + arrow + '</span>' +
+                        '<span>' + fmtInt(req) + '</span>' +
+                    '</span>' +
+                '</div>' +
+            '</div>'
+        );
+    }
+
+    function th(text, sepClass) {
+        sepClass = sepClass || "";
+
+        const classes = ["isd-dashboard-th"];
+        if (sepClass) {
+            classes.push(sepClass);
+        }
+
+        return (
+            '<th class="' + classes.join(" ") + '">' +
+                '<span class="isd-dashboard-cell-inner">' + escapeHtml(text) + '</span>' +
+            '</th>'
+        );
+    }
+
+    function td(value, opts) {
+        opts = opts || {};
+
+        const classes = ["isd-dashboard-td"];
+        const innerClasses = ["isd-dashboard-cell-inner"];
+
+        if (opts.sepClass) {
+            classes.push(opts.sepClass);
+        }
+
+        if (opts.varClass) {
+            innerClasses.push(opts.varClass);
+        }
+
+        return (
+            '<td class="' + classes.join(" ") + '">' +
+                '<span class="' + innerClasses.join(" ") + '">' + fmtInt(value) + '</span>' +
+            '</td>'
+        );
+    }
+
+    function buildSummaryTable(r) {
+        const mtdVar = Number(r.mtd_var_bcm || 0);
+        const coalVar = Number(r.mtd_coal_var_t || 0);
+        const wasteVar = Number(r.mtd_waste_var_bcm || 0);
+        const dayVar = Number(r.day_var_bcm || 0);
+
+        return (
+            '<table class="isd-dashboard-table isd-dashboard-table--summary">' +
+                '<tr>' +
+                    th("Month Target(bcm)", "isd-dashboard-subsep") +
+                    th("Month Coal(t)", "isd-dashboard-subsep") +
+                    th("Month Waste(bcm)", "isd-dashboard-sep") +
+
+                    th("MTD Act(bcm)", "isd-dashboard-subsep") +
+                    th("MTD Plan(bcm)", "isd-dashboard-subsep") +
+                    th("Var", "isd-dashboard-sep") +
+
+                    th("MTD C (t)", "isd-dashboard-subsep") +
+                    th("MTD C Plan(t)", "isd-dashboard-subsep") +
+                    th("Var C", "isd-dashboard-sep") +
+
+                    th("MTD W (bcm)", "isd-dashboard-subsep") +
+                    th("MTD W Plan(bcm)", "isd-dashboard-subsep") +
+                    th("Var W", "isd-dashboard-sep") +
+
+                    th("Day BCM", "isd-dashboard-subsep") +
+                    th("Day Target(bcm)", "isd-dashboard-subsep") +
+                    th("Day Var", "isd-dashboard-sep") +
+                '</tr>' +
+                '<tr>' +
+                    td(r.month_target_bcm, { sepClass: "isd-dashboard-subsep" }) +
+                    td(r.month_coal_t, { sepClass: "isd-dashboard-subsep" }) +
+                    td(r.month_waste_bcm, { sepClass: "isd-dashboard-sep" }) +
+
+                    td(r.mtd_act_bcm, { sepClass: "isd-dashboard-subsep" }) +
+                    td(r.mtd_plan_bcm, { sepClass: "isd-dashboard-subsep" }) +
+                    td(r.mtd_var_bcm, {
+                        sepClass: "isd-dashboard-sep",
+                        varClass: varianceClass(mtdVar)
+                    }) +
+
+                    td(r.mtd_coal_t, { sepClass: "isd-dashboard-subsep" }) +
+                    td(r.mtd_coal_plan_t, { sepClass: "isd-dashboard-subsep" }) +
+                    td(r.mtd_coal_var_t, {
+                        sepClass: "isd-dashboard-sep",
+                        varClass: varianceClass(coalVar)
+                    }) +
+
+                    td(r.mtd_waste_bcm, { sepClass: "isd-dashboard-subsep" }) +
+                    td(r.mtd_waste_plan_bcm, { sepClass: "isd-dashboard-subsep" }) +
+                    td(r.mtd_waste_var_bcm, {
+                        sepClass: "isd-dashboard-sep",
+                        varClass: varianceClass(wasteVar)
+                    }) +
+
+                    td(r.day_bcm, { sepClass: "isd-dashboard-subsep" }) +
+                    td(r.day_target_bcm, { sepClass: "isd-dashboard-subsep" }) +
+                    td(r.day_var_bcm, {
+                        sepClass: "isd-dashboard-sep",
+                        varClass: varianceClass(dayVar)
+                    }) +
+                '</tr>' +
+            '</table>'
+        );
+    }
+
+    function getHeaderBackgroundStyle(site, siteColourMap) {
+        const mappedColour = siteColourMap && siteColourMap[site]
+            ? String(siteColourMap[site]).trim()
+            : "";
+
+        if (!mappedColour) {
+            return "background:transparent;";
+        }
+
+        return "background:" + escapeHtml(mappedColour) + ";";
+    }
+
+    function buildSiteCard(r, siteColourMap) {
+        const site = String(r.site || "").trim();
+        const start = r.prod_start ? frappe.datetime.str_to_user(r.prod_start) : "";
+        const end = r.prod_end ? frappe.datetime.str_to_user(r.prod_end) : "";
+        const forecastVar = Number(r.forecast_var || 0);
+        const employeeLabel = "Employees: " + fmtInt(r.employee_count || 0);
+        const headerBackground = getHeaderBackgroundStyle(site, siteColourMap);
+
+        return (
+            '<div class="isd-dashboard-card">' +
+                '<div class="isd-dashboard-card-header" style="' + headerBackground + '">' +
+                    '<div class="isd-dashboard-card-title">SITE: ' + escapeHtml(site) + '</div>' +
+                    '<div class="isd-dashboard-card-subtitle">' +
+                        'PRODUCTION PERIOD: ' + escapeHtml(start) + ' → ' + escapeHtml(end) +
+                    '</div>' +
+
+                    '<div class="isd-dashboard-kpi-row">' +
+                        kpiBox("Month Target", r.month_target_bcm) +
+                        kpiBox("Forecast", r.forecast_bcm) +
+                        kpiBox("Var: Forecast vs.Month Target", forecastVar, {
+                            coloured: true,
+                            showArrow: true
+                        }) +
+                        kpiBox("Days Left in Month", r.days_left) +
+                        kpiBox("Original Daily Target", r.original_daily_target) +
+                        kpiBox("Current Avg per Day", r.current_avg_per_day) +
+                        kpiRequiredVsOriginal(
+                            "Required Daily for Target",
+                            r.required_daily,
+                            r.original_daily_target
+                        ) +
+                        kpiBox("Projected BCM/man", r.projected_bcm_per_man, {
+                            sublabel: employeeLabel,
+                            formatter: function (v) { return fmtDecimal(v, 1); },
+                            customBackground: "#d9f0ff",
+                            customTextColor: "#000000"
+                        }) +
+                    '</div>' +
+                '</div>' +
+
+                '<div class="isd-dashboard-table-wrap">' +
+                    buildSummaryTable(r) +
+                '</div>' +
+            '</div>'
+        );
+    }
+
+    function sortRows(rows, siteOrderMap) {
+        return rows.slice().sort(function (a, b) {
+            const aSite = String(a.site || "").trim();
+            const bSite = String(b.site || "").trim();
+
+            const aHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, aSite);
+            const bHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, bSite);
+
+            if (aHasOrder && bHasOrder) {
+                return siteOrderMap[aSite] - siteOrderMap[bSite];
+            }
+
+            if (aHasOrder) {
+                return -1;
+            }
+
+            if (bHasOrder) {
+                return 1;
+            }
+
+            return aSite.localeCompare(bSite);
+        });
+    }
+
+    function renderDashboard(response) {
+        const rows = response.rows || [];
+        const siteOrderMap = response.site_order_map || {};
+        const siteColourMap = response.site_colour_map || {};
+
+        if (!rows.length) {
+            dashEl.innerHTML = '<div class="text-muted">No data for the selected filter.</div>';
+            return;
+        }
+
+        const sorted = sortRows(rows, siteOrderMap);
+        dashEl.innerHTML = sorted.map(function (row) {
+            return buildSiteCard(row, siteColourMap);
+        }).join("");
+    }
+
     function ms_until_next_refresh() {
         const now = new Date();
         const minutes = now.getMinutes();
@@ -393,20 +667,35 @@ main,
         const ms = now.getMilliseconds();
 
         let nextMinute;
-        if (minutes < 10) nextMinute = 10;
-        else if (minutes < 30) nextMinute = 30;
-        else nextMinute = 70;
+
+        if (minutes < 10) {
+            nextMinute = 10;
+        } else if (minutes < 30) {
+            nextMinute = 30;
+        } else {
+            nextMinute = 70;
+        }
 
         return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
     }
 
+    function clearExistingTimer() {
+        if (_timer) {
+            clearTimeout(_timer);
+            _timer = null;
+        }
+    }
+
     function start_aligned_refresh() {
-        if (_auto_refresh_started) return;
+        if (_auto_refresh_started) {
+            return;
+        }
+
         _auto_refresh_started = true;
 
         const schedule_next = function () {
-            const delay = ms_until_next_refresh();
-            _timer = setTimeout(auto_refresh, delay);
+            clearExistingTimer();
+            _timer = setTimeout(auto_refresh, ms_until_next_refresh());
         };
 
         const auto_refresh = function () {
@@ -421,6 +710,7 @@ main,
             }
 
             _refreshing = true;
+
             load_and_render(true).finally(function () {
                 _refreshing = false;
                 schedule_next();
@@ -428,242 +718,6 @@ main,
         };
 
         schedule_next();
-    }
-
-    function fmt_int(n) {
-        const x = Number(n || 0);
-        return Math.round(x).toLocaleString().replace(/,/g, " ");
-    }
-
-    function fmt_decimal(n, decimals) {
-        decimals = decimals == null ? 1 : decimals;
-        const x = Number(n || 0);
-        return x.toLocaleString(undefined, {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        }).replace(/,/g, " ");
-    }
-
-    function cls_good_bad_from_value(val) {
-        const v = Number(val || 0);
-        return v >= 0 ? "isd-good" : "isd-bad";
-    }
-
-    function arrow_up_down(val) {
-        const v = Number(val || 0);
-        return v >= 0 ? "▲" : "▼";
-    }
-
-    function kpi_box(label, value, opts) {
-        opts = opts || {};
-
-        const coloured = !!opts.coloured;
-        const showArrow = !!opts.showArrow;
-        const sublabel = opts.sublabel || "";
-        const formatter = typeof opts.formatter === "function" ? opts.formatter : fmt_int;
-
-        let extraCls = "";
-        let arrow = "";
-        let projectedCls = "";
-        let inlineStyle = "";
-
-        if (opts.projected) {
-            projectedCls = "projected-box";
-        }
-
-        if (opts.customBackground) {
-            inlineStyle += "background:" + opts.customBackground + ";";
-        }
-
-        if (opts.customTextColor) {
-            inlineStyle += "color:" + opts.customTextColor + ";";
-        }
-
-        if (coloured) {
-            extraCls = cls_good_bad_from_value(value);
-            if (showArrow) arrow = arrow_up_down(value);
-        }
-
-        return `
-            <div class="kpi-box ${extraCls} ${projectedCls}" style="${inlineStyle}">
-                <div class="label">${escapeHtml(label)}</div>
-                ${
-                    sublabel
-                        ? `<div class="sub-label">${escapeHtml(sublabel)}</div>`
-                        : `<div class="sub-label">&nbsp;</div>`
-                }
-                <div class="value">
-                    <span class="trend">
-                        ${arrow ? `<span class="arrow">${arrow}</span>` : ""}
-                        <span>${formatter(value)}</span>
-                    </span>
-                </div>
-            </div>
-        `;
-    }
-
-    function kpi_required_vs_original(label, required, original) {
-        const req = Number(required || 0);
-        const orig = Number(original || 0);
-
-        const good = req <= orig;
-        const cls = good ? "isd-good" : "isd-bad";
-        const arrow = good ? "▲" : "▼";
-
-        return `
-            <div class="kpi-box ${cls}">
-                <div class="label">${escapeHtml(label)}</div>
-                <div class="sub-label">&nbsp;</div>
-                <div class="value">
-                    <span class="trend">
-                        <span class="arrow">${arrow}</span>
-                        <span>${fmt_int(req)}</span>
-                    </span>
-                </div>
-            </div>
-        `;
-    }
-
-    function th(text, cls) {
-        cls = cls || "";
-        return `<th class="${cls}">${escapeHtml(text)}</th>`;
-    }
-
-    function td(value, opts) {
-        opts = opts || {};
-
-        const cls = opts.cls || "";
-        const bgClass = opts.goodBadClass || "";
-
-        return `<td class="${cls} ${bgClass}">${fmt_int(value)}</td>`;
-    }
-
-    function build_summary_table(r) {
-        const mtd_var = Number(r.mtd_var_bcm || 0);
-        const coal_var = Number(r.mtd_coal_var_t || 0);
-        const waste_var = Number(r.mtd_waste_var_bcm || 0);
-        const day_var = Number(r.day_var_bcm || 0);
-
-        const mtdVarCls = mtd_var >= 0 ? "isd-good-cell" : "isd-bad-cell";
-        const coalVarCls = coal_var >= 0 ? "isd-good-cell" : "isd-bad-cell";
-        const wasteVarCls = waste_var >= 0 ? "isd-good-cell" : "isd-bad-cell";
-        const dayVarCls = day_var >= 0 ? "isd-good-cell" : "isd-bad-cell";
-
-        return `
-            <table class="summary-table">
-                <tr>
-                    ${th("Month Target(bcm)", "subsep")}
-                    ${th("Month Coal(t)", "subsep")}
-                    ${th("Month Waste(bcm)", "sep")}
-
-                    ${th("MTD Act(bcm)", "subsep")}
-                    ${th("MTD Plan(bcm)", "subsep")}
-                    ${th("Var", "sep")}
-
-                    ${th("MTD C (t)", "subsep")}
-                    ${th("MTD C Plan(t)", "subsep")}
-                    ${th("Var C", "sep")}
-
-                    ${th("MTD W (bcm)", "subsep")}
-                    ${th("MTD W Plan(bcm)", "subsep")}
-                    ${th("Var W", "sep")}
-
-                    ${th("Day BCM", "subsep")}
-                    ${th("Day Target(bcm)", "subsep")}
-                    ${th("Day Var", "sep")}
-                </tr>
-                <tr>
-                    ${td(r.month_target_bcm, { cls: "subsep" })}
-                    ${td(r.month_coal_t, { cls: "subsep" })}
-                    ${td(r.month_waste_bcm, { cls: "sep" })}
-
-                    ${td(r.mtd_act_bcm, { cls: "subsep" })}
-                    ${td(r.mtd_plan_bcm, { cls: "subsep" })}
-                    ${td(r.mtd_var_bcm, { cls: "sep", goodBadClass: mtdVarCls })}
-
-                    ${td(r.mtd_coal_t, { cls: "subsep" })}
-                    ${td(r.mtd_coal_plan_t, { cls: "subsep" })}
-                    ${td(r.mtd_coal_var_t, { cls: "sep", goodBadClass: coalVarCls })}
-
-                    ${td(r.mtd_waste_bcm, { cls: "subsep" })}
-                    ${td(r.mtd_waste_plan_bcm, { cls: "subsep" })}
-                    ${td(r.mtd_waste_var_bcm, { cls: "sep", goodBadClass: wasteVarCls })}
-
-                    ${td(r.day_bcm, { cls: "subsep" })}
-                    ${td(r.day_target_bcm, { cls: "subsep" })}
-                    ${td(r.day_var_bcm, { cls: "sep", goodBadClass: dayVarCls })}
-                </tr>
-            </table>
-        `;
-    }
-
-    function build_site_card(r) {
-        const site = (r.site || "").trim();
-        const start = r.prod_start ? frappe.datetime.str_to_user(r.prod_start) : "";
-        const end = r.prod_end ? frappe.datetime.str_to_user(r.prod_end) : "";
-        const bg = SITE_HEADER_COLOURS[site] || r.site_colour || "#EEF4FB";
-
-        const forecast_var = Number(r.forecast_var || 0);
-        const employeeLabel = "Employees: " + fmt_int(r.employee_count || 0);
-
-        return `
-            <div class="site-section">
-                <div class="site-header-block" style="background:${bg};">
-                    <div class="site-title">SITE: ${escapeHtml(site)}</div>
-                    <div class="site-period">
-                        PRODUCTION PERIOD: ${escapeHtml(start)} → ${escapeHtml(end)}
-                    </div>
-
-                    <div class="kpi-bar">
-                        ${kpi_box("Month Target", r.month_target_bcm)}
-                        ${kpi_box("Forecast", r.forecast_bcm)}
-                        ${kpi_box("Var: Forecast vs.Month Target", forecast_var, {
-                            coloured: true,
-                            showArrow: true
-                        })}
-                        ${kpi_box("Days Left in Month", r.days_left)}
-                        ${kpi_box("Original Daily Target", r.original_daily_target)}
-                        ${kpi_box("Current Avg per Day", r.current_avg_per_day)}
-                        ${kpi_required_vs_original("Required Daily for Target", r.required_daily, r.original_daily_target)}
-                        ${kpi_box("Projected BCM/man", r.projected_bcm_per_man, {
-                            sublabel: employeeLabel,
-                            formatter: function (v) { return fmt_decimal(v, 1); },
-                            projected: true
-                        })}
-                    </div>
-                </div>
-
-                <div class="summary-wrap">
-                    ${build_summary_table(r)}
-                </div>
-            </div>
-        `;
-    }
-
-    function render_dashboard(response) {
-        const rows = response.rows || [];
-        const siteOrderMap = response.site_order_map || {};
-
-        if (!rows.length) {
-            dashEl.innerHTML = '<div class="text-muted">No data for the selected filter.</div>';
-            return;
-        }
-
-        const sorted = [].concat(rows).sort(function (a, b) {
-            const aSite = String(a.site || "").trim();
-            const bSite = String(b.site || "").trim();
-
-            const aHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, aSite);
-            const bHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, bSite);
-
-            if (aHasOrder && bHasOrder) return siteOrderMap[aSite] - siteOrderMap[bSite];
-            if (aHasOrder) return -1;
-            if (bHasOrder) return 1;
-
-            return aSite.localeCompare(bSite);
-        });
-
-        dashEl.innerHTML = sorted.map(build_site_card).join("");
     }
 
     function run_report(value) {
@@ -681,6 +735,7 @@ main,
 
         if (!val) {
             statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
+            dashEl.innerHTML = "";
             return Promise.resolve();
         }
 
@@ -688,7 +743,7 @@ main,
         statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
 
         return run_report(val).then(function (r) {
-            render_dashboard(r.message || {});
+            renderDashboard(r.message || {});
 
             const time = new Date().toLocaleTimeString([], {
                 hour: "2-digit",
@@ -760,6 +815,7 @@ main,
     });
 
     const last = localStorage.getItem(STORAGE_KEY);
+
     if (last) {
         input.value = last;
         load_and_render(false);
@@ -767,7 +823,7 @@ main,
     }
 
     window.addEventListener("beforeunload", function () {
-        if (_timer) clearTimeout(_timer);
+        clearExistingTimer();
     });
 })();
 </script>

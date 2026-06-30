@@ -13,6 +13,12 @@ ALLOWED_ROLES = [
 ]
 
 
+SITE_COLOUR_METHOD = (
+    "is_production.production.doctype.production_dashboard_setup."
+    "production_dashboard_setup.get_site_colour_map"
+)
+
+
 def _check_access():
     if frappe.session.user == "Guest":
         frappe.throw(_("Please log in first."), frappe.PermissionError)
@@ -55,6 +61,18 @@ def _get_site_order_map(docname):
     return order_map
 
 
+def _get_site_colour_map():
+    try:
+        method = frappe.get_attr(SITE_COLOUR_METHOD)
+        return method() or {}
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "Portal Site Volume Graphs: could not load site colour map",
+        )
+        return {}
+
+
 @frappe.whitelist()
 def search_define_monthly_production(txt=""):
     _check_access()
@@ -77,23 +95,25 @@ def search_define_monthly_production(txt=""):
 
 
 @frappe.whitelist()
-def run_portal_report(monthly_production_plan):
+def run_portal_report(monthly_production_plan=None, define_monthly_production=None):
     _check_access()
 
-    monthly_production_plan = (monthly_production_plan or "").strip()
-    if not monthly_production_plan:
-        frappe.throw(_("Monthly Production Plan is required."))
+    selected_plan = (define_monthly_production or monthly_production_plan or "").strip()
+
+    if not selected_plan:
+        frappe.throw(_("Define Monthly Production is required."))
 
     run = frappe.get_attr("frappe.desk.query_report.run")
 
     payload = run(
         report_name="CEO Dashboard One Graphs",
         filters=json.dumps({
-            "monthly_production_plan": monthly_production_plan
+            "define_monthly_production": selected_plan
         })
     )
 
     return {
         "payload": payload,
-        "site_order_map": _get_site_order_map(monthly_production_plan),
+        "site_order_map": _get_site_order_map(selected_plan),
+        "site_colour_map": _get_site_colour_map(),
     }
