@@ -2,10 +2,6 @@
 
 {% block page_content %}
 <style>
-/* =========================================================
-   FULL SCREEN PORTAL APP SHELL
-   ========================================================= */
-
 html,
 body {
     background: #ffffff !important;
@@ -47,10 +43,6 @@ main,
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     color: #1f272e;
 }
-
-/* =========================================================
-   TOP BAR
-   ========================================================= */
 
 .portal-topbar {
     display: flex;
@@ -134,18 +126,7 @@ main,
     width: 100%;
 }
 
-/* =========================================================
-   HOURLY DASHBOARD OUTER STRUCTURE
-   ========================================================= */
-
-#dashboard_content .isd-hourly-dashboard {
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: 0;
-}
-
-#dashboard_content .isd-hourly-dashboard .isd-grid {
+#dashboard_content .isd-dashboard-grid {
     display: block;
     width: 100%;
     max-width: none;
@@ -153,8 +134,7 @@ main,
     padding: 0;
 }
 
-#dashboard_content .isd-hourly-dashboard .isd-site,
-#dashboard_content .isd-site {
+#dashboard_content .isd-dashboard-card {
     width: 100%;
     border: 1px solid #d8dfe6;
     border-radius: 8px;
@@ -164,8 +144,7 @@ main,
     box-shadow: none;
 }
 
-#dashboard_content .isd-hourly-dashboard .isd-site-header,
-#dashboard_content .isd-site-header {
+#dashboard_content .isd-dashboard-card-header {
     padding: 10px 12px;
     font-weight: 700;
     font-size: 13px;
@@ -173,31 +152,25 @@ main,
     color: #111827;
 }
 
-#dashboard_content .isd-hourly-dashboard .isd-site-header div,
-#dashboard_content .isd-hourly-dashboard .isd-site-header span,
-#dashboard_content .isd-hourly-dashboard .isd-site-header small,
-#dashboard_content .isd-hourly-dashboard .isd-site-header .small,
-#dashboard_content .isd-site-header div,
-#dashboard_content .isd-site-header span,
-#dashboard_content .isd-site-header small,
-#dashboard_content .isd-site-header .small {
+#dashboard_content .isd-dashboard-card-title {
     display: block;
+    font-weight: 700;
+    font-size: 13px;
 }
 
-#dashboard_content .isd-hourly-dashboard .isd-site-header small,
-#dashboard_content .isd-hourly-dashboard .isd-site-header .small,
-#dashboard_content .isd-site-header small,
-#dashboard_content .isd-site-header .small {
+#dashboard_content .isd-dashboard-card-subtitle {
+    display: block;
     font-weight: 400;
     font-size: 12px;
     margin-top: 5px;
 }
 
-/* =========================================================
-   TABLE LAYOUT
-   ========================================================= */
+#dashboard_content .isd-dashboard-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
 
-#dashboard_content .isd-hourly-dashboard table,
+#dashboard_content .isd-dashboard-table,
 #dashboard_content table {
     width: 100% !important;
     max-width: none !important;
@@ -208,17 +181,8 @@ main,
     font-size: 11px;
 }
 
-#dashboard_content .isd-hourly-dashboard thead,
-#dashboard_content .isd-hourly-dashboard tbody,
-#dashboard_content .isd-hourly-dashboard tr,
-#dashboard_content thead,
-#dashboard_content tbody,
-#dashboard_content tr {
-    width: 100%;
-}
-
-#dashboard_content .isd-hourly-dashboard th,
-#dashboard_content .isd-hourly-dashboard td,
+#dashboard_content .isd-dashboard-th,
+#dashboard_content .isd-dashboard-td,
 #dashboard_content th,
 #dashboard_content td {
     border: 1px solid #e0e0e0 !important;
@@ -234,22 +198,21 @@ main,
     white-space: normal;
 }
 
-#dashboard_content .isd-hourly-dashboard th,
+#dashboard_content .isd-dashboard-th,
 #dashboard_content th {
     background: #ffffff !important;
     font-weight: 700;
     color: #111827;
 }
 
-#dashboard_content .isd-hourly-dashboard td,
+#dashboard_content .isd-dashboard-td,
 #dashboard_content td {
     background: #ffffff !important;
     color: #1f272e;
 }
 
-/* First column: Excavator names */
-#dashboard_content .isd-hourly-dashboard th:first-child,
-#dashboard_content .isd-hourly-dashboard td:first-child,
+#dashboard_content .isd-dashboard-th:first-child,
+#dashboard_content .isd-dashboard-td:first-child,
 #dashboard_content th:first-child,
 #dashboard_content td:first-child {
     width: 230px !important;
@@ -261,45 +224,26 @@ main,
     background: #ffffff !important;
 }
 
-/* Make empty cells still occupy full blocks */
-#dashboard_content .isd-hourly-dashboard td:empty::after,
+#dashboard_content .isd-dashboard-td:empty::after,
 #dashboard_content td:empty::after {
     content: "\00a0";
 }
 
-/* =========================================================
-   VALUE CELL COLOURS
-   These are applied by JS after the report loads:
-   <200 = red
-   200-219 = orange
-   >=220 = green
-   Empty/default = white
-   ========================================================= */
-
-#dashboard_content td.portal-hour-empty {
-    background: #ffffff !important;
-}
-
-#dashboard_content td.portal-hour-low {
+#dashboard_content .isd-dashboard-cell-low {
     background: #f3d6d8 !important;
 }
 
-#dashboard_content td.portal-hour-mid {
+#dashboard_content .isd-dashboard-cell-medium {
     background: #f5e4d5 !important;
 }
 
-#dashboard_content td.portal-hour-high {
+#dashboard_content .isd-dashboard-cell-high {
     background: #d8efe5 !important;
 }
 
-/* Keep first column white */
-#dashboard_content td.portal-hour-label {
+#dashboard_content .isd-dashboard-excavator {
     background: #ffffff !important;
 }
-
-/* =========================================================
-   MOBILE / SMALL SCREEN
-   ========================================================= */
 
 @media (max-width: 900px) {
     #portal-hourly-dashboard-app {
@@ -316,8 +260,8 @@ main,
         width: 100%;
     }
 
-    #dashboard_content .isd-hourly-dashboard th:first-child,
-    #dashboard_content .isd-hourly-dashboard td:first-child,
+    #dashboard_content .isd-dashboard-th:first-child,
+    #dashboard_content .isd-dashboard-td:first-child,
     #dashboard_content th:first-child,
     #dashboard_content td:first-child {
         width: 160px !important;
@@ -325,14 +269,9 @@ main,
         max-width: 160px !important;
     }
 
-    #dashboard_content .isd-hourly-dashboard table,
+    #dashboard_content .isd-dashboard-table,
     #dashboard_content table {
         min-width: 1200px;
-    }
-
-    #dashboard_content .isd-hourly-dashboard .isd-site,
-    #dashboard_content .isd-site {
-        overflow-x: auto;
     }
 }
 </style>
@@ -353,12 +292,19 @@ main,
     </div>
 
     <div id="dashboard_status">Select a Define Monthly Production to load the dashboard.</div>
-    <div id="dashboard_content" class="isd-hourly-dashboard-page"></div>
+    <div id="dashboard_content" class="isd-dashboard-grid"></div>
 </div>
 
 <script>
 (function () {
     const STORAGE_KEY = "portal_hourly_dash_define_monthly_production";
+
+    const SLOT_LABELS = [
+        "06-07", "07-08", "08-09", "09-10", "10-11", "11-12", "12-13",
+        "13-14", "14-15", "15-16", "16-17", "17-18",
+        "18-19", "19-20", "20-21", "21-22", "22-23", "23-24",
+        "24-01", "01-02", "02-03", "03-04", "04-05", "05-06"
+    ];
 
     const input = document.getElementById("define_monthly_production");
     const dropdown = document.getElementById("define_monthly_production_dropdown");
@@ -370,7 +316,7 @@ main,
     let _timer = null;
 
     function escapeHtml(value) {
-        return String(value || "")
+        return String(value == null ? "" : value)
             .replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
@@ -378,19 +324,203 @@ main,
             .replace(/'/g, "&#39;");
     }
 
-    function extract_report_html(payload) {
-        if (!payload) return "";
+    function slotField(slotNumber) {
+        return "slot_" + String(slotNumber).padStart(2, "0");
+    }
 
-        if (typeof payload.html === "string" && payload.html.trim()) return payload.html;
-        if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+    function normaliseInt(value) {
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
 
-        if (payload.message && typeof payload.message.html === "string" && payload.message.html.trim()) {
-            return payload.message.html;
+    function getCellDisplay(value) {
+        value = normaliseInt(value);
+
+        if (value === 0) {
+            return {
+                css_class: "",
+                display: "",
+                title: ""
+            };
         }
 
-        if (typeof payload.report_html === "string" && payload.report_html.trim()) return payload.report_html;
+        if (value >= 1 && value <= 199) {
+            return {
+                css_class: "isd-dashboard-cell-low",
+                display: String(value),
+                title: value + " bcm"
+            };
+        }
 
-        return "";
+        if (value >= 200 && value <= 219) {
+            return {
+                css_class: "isd-dashboard-cell-medium",
+                display: String(value),
+                title: value + " bcm"
+            };
+        }
+
+        return {
+            css_class: "isd-dashboard-cell-high",
+            display: String(value),
+            title: value + " bcm"
+        };
+    }
+
+    function extractRowsFromPayload(payload) {
+        if (!payload) return [];
+
+        if (Array.isArray(payload.result)) return payload.result;
+        if (Array.isArray(payload.data)) return payload.data;
+        if (Array.isArray(payload)) return payload;
+
+        return [];
+    }
+
+    function groupRowsBySite(rows, siteOrderMap) {
+        const siteMap = new Map();
+
+        rows.forEach(function (row) {
+            const site = String(row.site || "").trim();
+
+            if (!site) {
+                return;
+            }
+
+            if (!siteMap.has(site)) {
+                const fallbackOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, site)
+                    ? siteOrderMap[site]
+                    : 999999;
+
+                siteMap.set(site, {
+                    site: site,
+                    site_order: normaliseInt(row.site_order || fallbackOrder),
+                    production_day: row.production_day || "",
+                    rows: []
+                });
+            }
+
+            const group = siteMap.get(site);
+
+            if (!group.production_day && row.production_day) {
+                group.production_day = row.production_day;
+            }
+
+            if (!row.is_empty_site) {
+                group.rows.push(row);
+            }
+        });
+
+        return Array.from(siteMap.values()).sort(function (a, b) {
+            if (a.site_order !== b.site_order) {
+                return a.site_order - b.site_order;
+            }
+
+            return a.site.localeCompare(b.site);
+        });
+    }
+
+    function getHeaderBackgroundStyle(site, siteColourMap) {
+        const mappedColour = siteColourMap && siteColourMap[site]
+            ? String(siteColourMap[site]).trim()
+            : "";
+
+        if (!mappedColour) {
+            return "background:transparent;";
+        }
+
+        return "background:" + escapeHtml(mappedColour) + ";";
+    }
+
+    function renderHourHeader() {
+        const hourHeaders = SLOT_LABELS.map(function (label) {
+            const escapedLabel = escapeHtml(label);
+            const displayLabel = escapedLabel.replace("-", "<br>");
+
+            return (
+                '<th class="isd-dashboard-th" title="' + escapedLabel + '">' +
+                    displayLabel +
+                '</th>'
+            );
+        }).join("");
+
+        return (
+            "<tr>" +
+                '<th class="isd-dashboard-th">Excavator</th>' +
+                hourHeaders +
+            "</tr>"
+        );
+    }
+
+    function renderExcavatorRow(row) {
+        const excavator = escapeHtml(row.excavator || "");
+
+        const cells = [
+            '<td class="isd-dashboard-td isd-dashboard-excavator" title="' + excavator + '">' +
+                excavator +
+            "</td>"
+        ];
+
+        for (let slot = 1; slot <= 24; slot++) {
+            const value = normaliseInt(row[slotField(slot)]);
+            const cell = getCellDisplay(value);
+            const titleAttr = cell.title ? ' title="' + escapeHtml(cell.title) + '"' : "";
+            const cssClass = cell.css_class ? " " + cell.css_class : "";
+
+            cells.push(
+                '<td class="isd-dashboard-td' + cssClass + '"' + titleAttr + ">" +
+                    escapeHtml(cell.display) +
+                "</td>"
+            );
+        }
+
+        return "<tr>" + cells.join("") + "</tr>";
+    }
+
+    function renderSiteBlock(group, siteColourMap) {
+        const rowsHtml = group.rows.map(renderExcavatorRow).join("");
+        const headerBackground = getHeaderBackgroundStyle(group.site, siteColourMap);
+
+        return (
+            '<div class="isd-dashboard-card">' +
+                '<div class="isd-dashboard-card-header" style="' + headerBackground + '">' +
+                    '<div class="isd-dashboard-card-title">Site: ' + escapeHtml(group.site) + "</div>" +
+                    '<div class="isd-dashboard-card-subtitle">' +
+                        "Production Day: " + escapeHtml(group.production_day) +
+                    "</div>" +
+                "</div>" +
+
+                '<div class="isd-dashboard-table-wrap">' +
+                    '<table class="isd-dashboard-table isd-dashboard-table--hourly">' +
+                        renderHourHeader() +
+                        rowsHtml +
+                    "</table>" +
+                "</div>" +
+            "</div>"
+        );
+    }
+
+    function renderDashboard(response) {
+        const payload = response.payload || {};
+        const siteOrderMap = response.site_order_map || {};
+        const siteColourMap = response.site_colour_map || {};
+        const rows = extractRowsFromPayload(payload);
+
+        if (!rows.length) {
+            dashEl.innerHTML = '<div class="text-muted">No data for the selected filter.</div>';
+            return;
+        }
+
+        const groupedSites = groupRowsBySite(rows, siteOrderMap);
+
+        if (!groupedSites.length) {
+            dashEl.innerHTML = '<div class="text-muted">No sites found for the selected filter.</div>';
+            return;
+        }
+
+        dashEl.innerHTML = groupedSites.map(function (group) {
+            return renderSiteBlock(group, siteColourMap);
+        }).join("");
     }
 
     function ms_until_next_refresh() {
@@ -407,13 +537,20 @@ main,
         return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
     }
 
+    function clear_existing_timer() {
+        if (_timer) {
+            clearTimeout(_timer);
+            _timer = null;
+        }
+    }
+
     function start_aligned_refresh() {
         if (_auto_refresh_started) return;
         _auto_refresh_started = true;
 
         const schedule_next = function () {
-            const delay = ms_until_next_refresh();
-            _timer = setTimeout(auto_refresh, delay);
+            clear_existing_timer();
+            _timer = setTimeout(auto_refresh, ms_until_next_refresh());
         };
 
         const auto_refresh = function () {
@@ -447,135 +584,12 @@ main,
         });
     }
 
-    function extract_site_name_from_block(el) {
-        const headerText = $(el).find(".isd-site-header").first().text().trim();
-        const match = headerText.match(/Site:\s*(.+)/i);
-        return match ? match[1].trim() : "";
-    }
-
-    function reorder_hourly_sites(siteOrderMap) {
-        const $grid = $(dashEl).find(".isd-hourly-dashboard .isd-grid").first();
-        if (!$grid.length) return;
-
-        const blocks = $grid.children(".isd-site").get();
-        if (!blocks.length) return;
-
-        blocks.sort(function (a, b) {
-            const aSite = extract_site_name_from_block(a);
-            const bSite = extract_site_name_from_block(b);
-
-            const aHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, aSite);
-            const bHasOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, bSite);
-
-            if (aHasOrder && bHasOrder) return siteOrderMap[aSite] - siteOrderMap[bSite];
-            if (aHasOrder) return -1;
-            if (bHasOrder) return 1;
-
-            return aSite.localeCompare(bSite);
-        });
-
-        blocks.forEach(function (block) {
-            $grid.append(block);
-        });
-    }
-
-    function isNumericText(text) {
-        const clean = String(text || "").trim().replace(/,/g, "");
-        if (!clean) return false;
-        return /^-?\d+(\.\d+)?$/.test(clean);
-    }
-
-    function getNumericValue(text) {
-        return Number(String(text || "").trim().replace(/,/g, ""));
-    }
-
-    function colourHourlyCells() {
-        const tables = dashEl.querySelectorAll("table");
-
-        tables.forEach(function (table) {
-            const rows = table.querySelectorAll("tr");
-
-            rows.forEach(function (row) {
-                const cells = Array.from(row.children);
-
-                cells.forEach(function (cell, index) {
-                    if (cell.tagName.toLowerCase() === "th") {
-                        return;
-                    }
-
-                    cell.classList.remove(
-                        "portal-hour-empty",
-                        "portal-hour-low",
-                        "portal-hour-mid",
-                        "portal-hour-high",
-                        "portal-hour-label"
-                    );
-
-                    if (index === 0) {
-                        cell.classList.add("portal-hour-label");
-                        return;
-                    }
-
-                    const text = cell.textContent || "";
-
-                    if (!isNumericText(text)) {
-                        cell.classList.add("portal-hour-empty");
-                        return;
-                    }
-
-                    const value = getNumericValue(text);
-
-                    if (value < 200) {
-                        cell.classList.add("portal-hour-low");
-                    } else if (value >= 200 && value <= 219) {
-                        cell.classList.add("portal-hour-mid");
-                    } else {
-                        cell.classList.add("portal-hour-high");
-                    }
-                });
-            });
-        });
-    }
-
-    function normalize_hourly_dashboard_markup() {
-        const tables = dashEl.querySelectorAll("table");
-
-        tables.forEach(function (table) {
-            table.style.width = "100%";
-            table.style.tableLayout = "fixed";
-            table.style.borderCollapse = "collapse";
-            table.style.background = "#ffffff";
-        });
-
-        colourHourlyCells();
-    }
-
-    function render_dashboard(response) {
-        const payload = response.payload || {};
-        const siteOrderMap = response.site_order_map || {};
-        const html = extract_report_html(payload);
-
-        if (html) {
-            dashEl.innerHTML = html;
-            reorder_hourly_sites(siteOrderMap);
-            normalize_hourly_dashboard_markup();
-            return;
-        }
-
-        const rows = payload.result || [];
-        if (!rows.length) {
-            dashEl.innerHTML = '<div class="text-muted">No data for the selected filter.</div>';
-            return;
-        }
-
-        dashEl.innerHTML = '<div class="text-warning">Report returned data, but no HTML block was found.</div>';
-    }
-
     function load_and_render(is_auto) {
         const val = input.value;
 
         if (!val) {
             statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
+            dashEl.innerHTML = "";
             return Promise.resolve();
         }
 
@@ -583,7 +597,7 @@ main,
         statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
 
         return run_report(val).then(function (r) {
-            render_dashboard(r.message || {});
+            renderDashboard(r.message || {});
 
             const time = new Date().toLocaleTimeString([], {
                 hour: "2-digit",
@@ -669,7 +683,7 @@ main,
     }
 
     window.addEventListener("beforeunload", function () {
-        if (_timer) clearTimeout(_timer);
+        clear_existing_timer();
     });
 })();
 </script>

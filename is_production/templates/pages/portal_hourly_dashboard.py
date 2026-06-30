@@ -13,6 +13,12 @@ ALLOWED_ROLES = [
 ]
 
 
+SITE_COLOUR_METHOD = (
+    "is_production.production.doctype.production_dashboard_setup."
+    "production_dashboard_setup.get_site_colour_map"
+)
+
+
 def _check_access():
     if frappe.session.user == "Guest":
         frappe.throw(_("Please log in first."), frappe.PermissionError)
@@ -53,6 +59,18 @@ def _get_site_order_map(docname):
             order_map[site] = idx
 
     return order_map
+
+
+def _get_site_colour_map():
+    try:
+        method = frappe.get_attr(SITE_COLOUR_METHOD)
+        return method() or {}
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "Portal Hourly Dashboard: could not load site colour map",
+        )
+        return {}
 
 
 @frappe.whitelist()
@@ -96,4 +114,5 @@ def run_portal_report(define_monthly_production):
     return {
         "payload": payload,
         "site_order_map": _get_site_order_map(define_monthly_production),
+        "site_colour_map": _get_site_colour_map(),
     }
