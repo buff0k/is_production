@@ -340,16 +340,40 @@ main,
 
 <script>
 (function () {
+    "use strict";
+
     const STORAGE_KEY = "portal_site_volume_tracking_define_monthly_production";
+
+    /*
+        This watchdog does NOT run the report every minute.
+        It only checks every minute whether the :10 or :30 refresh was missed.
+    */
+    const WATCHDOG_INTERVAL_MS = 60 * 1000;
+
+    /*
+        If a Frappe call hangs longer than this, release the browser-side lock
+        and allow the next watchdog/timer to try again.
+    */
+    const AJAX_TIMEOUT_MS = 2 * 60 * 1000;
+
+    /*
+        When the browser wakes/focuses again, refresh if the last successful
+        refresh is older than this.
+    */
+    const WAKE_REFRESH_AFTER_MS = 2 * 60 * 1000;
 
     const input = document.getElementById("define_monthly_production");
     const dropdown = document.getElementById("define_monthly_production_dropdown");
     const statusEl = document.getElementById("dashboard_status");
     const dashEl = document.getElementById("dashboard_content");
 
-    let _auto_refresh_started = false;
     let _refreshing = false;
     let _timer = null;
+    let _watchdog = null;
+    let _lastSuccessAt = 0;
+    let _lastSlotKeyRefreshed = "";
+    let _lastLoadFailed = false;
+    let _requestSeq = 0;
 
     function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -373,6 +397,64 @@ main,
             minimumFractionDigits: decimals,
             maximumFractionDigits: decimals
         });
+    }
+
+    function formatTime(date) {
+        return date.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    function pad2(value) {
+        return String(value).padStart(2, "0");
+    }
+
+    function slotKey(date) {
+        return (
+            date.getFullYear() + "-" +
+            pad2(date.getMonth() + 1) + "-" +
+            pad2(date.getDate()) + " " +
+            pad2(date.getHours()) + ":" +
+            pad2(date.getMinutes())
+        );
+    }
+
+    function mostRecentRefreshSlot(now) {
+        const slot = new Date(now.getTime());
+        slot.setSeconds(0, 0);
+
+        const minutes = slot.getMinutes();
+
+        if (minutes >= 30) {
+            slot.setMinutes(30);
+        } else if (minutes >= 10) {
+            slot.setMinutes(10);
+        } else {
+            slot.setHours(slot.getHours() - 1);
+            slot.setMinutes(30);
+        }
+
+        return slot;
+    }
+
+    function msUntilNextRefresh() {
+        const now = new Date();
+        const next = new Date(now.getTime());
+        next.setSeconds(0, 0);
+
+        const minutes = now.getMinutes();
+
+        if (minutes < 10) {
+            next.setMinutes(10);
+        } else if (minutes < 30) {
+            next.setMinutes(30);
+        } else {
+            next.setHours(next.getHours() + 1);
+            next.setMinutes(10);
+        }
+
+        return Math.max(1000, next.getTime() - now.getTime());
     }
 
     function goodBadClassFromValue(val) {
@@ -660,23 +742,8 @@ main,
         }).join("");
     }
 
-    function ms_until_next_refresh() {
-        const now = new Date();
-        const minutes = now.getMinutes();
-        const seconds = now.getSeconds();
-        const ms = now.getMilliseconds();
-
-        let nextMinute;
-
-        if (minutes < 10) {
-            nextMinute = 10;
-        } else if (minutes < 30) {
-            nextMinute = 30;
-        } else {
-            nextMinute = 70;
-        }
-
-        return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
+    function selectedValue() {
+        return String(input.value || "").trim();
     }
 
     function clearExistingTimer() {
@@ -686,94 +753,187 @@ main,
         }
     }
 
-    function start_aligned_refresh() {
-        if (_auto_refresh_started) {
+    function scheduleNextRefresh() {
+        clearExistingTimer();
+
+        if (!selectedValue()) {
             return;
         }
 
-        _auto_refresh_started = true;
-
-        const schedule_next = function () {
-            clearExistingTimer();
-            _timer = setTimeout(auto_refresh, ms_until_next_refresh());
-        };
-
-        const auto_refresh = function () {
-            if (_refreshing) {
-                schedule_next();
-                return;
-            }
-
-            if (!input.value) {
-                schedule_next();
-                return;
-            }
-
-            _refreshing = true;
-
-            load_and_render(true).finally(function () {
-                _refreshing = false;
-                schedule_next();
-            });
-        };
-
-        schedule_next();
+        _timer = setTimeout(function () {
+            refreshForDueSlot("aligned-timer");
+        }, msUntilNextRefresh());
     }
 
-    function run_report(value) {
+    function runReport(value) {
         return frappe.call({
             method: "is_production.templates.pages.portal_site_volume_tracking.run_portal_report",
             args: {
-                define_monthly_production: value
+                define_monthly_production: value,
+                request_time: new Date().toISOString()
             },
             freeze: false
         });
     }
 
-    function load_and_render(is_auto) {
-        const val = input.value;
+    function withTimeout(promise, timeoutMs) {
+        let timeoutHandle = null;
+
+        const timeoutPromise = new Promise(function (_resolve, reject) {
+            timeoutHandle = setTimeout(function () {
+                reject(new Error("Refresh request timed out after " + Math.round(timeoutMs / 1000) + " seconds."));
+            }, timeoutMs);
+        });
+
+        return Promise.race([promise, timeoutPromise]).finally(function () {
+            if (timeoutHandle) {
+                clearTimeout(timeoutHandle);
+            }
+        });
+    }
+
+    function loadAndRender(isAuto, reason) {
+        const val = selectedValue();
 
         if (!val) {
             statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
             dashEl.innerHTML = "";
-            return Promise.resolve();
+            return Promise.resolve(false);
         }
 
-        localStorage.setItem(STORAGE_KEY, val);
-        statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
+        if (_refreshing) {
+            const inFlightAge = Date.now() - _lastSuccessAt;
 
-        return run_report(val).then(function (r) {
+            if (inFlightAge < AJAX_TIMEOUT_MS) {
+                return Promise.resolve(false);
+            }
+
+            _refreshing = false;
+        }
+
+        _refreshing = true;
+        _requestSeq += 1;
+
+        const thisRequestSeq = _requestSeq;
+
+        localStorage.setItem(STORAGE_KEY, val);
+        statusEl.textContent = isAuto ? "Refreshing..." : "Loading...";
+
+        return withTimeout(runReport(val), AJAX_TIMEOUT_MS).then(function (r) {
+            if (thisRequestSeq !== _requestSeq) {
+                return false;
+            }
+
             renderDashboard(r.message || {});
 
-            const time = new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit"
-            });
+            const now = new Date();
+            const time = formatTime(now);
+
+            _lastSuccessAt = now.getTime();
+            _lastLoadFailed = false;
+            _lastSlotKeyRefreshed = slotKey(mostRecentRefreshSlot(now));
 
             statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
+
+            if (isAuto && frappe.show_alert) {
+                frappe.show_alert({
+                    message: "Site Volume Tracking updated at " + time,
+                    indicator: "green"
+                }, 5);
+            }
+
+            return true;
         }).catch(function (e) {
+            if (thisRequestSeq !== _requestSeq) {
+                return false;
+            }
+
             console.error("Site Volume Tracking portal error:", e);
-            statusEl.textContent = "Error loading dashboard data. Check browser console and server logs.";
-            dashEl.innerHTML = '<div class="text-danger">Could not load data.</div>';
+            _lastLoadFailed = true;
+
+            statusEl.textContent = "Error loading Site Volume Tracking. Retrying automatically at :10 and :30.";
+            dashEl.innerHTML = (
+                '<div class="text-danger">' +
+                    "Could not load data. Check browser console and server logs." +
+                '</div>'
+            );
+
+            return false;
+        }).finally(function () {
+            if (thisRequestSeq === _requestSeq) {
+                _refreshing = false;
+            }
+
+            scheduleNextRefresh();
         });
     }
 
-    async function search_define_monthly_production(term) {
+    function refreshForDueSlot(reason) {
+        if (!selectedValue()) {
+            return;
+        }
+
+        if (_refreshing) {
+            return;
+        }
+
+        const now = new Date();
+        const dueSlot = mostRecentRefreshSlot(now);
+        const dueKey = slotKey(dueSlot);
+
+        if (dueKey === _lastSlotKeyRefreshed && !_lastLoadFailed) {
+            scheduleNextRefresh();
+            return;
+        }
+
+        loadAndRender(true, reason);
+    }
+
+    function refreshAfterWake(reason) {
+        if (!selectedValue()) {
+            return;
+        }
+
+        if (_refreshing) {
+            return;
+        }
+
+        const now = Date.now();
+
+        if (_lastLoadFailed || !_lastSuccessAt || now - _lastSuccessAt >= WAKE_REFRESH_AFTER_MS) {
+            loadAndRender(true, reason);
+        } else {
+            scheduleNextRefresh();
+        }
+    }
+
+    function startRefreshEngine() {
+        scheduleNextRefresh();
+
+        if (!_watchdog) {
+            _watchdog = setInterval(function () {
+                refreshForDueSlot("watchdog");
+            }, WATCHDOG_INTERVAL_MS);
+        }
+    }
+
+    async function searchDefineMonthlyProduction(term) {
         const r = await frappe.call({
             method: "is_production.templates.pages.portal_site_volume_tracking.search_define_monthly_production",
             args: {
                 txt: term || ""
-            }
+            },
+            freeze: false
         });
 
         return r.message || [];
     }
 
-    async function render_dropdown() {
+    async function renderDropdown() {
         const term = input.value || "";
 
         try {
-            const results = await search_define_monthly_production(term);
+            const results = await searchDefineMonthlyProduction(term);
 
             if (!results.length) {
                 dropdown.innerHTML = '<div class="portal-empty">No matches found</div>';
@@ -793,8 +953,8 @@ main,
         }
     }
 
-    input.addEventListener("focus", render_dropdown);
-    input.addEventListener("input", render_dropdown);
+    input.addEventListener("focus", renderDropdown);
+    input.addEventListener("input", renderDropdown);
 
     dropdown.addEventListener("mousedown", function (e) {
         const optionEl = e.target.closest(".portal-option");
@@ -803,8 +963,12 @@ main,
         input.value = optionEl.getAttribute("data-value");
         dropdown.style.display = "none";
 
-        load_and_render(false);
-        start_aligned_refresh();
+        _lastSuccessAt = 0;
+        _lastSlotKeyRefreshed = "";
+        _lastLoadFailed = false;
+
+        loadAndRender(false, "manual-select");
+        startRefreshEngine();
     });
 
     document.addEventListener("click", function (e) {
@@ -814,17 +978,42 @@ main,
         }
     });
 
+    document.addEventListener("visibilitychange", function () {
+        if (!document.hidden) {
+            refreshAfterWake("visibilitychange");
+        }
+    });
+
+    window.addEventListener("focus", function () {
+        refreshAfterWake("focus");
+    });
+
+    window.addEventListener("pageshow", function () {
+        refreshAfterWake("pageshow");
+    });
+
+    window.addEventListener("online", function () {
+        refreshAfterWake("online");
+    });
+
+    window.addEventListener("beforeunload", function () {
+        clearExistingTimer();
+
+        if (_watchdog) {
+            clearInterval(_watchdog);
+            _watchdog = null;
+        }
+    });
+
     const last = localStorage.getItem(STORAGE_KEY);
 
     if (last) {
         input.value = last;
-        load_and_render(false);
-        start_aligned_refresh();
+        loadAndRender(false, "restore-selection");
+        startRefreshEngine();
+    } else {
+        statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
     }
-
-    window.addEventListener("beforeunload", function () {
-        clearExistingTimer();
-    });
 })();
 </script>
 {% endblock %}

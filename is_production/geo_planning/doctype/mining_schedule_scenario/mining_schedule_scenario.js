@@ -1,3 +1,6 @@
+// Copyright (c) 2026, Isambane Mining (Pty) Ltd and contributors
+// For license information, please see license.txt
+
 frappe.ui.form.on("Mining Schedule Scenario", {
 	refresh(frm) {
 		frm.trigger("set_indicators");
@@ -24,6 +27,23 @@ frappe.ui.form.on("Mining Schedule Scenario", {
 
 	add_custom_buttons(frm) {
 		if (frm.is_new()) return;
+
+		frm.add_custom_button(__("Validate Schedule Foundation"), function () {
+			frappe.call({
+				method: "is_production.geo_planning.services.mining_schedule_foundation_service.validate_schedule_foundation_html",
+				freeze: true,
+				freeze_message: __("Validating schedule foundation..."),
+				callback(r) {
+					if (!r.exc && r.message) {
+						frappe.msgprint({
+							title: __("Schedule Foundation Validation"),
+							message: r.message,
+							wide: true
+						});
+					}
+				}
+			});
+		}, __("Scheduling"));
 
 		frm.add_custom_button(__("Edit Schedule Inputs"), function () {
 			frappe.call({
