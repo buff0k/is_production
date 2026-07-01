@@ -5,6 +5,16 @@ import frappe
 from frappe.utils import flt, getdate
 
 
+ALLOWED_ASSET_CATEGORIES = [
+    "ADT",
+    "Excavator",
+    "Dozer",
+    "Grader",
+    "Water Bowser",
+    "Service Truck",
+]
+
+
 def execute(filters=None):
     filters = frappe._dict(filters or {})
 
@@ -25,20 +35,18 @@ def get_columns():
         {"label": "At EXC", "fieldname": "at_exc", "fieldtype": "Data", "width": 100},
 
         {"label": "Start of Shift", "fieldname": "start_of_shift", "fieldtype": "Data", "width": 110},
-        {"label": "First Load Time", "fieldname": "first_load_time", "fieldtype": "Data", "width": 115},
-        {"label": "Last Load Time", "fieldname": "last_load_time", "fieldtype": "Data", "width": 115},
         {"label": "End of Shift Time", "fieldname": "end_of_shift_time", "fieldtype": "Data", "width": 125},
 
-        {"label": "Machine Opening Hours", "fieldname": "machine_opening_hours", "fieldtype": "Float", "precision": 1, "width": 155},
-        {"label": "Machine Closing Hours", "fieldname": "machine_closing_hours", "fieldtype": "Float", "precision": 1, "width": 155},
-        {"label": "Total Operating Hours", "fieldname": "total_operating_hours", "fieldtype": "Float", "precision": 1, "width": 145},
+        {"label": "Machine Opening Hours", "fieldname": "machine_opening_hours", "fieldtype": "Data", "width": 155},
+        {"label": "Machine Closing Hours", "fieldname": "machine_closing_hours", "fieldtype": "Data", "width": 155},
+        {"label": "Total Operating Hours", "fieldname": "total_operating_hours", "fieldtype": "Data", "width": 145},
 
         {"label": "Material Type", "fieldname": "material_type", "fieldtype": "Data", "width": 115},
-        {"label": "Total Loads", "fieldname": "total_loads", "fieldtype": "Float", "precision": 1, "width": 105},
-        {"label": "BCMs", "fieldname": "bcms", "fieldtype": "Float", "precision": 1, "width": 105},
+        {"label": "Total Loads", "fieldname": "total_loads", "fieldtype": "Data", "width": 105},
+        {"label": "BCMs", "fieldname": "bcms", "fieldtype": "Data", "width": 105},
 
-        {"label": "Diesel Poured", "fieldname": "diesel_poured", "fieldtype": "Float", "precision": 1, "width": 120},
-        {"label": "Machine Hours When Poured", "fieldname": "machine_hours_when_poured", "fieldtype": "Float", "precision": 1, "width": 180},
+        {"label": "Diesel Poured", "fieldname": "diesel_poured", "fieldtype": "Data", "width": 120},
+        {"label": "Machine Hours When Poured", "fieldname": "machine_hours_when_poured", "fieldtype": "Data", "width": 180},
         {"label": "Diesel Bowser", "fieldname": "diesel_bowser", "fieldtype": "Data", "width": 130},
         {"label": "Diesel Sheet Ref", "fieldname": "diesel_sheet_ref", "fieldtype": "Data", "width": 140},
         {"label": "Diesel Operator", "fieldname": "diesel_operator", "fieldtype": "Data", "width": 165},
@@ -46,52 +54,123 @@ def get_columns():
         {"label": "Remarks", "fieldname": "remarks", "fieldtype": "Data", "width": 240},
     ]
 
-
 def get_data(filters):
+    asset_rows = get_asset_rows(filters)
     production_rows = get_production_rows(filters)
     engine_hours = get_engine_hours(filters)
     diesel_rows = get_diesel_rows(filters)
 
     data = []
 
-    for row in production_rows:
-        key = make_key(row.date, row.site, row.shift, row.machine)
+    for asset in asset_rows:
+        key = make_key(asset.date, asset.site, asset.shift, asset.machine)
+
+        production = production_rows.get(key, frappe._dict())
         engine = engine_hours.get(key, frappe._dict())
         diesel = diesel_rows.get(key, frappe._dict())
 
         data.append({
-            "date": row.date,
-            "site": row.site,
-            "shift": row.shift,
+            "date": asset.date,
+            "site": asset.site,
+            "shift": asset.shift,
 
-            "fleet_nr": row.fleet_nr or row.machine,
-            "machine": row.machine,
-            "at_exc": row.at_exc or row.excavator_asset or "",
+            "fleet_nr": asset.fleet_nr or asset.machine,
+            "machine": asset.machine,
+            "at_exc": production.get("at_exc") or "N/A",
 
-            "start_of_shift": get_shift_start(row.shift),
-            "first_load_time": row.first_load_time,
-            "last_load_time": row.last_load_time,
-            "end_of_shift_time": get_shift_end(row.shift),
+            "start_of_shift": get_shift_start(asset.shift),
+            "end_of_shift_time": get_shift_end(asset.shift),
 
-            "machine_opening_hours": engine.get("eng_hrs_start"),
-            "machine_closing_hours": engine.get("eng_hrs_end"),
-            "total_operating_hours": engine.get("working_hours"),
+            "machine_opening_hours": engine.get("eng_hrs_start") if engine.get("eng_hrs_start") is not None else "N/A",
+            "machine_closing_hours": engine.get("eng_hrs_end") if engine.get("eng_hrs_end") is not None else "N/A",
+            "total_operating_hours": engine.get("working_hours") if engine.get("working_hours") is not None else "N/A",
 
-            "material_type": row.material_type,
-            "total_loads": flt(row.total_loads),
-            "bcms": flt(row.bcms),
+            "material_type": production.get("material_type") or "N/A",
+            "total_loads": flt(production.get("total_loads")) if production.get("total_loads") is not None else "N/A",
+            "bcms": flt(production.get("bcms")) if production.get("bcms") is not None else "N/A",
 
-            "diesel_poured": diesel.get("diesel_poured"),
-            "machine_hours_when_poured": diesel.get("machine_hours_when_poured"),
-            "diesel_bowser": diesel.get("diesel_bowser"),
-            "diesel_sheet_ref": diesel.get("diesel_sheet_ref"),
-            "diesel_operator": diesel.get("diesel_operator"),
+            "diesel_poured": flt(diesel.get("diesel_poured")) if diesel.get("diesel_poured") is not None else "N/A",
+            "machine_hours_when_poured": diesel.get("machine_hours_when_poured") if diesel.get("machine_hours_when_poured") is not None else "N/A",
+            "diesel_bowser": diesel.get("diesel_bowser") or "N/A",
+            "diesel_sheet_ref": diesel.get("diesel_sheet_ref") or "N/A",
+            "diesel_operator": diesel.get("diesel_operator") or "N/A",
 
             "remarks": build_remarks(engine, diesel),
         })
 
     return data
 
+
+def get_asset_rows(filters):
+    conditions = ""
+    values = {
+        "categories": tuple(ALLOWED_ASSET_CATEGORIES),
+        "from_date": filters.from_date,
+        "to_date": filters.to_date,
+    }
+
+    if filters.get("location"):
+        conditions += " AND a.location = %(location)s"
+        values["location"] = filters.location
+
+    if filters.get("asset"):
+        conditions += " AND a.name = %(asset)s"
+        values["asset"] = filters.asset
+
+    shift_filter = ""
+    if filters.get("shift"):
+        shift_filter = " AND shifts.shift = %(shift)s"
+        values["shift"] = filters.shift
+
+    return frappe.db.sql(f"""
+        SELECT
+            dates.date AS date,
+            a.location AS site,
+            shifts.shift AS shift,
+            a.name AS machine,
+            a.asset_name AS fleet_nr,
+            a.asset_category
+        FROM `tabAsset` a
+        CROSS JOIN (
+            SELECT DISTINCT hp.prod_date AS date
+            FROM `tabHourly Production` hp
+            WHERE hp.docstatus < 2
+              AND hp.prod_date >= %(from_date)s
+              AND hp.prod_date <= %(to_date)s
+
+            UNION
+
+            SELECT DISTINCT puh.shift_date AS date
+            FROM `tabPre-Use Hours` puh
+            WHERE puh.docstatus < 2
+              AND puh.shift_date >= %(from_date)s
+              AND puh.shift_date <= %(to_date)s
+
+            UNION
+
+            SELECT DISTINCT dds.daily_sheet_date AS date
+            FROM `tabDaily Diesel Sheet` dds
+            WHERE dds.docstatus < 2
+              AND dds.daily_sheet_date >= %(from_date)s
+              AND dds.daily_sheet_date <= %(to_date)s
+        ) dates
+        CROSS JOIN (
+            SELECT 'Day' AS shift
+            UNION SELECT 'Night'
+            UNION SELECT 'Morning'
+            UNION SELECT 'Afternoon'
+        ) shifts
+        WHERE a.docstatus = 1
+          AND a.asset_category IN %(categories)s
+          {conditions}
+          {shift_filter}
+        ORDER BY
+            dates.date ASC,
+            a.location ASC,
+            shifts.shift ASC,
+            a.asset_category ASC,
+            a.asset_name ASC
+    """, values, as_dict=True)
 
 def get_production_rows(filters):
     conditions, values = get_hp_conditions(filters)
@@ -104,7 +183,7 @@ def get_production_rows(filters):
         conditions += " AND tl.mat_type = %(material_type)s"
         values["material_type"] = filters.material_type
 
-    return frappe.db.sql(f"""
+    rows = frappe.db.sql(f"""
         SELECT
             hp.prod_date AS date,
             hp.location AS site,
@@ -119,10 +198,7 @@ def get_production_rows(filters):
             tl.mat_type AS material_type,
 
             SUM(COALESCE(tl.loads, 0)) AS total_loads,
-            SUM(COALESCE(tl.bcms, 0)) AS bcms,
-
-            MIN(hp.hour_slot) AS first_load_time,
-            MAX(hp.hour_slot) AS last_load_time
+            SUM(COALESCE(tl.bcms, 0)) AS bcms
 
         FROM `tabHourly Production` hp
         INNER JOIN `tabTruck Loads` tl ON tl.parent = hp.name
@@ -152,6 +228,11 @@ def get_production_rows(filters):
             tl.mat_type ASC
     """, values, as_dict=True)
 
+    out = {}
+    for row in rows:
+        out[make_key(row.date, row.site, row.shift, row.machine)] = row
+
+    return out
 
 def get_engine_hours(filters):
     conditions, values = get_preuse_conditions(filters)
@@ -197,7 +278,7 @@ def get_diesel_rows(filters):
             dde.asset_name AS machine,
 
             SUM(COALESCE(dde.litres_issued, 0)) AS diesel_poured,
-            MAX(dde.close_reading) AS machine_hours_when_poured,
+            MAX(dde.hourskm) AS machine_hours_when_poured,
 
             bowser.asset_name AS diesel_bowser,
             dds.daily_diesel_sheet_ref AS diesel_sheet_ref,
