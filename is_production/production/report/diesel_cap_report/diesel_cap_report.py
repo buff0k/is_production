@@ -281,7 +281,7 @@ def get_latest_survey_by_site(end_date, site=None) -> dict[str, dict]:
 
 def get_diesel_totals_by_site(start_date, end_date, site=None) -> dict[str, float]:
 	conditions = [
-		"dds.docstatus = 1",
+		"dds.docstatus IN (0, 1)",
 		"dds.daily_sheet_date BETWEEN %(start_date)s AND %(end_date)s",
 	]
 	values = {

@@ -77,41 +77,65 @@ def get_columns():
 
 
 def get_data(filters):
-    # Determine group by field based on the filter
     if filters.get("group_by") == "Site":
-        group_by_field = "dds.location"
-    elif filters.get("group_by") == "Asset Name":
-        group_by_field = "dde.asset_name"
-    elif filters.get("group_by") == "Asset Category":
-        group_by_field = "a.asset_category"
+        query = """
+        SELECT
+            DATE_FORMAT(dds.daily_sheet_date, '%%Y-%%m-%%d') AS day,
+            dds.location AS group_value,
+            dds.docstatus,
+            SUM(COALESCE(dds.litres_issued_equipment, 0)) AS litres_issued
+        FROM
+            `tabDaily Diesel Sheet` AS dds
+        WHERE
+            dds.daily_sheet_date IS NOT NULL
+            AND dds.docstatus IN (0, 1)
+        """
+
+        conditions = []
+        if filters.get("date_from"):
+            conditions.append("dds.daily_sheet_date >= %(date_from)s")
+        if filters.get("date_to"):
+            conditions.append("dds.daily_sheet_date <= %(date_to)s")
+        if filters.get("site"):
+            conditions.append("dds.location = %(site)s")
+
+        if conditions:
+            query += " AND " + " AND ".join(conditions)
+
+        query += """
+        GROUP BY day, dds.location, dds.docstatus
+        ORDER BY day, dds.location
+        """
+
     else:
-        group_by_field = ""
+        if filters.get("group_by") == "Asset Name":
+            group_by_field = "dde.asset_name"
+        elif filters.get("group_by") == "Asset Category":
+            group_by_field = "a.asset_category"
+        else:
+            group_by_field = "dds.location"
 
-    # Additional field for asset_category if grouping by asset_name or asset_category
-    additional_field = ", a.asset_category" if filters.get("group_by") in ["Asset Name", "Asset Category"] else ""
+        additional_field = ", a.asset_category" if filters.get("group_by") in ["Asset Name", "Asset Category"] else ""
 
-    # SQL query to sum up litres issued grouped by the selected field
-    query = f"""
-    SELECT
-        DATE_FORMAT(dds.daily_sheet_date, '%%Y-%%m-%%d') AS day,
-        {group_by_field} AS group_value
-        {additional_field},
-        dds.docstatus,
-        SUM(dde.litres_issued) AS litres_issued
-    FROM
-        `tabDaily Diesel Entries` AS dde
-    INNER JOIN
-        `tabDaily Diesel Sheet` AS dds ON dde.parent = dds.name
-    LEFT JOIN
-        `tabAsset` AS a ON dde.asset_name = a.name
-    WHERE
-        dds.daily_sheet_date IS NOT NULL
-        AND dds.docstatus IN (0, 1)  -- Draft (0) + Submitted (1)
-    """
+        query = f"""
+        SELECT
+            DATE_FORMAT(dds.daily_sheet_date, '%%Y-%%m-%%d') AS day,
+            {group_by_field} AS group_value
+            {additional_field},
+            dds.docstatus,
+            SUM(COALESCE(dde.litres_issued, 0)) AS litres_issued
+        FROM
+            `tabDaily Diesel Entries` AS dde
+        INNER JOIN
+            `tabDaily Diesel Sheet` AS dds ON dde.parent = dds.name
+        LEFT JOIN
+            `tabAsset` AS a ON dde.asset_name = a.name
+        WHERE
+            dds.daily_sheet_date IS NOT NULL
+            AND dds.docstatus IN (0, 1)
+        """
 
-    # Apply filters dynamically
-    conditions = []
-    if filters:
+        conditions = []
         if filters.get("date_from"):
             conditions.append("dds.daily_sheet_date >= %(date_from)s")
         if filters.get("date_to"):
@@ -123,23 +147,18 @@ def get_data(filters):
         if filters.get("asset_category"):
             conditions.append("a.asset_category = %(asset_category)s")
 
-    if conditions:
-        query += " AND " + " AND ".join(conditions)
+        if conditions:
+            query += " AND " + " AND ".join(conditions)
 
-    # Add GROUP BY and ORDER BY clauses
-    if group_by_field:
         query += f" GROUP BY day, {group_by_field}, dds.docstatus"
+
         if filters.get("group_by") == "Asset Name":
             query += ", a.asset_category"
-    else:
-        query += " GROUP BY day, dds.docstatus"
 
-    query += f" ORDER BY day, {group_by_field}"
+        query += f" ORDER BY day, {group_by_field}"
 
-    # Execute the query with filters
     data = frappe.db.sql(query, filters, as_dict=True)
 
-    # Map docstatus numbers to readable labels
     status_map = {0: "Draft", 1: "Submitted", 2: "Cancelled"}
 
     formatted_data = [
