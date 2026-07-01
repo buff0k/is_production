@@ -278,7 +278,7 @@ def get_diesel_rows(filters):
             dde.asset_name AS machine,
 
             SUM(COALESCE(dde.litres_issued, 0)) AS diesel_poured,
-            MAX(dde.hourskm) AS machine_hours_when_poured,
+            MAX(dde.hours_km) AS machine_hours_when_poured,
 
             bowser.asset_name AS diesel_bowser,
             dds.daily_diesel_sheet_ref AS diesel_sheet_ref,
