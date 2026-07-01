@@ -236,9 +236,6 @@ main,
 <script>
 (function () {
     const STORAGE_KEY = "portal_site_volume_graphs_monthly_production_plan";
-    const WATCHDOG_INTERVAL_MS = 60 * 1000;
-    const REQUEST_TIMEOUT_MS = 120 * 1000;
-    const WAKE_REFRESH_AFTER_MS = 2 * 60 * 1000;
 
     const TARGET_LINE_COLOR = "#9E9E9E";
     const ACTUAL_ABOVE_TARGET_COLOR = "#2fb344";
@@ -260,9 +257,6 @@ main,
     let _auto_refresh_started = false;
     let _refreshing = false;
     let _timer = null;
-    let _watchdog = null;
-    let _last_success_ms = 0;
-    let _last_slot_attempted = "";
 
     function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -281,68 +275,6 @@ main,
     function normaliseFloat(value) {
         const parsed = parseFloat(value);
         return Number.isFinite(parsed) ? parsed : 0;
-    }
-
-    function pad2(value) {
-        return String(value).padStart(2, "0");
-    }
-
-    function currentSlotKey() {
-        const now = new Date();
-        const slot = new Date(now.getTime());
-
-        slot.setSeconds(0, 0);
-
-        if (slot.getMinutes() >= 30) {
-            slot.setMinutes(30);
-        } else if (slot.getMinutes() >= 10) {
-            slot.setMinutes(10);
-        } else {
-            slot.setHours(slot.getHours() - 1);
-            slot.setMinutes(30);
-        }
-
-        return (
-            slot.getFullYear() + "-" +
-            pad2(slot.getMonth() + 1) + "-" +
-            pad2(slot.getDate()) + " " +
-            pad2(slot.getHours()) + ":" +
-            pad2(slot.getMinutes())
-        );
-    }
-
-    function ms_until_next_refresh() {
-        const now = new Date();
-        const next = new Date(now.getTime());
-
-        next.setSeconds(0, 0);
-
-        if (now.getMinutes() < 10) {
-            next.setMinutes(10);
-        } else if (now.getMinutes() < 30) {
-            next.setMinutes(30);
-        } else {
-            next.setHours(next.getHours() + 1);
-            next.setMinutes(10);
-        }
-
-        return Math.max(1000, next.getTime() - now.getTime());
-    }
-
-    function withTimeout(promise, ms) {
-        let timer = null;
-
-        const timeout = new Promise(function (_resolve, reject) {
-            timer = setTimeout(function () {
-                reject(new Error("Request timed out"));
-            }, ms);
-        });
-
-        return Promise.race([promise, timeout]).finally(function () {
-            if (timer) {
-                clearTimeout(timer);
-            }
-        });
     }
 
     function parseJsonArray(value) {
@@ -364,9 +296,11 @@ main,
 
     function extractRowsFromPayload(payload) {
         if (!payload) return [];
+
         if (Array.isArray(payload.result)) return payload.result;
         if (Array.isArray(payload.data)) return payload.data;
         if (Array.isArray(payload)) return payload;
+
         return [];
     }
 
@@ -749,23 +683,30 @@ main,
         renderCharts(chartConfigs);
     }
 
+    function ms_until_next_refresh() {
+        const now = new Date();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+        const ms = now.getMilliseconds();
+
+        let nextMinute;
+
+        if (minutes < 10) {
+            nextMinute = 10;
+        } else if (minutes < 30) {
+            nextMinute = 30;
+        } else {
+            nextMinute = 70;
+        }
+
+        return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
+    }
+
     function clear_existing_timer() {
         if (_timer) {
             clearTimeout(_timer);
             _timer = null;
         }
-    }
-
-    function schedule_next_refresh() {
-        clear_existing_timer();
-
-        if (!input.value) {
-            return;
-        }
-
-        _timer = setTimeout(function () {
-            auto_refresh();
-        }, ms_until_next_refresh());
     }
 
     function start_aligned_refresh() {
@@ -774,28 +715,32 @@ main,
         }
 
         _auto_refresh_started = true;
-        schedule_next_refresh();
 
-        _watchdog = setInterval(function () {
-            auto_refresh();
-        }, WATCHDOG_INTERVAL_MS);
-    }
+        const schedule_next = function () {
+            clear_existing_timer();
+            _timer = setTimeout(auto_refresh, ms_until_next_refresh());
+        };
 
-    function auto_refresh() {
-        if (!input.value || _refreshing) {
-            schedule_next_refresh();
-            return;
-        }
+        const auto_refresh = function () {
+            if (_refreshing) {
+                schedule_next();
+                return;
+            }
 
-        const slotKey = currentSlotKey();
+            if (!input.value) {
+                schedule_next();
+                return;
+            }
 
-        if (slotKey === _last_slot_attempted) {
-            schedule_next_refresh();
-            return;
-        }
+            _refreshing = true;
 
-        _last_slot_attempted = slotKey;
-        load_and_render(true);
+            load_and_render(true).finally(function () {
+                _refreshing = false;
+                schedule_next();
+            });
+        };
+
+        schedule_next();
     }
 
     function run_report(value) {
@@ -817,21 +762,13 @@ main,
             return Promise.resolve();
         }
 
-        if (_refreshing) {
-            return Promise.resolve();
-        }
-
-        _refreshing = true;
         localStorage.setItem(STORAGE_KEY, val);
         statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
 
-        return withTimeout(
-            Promise.all([
-                ensureChartJs(),
-                run_report(val)
-            ]),
-            REQUEST_TIMEOUT_MS
-        ).then(function (results) {
+        return Promise.all([
+            ensureChartJs(),
+            run_report(val)
+        ]).then(function (results) {
             const response = results[1];
 
             renderDashboard(response.message || {});
@@ -840,9 +777,6 @@ main,
                 hour: "2-digit",
                 minute: "2-digit"
             });
-
-            _last_success_ms = Date.now();
-            _last_slot_attempted = currentSlotKey();
 
             statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
 
@@ -854,15 +788,8 @@ main,
             }
         }).catch(function (e) {
             console.error("Site Volume Graphs portal error:", e);
-
-            if (!dashEl.innerHTML) {
-                dashEl.innerHTML = '<div class="text-danger">Could not load graphs.</div>';
-            }
-
-            statusEl.textContent = "Refresh failed. Will try again at :10 and :30.";
-        }).finally(function () {
-            _refreshing = false;
-            schedule_next_refresh();
+            statusEl.textContent = "Error loading Site Volume Graphs. Check browser console and server logs.";
+            dashEl.innerHTML = '<div class="text-danger">Could not load graphs. Check console / server logs.</div>';
         });
     }
 
@@ -911,8 +838,6 @@ main,
         input.value = optionEl.getAttribute("data-value");
         dropdown.style.display = "none";
 
-        _last_slot_attempted = "";
-
         load_and_render(false);
         start_aligned_refresh();
     });
@@ -924,27 +849,6 @@ main,
         }
     });
 
-    function wake_check() {
-        if (!input.value || _refreshing) {
-            return;
-        }
-
-        if (!_last_success_ms || Date.now() - _last_success_ms > WAKE_REFRESH_AFTER_MS) {
-            _last_slot_attempted = "";
-            load_and_render(true);
-        }
-    }
-
-    document.addEventListener("visibilitychange", function () {
-        if (!document.hidden) {
-            wake_check();
-        }
-    });
-
-    window.addEventListener("focus", wake_check);
-    window.addEventListener("pageshow", wake_check);
-    window.addEventListener("online", wake_check);
-
     const last = localStorage.getItem(STORAGE_KEY);
 
     if (last) {
@@ -955,12 +859,6 @@ main,
 
     window.addEventListener("beforeunload", function () {
         clear_existing_timer();
-
-        if (_watchdog) {
-            clearInterval(_watchdog);
-            _watchdog = null;
-        }
-
         destroyCharts();
     });
 })();

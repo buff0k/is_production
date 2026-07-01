@@ -1,4 +1,5 @@
 import json
+
 import frappe
 from frappe import _
 
@@ -55,6 +56,7 @@ def _get_site_order_map(docname):
 
     for idx, row in enumerate(rows):
         site = (row.get("site") or "").strip()
+
         if site and site not in order_map:
             order_map[site] = idx
 
@@ -78,11 +80,11 @@ def search_define_monthly_production(txt=""):
     _check_access()
 
     txt = (txt or "").strip()
-
     filters = {}
+
     if txt:
         filters = {
-            "name": ["like", f"%{txt}%"]
+            "name": ["like", f"%{txt}%"],
         }
 
     return frappe.get_all(
@@ -107,9 +109,11 @@ def run_portal_report(monthly_production_plan=None, define_monthly_production=No
 
     payload = run(
         report_name="CEO Dashboard One Graphs",
-        filters=json.dumps({
-            "define_monthly_production": selected_plan
-        })
+        filters=json.dumps(
+            {
+                "define_monthly_production": selected_plan,
+            }
+        ),
     )
 
     return {
