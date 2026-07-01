@@ -235,26 +235,9 @@ main,
 
 <script>
 (function () {
-    "use strict";
-
     const STORAGE_KEY = "portal_site_volume_graphs_monthly_production_plan";
-
-    /*
-        This watchdog does NOT run the report every minute.
-        It only checks every minute whether the :10 or :30 refresh was missed.
-    */
     const WATCHDOG_INTERVAL_MS = 60 * 1000;
-
-    /*
-        If a Frappe call or Chart.js load hangs longer than this, release the
-        browser-side lock and allow the next watchdog/timer to try again.
-    */
-    const AJAX_TIMEOUT_MS = 2 * 60 * 1000;
-
-    /*
-        When the browser wakes/focuses again, refresh if the last successful
-        refresh is older than this.
-    */
+    const REQUEST_TIMEOUT_MS = 120 * 1000;
     const WAKE_REFRESH_AFTER_MS = 2 * 60 * 1000;
 
     const TARGET_LINE_COLOR = "#9E9E9E";
@@ -274,13 +257,12 @@ main,
     const dashEl = document.getElementById("dashboard_content");
 
     let _charts = [];
+    let _auto_refresh_started = false;
     let _refreshing = false;
     let _timer = null;
     let _watchdog = null;
-    let _lastSuccessAt = 0;
-    let _lastSlotKeyRefreshed = "";
-    let _lastLoadFailed = false;
-    let _requestSeq = 0;
+    let _last_success_ms = 0;
+    let _last_slot_attempted = "";
 
     function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -301,55 +283,43 @@ main,
         return Number.isFinite(parsed) ? parsed : 0;
     }
 
-    function formatTime(date) {
-        return date.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        });
-    }
-
     function pad2(value) {
         return String(value).padStart(2, "0");
     }
 
-    function slotKey(date) {
-        return (
-            date.getFullYear() + "-" +
-            pad2(date.getMonth() + 1) + "-" +
-            pad2(date.getDate()) + " " +
-            pad2(date.getHours()) + ":" +
-            pad2(date.getMinutes())
-        );
-    }
-
-    function mostRecentRefreshSlot(now) {
+    function currentSlotKey() {
+        const now = new Date();
         const slot = new Date(now.getTime());
+
         slot.setSeconds(0, 0);
 
-        const minutes = slot.getMinutes();
-
-        if (minutes >= 30) {
+        if (slot.getMinutes() >= 30) {
             slot.setMinutes(30);
-        } else if (minutes >= 10) {
+        } else if (slot.getMinutes() >= 10) {
             slot.setMinutes(10);
         } else {
             slot.setHours(slot.getHours() - 1);
             slot.setMinutes(30);
         }
 
-        return slot;
+        return (
+            slot.getFullYear() + "-" +
+            pad2(slot.getMonth() + 1) + "-" +
+            pad2(slot.getDate()) + " " +
+            pad2(slot.getHours()) + ":" +
+            pad2(slot.getMinutes())
+        );
     }
 
-    function msUntilNextRefresh() {
+    function ms_until_next_refresh() {
         const now = new Date();
         const next = new Date(now.getTime());
+
         next.setSeconds(0, 0);
 
-        const minutes = now.getMinutes();
-
-        if (minutes < 10) {
+        if (now.getMinutes() < 10) {
             next.setMinutes(10);
-        } else if (minutes < 30) {
+        } else if (now.getMinutes() < 30) {
             next.setMinutes(30);
         } else {
             next.setHours(next.getHours() + 1);
@@ -357,6 +327,22 @@ main,
         }
 
         return Math.max(1000, next.getTime() - now.getTime());
+    }
+
+    function withTimeout(promise, ms) {
+        let timer = null;
+
+        const timeout = new Promise(function (_resolve, reject) {
+            timer = setTimeout(function () {
+                reject(new Error("Request timed out"));
+            }, ms);
+        });
+
+        return Promise.race([promise, timeout]).finally(function () {
+            if (timer) {
+                clearTimeout(timer);
+            }
+        });
     }
 
     function parseJsonArray(value) {
@@ -378,11 +364,9 @@ main,
 
     function extractRowsFromPayload(payload) {
         if (!payload) return [];
-
         if (Array.isArray(payload.result)) return payload.result;
         if (Array.isArray(payload.data)) return payload.data;
         if (Array.isArray(payload)) return payload;
-
         return [];
     }
 
@@ -765,201 +749,139 @@ main,
         renderCharts(chartConfigs);
     }
 
-    function selectedValue() {
-        return String(input.value || "").trim();
-    }
-
-    function clearExistingTimer() {
+    function clear_existing_timer() {
         if (_timer) {
             clearTimeout(_timer);
             _timer = null;
         }
     }
 
-    function scheduleNextRefresh() {
-        clearExistingTimer();
+    function schedule_next_refresh() {
+        clear_existing_timer();
 
-        if (!selectedValue()) {
+        if (!input.value) {
             return;
         }
 
         _timer = setTimeout(function () {
-            refreshForDueSlot("aligned-timer");
-        }, msUntilNextRefresh());
+            auto_refresh();
+        }, ms_until_next_refresh());
     }
 
-    function runReport(value) {
+    function start_aligned_refresh() {
+        if (_auto_refresh_started) {
+            return;
+        }
+
+        _auto_refresh_started = true;
+        schedule_next_refresh();
+
+        _watchdog = setInterval(function () {
+            auto_refresh();
+        }, WATCHDOG_INTERVAL_MS);
+    }
+
+    function auto_refresh() {
+        if (!input.value || _refreshing) {
+            schedule_next_refresh();
+            return;
+        }
+
+        const slotKey = currentSlotKey();
+
+        if (slotKey === _last_slot_attempted) {
+            schedule_next_refresh();
+            return;
+        }
+
+        _last_slot_attempted = slotKey;
+        load_and_render(true);
+    }
+
+    function run_report(value) {
         return frappe.call({
             method: "is_production.templates.pages.portal_site_volume_graphs.run_portal_report",
             args: {
-                monthly_production_plan: value,
-                define_monthly_production: value,
-                request_time: new Date().toISOString()
+                monthly_production_plan: value
             },
             freeze: false
         });
     }
 
-    function withTimeout(promise, timeoutMs) {
-        let timeoutHandle = null;
-
-        const timeoutPromise = new Promise(function (_resolve, reject) {
-            timeoutHandle = setTimeout(function () {
-                reject(new Error("Refresh request timed out after " + Math.round(timeoutMs / 1000) + " seconds."));
-            }, timeoutMs);
-        });
-
-        return Promise.race([promise, timeoutPromise]).finally(function () {
-            if (timeoutHandle) {
-                clearTimeout(timeoutHandle);
-            }
-        });
-    }
-
-    function loadAndRender(isAuto, reason) {
-        const val = selectedValue();
+    function load_and_render(is_auto) {
+        const val = input.value;
 
         if (!val) {
             statusEl.textContent = "Select a Define Monthly Production to load the graphs.";
             dashEl.innerHTML = "";
-            return Promise.resolve(false);
+            return Promise.resolve();
         }
 
         if (_refreshing) {
-            return Promise.resolve(false);
+            return Promise.resolve();
         }
 
         _refreshing = true;
-        _requestSeq += 1;
-
-        const thisRequestSeq = _requestSeq;
-
         localStorage.setItem(STORAGE_KEY, val);
-        statusEl.textContent = isAuto ? "Refreshing..." : "Loading...";
+        statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
 
         return withTimeout(
             Promise.all([
                 ensureChartJs(),
-                runReport(val)
+                run_report(val)
             ]),
-            AJAX_TIMEOUT_MS
+            REQUEST_TIMEOUT_MS
         ).then(function (results) {
-            if (thisRequestSeq !== _requestSeq) {
-                return false;
-            }
-
             const response = results[1];
 
             renderDashboard(response.message || {});
 
-            const now = new Date();
-            const time = formatTime(now);
+            const time = new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit"
+            });
 
-            _lastSuccessAt = now.getTime();
-            _lastLoadFailed = false;
-            _lastSlotKeyRefreshed = slotKey(mostRecentRefreshSlot(now));
+            _last_success_ms = Date.now();
+            _last_slot_attempted = currentSlotKey();
 
             statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
 
-            if (isAuto && frappe.show_alert) {
+            if (is_auto && frappe.show_alert) {
                 frappe.show_alert({
                     message: "Site Volume Graphs updated at " + time,
                     indicator: "green"
                 }, 5);
             }
-
-            return true;
         }).catch(function (e) {
-            if (thisRequestSeq !== _requestSeq) {
-                return false;
-            }
-
             console.error("Site Volume Graphs portal error:", e);
-            _lastLoadFailed = true;
 
-            statusEl.textContent = "Error loading Site Volume Graphs. Retrying automatically at :10 and :30.";
-            dashEl.innerHTML = (
-                '<div class="text-danger">' +
-                    "Could not load graphs. Check console / server logs." +
-                '</div>'
-            );
-
-            return false;
-        }).finally(function () {
-            if (thisRequestSeq === _requestSeq) {
-                _refreshing = false;
+            if (!dashEl.innerHTML) {
+                dashEl.innerHTML = '<div class="text-danger">Could not load graphs.</div>';
             }
 
-            scheduleNextRefresh();
+            statusEl.textContent = "Refresh failed. Will try again at :10 and :30.";
+        }).finally(function () {
+            _refreshing = false;
+            schedule_next_refresh();
         });
     }
 
-    function refreshForDueSlot(reason) {
-        if (!selectedValue()) {
-            return;
-        }
-
-        if (_refreshing) {
-            return;
-        }
-
-        const now = new Date();
-        const dueSlot = mostRecentRefreshSlot(now);
-        const dueKey = slotKey(dueSlot);
-
-        if (dueKey === _lastSlotKeyRefreshed && !_lastLoadFailed) {
-            scheduleNextRefresh();
-            return;
-        }
-
-        loadAndRender(true, reason);
-    }
-
-    function refreshAfterWake(reason) {
-        if (!selectedValue()) {
-            return;
-        }
-
-        if (_refreshing) {
-            return;
-        }
-
-        const now = Date.now();
-
-        if (_lastLoadFailed || !_lastSuccessAt || now - _lastSuccessAt >= WAKE_REFRESH_AFTER_MS) {
-            loadAndRender(true, reason);
-        } else {
-            scheduleNextRefresh();
-        }
-    }
-
-    function startRefreshEngine() {
-        scheduleNextRefresh();
-
-        if (!_watchdog) {
-            _watchdog = setInterval(function () {
-                refreshForDueSlot("watchdog");
-            }, WATCHDOG_INTERVAL_MS);
-        }
-    }
-
-    async function searchDefineMonthlyProduction(term) {
+    async function search_define_monthly_production(term) {
         const r = await frappe.call({
             method: "is_production.templates.pages.portal_site_volume_graphs.search_define_monthly_production",
             args: {
                 txt: term || ""
-            },
-            freeze: false
+            }
         });
 
         return r.message || [];
     }
 
-    async function renderDropdown() {
+    async function render_dropdown() {
         const term = input.value || "";
 
         try {
-            const results = await searchDefineMonthlyProduction(term);
+            const results = await search_define_monthly_production(term);
 
             if (!results.length) {
                 dropdown.innerHTML = '<div class="portal-empty">No matches found</div>';
@@ -979,8 +901,8 @@ main,
         }
     }
 
-    input.addEventListener("focus", renderDropdown);
-    input.addEventListener("input", renderDropdown);
+    input.addEventListener("focus", render_dropdown);
+    input.addEventListener("input", render_dropdown);
 
     dropdown.addEventListener("mousedown", function (e) {
         const optionEl = e.target.closest(".portal-option");
@@ -989,12 +911,10 @@ main,
         input.value = optionEl.getAttribute("data-value");
         dropdown.style.display = "none";
 
-        _lastSuccessAt = 0;
-        _lastSlotKeyRefreshed = "";
-        _lastLoadFailed = false;
+        _last_slot_attempted = "";
 
-        loadAndRender(false, "manual-select");
-        startRefreshEngine();
+        load_and_render(false);
+        start_aligned_refresh();
     });
 
     document.addEventListener("click", function (e) {
@@ -1004,26 +924,37 @@ main,
         }
     });
 
+    function wake_check() {
+        if (!input.value || _refreshing) {
+            return;
+        }
+
+        if (!_last_success_ms || Date.now() - _last_success_ms > WAKE_REFRESH_AFTER_MS) {
+            _last_slot_attempted = "";
+            load_and_render(true);
+        }
+    }
+
     document.addEventListener("visibilitychange", function () {
         if (!document.hidden) {
-            refreshAfterWake("visibilitychange");
+            wake_check();
         }
     });
 
-    window.addEventListener("focus", function () {
-        refreshAfterWake("focus");
-    });
+    window.addEventListener("focus", wake_check);
+    window.addEventListener("pageshow", wake_check);
+    window.addEventListener("online", wake_check);
 
-    window.addEventListener("pageshow", function () {
-        refreshAfterWake("pageshow");
-    });
+    const last = localStorage.getItem(STORAGE_KEY);
 
-    window.addEventListener("online", function () {
-        refreshAfterWake("online");
-    });
+    if (last) {
+        input.value = last;
+        load_and_render(false);
+        start_aligned_refresh();
+    }
 
     window.addEventListener("beforeunload", function () {
-        clearExistingTimer();
+        clear_existing_timer();
 
         if (_watchdog) {
             clearInterval(_watchdog);
@@ -1032,16 +963,6 @@ main,
 
         destroyCharts();
     });
-
-    const last = localStorage.getItem(STORAGE_KEY);
-
-    if (last) {
-        input.value = last;
-        loadAndRender(false, "restore-selection");
-        startRefreshEngine();
-    } else {
-        statusEl.textContent = "Select a Define Monthly Production to load the graphs.";
-    }
 })();
 </script>
 {% endblock %}

@@ -1,6 +1,4 @@
-import inspect
 import json
-
 import frappe
 from frappe import _
 
@@ -14,8 +12,6 @@ ALLOWED_ROLES = [
     "All",
 ]
 
-
-REPORT_NAME = "CEO Dashboard One Graphs"
 
 SITE_COLOUR_METHOD = (
     "is_production.production.doctype.production_dashboard_setup."
@@ -52,10 +48,6 @@ def _get_site_order_map(docname):
     try:
         doc = frappe.get_doc("Define Monthly Production", docname)
     except Exception:
-        frappe.log_error(
-            frappe.get_traceback(),
-            "Portal Site Volume Graphs: could not load site order map",
-        )
         return {}
 
     rows = doc.get("define") or []
@@ -81,24 +73,6 @@ def _get_site_colour_map():
         return {}
 
 
-def _run_query_report(report_name, filters):
-    run = frappe.get_attr("frappe.desk.query_report.run")
-    signature = inspect.signature(run)
-
-    kwargs = {
-        "report_name": report_name,
-        "filters": json.dumps(filters),
-    }
-
-    if "ignore_prepared_report" in signature.parameters:
-        kwargs["ignore_prepared_report"] = True
-
-    if "are_default_filters" in signature.parameters:
-        kwargs["are_default_filters"] = False
-
-    return run(**kwargs)
-
-
 @frappe.whitelist()
 def search_define_monthly_production(txt=""):
     _check_access()
@@ -108,7 +82,7 @@ def search_define_monthly_production(txt=""):
     filters = {}
     if txt:
         filters = {
-            "name": ["like", f"%{txt}%"],
+            "name": ["like", f"%{txt}%"]
         }
 
     return frappe.get_all(
@@ -121,7 +95,7 @@ def search_define_monthly_production(txt=""):
 
 
 @frappe.whitelist()
-def run_portal_report(monthly_production_plan=None, define_monthly_production=None, request_time=None):
+def run_portal_report(monthly_production_plan=None, define_monthly_production=None):
     _check_access()
 
     selected_plan = (define_monthly_production or monthly_production_plan or "").strip()
@@ -129,25 +103,17 @@ def run_portal_report(monthly_production_plan=None, define_monthly_production=No
     if not selected_plan:
         frappe.throw(_("Define Monthly Production is required."))
 
-    filters = {
-        "define_monthly_production": selected_plan,
-    }
+    run = frappe.get_attr("frappe.desk.query_report.run")
 
-    try:
-        payload = _run_query_report(REPORT_NAME, filters)
-    except Exception:
-        frappe.log_error(
-            frappe.get_traceback(),
-            "Portal Site Volume Graphs: report run failed",
-        )
-        frappe.throw(
-            _("Could not run {0}. Please check the report error log.").format(REPORT_NAME)
-        )
+    payload = run(
+        report_name="CEO Dashboard One Graphs",
+        filters=json.dumps({
+            "define_monthly_production": selected_plan
+        })
+    )
 
     return {
         "payload": payload,
         "site_order_map": _get_site_order_map(selected_plan),
         "site_colour_map": _get_site_colour_map(),
-        "generated_at": frappe.utils.now(),
-        "request_time": request_time,
     }
