@@ -300,22 +300,26 @@ main,
     "use strict";
 
     const STORAGE_KEY = "portal_hourly_dash_define_monthly_production";
+
+    /*
+        This watchdog does NOT run the report every minute.
+        It only checks every minute whether the :10 or :30 refresh was missed.
+    */
     const WATCHDOG_INTERVAL_MS = 60 * 1000;
+
+    /*
+        If a Frappe call hangs longer than this, release the browser-side lock
+        and allow the next watchdog/timer to try again.
+    */
+    const AJAX_TIMEOUT_MS = 2 * 60 * 1000;
+
+    /*
+        When the browser wakes/focuses again, refresh if the last successful
+        refresh is older than this.
+    */
     const WAKE_REFRESH_AFTER_MS = 2 * 60 * 1000;
 
     const SLOT_LABELS = [
-        "06-07", "07-08", "08-09", "09-10", "10-11", "11-12", "12-13",
-        "13-14", "14-15", "15-16", "16-17", "17-18",
-        "18-19", "19-20", "20-21", "21-22", "22-23", "23-24",
-        "24-01", "01-02", "03-04", "04-05", "05-06"
-    ];
-
-    /*
-        IMPORTANT:
-        Correct full 24-hour list below. The small correction keeps the same
-        display as the original dashboard and includes 02-03.
-    */
-    const FULL_SLOT_LABELS = [
         "06-07", "07-08", "08-09", "09-10", "10-11", "11-12", "12-13",
         "13-14", "14-15", "15-16", "16-17", "17-18",
         "18-19", "19-20", "20-21", "21-22", "22-23", "23-24",
@@ -333,6 +337,7 @@ main,
     let _lastSuccessAt = 0;
     let _lastSlotKeyRefreshed = "";
     let _lastLoadFailed = false;
+    let _requestSeq = 0;
 
     function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -414,25 +419,53 @@ main,
         value = normaliseInt(value);
 
         if (value === 0) {
-            return { css_class: "", display: "", title: "" };
+            return {
+                css_class: "",
+                display: "",
+                title: ""
+            };
         }
 
         if (value >= 1 && value <= 199) {
-            return { css_class: "isd-dashboard-cell-low", display: String(value), title: value + " bcm" };
+            return {
+                css_class: "isd-dashboard-cell-low",
+                display: String(value),
+                title: value + " bcm"
+            };
         }
 
         if (value >= 200 && value <= 219) {
-            return { css_class: "isd-dashboard-cell-medium", display: String(value), title: value + " bcm" };
+            return {
+                css_class: "isd-dashboard-cell-medium",
+                display: String(value),
+                title: value + " bcm"
+            };
         }
 
-        return { css_class: "isd-dashboard-cell-high", display: String(value), title: value + " bcm" };
+        return {
+            css_class: "isd-dashboard-cell-high",
+            display: String(value),
+            title: value + " bcm"
+        };
     }
 
     function extractRowsFromPayload(payload) {
-        if (!payload) return [];
-        if (Array.isArray(payload.result)) return payload.result;
-        if (Array.isArray(payload.data)) return payload.data;
-        if (Array.isArray(payload)) return payload;
+        if (!payload) {
+            return [];
+        }
+
+        if (Array.isArray(payload.result)) {
+            return payload.result;
+        }
+
+        if (Array.isArray(payload.data)) {
+            return payload.data;
+        }
+
+        if (Array.isArray(payload)) {
+            return payload;
+        }
+
         return [];
     }
 
@@ -441,7 +474,10 @@ main,
 
         rows.forEach(function (row) {
             const site = String(row.site || "").trim();
-            if (!site) return;
+
+            if (!site) {
+                return;
+            }
 
             if (!siteMap.has(site)) {
                 const fallbackOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, site)
@@ -468,7 +504,10 @@ main,
         });
 
         return Array.from(siteMap.values()).sort(function (a, b) {
-            if (a.site_order !== b.site_order) return a.site_order - b.site_order;
+            if (a.site_order !== b.site_order) {
+                return a.site_order - b.site_order;
+            }
+
             return a.site.localeCompare(b.site);
         });
     }
@@ -478,24 +517,40 @@ main,
             ? String(siteColourMap[site]).trim()
             : "";
 
-        if (!mappedColour) return "background:transparent;";
+        if (!mappedColour) {
+            return "background:transparent;";
+        }
+
         return "background:" + escapeHtml(mappedColour) + ";";
     }
 
     function renderHourHeader() {
-        const hourHeaders = FULL_SLOT_LABELS.map(function (label) {
+        const hourHeaders = SLOT_LABELS.map(function (label) {
             const escapedLabel = escapeHtml(label);
             const displayLabel = escapedLabel.replace("-", "<br>");
-            return '<th class="isd-dashboard-th" title="' + escapedLabel + '">' + displayLabel + '</th>';
+
+            return (
+                '<th class="isd-dashboard-th" title="' + escapedLabel + '">' +
+                    displayLabel +
+                '</th>'
+            );
         }).join("");
 
-        return "<tr>" + '<th class="isd-dashboard-th">Excavator</th>' + hourHeaders + "</tr>";
+        return (
+            "<tr>" +
+                '<th class="isd-dashboard-th">Excavator</th>' +
+                hourHeaders +
+            "</tr>"
+        );
     }
 
     function renderExcavatorRow(row) {
         const excavator = escapeHtml(row.excavator || "");
+
         const cells = [
-            '<td class="isd-dashboard-td isd-dashboard-excavator" title="' + excavator + '">' + excavator + "</td>"
+            '<td class="isd-dashboard-td isd-dashboard-excavator" title="' + excavator + '">' +
+                excavator +
+            "</td>"
         ];
 
         for (let slot = 1; slot <= 24; slot++) {
@@ -526,9 +581,11 @@ main,
                         "Production Day: " + escapeHtml(group.production_day) +
                     "</div>" +
                 "</div>" +
+
                 '<div class="isd-dashboard-table-wrap">' +
                     '<table class="isd-dashboard-table isd-dashboard-table--hourly">' +
-                        renderHourHeader() + rowsHtml +
+                        renderHourHeader() +
+                        rowsHtml +
                     "</table>" +
                 "</div>" +
             "</div>"
@@ -558,6 +615,10 @@ main,
         }).join("");
     }
 
+    function selectedValue() {
+        return String(input.value || "").trim();
+    }
+
     function runReport(value) {
         return frappe.call({
             method: "is_production.templates.pages.portal_hourly_dashboard.run_portal_report",
@@ -569,8 +630,39 @@ main,
         });
     }
 
-    function selectedValue() {
-        return String(input.value || "").trim();
+    function withTimeout(promise, timeoutMs) {
+        let timeoutHandle = null;
+
+        const timeoutPromise = new Promise(function (_resolve, reject) {
+            timeoutHandle = setTimeout(function () {
+                reject(new Error("Refresh request timed out after " + Math.round(timeoutMs / 1000) + " seconds."));
+            }, timeoutMs);
+        });
+
+        return Promise.race([promise, timeoutPromise]).finally(function () {
+            if (timeoutHandle) {
+                clearTimeout(timeoutHandle);
+            }
+        });
+    }
+
+    function clearExistingTimer() {
+        if (_timer) {
+            clearTimeout(_timer);
+            _timer = null;
+        }
+    }
+
+    function scheduleNextRefresh() {
+        clearExistingTimer();
+
+        if (!selectedValue()) {
+            return;
+        }
+
+        _timer = setTimeout(function () {
+            refreshForDueSlot("aligned-timer");
+        }, msUntilNextRefresh());
     }
 
     function loadAndRender(isAuto, reason) {
@@ -587,19 +679,26 @@ main,
         }
 
         _refreshing = true;
+        _requestSeq += 1;
+
+        const thisRequestSeq = _requestSeq;
+
         localStorage.setItem(STORAGE_KEY, val);
         statusEl.textContent = isAuto ? "Refreshing..." : "Loading...";
 
-        return runReport(val).then(function (r) {
+        return withTimeout(runReport(val), AJAX_TIMEOUT_MS).then(function (r) {
+            if (thisRequestSeq !== _requestSeq) {
+                return false;
+            }
+
             renderDashboard(r.message || {});
 
             const now = new Date();
             const time = formatTime(now);
+
             _lastSuccessAt = now.getTime();
             _lastLoadFailed = false;
-
-            const recentSlot = mostRecentRefreshSlot(now);
-            _lastSlotKeyRefreshed = slotKey(recentSlot);
+            _lastSlotKeyRefreshed = slotKey(mostRecentRefreshSlot(now));
 
             statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
 
@@ -612,6 +711,10 @@ main,
 
             return true;
         }).catch(function (e) {
+            if (thisRequestSeq !== _requestSeq) {
+                return false;
+            }
+
             console.error("Hourly Dashboard portal error:", e);
             _lastLoadFailed = true;
 
@@ -620,34 +723,32 @@ main,
                 message += " " + e.message;
             }
 
-            statusEl.textContent = "Error loading dashboard data. Retrying automatically at :10 and :30.";
-            dashEl.innerHTML = '<div class="text-danger">' + escapeHtml(message) + " Check browser console and server logs.</div>";
+            statusEl.textContent = "Error loading Hourly Dashboard. Retrying automatically at :10 and :30.";
+            dashEl.innerHTML = (
+                '<div class="text-danger">' +
+                    escapeHtml(message) +
+                    " Check browser console and server logs." +
+                "</div>"
+            );
+
             return false;
         }).finally(function () {
-            _refreshing = false;
+            if (thisRequestSeq === _requestSeq) {
+                _refreshing = false;
+            }
+
             scheduleNextRefresh();
         });
     }
 
-    function clearExistingTimer() {
-        if (_timer) {
-            clearTimeout(_timer);
-            _timer = null;
-        }
-    }
-
-    function scheduleNextRefresh() {
-        clearExistingTimer();
-
-        if (!selectedValue()) return;
-
-        _timer = setTimeout(function () {
-            refreshForDueSlot("aligned-timer");
-        }, msUntilNextRefresh());
-    }
-
     function refreshForDueSlot(reason) {
-        if (!selectedValue() || _refreshing) return;
+        if (!selectedValue()) {
+            return;
+        }
+
+        if (_refreshing) {
+            return;
+        }
 
         const now = new Date();
         const dueSlot = mostRecentRefreshSlot(now);
@@ -662,9 +763,16 @@ main,
     }
 
     function refreshAfterWake(reason) {
-        if (!selectedValue() || _refreshing) return;
+        if (!selectedValue()) {
+            return;
+        }
+
+        if (_refreshing) {
+            return;
+        }
 
         const now = Date.now();
+
         if (_lastLoadFailed || !_lastSuccessAt || now - _lastSuccessAt >= WAKE_REFRESH_AFTER_MS) {
             loadAndRender(true, reason);
         } else {
@@ -685,7 +793,9 @@ main,
     async function searchDefineMonthlyProduction(term) {
         const r = await frappe.call({
             method: "is_production.templates.pages.portal_hourly_dashboard.search_define_monthly_production",
-            args: { txt: term || "" },
+            args: {
+                txt: term || ""
+            },
             freeze: false
         });
 
@@ -721,10 +831,13 @@ main,
 
     dropdown.addEventListener("mousedown", function (e) {
         const optionEl = e.target.closest(".portal-option");
-        if (!optionEl) return;
+        if (!optionEl) {
+            return;
+        }
 
         input.value = optionEl.getAttribute("data-value");
         dropdown.style.display = "none";
+
         _lastSuccessAt = 0;
         _lastSlotKeyRefreshed = "";
         _lastLoadFailed = false;
@@ -760,6 +873,7 @@ main,
 
     window.addEventListener("beforeunload", function () {
         clearExistingTimer();
+
         if (_watchdog) {
             clearInterval(_watchdog);
             _watchdog = null;
@@ -767,6 +881,7 @@ main,
     });
 
     const last = localStorage.getItem(STORAGE_KEY);
+
     if (last) {
         input.value = last;
         loadAndRender(false, "restore-selection");

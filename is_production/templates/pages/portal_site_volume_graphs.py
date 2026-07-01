@@ -82,13 +82,6 @@ def _get_site_colour_map():
 
 
 def _run_query_report(report_name, filters):
-    """Run the report live.
-
-    Frappe versions differ slightly in the Python signature for
-    frappe.desk.query_report.run. This helper only passes optional arguments
-    when the installed Frappe version supports them.
-    """
-
     run = frappe.get_attr("frappe.desk.query_report.run")
     signature = inspect.signature(run)
 
