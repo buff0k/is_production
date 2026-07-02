@@ -73,6 +73,7 @@ def _get_site_order_map(docname):
     site_order_map = {}
 
     possible_tables = [
+        "define",
         "sites",
         "site_table",
         "production_sites",
@@ -83,13 +84,15 @@ def _get_site_order_map(docname):
     for table_name in possible_tables:
         rows = doc.get(table_name) or []
 
-        for idx, row in enumerate(rows, start=1):
+        for idx, row in enumerate(rows):
             site = (
                 row.get("site")
                 or row.get("location")
                 or row.get("mining_site")
                 or row.get("production_site")
             )
+
+            site = (site or "").strip()
 
             if site and site not in site_order_map:
                 site_order_map[site] = idx

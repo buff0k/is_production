@@ -311,8 +311,21 @@ main,
         "06-07", "07-08", "08-09", "09-10", "10-11", "11-12", "12-13",
         "13-14", "14-15", "15-16", "16-17", "17-18",
         "18-19", "19-20", "20-21", "21-22", "22-23", "23-24",
-        "24-01", "01-02", "02-03", "03-04", "04-05", "05-06"
+        "24-01", "01-02", "03-04", "04-05", "05-06"
     ];
+
+    /*
+        Keep the exact desk-page slot labels.
+        The assignment below protects against accidental edits above.
+    */
+    SLOT_LABELS.splice(
+        0,
+        SLOT_LABELS.length,
+        "06-07", "07-08", "08-09", "09-10", "10-11", "11-12", "12-13",
+        "13-14", "14-15", "15-16", "16-17", "17-18",
+        "18-19", "19-20", "20-21", "21-22", "22-23", "23-24",
+        "24-01", "01-02", "02-03", "03-04", "04-05", "05-06"
+    );
 
     const input = document.getElementById("define_monthly_production");
     const dropdown = document.getElementById("define_monthly_production_dropdown");
@@ -339,6 +352,10 @@ main,
     function normaliseInt(value) {
         const parsed = parseInt(value, 10);
         return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function hasOwn(obj, key) {
+        return Object.prototype.hasOwnProperty.call(obj, key);
     }
 
     function getCellDisplay(value) {
@@ -406,13 +423,13 @@ main,
             }
 
             if (!siteMap.has(site)) {
-                const fallbackOrder = Object.prototype.hasOwnProperty.call(siteOrderMap, site)
-                    ? siteOrderMap[site]
-                    : 999999;
+                const hasMappedOrder = siteOrderMap && hasOwn(siteOrderMap, site);
 
                 siteMap.set(site, {
                     site: site,
-                    site_order: normaliseInt(row.site_order || fallbackOrder),
+                    site_order: hasMappedOrder
+                        ? normaliseInt(siteOrderMap[site])
+                        : normaliseInt(row.site_order),
                     production_day: row.production_day || "",
                     rows: []
                 });
