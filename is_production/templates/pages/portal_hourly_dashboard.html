@@ -245,6 +245,14 @@ main,
     background: #ffffff !important;
 }
 
+.text-muted {
+    color: #6c757d;
+}
+
+.text-danger {
+    color: #dc3545;
+}
+
 @media (max-width: 900px) {
     #portal-hourly-dashboard-app {
         padding: 8px;
@@ -368,11 +376,21 @@ main,
     }
 
     function extractRowsFromPayload(payload) {
-        if (!payload) return [];
+        if (!payload) {
+            return [];
+        }
 
-        if (Array.isArray(payload.result)) return payload.result;
-        if (Array.isArray(payload.data)) return payload.data;
-        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload.result)) {
+            return payload.result;
+        }
+
+        if (Array.isArray(payload.data)) {
+            return payload.data;
+        }
+
+        if (Array.isArray(payload)) {
+            return payload;
+        }
 
         return [];
     }
@@ -501,9 +519,9 @@ main,
     }
 
     function renderDashboard(response) {
-        const payload = response.payload || {};
-        const siteOrderMap = response.site_order_map || {};
-        const siteColourMap = response.site_colour_map || {};
+        const payload = response && response.payload ? response.payload : {};
+        const siteOrderMap = response && response.site_order_map ? response.site_order_map : {};
+        const siteColourMap = response && response.site_colour_map ? response.site_colour_map : {};
         const rows = extractRowsFromPayload(payload);
 
         if (!rows.length) {
@@ -530,9 +548,14 @@ main,
         const ms = now.getMilliseconds();
 
         let nextMinute;
-        if (minutes < 10) nextMinute = 10;
-        else if (minutes < 30) nextMinute = 30;
-        else nextMinute = 70;
+
+        if (minutes < 10) {
+            nextMinute = 10;
+        } else if (minutes < 30) {
+            nextMinute = 30;
+        } else {
+            nextMinute = 70;
+        }
 
         return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
     }
@@ -545,7 +568,10 @@ main,
     }
 
     function start_aligned_refresh() {
-        if (_auto_refresh_started) return;
+        if (_auto_refresh_started) {
+            return;
+        }
+
         _auto_refresh_started = true;
 
         const schedule_next = function () {
@@ -565,6 +591,7 @@ main,
             }
 
             _refreshing = true;
+
             load_and_render(true).finally(function () {
                 _refreshing = false;
                 schedule_next();
@@ -596,27 +623,32 @@ main,
         localStorage.setItem(STORAGE_KEY, val);
         statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
 
-        return run_report(val).then(function (r) {
-            renderDashboard(r.message || {});
+        return run_report(val)
+            .then(function (r) {
+                renderDashboard(r.message || {});
 
-            const time = new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit"
+                const time = new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
+
+                statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
+
+                if (is_auto && frappe.show_alert) {
+                    frappe.show_alert(
+                        {
+                            message: "Hourly Dashboard updated at " + time,
+                            indicator: "green"
+                        },
+                        5
+                    );
+                }
+            })
+            .catch(function (e) {
+                console.error("Hourly Dashboard portal error:", e);
+                statusEl.textContent = "Error loading dashboard data.";
+                dashEl.innerHTML = '<div class="text-danger">Could not load data. Check console / server logs.</div>';
             });
-
-            statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
-
-            if (is_auto && frappe.show_alert) {
-                frappe.show_alert({
-                    message: "Hourly Dashboard updated at " + time,
-                    indicator: "green"
-                }, 5);
-            }
-        }).catch(function (e) {
-            console.error("Hourly Dashboard portal error:", e);
-            statusEl.textContent = "Error loading dashboard data. Check browser console and server logs.";
-            dashEl.innerHTML = '<div class="text-danger">Could not load dashboard data.</div>';
-        });
     }
 
     async function search_define_monthly_production(term) {
@@ -624,7 +656,8 @@ main,
             method: "is_production.templates.pages.portal_hourly_dashboard.search_define_monthly_production",
             args: {
                 txt: term || ""
-            }
+            },
+            freeze: false
         });
 
         return r.message || [];
@@ -643,7 +676,11 @@ main,
             }
 
             dropdown.innerHTML = results.map(function (option) {
-                return '<div class="portal-option" data-value="' + escapeHtml(option) + '">' + escapeHtml(option) + '</div>';
+                return (
+                    '<div class="portal-option" data-value="' + escapeHtml(option) + '">' +
+                        escapeHtml(option) +
+                    '</div>'
+                );
             }).join("");
 
             dropdown.style.display = "block";
@@ -659,7 +696,10 @@ main,
 
     dropdown.addEventListener("mousedown", function (e) {
         const optionEl = e.target.closest(".portal-option");
-        if (!optionEl) return;
+
+        if (!optionEl) {
+            return;
+        }
 
         input.value = optionEl.getAttribute("data-value");
         dropdown.style.display = "none";
@@ -670,20 +710,26 @@ main,
 
     document.addEventListener("click", function (e) {
         const wrap = input.closest(".portal-filter");
+
         if (wrap && !wrap.contains(e.target)) {
             dropdown.style.display = "none";
         }
     });
 
     const last = localStorage.getItem(STORAGE_KEY);
+
     if (last) {
         input.value = last;
         load_and_render(false);
         start_aligned_refresh();
+    } else {
+        statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
     }
 
     window.addEventListener("beforeunload", function () {
         clear_existing_timer();
+        _auto_refresh_started = false;
+        _refreshing = false;
     });
 })();
 </script>

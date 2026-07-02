@@ -4,6 +4,8 @@ import frappe
 from frappe import _
 
 
+REPORT_NAME = "CEO Dashboard One Graphs"
+
 ALLOWED_ROLES = [
     "Production Manager",
     "Production User",
@@ -66,13 +68,33 @@ def _get_site_order_map(docname):
 def _get_site_colour_map():
     try:
         method = frappe.get_attr(SITE_COLOUR_METHOD)
-        return method() or {}
+        result = method()
+        return result if isinstance(result, dict) else {}
     except Exception:
         frappe.log_error(
             frappe.get_traceback(),
             "Portal Site Volume Graphs: could not load site colour map",
         )
         return {}
+
+
+def _run_report(selected_plan):
+    run = frappe.get_attr("frappe.desk.query_report.run")
+
+    filters = {
+        "define_monthly_production": selected_plan,
+    }
+
+    try:
+        return run(
+            report_name=REPORT_NAME,
+            filters=filters,
+        )
+    except TypeError:
+        return run(
+            report_name=REPORT_NAME,
+            filters=json.dumps(filters),
+        )
 
 
 @frappe.whitelist()
@@ -97,7 +119,7 @@ def search_define_monthly_production(txt=""):
 
 
 @frappe.whitelist()
-def run_portal_report(monthly_production_plan=None, define_monthly_production=None):
+def run_portal_report(define_monthly_production=None, monthly_production_plan=None):
     _check_access()
 
     selected_plan = (define_monthly_production or monthly_production_plan or "").strip()
@@ -105,16 +127,14 @@ def run_portal_report(monthly_production_plan=None, define_monthly_production=No
     if not selected_plan:
         frappe.throw(_("Define Monthly Production is required."))
 
-    run = frappe.get_attr("frappe.desk.query_report.run")
-
-    payload = run(
-        report_name="CEO Dashboard One Graphs",
-        filters=json.dumps(
-            {
-                "define_monthly_production": selected_plan,
-            }
-        ),
-    )
+    try:
+        payload = _run_report(selected_plan)
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "Portal Site Volume Graphs: report run failed",
+        )
+        raise
 
     return {
         "payload": payload,

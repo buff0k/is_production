@@ -65,6 +65,7 @@ def _get_site_order_map(docname):
 
     for idx, row in enumerate(rows):
         site = (row.get("site") or "").strip()
+
         if site and site not in order_map:
             order_map[site] = idx
 
@@ -74,7 +75,8 @@ def _get_site_order_map(docname):
 def _get_site_colour_map():
     try:
         method = frappe.get_attr(SITE_COLOUR_METHOD)
-        return method() or {}
+        result = method()
+        return result if isinstance(result, dict) else {}
     except Exception:
         frappe.log_error(
             frappe.get_traceback(),
@@ -85,6 +87,7 @@ def _get_site_colour_map():
 
 def _get_active_employee_count(site):
     site = (site or "").strip()
+
     if not site:
         return 0
 
@@ -99,6 +102,7 @@ def _get_active_employee_count(site):
 
 def _get_monthly_production_metrics(site, prod_end):
     site = (site or "").strip()
+
     if not site:
         return {
             "month_actual_bcm": 0,
@@ -108,6 +112,7 @@ def _get_monthly_production_metrics(site, prod_end):
     fields = ["name", "month_actual_bcm", "month_forecated_bcm"]
 
     rows = []
+
     if prod_end:
         rows = frappe.get_all(
             "Monthly Production Planning",
@@ -172,20 +177,30 @@ def _enrich_row(row):
     return dict(row)
 
 
+def _extract_rows_from_payload(payload):
+    if not payload:
+        return []
+
+    if isinstance(payload, dict):
+        if isinstance(payload.get("result"), list):
+            return payload.get("result") or []
+
+        if isinstance(payload.get("data"), list):
+            return payload.get("data") or []
+
+    if isinstance(payload, list):
+        return payload
+
+    return []
+
+
 def _run_query_report(report_name, filters):
-    """Run the report live.
-
-    Frappe versions differ slightly in the Python signature for
-    frappe.desk.query_report.run. This helper only passes optional arguments
-    when the installed Frappe version supports them.
-    """
-
     run = frappe.get_attr("frappe.desk.query_report.run")
     signature = inspect.signature(run)
 
     kwargs = {
         "report_name": report_name,
-        "filters": json.dumps(filters),
+        "filters": filters,
     }
 
     if "ignore_prepared_report" in signature.parameters:
@@ -194,7 +209,11 @@ def _run_query_report(report_name, filters):
     if "are_default_filters" in signature.parameters:
         kwargs["are_default_filters"] = False
 
-    return run(**kwargs)
+    try:
+        return run(**kwargs)
+    except TypeError:
+        kwargs["filters"] = json.dumps(filters)
+        return run(**kwargs)
 
 
 @frappe.whitelist()
@@ -204,6 +223,7 @@ def search_define_monthly_production(txt=""):
     txt = (txt or "").strip()
 
     filters = {}
+
     if txt:
         filters = {
             "name": ["like", f"%{txt}%"],
@@ -219,10 +239,11 @@ def search_define_monthly_production(txt=""):
 
 
 @frappe.whitelist()
-def run_portal_report(define_monthly_production, request_time=None):
+def run_portal_report(define_monthly_production):
     _check_access()
 
     define_monthly_production = (define_monthly_production or "").strip()
+
     if not define_monthly_production:
         frappe.throw(_("Define Monthly Production is required."))
 
@@ -241,10 +262,7 @@ def run_portal_report(define_monthly_production, request_time=None):
             _("Could not run {0}. Please check the report error log.").format(REPORT_NAME)
         )
 
-    rows = []
-    if isinstance(payload, dict):
-        rows = payload.get("result") or payload.get("data") or []
-
+    rows = _extract_rows_from_payload(payload)
     enriched_rows = [_enrich_row(row) for row in rows]
 
     return {
@@ -252,5 +270,4 @@ def run_portal_report(define_monthly_production, request_time=None):
         "site_order_map": _get_site_order_map(define_monthly_production),
         "site_colour_map": _get_site_colour_map(),
         "generated_at": frappe.utils.now(),
-        "request_time": request_time,
     }

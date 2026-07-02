@@ -182,6 +182,14 @@ main,
     max-width: 100% !important;
 }
 
+.text-muted {
+    color: #6c757d;
+}
+
+.text-danger {
+    color: #dc3545;
+}
+
 @media (max-width: 1100px) {
     #dashboard_content.isd-dashboard-grid {
         grid-template-columns: 1fr;
@@ -221,11 +229,11 @@ main,
         <div class="portal-filter">
             <input
                 type="text"
-                id="monthly_production_plan"
+                id="define_monthly_production"
                 placeholder="Search Define Monthly Production"
                 autocomplete="off"
             >
-            <div id="monthly_production_plan_dropdown" class="portal-dropdown"></div>
+            <div id="define_monthly_production_dropdown" class="portal-dropdown"></div>
         </div>
     </div>
 
@@ -235,7 +243,7 @@ main,
 
 <script>
 (function () {
-    const STORAGE_KEY = "portal_site_volume_graphs_monthly_production_plan";
+    const STORAGE_KEY = "site_volume_graphs_define_monthly_production";
 
     const TARGET_LINE_COLOR = "#9E9E9E";
     const ACTUAL_ABOVE_TARGET_COLOR = "#2fb344";
@@ -248,8 +256,8 @@ main,
 
     const DEFAULT_Y_AXIS_STEP = 10000;
 
-    const input = document.getElementById("monthly_production_plan");
-    const dropdown = document.getElementById("monthly_production_plan_dropdown");
+    const input = document.getElementById("define_monthly_production");
+    const dropdown = document.getElementById("define_monthly_production_dropdown");
     const statusEl = document.getElementById("dashboard_status");
     const dashEl = document.getElementById("dashboard_content");
 
@@ -295,11 +303,21 @@ main,
     }
 
     function extractRowsFromPayload(payload) {
-        if (!payload) return [];
+        if (!payload) {
+            return [];
+        }
 
-        if (Array.isArray(payload.result)) return payload.result;
-        if (Array.isArray(payload.data)) return payload.data;
-        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload.result)) {
+            return payload.result;
+        }
+
+        if (Array.isArray(payload.data)) {
+            return payload.data;
+        }
+
+        if (Array.isArray(payload)) {
+            return payload;
+        }
 
         return [];
     }
@@ -578,7 +596,6 @@ main,
 
                 setTimeout(function () { chart.resize(); }, 50);
                 setTimeout(function () { chart.resize(); }, 150);
-                setTimeout(function () { chart.resize(); }, 300);
             } catch (e) {
                 console.error("Could not render site volume chart", e);
             }
@@ -646,9 +663,9 @@ main,
     }
 
     function renderDashboard(response) {
-        const payload = response.payload || {};
-        const siteOrderMap = response.site_order_map || {};
-        const siteColourMap = response.site_colour_map || {};
+        const payload = response && response.payload ? response.payload : {};
+        const siteOrderMap = response && response.site_order_map ? response.site_order_map : {};
+        const siteColourMap = response && response.site_colour_map ? response.site_colour_map : {};
         const rows = extractRowsFromPayload(payload);
 
         destroyCharts();
@@ -743,11 +760,17 @@ main,
         schedule_next();
     }
 
+    function stop_aligned_refresh() {
+        clear_existing_timer();
+        _auto_refresh_started = false;
+        _refreshing = false;
+    }
+
     function run_report(value) {
         return frappe.call({
             method: "is_production.templates.pages.portal_site_volume_graphs.run_portal_report",
             args: {
-                monthly_production_plan: value
+                define_monthly_production: value
             },
             freeze: false
         });
@@ -757,6 +780,9 @@ main,
         const val = input.value;
 
         if (!val) {
+            localStorage.removeItem(STORAGE_KEY);
+            stop_aligned_refresh();
+            destroyCharts();
             statusEl.textContent = "Select a Define Monthly Production to load the graphs.";
             dashEl.innerHTML = "";
             return Promise.resolve();
@@ -768,29 +794,34 @@ main,
         return Promise.all([
             ensureChartJs(),
             run_report(val)
-        ]).then(function (results) {
-            const response = results[1];
+        ])
+            .then(function (results) {
+                const response = results[1];
 
-            renderDashboard(response.message || {});
+                renderDashboard(response.message || {});
 
-            const time = new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit"
+                const time = new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
+
+                statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
+
+                if (is_auto && frappe.show_alert) {
+                    frappe.show_alert(
+                        {
+                            message: "Site Volume Graphs updated at " + time,
+                            indicator: "green"
+                        },
+                        5
+                    );
+                }
+            })
+            .catch(function (e) {
+                console.error("Site Volume Graphs portal error:", e);
+                statusEl.textContent = "Error loading Site Volume Graphs.";
+                dashEl.innerHTML = '<div class="text-danger">Could not load graphs. Check console / server logs.</div>';
             });
-
-            statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
-
-            if (is_auto && frappe.show_alert) {
-                frappe.show_alert({
-                    message: "Site Volume Graphs updated at " + time,
-                    indicator: "green"
-                }, 5);
-            }
-        }).catch(function (e) {
-            console.error("Site Volume Graphs portal error:", e);
-            statusEl.textContent = "Error loading Site Volume Graphs. Check browser console and server logs.";
-            dashEl.innerHTML = '<div class="text-danger">Could not load graphs. Check console / server logs.</div>';
-        });
     }
 
     async function search_define_monthly_production(term) {
@@ -798,7 +829,8 @@ main,
             method: "is_production.templates.pages.portal_site_volume_graphs.search_define_monthly_production",
             args: {
                 txt: term || ""
-            }
+            },
+            freeze: false
         });
 
         return r.message || [];
@@ -817,7 +849,11 @@ main,
             }
 
             dropdown.innerHTML = results.map(function (option) {
-                return '<div class="portal-option" data-value="' + escapeHtml(option) + '">' + escapeHtml(option) + '</div>';
+                return (
+                    '<div class="portal-option" data-value="' + escapeHtml(option) + '">' +
+                        escapeHtml(option) +
+                    '</div>'
+                );
             }).join("");
 
             dropdown.style.display = "block";
@@ -833,17 +869,28 @@ main,
 
     dropdown.addEventListener("mousedown", function (e) {
         const optionEl = e.target.closest(".portal-option");
-        if (!optionEl) return;
+
+        if (!optionEl) {
+            return;
+        }
 
         input.value = optionEl.getAttribute("data-value");
         dropdown.style.display = "none";
 
+        localStorage.setItem(STORAGE_KEY, input.value);
         load_and_render(false);
         start_aligned_refresh();
     });
 
+    input.addEventListener("change", function () {
+        if (!input.value) {
+            load_and_render(false);
+        }
+    });
+
     document.addEventListener("click", function (e) {
         const wrap = input.closest(".portal-filter");
+
         if (wrap && !wrap.contains(e.target)) {
             dropdown.style.display = "none";
         }
@@ -855,11 +902,15 @@ main,
         input.value = last;
         load_and_render(false);
         start_aligned_refresh();
+    } else {
+        statusEl.textContent = "Select a Define Monthly Production to load the graphs.";
     }
 
     window.addEventListener("beforeunload", function () {
         clear_existing_timer();
         destroyCharts();
+        _auto_refresh_started = false;
+        _refreshing = false;
     });
 })();
 </script>

@@ -126,10 +126,6 @@ main,
     width: 100%;
 }
 
-/* =========================================================
-   DESK-LIKE SITE VOLUME TRACKING CARD
-   ========================================================= */
-
 .isd-dashboard-card {
     border: 2px solid #000000;
     border-radius: 8px;
@@ -157,10 +153,6 @@ main,
     color: #1f272e;
     text-transform: uppercase;
 }
-
-/* =========================================================
-   KPI CARDS
-   ========================================================= */
 
 .isd-dashboard-kpi-row {
     display: grid;
@@ -223,10 +215,6 @@ main,
     color: #ffffff !important;
 }
 
-/* =========================================================
-   SUMMARY TABLE
-   ========================================================= */
-
 .isd-dashboard-table-wrap {
     padding: 6px;
     background: #ffffff;
@@ -284,9 +272,13 @@ main,
     background: #f9caca !important;
 }
 
-/* =========================================================
-   RESPONSIVE
-   ========================================================= */
+.text-muted {
+    color: #6c757d;
+}
+
+.text-danger {
+    color: #dc3545;
+}
 
 @media (max-width: 1400px) {
     .isd-dashboard-kpi-row {
@@ -342,38 +334,16 @@ main,
 (function () {
     "use strict";
 
-    const STORAGE_KEY = "portal_site_volume_tracking_define_monthly_production";
-
-    /*
-        This watchdog does NOT run the report every minute.
-        It only checks every minute whether the :10 or :30 refresh was missed.
-    */
-    const WATCHDOG_INTERVAL_MS = 60 * 1000;
-
-    /*
-        If a Frappe call hangs longer than this, release the browser-side lock
-        and allow the next watchdog/timer to try again.
-    */
-    const AJAX_TIMEOUT_MS = 2 * 60 * 1000;
-
-    /*
-        When the browser wakes/focuses again, refresh if the last successful
-        refresh is older than this.
-    */
-    const WAKE_REFRESH_AFTER_MS = 2 * 60 * 1000;
+    const STORAGE_KEY = "ceo_dash_define_monthly_production";
 
     const input = document.getElementById("define_monthly_production");
     const dropdown = document.getElementById("define_monthly_production_dropdown");
     const statusEl = document.getElementById("dashboard_status");
     const dashEl = document.getElementById("dashboard_content");
 
+    let _auto_refresh_started = false;
     let _refreshing = false;
     let _timer = null;
-    let _watchdog = null;
-    let _lastSuccessAt = 0;
-    let _lastSlotKeyRefreshed = "";
-    let _lastLoadFailed = false;
-    let _requestSeq = 0;
 
     function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -399,64 +369,6 @@ main,
         });
     }
 
-    function formatTime(date) {
-        return date.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit"
-        });
-    }
-
-    function pad2(value) {
-        return String(value).padStart(2, "0");
-    }
-
-    function slotKey(date) {
-        return (
-            date.getFullYear() + "-" +
-            pad2(date.getMonth() + 1) + "-" +
-            pad2(date.getDate()) + " " +
-            pad2(date.getHours()) + ":" +
-            pad2(date.getMinutes())
-        );
-    }
-
-    function mostRecentRefreshSlot(now) {
-        const slot = new Date(now.getTime());
-        slot.setSeconds(0, 0);
-
-        const minutes = slot.getMinutes();
-
-        if (minutes >= 30) {
-            slot.setMinutes(30);
-        } else if (minutes >= 10) {
-            slot.setMinutes(10);
-        } else {
-            slot.setHours(slot.getHours() - 1);
-            slot.setMinutes(30);
-        }
-
-        return slot;
-    }
-
-    function msUntilNextRefresh() {
-        const now = new Date();
-        const next = new Date(now.getTime());
-        next.setSeconds(0, 0);
-
-        const minutes = now.getMinutes();
-
-        if (minutes < 10) {
-            next.setMinutes(10);
-        } else if (minutes < 30) {
-            next.setMinutes(30);
-        } else {
-            next.setHours(next.getHours() + 1);
-            next.setMinutes(10);
-        }
-
-        return Math.max(1000, next.getTime() - now.getTime());
-    }
-
     function goodBadClassFromValue(val) {
         const v = Number(val || 0);
         return v >= 0 ? "isd-dashboard-good" : "isd-dashboard-bad";
@@ -471,6 +383,30 @@ main,
         return Number(value || 0) >= 0
             ? "isd-dashboard-var-good"
             : "isd-dashboard-var-bad";
+    }
+
+    function getHeaderBackgroundStyle(site, siteColourMap) {
+        const mappedColour = siteColourMap && siteColourMap[site]
+            ? String(siteColourMap[site]).trim()
+            : "";
+
+        if (!mappedColour) {
+            return "background:transparent;";
+        }
+
+        return "background:" + escapeHtml(mappedColour) + ";";
+    }
+
+    function formatDateForUser(value) {
+        if (!value) {
+            return "";
+        }
+
+        if (frappe.datetime && frappe.datetime.str_to_user) {
+            return frappe.datetime.str_to_user(value);
+        }
+
+        return value;
     }
 
     function kpiBox(label, value, opts) {
@@ -545,6 +481,7 @@ main,
         sepClass = sepClass || "";
 
         const classes = ["isd-dashboard-th"];
+
         if (sepClass) {
             classes.push(sepClass);
         }
@@ -643,22 +580,10 @@ main,
         );
     }
 
-    function getHeaderBackgroundStyle(site, siteColourMap) {
-        const mappedColour = siteColourMap && siteColourMap[site]
-            ? String(siteColourMap[site]).trim()
-            : "";
-
-        if (!mappedColour) {
-            return "background:transparent;";
-        }
-
-        return "background:" + escapeHtml(mappedColour) + ";";
-    }
-
     function buildSiteCard(r, siteColourMap) {
         const site = String(r.site || "").trim();
-        const start = r.prod_start ? frappe.datetime.str_to_user(r.prod_start) : "";
-        const end = r.prod_end ? frappe.datetime.str_to_user(r.prod_end) : "";
+        const start = formatDateForUser(r.prod_start);
+        const end = formatDateForUser(r.prod_end);
         const forecastVar = Number(r.forecast_var || 0);
         const employeeLabel = "Employees: " + fmtInt(r.employee_count || 0);
         const headerBackground = getHeaderBackgroundStyle(site, siteColourMap);
@@ -727,9 +652,9 @@ main,
     }
 
     function renderDashboard(response) {
-        const rows = response.rows || [];
-        const siteOrderMap = response.site_order_map || {};
-        const siteColourMap = response.site_colour_map || {};
+        const rows = response && response.rows ? response.rows : [];
+        const siteOrderMap = response && response.site_order_map ? response.site_order_map : {};
+        const siteColourMap = response && response.site_colour_map ? response.site_colour_map : {};
 
         if (!rows.length) {
             dashEl.innerHTML = '<div class="text-muted">No data for the selected filter.</div>';
@@ -737,187 +662,131 @@ main,
         }
 
         const sorted = sortRows(rows, siteOrderMap);
+
         dashEl.innerHTML = sorted.map(function (row) {
             return buildSiteCard(row, siteColourMap);
         }).join("");
     }
 
-    function selectedValue() {
-        return String(input.value || "").trim();
+    function ms_until_next_refresh() {
+        const now = new Date();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+        const ms = now.getMilliseconds();
+
+        let nextMinute;
+
+        if (minutes < 10) {
+            nextMinute = 10;
+        } else if (minutes < 30) {
+            nextMinute = 30;
+        } else {
+            nextMinute = 70;
+        }
+
+        return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
     }
 
-    function clearExistingTimer() {
+    function clear_existing_timer() {
         if (_timer) {
             clearTimeout(_timer);
             _timer = null;
         }
     }
 
-    function scheduleNextRefresh() {
-        clearExistingTimer();
-
-        if (!selectedValue()) {
+    function start_aligned_refresh() {
+        if (_auto_refresh_started) {
             return;
         }
 
-        _timer = setTimeout(function () {
-            refreshForDueSlot("aligned-timer");
-        }, msUntilNextRefresh());
+        _auto_refresh_started = true;
+
+        const schedule_next = function () {
+            clear_existing_timer();
+            _timer = setTimeout(auto_refresh, ms_until_next_refresh());
+        };
+
+        const auto_refresh = function () {
+            if (_refreshing) {
+                schedule_next();
+                return;
+            }
+
+            if (!input.value) {
+                schedule_next();
+                return;
+            }
+
+            _refreshing = true;
+
+            load_and_render(true).finally(function () {
+                _refreshing = false;
+                schedule_next();
+            });
+        };
+
+        schedule_next();
     }
 
-    function runReport(value) {
+    function stop_aligned_refresh() {
+        clear_existing_timer();
+        _auto_refresh_started = false;
+        _refreshing = false;
+    }
+
+    function run_report(value) {
         return frappe.call({
             method: "is_production.templates.pages.portal_site_volume_tracking.run_portal_report",
             args: {
-                define_monthly_production: value,
-                request_time: new Date().toISOString()
+                define_monthly_production: value
             },
             freeze: false
         });
     }
 
-    function withTimeout(promise, timeoutMs) {
-        let timeoutHandle = null;
-
-        const timeoutPromise = new Promise(function (_resolve, reject) {
-            timeoutHandle = setTimeout(function () {
-                reject(new Error("Refresh request timed out after " + Math.round(timeoutMs / 1000) + " seconds."));
-            }, timeoutMs);
-        });
-
-        return Promise.race([promise, timeoutPromise]).finally(function () {
-            if (timeoutHandle) {
-                clearTimeout(timeoutHandle);
-            }
-        });
-    }
-
-    function loadAndRender(isAuto, reason) {
-        const val = selectedValue();
+    function load_and_render(is_auto) {
+        const val = String(input.value || "").trim();
 
         if (!val) {
+            localStorage.removeItem(STORAGE_KEY);
+            stop_aligned_refresh();
             statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
             dashEl.innerHTML = "";
-            return Promise.resolve(false);
+            return Promise.resolve();
         }
-
-        if (_refreshing) {
-            const inFlightAge = Date.now() - _lastSuccessAt;
-
-            if (inFlightAge < AJAX_TIMEOUT_MS) {
-                return Promise.resolve(false);
-            }
-
-            _refreshing = false;
-        }
-
-        _refreshing = true;
-        _requestSeq += 1;
-
-        const thisRequestSeq = _requestSeq;
 
         localStorage.setItem(STORAGE_KEY, val);
-        statusEl.textContent = isAuto ? "Refreshing..." : "Loading...";
+        statusEl.textContent = is_auto ? "Refreshing..." : "Loading...";
 
-        return withTimeout(runReport(val), AJAX_TIMEOUT_MS).then(function (r) {
-            if (thisRequestSeq !== _requestSeq) {
-                return false;
-            }
+        return run_report(val)
+            .then(function (r) {
+                renderDashboard(r.message || {});
 
-            renderDashboard(r.message || {});
+                const time = new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                });
 
-            const now = new Date();
-            const time = formatTime(now);
+                statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
 
-            _lastSuccessAt = now.getTime();
-            _lastLoadFailed = false;
-            _lastSlotKeyRefreshed = slotKey(mostRecentRefreshSlot(now));
-
-            statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
-
-            if (isAuto && frappe.show_alert) {
-                frappe.show_alert({
-                    message: "Site Volume Tracking updated at " + time,
-                    indicator: "green"
-                }, 5);
-            }
-
-            return true;
-        }).catch(function (e) {
-            if (thisRequestSeq !== _requestSeq) {
-                return false;
-            }
-
-            console.error("Site Volume Tracking portal error:", e);
-            _lastLoadFailed = true;
-
-            statusEl.textContent = "Error loading Site Volume Tracking. Retrying automatically at :10 and :30.";
-            dashEl.innerHTML = (
-                '<div class="text-danger">' +
-                    "Could not load data. Check browser console and server logs." +
-                '</div>'
-            );
-
-            return false;
-        }).finally(function () {
-            if (thisRequestSeq === _requestSeq) {
-                _refreshing = false;
-            }
-
-            scheduleNextRefresh();
-        });
+                if (is_auto && frappe.show_alert) {
+                    frappe.show_alert(
+                        {
+                            message: "Site Volume Tracking updated at " + time,
+                            indicator: "green"
+                        },
+                        5
+                    );
+                }
+            })
+            .catch(function (e) {
+                console.error("Site Volume Tracking portal error:", e);
+                statusEl.textContent = "Error loading dashboard data.";
+                dashEl.innerHTML = '<div class="text-danger">Could not load data. Check console / server logs.</div>';
+            });
     }
 
-    function refreshForDueSlot(reason) {
-        if (!selectedValue()) {
-            return;
-        }
-
-        if (_refreshing) {
-            return;
-        }
-
-        const now = new Date();
-        const dueSlot = mostRecentRefreshSlot(now);
-        const dueKey = slotKey(dueSlot);
-
-        if (dueKey === _lastSlotKeyRefreshed && !_lastLoadFailed) {
-            scheduleNextRefresh();
-            return;
-        }
-
-        loadAndRender(true, reason);
-    }
-
-    function refreshAfterWake(reason) {
-        if (!selectedValue()) {
-            return;
-        }
-
-        if (_refreshing) {
-            return;
-        }
-
-        const now = Date.now();
-
-        if (_lastLoadFailed || !_lastSuccessAt || now - _lastSuccessAt >= WAKE_REFRESH_AFTER_MS) {
-            loadAndRender(true, reason);
-        } else {
-            scheduleNextRefresh();
-        }
-    }
-
-    function startRefreshEngine() {
-        scheduleNextRefresh();
-
-        if (!_watchdog) {
-            _watchdog = setInterval(function () {
-                refreshForDueSlot("watchdog");
-            }, WATCHDOG_INTERVAL_MS);
-        }
-    }
-
-    async function searchDefineMonthlyProduction(term) {
+    async function search_define_monthly_production(term) {
         const r = await frappe.call({
             method: "is_production.templates.pages.portal_site_volume_tracking.search_define_monthly_production",
             args: {
@@ -929,11 +798,11 @@ main,
         return r.message || [];
     }
 
-    async function renderDropdown() {
+    async function render_dropdown() {
         const term = input.value || "";
 
         try {
-            const results = await searchDefineMonthlyProduction(term);
+            const results = await search_define_monthly_production(term);
 
             if (!results.length) {
                 dropdown.innerHTML = '<div class="portal-empty">No matches found</div>';
@@ -942,7 +811,11 @@ main,
             }
 
             dropdown.innerHTML = results.map(function (option) {
-                return '<div class="portal-option" data-value="' + escapeHtml(option) + '">' + escapeHtml(option) + '</div>';
+                return (
+                    '<div class="portal-option" data-value="' + escapeHtml(option) + '">' +
+                        escapeHtml(option) +
+                    '</div>'
+                );
             }).join("");
 
             dropdown.style.display = "block";
@@ -953,55 +826,34 @@ main,
         }
     }
 
-    input.addEventListener("focus", renderDropdown);
-    input.addEventListener("input", renderDropdown);
+    input.addEventListener("focus", render_dropdown);
+    input.addEventListener("input", render_dropdown);
 
     dropdown.addEventListener("mousedown", function (e) {
         const optionEl = e.target.closest(".portal-option");
-        if (!optionEl) return;
+
+        if (!optionEl) {
+            return;
+        }
 
         input.value = optionEl.getAttribute("data-value");
         dropdown.style.display = "none";
 
-        _lastSuccessAt = 0;
-        _lastSlotKeyRefreshed = "";
-        _lastLoadFailed = false;
+        load_and_render(false);
+        start_aligned_refresh();
+    });
 
-        loadAndRender(false, "manual-select");
-        startRefreshEngine();
+    input.addEventListener("change", function () {
+        if (!String(input.value || "").trim()) {
+            load_and_render(false);
+        }
     });
 
     document.addEventListener("click", function (e) {
         const wrap = input.closest(".portal-filter");
+
         if (wrap && !wrap.contains(e.target)) {
             dropdown.style.display = "none";
-        }
-    });
-
-    document.addEventListener("visibilitychange", function () {
-        if (!document.hidden) {
-            refreshAfterWake("visibilitychange");
-        }
-    });
-
-    window.addEventListener("focus", function () {
-        refreshAfterWake("focus");
-    });
-
-    window.addEventListener("pageshow", function () {
-        refreshAfterWake("pageshow");
-    });
-
-    window.addEventListener("online", function () {
-        refreshAfterWake("online");
-    });
-
-    window.addEventListener("beforeunload", function () {
-        clearExistingTimer();
-
-        if (_watchdog) {
-            clearInterval(_watchdog);
-            _watchdog = null;
         }
     });
 
@@ -1009,11 +861,22 @@ main,
 
     if (last) {
         input.value = last;
-        loadAndRender(false, "restore-selection");
-        startRefreshEngine();
+
+        setTimeout(function () {
+            if (input.value) {
+                load_and_render(false);
+                start_aligned_refresh();
+            }
+        }, 0);
     } else {
         statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
     }
+
+    window.addEventListener("beforeunload", function () {
+        clear_existing_timer();
+        _auto_refresh_started = false;
+        _refreshing = false;
+    });
 })();
 </script>
 {% endblock %}
