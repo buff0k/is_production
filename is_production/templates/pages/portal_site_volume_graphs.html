@@ -632,6 +632,102 @@ main,
         renderCharts(chartConfigs);
     }
 
+
+
+    function to_native_promise(value) {
+        return new Promise(function (resolve, reject) {
+            if (!value || typeof value.then !== "function") {
+                resolve(value);
+                return;
+            }
+
+            if (typeof value.done === "function" && typeof value.fail === "function") {
+                value.done(resolve);
+                value.fail(reject);
+                return;
+            }
+
+            value.then(resolve, reject);
+        });
+    }
+
+    function get_csrf_token() {
+        const fromFrappe = window.frappe && window.frappe.csrf_token;
+        const fromWindow = window.csrf_token;
+        const fromMeta = document.querySelector('meta[name="csrf-token"]');
+        const fromTemplate = "{{ csrf_token }}";
+
+        const token = fromFrappe || fromWindow || (fromMeta ? fromMeta.content : "") || fromTemplate;
+
+        if (!token || token.indexOf("{{") !== -1) {
+            return "";
+        }
+
+        return token;
+    }
+
+    function normalise_frappe_response(data) {
+        if (!data) {
+            return {};
+        }
+
+        return data;
+    }
+
+    function call_method(method, args) {
+        args = args || {};
+
+        if (window.frappe && typeof window.frappe.call === "function") {
+            return to_native_promise(window.frappe.call({
+                method: method,
+                args: args,
+                freeze: false
+            })).then(normalise_frappe_response);
+        }
+
+        const headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        };
+
+        const csrfToken = get_csrf_token();
+
+        if (csrfToken) {
+            headers["X-Frappe-CSRF-Token"] = csrfToken;
+        }
+
+        return fetch("/api/method/" + method, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: headers,
+            body: JSON.stringify(args)
+        })
+            .then(function (response) {
+                return response.text().then(function (text) {
+                    let data = {};
+
+                    if (text) {
+                        try {
+                            data = JSON.parse(text);
+                        } catch (e) {
+                            data = { message: text };
+                        }
+                    }
+
+                    if (!response.ok) {
+                        const err = new Error(
+                            data.exc_type || data.exception || data.exc || response.statusText || "Request failed"
+                        );
+                        err.status = response.status;
+                        err.response = data;
+                        throw err;
+                    }
+
+                    return normalise_frappe_response(data);
+                });
+            });
+    }
+
     function clear_existing_timer() {
         if (_timer) {
             clearInterval(_timer);
@@ -676,15 +772,13 @@ main,
 
         _refreshing = true;
 
-        return load_and_render(is_auto)
+        return to_native_promise(load_and_render(is_auto))
             .then(function () {
                 _last_successful_refresh = new Date();
-            })
-            .catch(function (e) {
+                _refreshing = false;
+            }, function (e) {
                 console.error("Dashboard refresh failed:", e);
                 statusEl.textContent = "Refresh failed. Last successful update: " + format_last_successful_refresh();
-            })
-            .finally(function () {
                 _refreshing = false;
             });
     }
@@ -700,12 +794,8 @@ main,
     }
 
     function run_report(value) {
-        return frappe.call({
-            method: "is_production.templates.pages.portal_site_volume_graphs.run_portal_report",
-            args: {
-                define_monthly_production: value
-            },
-            freeze: false
+        return call_method("is_production.templates.pages.portal_site_volume_graphs.run_portal_report", {
+            define_monthly_production: value
         });
     }
 
@@ -749,12 +839,8 @@ main,
     }
 
     async function search_define_monthly_production(term) {
-        const r = await frappe.call({
-            method: "is_production.templates.pages.portal_site_volume_graphs.search_define_monthly_production",
-            args: {
-                txt: term || ""
-            },
-            freeze: false
+        const r = await call_method("is_production.templates.pages.portal_site_volume_graphs.search_define_monthly_production", {
+            txt: term || ""
         });
 
         return r.message || [];
