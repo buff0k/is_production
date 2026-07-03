@@ -172,6 +172,7 @@ main,
 </div>
 
 <script>
+{% raw %}
 (function () {
     const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
     const HARD_RELOAD_INTERVAL_MS = 4 * 60 * 60 * 1000;
@@ -451,15 +452,8 @@ main,
         const fromFrappe = window.frappe && window.frappe.csrf_token;
         const fromWindow = window.csrf_token;
         const fromMeta = document.querySelector('meta[name="csrf-token"]');
-        const fromTemplate = "{{ csrf_token }}";
 
-        const token = fromFrappe || fromWindow || (fromMeta ? fromMeta.content : "") || fromTemplate;
-
-        if (!token || token.indexOf("{{") !== -1) {
-            return "";
-        }
-
-        return token;
+        return fromFrappe || fromWindow || (fromMeta ? fromMeta.content : "") || "";
     }
 
     function normalise_frappe_response(data) {
@@ -481,22 +475,22 @@ main,
             })).then(normalise_frappe_response);
         }
 
-        const headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        };
+        const query = new URLSearchParams();
 
-        const csrfToken = get_csrf_token();
+        Object.keys(args).forEach(function (key) {
+            if (args[key] !== undefined && args[key] !== null) {
+                query.append(key, String(args[key]));
+            }
+        });
 
-        if (csrfToken) {
-            headers["X-Frappe-CSRF-Token"] = csrfToken;
-        }
+        const url = "/api/method/" + method + (query.toString() ? "?" + query.toString() : "");
 
-        return fetch("/api/method/" + method, {
-            method: "POST",
+        return fetch(url, {
+            method: "GET",
             credentials: "same-origin",
-            headers: headers,
-            body: JSON.stringify(args)
+            headers: {
+                "Accept": "application/json"
+            }
         })
             .then(function (response) {
                 return response.text().then(function (text) {
@@ -707,5 +701,6 @@ main,
         stop_auto_refresh();
     });
 })();
+{% endraw %}
 </script>
 {% endblock %}
