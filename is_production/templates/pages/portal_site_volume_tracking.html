@@ -1,6 +1,7 @@
 {% extends "templates/web.html" %}
 
 {% block page_content %}
+<link rel="stylesheet" href="/assets/is_production/css/dashboards.css">
 <style>
 html,
 body {
@@ -40,8 +41,6 @@ main,
     overflow: auto;
     padding: 4px;
     box-sizing: border-box;
-    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    color: #1f272e;
 }
 
 .portal-topbar {
@@ -57,7 +56,7 @@ main,
     font-weight: 700;
     margin: 0;
     line-height: 32px;
-    color: #111827;
+    color: var(--isd-dashboard-text, #1f272e);
     white-space: nowrap;
 }
 
@@ -70,10 +69,10 @@ main,
     width: 100%;
     height: 32px;
     border-radius: 8px;
-    border: 1px solid #d1d8dd;
+    border: 1px solid var(--isd-dashboard-border, #d1d8dd);
     padding: 4px 10px;
-    background: #f7f7f7;
-    color: #111827;
+    background: var(--isd-dashboard-muted-bg, #f7fafc);
+    color: var(--isd-dashboard-text, #1f272e);
     font-size: 14px;
     outline: none;
 }
@@ -89,10 +88,10 @@ main,
     left: 0;
     right: 0;
     z-index: 10000;
-    background: #fff;
-    border: 1px solid #d1d8dd;
+    background: #ffffff;
+    border: 1px solid var(--isd-dashboard-border, #d1d8dd);
     border-radius: 8px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
     max-height: 260px;
     overflow-y: auto;
     display: none;
@@ -106,19 +105,19 @@ main,
 }
 
 .portal-option:hover {
-    background: #f7fafc;
+    background: var(--isd-dashboard-muted-bg, #f7fafc);
 }
 
 .portal-empty {
     padding: 10px 12px;
-    color: #6c757d;
+    color: var(--isd-dashboard-muted-text, #6b7280);
     font-size: 13px;
 }
 
 #dashboard_status {
     margin: 0 0 8px 0;
     padding: 0 4px;
-    color: #6c757d;
+    color: var(--isd-dashboard-muted-text, #6b7280);
     font-size: 14px;
 }
 
@@ -126,164 +125,12 @@ main,
     width: 100%;
 }
 
-.isd-dashboard-card {
-    border: 2px solid #000000;
-    border-radius: 8px;
-    margin: 0 0 10px 0;
-    overflow: hidden;
-    background: #ffffff;
-}
-
-.isd-dashboard-card-header {
-    padding: 8px;
-}
-
-.isd-dashboard-card-title {
-    font-size: 18px;
-    font-weight: 400;
-    line-height: 1.2;
-    margin-bottom: 3px;
-    color: #1f272e;
-}
-
-.isd-dashboard-card-subtitle {
-    font-size: 12px;
-    font-weight: 400;
-    line-height: 1.2;
-    color: #1f272e;
-    text-transform: uppercase;
-}
-
-.isd-dashboard-kpi-row {
-    display: grid;
-    grid-template-columns: 130px 130px 174px 130px 130px 132px 150px 130px;
-    gap: 7px;
-    margin-top: 8px;
-    align-items: stretch;
-}
-
-.isd-dashboard-kpi {
-    background: #f4f4f4;
-    border: 3px solid #000000;
-    border-radius: 8px;
-    padding: 6px 6px 5px 6px;
-    min-height: 62px;
-    text-align: center;
-    color: #1f272e;
-    box-sizing: border-box;
-}
-
-.isd-dashboard-kpi-label {
-    font-size: 11px;
-    line-height: 1.05;
-    font-weight: 700;
-    margin-bottom: 4px;
-}
-
-.isd-dashboard-kpi-sub-label {
-    font-size: 11px;
-    line-height: 1.05;
-    margin-top: 1px;
-}
-
-.isd-dashboard-kpi-value {
-    font-size: 18px;
-    font-weight: 800;
-    line-height: 1.15;
-    margin-top: 6px;
-}
-
-.isd-dashboard-kpi-trend {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-}
-
-.isd-dashboard-kpi-arrow {
-    font-size: 18px;
-    line-height: 1;
-}
-
-.isd-dashboard-good {
-    background: #2fb34a !important;
-    color: #ffffff !important;
-}
-
-.isd-dashboard-bad {
-    background: #e84f53 !important;
-    color: #ffffff !important;
-}
-
-.isd-dashboard-table-wrap {
-    padding: 6px;
-    background: #ffffff;
-}
-
-.isd-dashboard-table {
-    width: 100%;
-    border-collapse: collapse;
-    border: 4px solid #000000;
-    background: #ffffff;
-    table-layout: auto;
-}
-
-.isd-dashboard-th,
-.isd-dashboard-td {
-    border: 1px solid #000000;
-    padding: 6px 6px;
-    text-align: center;
-    vertical-align: middle;
-    font-size: 14px;
-    line-height: 1.15;
-    color: #1f272e;
-    background: #ffffff;
-    white-space: nowrap;
-}
-
-.isd-dashboard-th {
-    font-weight: 800;
-}
-
-.isd-dashboard-td {
-    font-weight: 400;
-}
-
-.isd-dashboard-sep {
-    border-right: 3px solid #000000 !important;
-}
-
-.isd-dashboard-subsep {
-    border-right: 1px solid #000000 !important;
-}
-
-.isd-dashboard-cell-inner {
-    display: inline-block;
-    padding: 2px 4px;
-    min-width: 100%;
-    box-sizing: border-box;
-}
-
-.isd-dashboard-var-good {
-    background: #c9f2d8 !important;
-}
-
-.isd-dashboard-var-bad {
-    background: #f9caca !important;
-}
-
 .text-muted {
-    color: #6c757d;
+    color: var(--isd-dashboard-muted-text, #6b7280);
 }
 
 .text-danger {
-    color: #dc3545;
-}
-
-@media (max-width: 1400px) {
-    .isd-dashboard-kpi-row {
-        grid-template-columns: repeat(4, minmax(130px, 1fr));
-    }
+    color: var(--isd-dashboard-red, #e24c4c);
 }
 
 @media (max-width: 800px) {
@@ -295,18 +142,6 @@ main,
 
     .portal-filter {
         width: 100%;
-    }
-
-    .isd-dashboard-kpi-row {
-        grid-template-columns: repeat(2, minmax(130px, 1fr));
-    }
-
-    .isd-dashboard-table-wrap {
-        overflow-x: auto;
-    }
-
-    .isd-dashboard-table {
-        min-width: 1300px;
     }
 }
 </style>
@@ -327,23 +162,27 @@ main,
     </div>
 
     <div id="dashboard_status">Select a Define Monthly Production to load the dashboard.</div>
-    <div id="dashboard_content" class="isd-dashboard-grid"></div>
+    <div id="dashboard_content" class="isd-dashboard isd-dashboard--ceo-volume">
+        <div id="dashboard_grid" class="isd-dashboard-grid"></div>
+    </div>
 </div>
 
 <script>
 (function () {
     "use strict";
 
+    const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+    const HARD_RELOAD_INTERVAL_MS = 4 * 60 * 60 * 1000;
     const STORAGE_KEY = "ceo_dash_define_monthly_production";
 
     const input = document.getElementById("define_monthly_production");
     const dropdown = document.getElementById("define_monthly_production_dropdown");
     const statusEl = document.getElementById("dashboard_status");
-    const dashEl = document.getElementById("dashboard_content");
+    const dashEl = document.getElementById("dashboard_grid");
 
-    let _auto_refresh_started = false;
     let _refreshing = false;
     let _timer = null;
+    let _last_successful_refresh = null;
 
     function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -668,70 +507,71 @@ main,
         }).join("");
     }
 
-    function ms_until_next_refresh() {
-        const now = new Date();
-        const minutes = now.getMinutes();
-        const seconds = now.getSeconds();
-        const ms = now.getMilliseconds();
-
-        let nextMinute;
-
-        if (minutes < 10) {
-            nextMinute = 10;
-        } else if (minutes < 30) {
-            nextMinute = 30;
-        } else {
-            nextMinute = 70;
-        }
-
-        return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
-    }
-
     function clear_existing_timer() {
         if (_timer) {
-            clearTimeout(_timer);
+            clearInterval(_timer);
             _timer = null;
         }
     }
 
-    function start_aligned_refresh() {
-        if (_auto_refresh_started) {
-            return;
-        }
+    function start_auto_refresh() {
+        stop_auto_refresh();
 
-        _auto_refresh_started = true;
-
-        const schedule_next = function () {
-            clear_existing_timer();
-            _timer = setTimeout(auto_refresh, ms_until_next_refresh());
-        };
-
-        const auto_refresh = function () {
-            if (_refreshing) {
-                schedule_next();
-                return;
+        _timer = setInterval(function () {
+            if (String(input.value || "").trim()) {
+                safe_refresh(true);
             }
-
-            if (!input.value) {
-                schedule_next();
-                return;
-            }
-
-            _refreshing = true;
-
-            load_and_render(true).finally(function () {
-                _refreshing = false;
-                schedule_next();
-            });
-        };
-
-        schedule_next();
+        }, REFRESH_INTERVAL_MS);
     }
 
-    function stop_aligned_refresh() {
+    function stop_auto_refresh() {
         clear_existing_timer();
-        _auto_refresh_started = false;
         _refreshing = false;
+    }
+
+    function format_last_successful_refresh() {
+        if (!_last_successful_refresh) {
+            return "never";
+        }
+
+        return _last_successful_refresh.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
+    function safe_refresh(is_auto) {
+        if (_refreshing) {
+            return Promise.resolve();
+        }
+
+        if (!String(input.value || "").trim()) {
+            return Promise.resolve();
+        }
+
+        _refreshing = true;
+
+        return load_and_render(is_auto)
+            .then(function () {
+                _last_successful_refresh = new Date();
+            })
+            .catch(function (e) {
+                console.error("Dashboard refresh failed:", e);
+                statusEl.textContent = "Refresh failed. Last successful update: " + format_last_successful_refresh();
+            })
+            .finally(function () {
+                _refreshing = false;
+            });
+    }
+
+    function refresh_when_visible_again() {
+        if (!document.hidden && String(input.value || "").trim()) {
+            safe_refresh(true);
+        }
+    }
+
+    function hard_reload_page() {
+        window.location.reload();
     }
 
     function run_report(value) {
@@ -749,7 +589,7 @@ main,
 
         if (!val) {
             localStorage.removeItem(STORAGE_KEY);
-            stop_aligned_refresh();
+            stop_auto_refresh();
             statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
             dashEl.innerHTML = "";
             return Promise.resolve();
@@ -767,22 +607,13 @@ main,
                     minute: "2-digit"
                 });
 
-                statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
-
-                if (is_auto && frappe.show_alert) {
-                    frappe.show_alert(
-                        {
-                            message: "Site Volume Tracking updated at " + time,
-                            indicator: "green"
-                        },
-                        5
-                    );
-                }
+                statusEl.textContent = "Last updated: " + time + " (refreshes every 10 minutes)";
             })
             .catch(function (e) {
                 console.error("Site Volume Tracking portal error:", e);
                 statusEl.textContent = "Error loading dashboard data.";
                 dashEl.innerHTML = '<div class="text-danger">Could not load data. Check console / server logs.</div>';
+                throw e;
             });
     }
 
@@ -839,13 +670,13 @@ main,
         input.value = optionEl.getAttribute("data-value");
         dropdown.style.display = "none";
 
-        load_and_render(false);
-        start_aligned_refresh();
+        safe_refresh(false);
+        start_auto_refresh();
     });
 
     input.addEventListener("change", function () {
         if (!String(input.value || "").trim()) {
-            load_and_render(false);
+            safe_refresh(false);
         }
     });
 
@@ -857,6 +688,12 @@ main,
         }
     });
 
+    document.addEventListener("visibilitychange", refresh_when_visible_again);
+    window.addEventListener("focus", refresh_when_visible_again);
+    window.addEventListener("online", refresh_when_visible_again);
+
+    window.setTimeout(hard_reload_page, HARD_RELOAD_INTERVAL_MS);
+
     const last = localStorage.getItem(STORAGE_KEY);
 
     if (last) {
@@ -864,8 +701,8 @@ main,
 
         setTimeout(function () {
             if (input.value) {
-                load_and_render(false);
-                start_aligned_refresh();
+                safe_refresh(false);
+                start_auto_refresh();
             }
         }, 0);
     } else {
@@ -873,9 +710,7 @@ main,
     }
 
     window.addEventListener("beforeunload", function () {
-        clear_existing_timer();
-        _auto_refresh_started = false;
-        _refreshing = false;
+        stop_auto_refresh();
     });
 })();
 </script>

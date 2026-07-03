@@ -1,6 +1,7 @@
 {% extends "templates/web.html" %}
 
 {% block page_content %}
+<link rel="stylesheet" href="/assets/is_production/css/dashboards.css">
 <style>
 html,
 body {
@@ -40,8 +41,6 @@ main,
     overflow: auto;
     padding: 18px;
     box-sizing: border-box;
-    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    color: #1f272e;
 }
 
 .portal-topbar {
@@ -57,7 +56,7 @@ main,
     font-weight: 700;
     margin: 0;
     line-height: 32px;
-    color: #111827;
+    color: var(--isd-dashboard-text, #1f272e);
     white-space: nowrap;
 }
 
@@ -70,10 +69,10 @@ main,
     width: 100%;
     height: 32px;
     border-radius: 8px;
-    border: 1px solid #d1d8dd;
+    border: 1px solid var(--isd-dashboard-border, #d1d8dd);
     padding: 4px 10px;
-    background: #f7f7f7;
-    color: #111827;
+    background: var(--isd-dashboard-muted-bg, #f7fafc);
+    color: var(--isd-dashboard-text, #1f272e);
     font-size: 14px;
     outline: none;
 }
@@ -89,10 +88,10 @@ main,
     left: 0;
     right: 0;
     z-index: 10000;
-    background: #fff;
-    border: 1px solid #d1d8dd;
+    background: #ffffff;
+    border: 1px solid var(--isd-dashboard-border, #d1d8dd);
     border-radius: 8px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
     max-height: 260px;
     overflow-y: auto;
     display: none;
@@ -106,19 +105,19 @@ main,
 }
 
 .portal-option:hover {
-    background: #f7fafc;
+    background: var(--isd-dashboard-muted-bg, #f7fafc);
 }
 
 .portal-empty {
     padding: 10px 12px;
-    color: #6c757d;
+    color: var(--isd-dashboard-muted-text, #6b7280);
     font-size: 13px;
 }
 
 #dashboard_status {
     margin: 0 0 10px 0;
     padding: 0;
-    color: #6c757d;
+    color: var(--isd-dashboard-muted-text, #6b7280);
     font-size: 14px;
 }
 
@@ -126,131 +125,12 @@ main,
     width: 100%;
 }
 
-#dashboard_content .isd-dashboard-grid {
-    display: block;
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    padding: 0;
-}
-
-#dashboard_content .isd-dashboard-card {
-    width: 100%;
-    border: 1px solid #d8dfe6;
-    border-radius: 8px;
-    overflow: hidden;
-    margin: 0 0 10px 0;
-    background: #ffffff;
-    box-shadow: none;
-}
-
-#dashboard_content .isd-dashboard-card-header {
-    padding: 10px 12px;
-    font-weight: 700;
-    font-size: 13px;
-    line-height: 1.25;
-    color: #111827;
-}
-
-#dashboard_content .isd-dashboard-card-title {
-    display: block;
-    font-weight: 700;
-    font-size: 13px;
-}
-
-#dashboard_content .isd-dashboard-card-subtitle {
-    display: block;
-    font-weight: 400;
-    font-size: 12px;
-    margin-top: 5px;
-}
-
-#dashboard_content .isd-dashboard-table-wrap {
-    width: 100%;
-    overflow-x: auto;
-}
-
-#dashboard_content .isd-dashboard-table,
-#dashboard_content table {
-    width: 100% !important;
-    max-width: none !important;
-    border-collapse: collapse !important;
-    table-layout: fixed !important;
-    background: #ffffff !important;
-    margin: 0 !important;
-    font-size: 11px;
-}
-
-#dashboard_content .isd-dashboard-th,
-#dashboard_content .isd-dashboard-td,
-#dashboard_content th,
-#dashboard_content td {
-    border: 1px solid #e0e0e0 !important;
-    padding: 4px 4px !important;
-    text-align: center !important;
-    vertical-align: middle !important;
-    font-size: 11px !important;
-    line-height: 1.05 !important;
-    min-height: 28px;
-    height: 28px;
-    background-clip: padding-box;
-    overflow: hidden;
-    white-space: normal;
-}
-
-#dashboard_content .isd-dashboard-th,
-#dashboard_content th {
-    background: #ffffff !important;
-    font-weight: 700;
-    color: #111827;
-}
-
-#dashboard_content .isd-dashboard-td,
-#dashboard_content td {
-    background: #ffffff !important;
-    color: #1f272e;
-}
-
-#dashboard_content .isd-dashboard-th:first-child,
-#dashboard_content .isd-dashboard-td:first-child,
-#dashboard_content th:first-child,
-#dashboard_content td:first-child {
-    width: 230px !important;
-    min-width: 230px !important;
-    max-width: 230px !important;
-    text-align: left !important;
-    font-weight: 700;
-    padding-left: 10px !important;
-    background: #ffffff !important;
-}
-
-#dashboard_content .isd-dashboard-td:empty::after,
-#dashboard_content td:empty::after {
-    content: "\00a0";
-}
-
-#dashboard_content .isd-dashboard-cell-low {
-    background: #f3d6d8 !important;
-}
-
-#dashboard_content .isd-dashboard-cell-medium {
-    background: #f5e4d5 !important;
-}
-
-#dashboard_content .isd-dashboard-cell-high {
-    background: #d8efe5 !important;
-}
-
-#dashboard_content .isd-dashboard-excavator {
-    background: #ffffff !important;
-}
-
 .text-muted {
-    color: #6c757d;
+    color: var(--isd-dashboard-muted-text, #6b7280);
 }
 
 .text-danger {
-    color: #dc3545;
+    color: var(--isd-dashboard-red, #e24c4c);
 }
 
 @media (max-width: 900px) {
@@ -266,20 +146,6 @@ main,
 
     .portal-filter {
         width: 100%;
-    }
-
-    #dashboard_content .isd-dashboard-th:first-child,
-    #dashboard_content .isd-dashboard-td:first-child,
-    #dashboard_content th:first-child,
-    #dashboard_content td:first-child {
-        width: 160px !important;
-        min-width: 160px !important;
-        max-width: 160px !important;
-    }
-
-    #dashboard_content .isd-dashboard-table,
-    #dashboard_content table {
-        min-width: 1200px;
     }
 }
 </style>
@@ -300,11 +166,15 @@ main,
     </div>
 
     <div id="dashboard_status">Select a Define Monthly Production to load the dashboard.</div>
-    <div id="dashboard_content" class="isd-dashboard-grid"></div>
+    <div id="dashboard_content" class="isd-dashboard isd-dashboard--hourly">
+        <div id="dashboard_grid" class="isd-dashboard-grid"></div>
+    </div>
 </div>
 
 <script>
 (function () {
+    const REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+    const HARD_RELOAD_INTERVAL_MS = 4 * 60 * 60 * 1000;
     const STORAGE_KEY = "portal_hourly_dash_define_monthly_production";
 
     const SLOT_LABELS = [
@@ -330,11 +200,11 @@ main,
     const input = document.getElementById("define_monthly_production");
     const dropdown = document.getElementById("define_monthly_production_dropdown");
     const statusEl = document.getElementById("dashboard_status");
-    const dashEl = document.getElementById("dashboard_content");
+    const dashEl = document.getElementById("dashboard_grid");
 
-    let _auto_refresh_started = false;
     let _refreshing = false;
     let _timer = null;
+    let _last_successful_refresh = null;
 
     function escapeHtml(value) {
         return String(value == null ? "" : value)
@@ -558,64 +428,71 @@ main,
         }).join("");
     }
 
-    function ms_until_next_refresh() {
-        const now = new Date();
-        const minutes = now.getMinutes();
-        const seconds = now.getSeconds();
-        const ms = now.getMilliseconds();
-
-        let nextMinute;
-
-        if (minutes < 10) {
-            nextMinute = 10;
-        } else if (minutes < 30) {
-            nextMinute = 30;
-        } else {
-            nextMinute = 70;
-        }
-
-        return (nextMinute - minutes) * 60 * 1000 - seconds * 1000 - ms;
-    }
-
     function clear_existing_timer() {
         if (_timer) {
-            clearTimeout(_timer);
+            clearInterval(_timer);
             _timer = null;
         }
     }
 
-    function start_aligned_refresh() {
-        if (_auto_refresh_started) {
-            return;
+    function start_auto_refresh() {
+        stop_auto_refresh();
+
+        _timer = setInterval(function () {
+            if (String(input.value || "").trim()) {
+                safe_refresh(true);
+            }
+        }, REFRESH_INTERVAL_MS);
+    }
+
+    function stop_auto_refresh() {
+        clear_existing_timer();
+        _refreshing = false;
+    }
+
+    function format_last_successful_refresh() {
+        if (!_last_successful_refresh) {
+            return "never";
         }
 
-        _auto_refresh_started = true;
+        return _last_successful_refresh.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
 
-        const schedule_next = function () {
-            clear_existing_timer();
-            _timer = setTimeout(auto_refresh, ms_until_next_refresh());
-        };
+    function safe_refresh(is_auto) {
+        if (_refreshing) {
+            return Promise.resolve();
+        }
 
-        const auto_refresh = function () {
-            if (_refreshing) {
-                schedule_next();
-                return;
-            }
+        if (!String(input.value || "").trim()) {
+            return Promise.resolve();
+        }
 
-            if (!input.value) {
-                schedule_next();
-                return;
-            }
+        _refreshing = true;
 
-            _refreshing = true;
-
-            load_and_render(true).finally(function () {
+        return load_and_render(is_auto)
+            .then(function () {
+                _last_successful_refresh = new Date();
+            })
+            .catch(function (e) {
+                console.error("Dashboard refresh failed:", e);
+                statusEl.textContent = "Refresh failed. Last successful update: " + format_last_successful_refresh();
+            })
+            .finally(function () {
                 _refreshing = false;
-                schedule_next();
             });
-        };
+    }
 
-        schedule_next();
+    function refresh_when_visible_again() {
+        if (!document.hidden && String(input.value || "").trim()) {
+            safe_refresh(true);
+        }
+    }
+
+    function hard_reload_page() {
+        window.location.reload();
     }
 
     function run_report(value) {
@@ -649,22 +526,13 @@ main,
                     minute: "2-digit"
                 });
 
-                statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
-
-                if (is_auto && frappe.show_alert) {
-                    frappe.show_alert(
-                        {
-                            message: "Hourly Dashboard updated at " + time,
-                            indicator: "green"
-                        },
-                        5
-                    );
-                }
+                statusEl.textContent = "Last updated: " + time + " (refreshes every 10 minutes)";
             })
             .catch(function (e) {
                 console.error("Hourly Dashboard portal error:", e);
                 statusEl.textContent = "Error loading dashboard data.";
                 dashEl.innerHTML = '<div class="text-danger">Could not load data. Check console / server logs.</div>';
+                throw e;
             });
     }
 
@@ -721,8 +589,8 @@ main,
         input.value = optionEl.getAttribute("data-value");
         dropdown.style.display = "none";
 
-        load_and_render(false);
-        start_aligned_refresh();
+        safe_refresh(false);
+        start_auto_refresh();
     });
 
     document.addEventListener("click", function (e) {
@@ -733,20 +601,24 @@ main,
         }
     });
 
+    document.addEventListener("visibilitychange", refresh_when_visible_again);
+    window.addEventListener("focus", refresh_when_visible_again);
+    window.addEventListener("online", refresh_when_visible_again);
+
+    window.setTimeout(hard_reload_page, HARD_RELOAD_INTERVAL_MS);
+
     const last = localStorage.getItem(STORAGE_KEY);
 
     if (last) {
         input.value = last;
-        load_and_render(false);
-        start_aligned_refresh();
+        safe_refresh(false);
+        start_auto_refresh();
     } else {
         statusEl.textContent = "Select a Define Monthly Production to load the dashboard.";
     }
 
     window.addEventListener("beforeunload", function () {
-        clear_existing_timer();
-        _auto_refresh_started = false;
-        _refreshing = false;
+        stop_auto_refresh();
     });
 })();
 </script>
