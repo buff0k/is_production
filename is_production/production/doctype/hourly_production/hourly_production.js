@@ -218,7 +218,6 @@ function loadUIWithDependencies(frm) {
         }
         
         frappe.require([
-            '/assets/is_production/css/hourly_production_ui.css',
             '/assets/is_production/js/hourly_production_ui.js'
         ], () => {
             window.hourlyProductionUICssLoaded = true;
