@@ -182,6 +182,7 @@ main,
     const ACTUAL_ABOVE_TARGET_COLOR = "#2fb344";
     const ACTUAL_BELOW_TARGET_COLOR = "#e24c4c";
     const CURRENT_DATE_POINT_COLOR = "#2fb344";
+    const PROJECTED_LINE_COLOR = "#1f77b4";
 
     const TARGET_POINT_RADIUS = 3;
     const ACTUAL_POINT_RADIUS = 3;
@@ -320,12 +321,15 @@ main,
         rows.forEach(function (row) {
             const targetData = parseJsonArray(row.mtd_target_data);
             const actualData = parseJsonArray(row.mtd_actual_data);
+            const projectedData = parseJsonArray(row.projected_mtd_data);
 
             maxValue = Math.max(
                 maxValue,
                 getMaxNumericValue(targetData),
                 getMaxNumericValue(actualData),
-                normaliseFloat(row.monthly_target_bcm)
+                getMaxNumericValue(projectedData),
+                normaliseFloat(row.monthly_target_bcm),
+                normaliseFloat(row.projected_month_end_bcm)
             );
         });
 
@@ -336,7 +340,7 @@ main,
         return Math.ceil(maxValue / yAxisStep) * yAxisStep;
     }
 
-    function buildChartConfig(labels, targetData, actualData, sharedYAxisMax, yAxisStep) {
+    function buildChartConfig(labels, targetData, actualData, projectedData, sharedYAxisMax, yAxisStep) {
         const currentActualIndex = getCurrentActualIndex(actualData);
 
         function actualPointColour(index) {
@@ -420,6 +424,21 @@ main,
                         },
                         borderWidth: 2,
                         tension: 0.25,
+                        pointBorderWidth: 1,
+                        spanGaps: false
+                    },
+                    {
+                        label: "Projected MTD",
+                        data: projectedData,
+                        borderColor: PROJECTED_LINE_COLOR,
+                        backgroundColor: PROJECTED_LINE_COLOR,
+                        pointBackgroundColor: PROJECTED_LINE_COLOR,
+                        pointBorderColor: PROJECTED_LINE_COLOR,
+                        borderWidth: 2,
+                        borderDash: [6, 4],
+                        tension: 0.25,
+                        pointRadius: 0,
+                        pointHoverRadius: 3,
                         pointBorderWidth: 1,
                         spanGaps: false
                     }
@@ -560,7 +579,8 @@ main,
                     '<div class="isd-dashboard-card-title">Site: ' + escapeHtml(site) + "</div>" +
                     '<div class="isd-dashboard-card-subtitle">' +
                         "Production Period: " + escapeHtml(prodStart) + " → " + escapeHtml(prodEnd) + "<br>" +
-                        "MTD up to: " + escapeHtml(mtdUpto) +
+                        "MTD up to: " + escapeHtml(mtdUpto) + "<br>" +
+                        "Projection: blue dashed line" +
                     "</div>" +
                 "</div>" +
 
@@ -616,11 +636,13 @@ main,
             const labels = parseJsonArray(row.chart_labels);
             const targetData = parseJsonArray(row.mtd_target_data);
             const actualData = parseJsonArray(row.mtd_actual_data);
+            const projectedData = parseJsonArray(row.projected_mtd_data);
 
             return buildChartConfig(
                 labels,
                 targetData,
                 actualData,
+                projectedData,
                 sharedYAxisMax,
                 yAxisStep
             );

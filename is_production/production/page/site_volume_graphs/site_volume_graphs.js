@@ -20,6 +20,7 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
   const ACTUAL_ABOVE_TARGET_COLOR = "#2fb344";
   const ACTUAL_BELOW_TARGET_COLOR = "#e24c4c";
   const CURRENT_DATE_POINT_COLOR = "#2fb344";
+  const PROJECTED_LINE_COLOR = "#1f77b4";
 
   const TARGET_POINT_RADIUS = 3;
   const ACTUAL_POINT_RADIUS = 3;
@@ -383,12 +384,15 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
     rows.forEach((row) => {
       const targetData = parse_json_array(row.mtd_target_data);
       const actualData = parse_json_array(row.mtd_actual_data);
+      const projectedData = parse_json_array(row.projected_mtd_data);
 
       maxValue = Math.max(
         maxValue,
         get_max_numeric_value(targetData),
         get_max_numeric_value(actualData),
-        normalise_float(row.monthly_target_bcm)
+        get_max_numeric_value(projectedData),
+        normalise_float(row.monthly_target_bcm),
+        normalise_float(row.projected_month_end_bcm)
       );
     });
 
@@ -402,7 +406,7 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
   // -------------------------
   // Chart config
   // -------------------------
-  function build_chart_config(labels, targetData, actualData, sharedYAxisMax, yAxisStep) {
+  function build_chart_config(labels, targetData, actualData, projectedData, sharedYAxisMax, yAxisStep) {
     const currentActualIndex = get_current_actual_index(actualData);
 
     function actual_point_colour(index) {
@@ -497,6 +501,21 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
             tension: 0.25,
             pointBorderWidth: 1,
             spanGaps: false
+          },
+          {
+            label: "Projected MTD",
+            data: projectedData,
+            borderColor: PROJECTED_LINE_COLOR,
+            backgroundColor: PROJECTED_LINE_COLOR,
+            pointBackgroundColor: PROJECTED_LINE_COLOR,
+            pointBorderColor: PROJECTED_LINE_COLOR,
+            borderWidth: 2,
+            borderDash: [6, 4],
+            tension: 0.25,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            pointBorderWidth: 1,
+            spanGaps: false
           }
         ]
       },
@@ -557,7 +576,8 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
           <div class="isd-dashboard-card-title">Site: ${escape_html(site)}</div>
           <div class="isd-dashboard-card-subtitle">
             Production Period: ${escape_html(prodStart)} → ${escape_html(prodEnd)}<br>
-            MTD up to: ${escape_html(mtdUpto)}
+            MTD up to: ${escape_html(mtdUpto)}<br>
+            Projection: blue dashed line
           </div>
         </div>
 
@@ -594,11 +614,13 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
       const labels = parse_json_array(row.chart_labels);
       const targetData = parse_json_array(row.mtd_target_data);
       const actualData = parse_json_array(row.mtd_actual_data);
+      const projectedData = parse_json_array(row.projected_mtd_data);
 
       return build_chart_config(
         labels,
         targetData,
         actualData,
+        projectedData,
         sharedYAxisMax,
         yAxisStep
       );
