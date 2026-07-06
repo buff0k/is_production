@@ -1,0 +1,204 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "format: {schedule_scenario}-{calendar_date}",
+ "creation": "2026-07-06 08:41:39.052538",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "schedule_scenario",
+  "rule_set",
+  "calendar_date",
+  "day_type",
+  "is_working_day",
+  "shifts",
+  "production_hours",
+  "fleet_count",
+  "bcm_capacity_per_hour",
+  "tonnes_capacity_per_hour",
+  "availability_percent",
+  "utilisation_percent",
+  "available_bcm_capacity",
+  "available_tonnes_capacity",
+  "scheduled_bcm",
+  "scheduled_tonnes",
+  "remaining_bcm_capacity",
+  "remaining_tonnes_capacity",
+  "calendar_note",
+  "source_rule_hash"
+ ],
+ "fields": [
+  {
+   "fieldname": "schedule_scenario",
+   "fieldtype": "Link",
+   "label": "Schedule Scenario",
+   "options": "Mining Schedule Scenario"
+  },
+  {
+   "fieldname": "rule_set",
+   "fieldtype": "Link",
+   "label": "Rule Set",
+   "options": "Mining Schedule Rule Set"
+  },
+  {
+   "fieldname": "calendar_date",
+   "fieldtype": "Date",
+   "label": "Calendar Date"
+  },
+  {
+   "fieldname": "day_type",
+   "fieldtype": "Select",
+   "label": "Day Type",
+   "options": "Weekday\nSaturday\nSunday\nHoliday\nRain Day\nCustom"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_working_day",
+   "fieldtype": "Check",
+   "label": "Working Day"
+  },
+  {
+   "fieldname": "shifts",
+   "fieldtype": "Float",
+   "label": "Shifts"
+  },
+  {
+   "fieldname": "production_hours",
+   "fieldtype": "Float",
+   "label": "Production Hours"
+  },
+  {
+   "fieldname": "fleet_count",
+   "fieldtype": "Float",
+   "label": "Fleet Count"
+  },
+  {
+   "fieldname": "bcm_capacity_per_hour",
+   "fieldtype": "Float",
+   "label": "BCM Capacity Per Hour"
+  },
+  {
+   "fieldname": "tonnes_capacity_per_hour",
+   "fieldtype": "Float",
+   "label": "Tonnes Capacity Per Hour"
+  },
+  {
+   "default": "100",
+   "fieldname": "availability_percent",
+   "fieldtype": "Percent",
+   "label": "Availability %"
+  },
+  {
+   "default": "100",
+   "fieldname": "utilisation_percent",
+   "fieldtype": "Percent",
+   "label": "Utilisation %"
+  },
+  {
+   "fieldname": "available_bcm_capacity",
+   "fieldtype": "Float",
+   "label": "Available BCM Capacity"
+  },
+  {
+   "fieldname": "available_tonnes_capacity",
+   "fieldtype": "Float",
+   "label": "Available Tonnes Capacity"
+  },
+  {
+   "fieldname": "scheduled_bcm",
+   "fieldtype": "Float",
+   "label": "Scheduled BCM"
+  },
+  {
+   "fieldname": "scheduled_tonnes",
+   "fieldtype": "Float",
+   "label": "Scheduled Tonnes"
+  },
+  {
+   "fieldname": "remaining_bcm_capacity",
+   "fieldtype": "Float",
+   "label": "Remaining BCM Capacity"
+  },
+  {
+   "fieldname": "remaining_tonnes_capacity",
+   "fieldtype": "Float",
+   "label": "Remaining Tonnes Capacity"
+  },
+  {
+   "fieldname": "calendar_note",
+   "fieldtype": "Small Text",
+   "label": "Calendar Note"
+  },
+  {
+   "fieldname": "source_rule_hash",
+   "fieldtype": "Data",
+   "label": "Source Rule Hash"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-06 08:50:47.065234",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Calendar Day",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Foreman",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Supervisor",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

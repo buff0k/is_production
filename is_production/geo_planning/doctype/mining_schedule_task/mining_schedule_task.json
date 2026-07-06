@@ -1,0 +1,193 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "format: TASK-{schedule_scenario}-{#####}",
+ "creation": "2026-07-06 09:32:39.837901",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "schedule_scenario",
+  "rule_set",
+  "source_selection",
+  "mining_block",
+  "mining_block_code",
+  "sequence_no",
+  "cut_no",
+  "material_seam",
+  "material_order",
+  "unit",
+  "original_quantity",
+  "remaining_quantity",
+  "predecessor_task_keys",
+  "task_status",
+  "task_key",
+  "source_block_row",
+  "source_material_row",
+  "source_rule_hash"
+ ],
+ "fields": [
+  {
+   "fieldname": "schedule_scenario",
+   "fieldtype": "Link",
+   "label": "Schedule Scenario",
+   "options": "Mining Schedule Scenario"
+  },
+  {
+   "fieldname": "rule_set",
+   "fieldtype": "Link",
+   "label": "Rule Set",
+   "options": "Mining Schedule Rule Set"
+  },
+  {
+   "fieldname": "source_selection",
+   "fieldtype": "Link",
+   "label": "Source Selection",
+   "options": "Mining Schedule Selection"
+  },
+  {
+   "fieldname": "mining_block",
+   "fieldtype": "Link",
+   "label": "Mining Block",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "mining_block_code",
+   "fieldtype": "Data",
+   "label": "Mining Block Code"
+  },
+  {
+   "fieldname": "sequence_no",
+   "fieldtype": "Int",
+   "label": "Sequence No"
+  },
+  {
+   "fieldname": "cut_no",
+   "fieldtype": "Int",
+   "label": "Cut No"
+  },
+  {
+   "fieldname": "material_seam",
+   "fieldtype": "Data",
+   "label": "Material / Seam"
+  },
+  {
+   "fieldname": "material_order",
+   "fieldtype": "Int",
+   "label": "Material Order"
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Select",
+   "label": "Unit",
+   "options": "BCM\nTonnes\nHours\nBlocks"
+  },
+  {
+   "fieldname": "original_quantity",
+   "fieldtype": "Float",
+   "label": "Original Quantity"
+  },
+  {
+   "fieldname": "remaining_quantity",
+   "fieldtype": "Float",
+   "label": "Remaining Quantity"
+  },
+  {
+   "fieldname": "predecessor_task_keys",
+   "fieldtype": "Code",
+   "label": "Predecessor Task Keys",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "task_status",
+   "fieldtype": "Select",
+   "label": "Task Status",
+   "options": "Pending\nReady\nIn Progress\nComplete\nBlocked\nExcluded"
+  },
+  {
+   "fieldname": "task_key",
+   "fieldtype": "Data",
+   "label": "Task Key"
+  },
+  {
+   "fieldname": "source_block_row",
+   "fieldtype": "Data",
+   "label": "Source Block Row"
+  },
+  {
+   "fieldname": "source_material_row",
+   "fieldtype": "Data",
+   "label": "Source Material Row"
+  },
+  {
+   "fieldname": "source_rule_hash",
+   "fieldtype": "Data",
+   "label": "Source Rule Hash"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-06 11:08:11.595777",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Task",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Foreman",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Supervisor",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

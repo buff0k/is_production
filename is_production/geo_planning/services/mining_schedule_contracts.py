@@ -19,9 +19,11 @@ REQUIRED_SOURCE_OBJECTS = {
     "Mining Schedule Scenario": {
         "fields": [
             "scenario_name",
-            "start_date",
+            "mining_schedule_selection",
+            "schedule_status",
             "period_type",
-            "status",
+            "start_date",
+            "end_date",
         ],
         "child_tables": [],
     },
@@ -51,12 +53,16 @@ MATERIAL_DOCTYPE_CANDIDATES = [
 
 REQUIRED_MATERIAL_FIELDS = [
     "material_seam",
-    "value_type",
     "volume",
     "tonnes",
-    "density",
     "material_status",
     "effective_area",
+]
+
+
+OPTIONAL_MATERIAL_FIELDS = [
+    "value_type",
+    "density",
 ]
 
 

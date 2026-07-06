@@ -1,0 +1,190 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "format: RUN-{schedule_scenario}",
+ "creation": "2026-07-06 10:03:18.217957",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "run_name",
+  "schedule_scenario",
+  "rule_set",
+  "engine_mode",
+  "run_status",
+  "started_on",
+  "completed_on",
+  "started_by",
+  "input_hash",
+  "output_hash",
+  "total_tasks",
+  "allocated_tasks",
+  "total_scheduled_bcm",
+  "total_scheduled_tonnes",
+  "warnings_json",
+  "errors_json",
+  "summary_json"
+ ],
+ "fields": [
+  {
+   "fieldname": "run_name",
+   "fieldtype": "Data",
+   "label": "Run Name"
+  },
+  {
+   "fieldname": "schedule_scenario",
+   "fieldtype": "Link",
+   "label": "Schedule Scenario",
+   "options": "Mining Schedule Scenario"
+  },
+  {
+   "fieldname": "rule_set",
+   "fieldtype": "Link",
+   "label": "Rule Set",
+   "options": "Mining Schedule Rule Set"
+  },
+  {
+   "default": "Rule Based",
+   "fieldname": "engine_mode",
+   "fieldtype": "Select",
+   "label": "Engine Mode",
+   "options": "Rule Based\nSimulation\nOptimised"
+  },
+  {
+   "default": "Queued",
+   "fieldname": "run_status",
+   "fieldtype": "Select",
+   "label": "Run Status",
+   "options": "Queued\nRunning\nComplete\nFailed\nCancelled"
+  },
+  {
+   "fieldname": "started_on",
+   "fieldtype": "Datetime",
+   "label": "Started On"
+  },
+  {
+   "fieldname": "completed_on",
+   "fieldtype": "Datetime",
+   "label": "Completed On"
+  },
+  {
+   "fieldname": "started_by",
+   "fieldtype": "Link",
+   "label": "Started By",
+   "options": "User"
+  },
+  {
+   "fieldname": "input_hash",
+   "fieldtype": "Data",
+   "label": "Input Hash"
+  },
+  {
+   "fieldname": "output_hash",
+   "fieldtype": "Data",
+   "label": "Output Hash"
+  },
+  {
+   "fieldname": "total_tasks",
+   "fieldtype": "Int",
+   "label": "Total Tasks"
+  },
+  {
+   "fieldname": "allocated_tasks",
+   "fieldtype": "Int",
+   "label": "Allocated Tasks"
+  },
+  {
+   "fieldname": "total_scheduled_bcm",
+   "fieldtype": "Float",
+   "label": "Total Scheduled BCM"
+  },
+  {
+   "fieldname": "total_scheduled_tonnes",
+   "fieldtype": "Float",
+   "label": "Total Scheduled Tonnes"
+  },
+  {
+   "fieldname": "warnings_json",
+   "fieldtype": "Code",
+   "label": "Warnings JSON",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "errors_json",
+   "fieldtype": "Code",
+   "label": "Errors JSON",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "summary_json",
+   "fieldtype": "Code",
+   "label": "Summary JSON",
+   "options": "JSON"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-06 10:19:47.956364",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Engine Run",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Foreman",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Supervisor",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

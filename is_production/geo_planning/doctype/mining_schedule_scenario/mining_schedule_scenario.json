@@ -1,5 +1,6 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
  "allow_rename": 1,
  "autoname": "format: {scenario_name}-{mining_schedule_selection}",
  "creation": "2026-05-22 11:29:24.469063",
@@ -17,6 +18,14 @@
   "start_date",
   "end_date",
   "schedule_basis",
+  "section_break_rule_driven_scheduling",
+  "schedule_rule_text",
+  "active_rule_set",
+  "parsed_schedule_rules_json",
+  "rule_parse_status",
+  "rule_parse_error",
+  "rule_preview_html",
+  "engine_mode",
   "section_break_capacity",
   "number_of_shifts",
   "hours_per_shift",
@@ -247,12 +256,58 @@
    "fieldname": "remarks",
    "fieldtype": "Small Text",
    "label": "Remarks"
+  },
+  {
+   "fieldname": "section_break_rule_driven_scheduling",
+   "fieldtype": "Section Break",
+   "label": "Rule Driven Scheduling"
+  },
+  {
+   "fieldname": "schedule_rule_text",
+   "fieldtype": "Long Text",
+   "label": "Schedule Rule Text"
+  },
+  {
+   "fieldname": "active_rule_set",
+   "fieldtype": "Link",
+   "label": "Active Rule Set",
+   "options": "Mining Schedule Rule Set"
+  },
+  {
+   "fieldname": "parsed_schedule_rules_json",
+   "fieldtype": "Code",
+   "label": "Parsed Schedule Rules JSON",
+   "options": "JSON"
+  },
+  {
+   "default": "Not Parsed",
+   "fieldname": "rule_parse_status",
+   "fieldtype": "Select",
+   "label": "Rule Parse Status",
+   "options": "Not Parsed\nParsed\nWarning\nError\nApproved"
+  },
+  {
+   "fieldname": "rule_parse_error",
+   "fieldtype": "Long Text",
+   "label": "Rule Parse Error"
+  },
+  {
+   "fieldname": "rule_preview_html",
+   "fieldtype": "HTML",
+   "label": "Rule Preview"
+  },
+  {
+   "default": "Rule Based",
+   "fieldname": "engine_mode",
+   "fieldtype": "Select",
+   "label": "Engine Mode",
+   "options": "Rule Based\nSimulation\nOptimised"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-22 12:38:30.790023",
+ "modified": "2026-07-06 08:04:39.571028",
  "modified_by": "Administrator",
  "module": "Geo Planning",
  "name": "Mining Schedule Scenario",

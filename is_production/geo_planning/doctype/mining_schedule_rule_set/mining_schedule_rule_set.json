@@ -1,0 +1,155 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "field:rule_set_name",
+ "creation": "2026-07-06 07:47:56.132842",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "rule_set_name",
+  "mining_schedule_selection",
+  "scenario",
+  "rule_text",
+  "parsed_rules_json",
+  "parser_status",
+  "parser_error",
+  "rule_hash",
+  "approved_by",
+  "approved_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "rule_set_name",
+   "fieldtype": "Data",
+   "label": "Rule Set Name",
+   "unique": 1
+  },
+  {
+   "fieldname": "mining_schedule_selection",
+   "fieldtype": "Link",
+   "label": "Source Selection",
+   "options": "Mining Schedule Selection"
+  },
+  {
+   "fieldname": "scenario",
+   "fieldtype": "Link",
+   "label": "Scenario",
+   "options": "Mining Schedule Scenario"
+  },
+  {
+   "fieldname": "rule_text",
+   "fieldtype": "Long Text",
+   "label": "Rule Text"
+  },
+  {
+   "fieldname": "parsed_rules_json",
+   "fieldtype": "Code",
+   "label": "Parsed Rules JSON",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "parser_status",
+   "fieldtype": "Select",
+   "label": "Parser Status",
+   "options": "Draft\nParsed\nWarning\nError\nApproved\nArchived"
+  },
+  {
+   "fieldname": "parser_error",
+   "fieldtype": "Long Text",
+   "label": "Parser Error"
+  },
+  {
+   "fieldname": "rule_hash",
+   "fieldtype": "Data",
+   "label": "Rule Hash"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "User"
+  },
+  {
+   "fieldname": "approved_on",
+   "fieldtype": "Datetime",
+   "label": "Approved On"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-06 07:58:53.119592",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Rule Set",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Supervisor",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Foreman",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

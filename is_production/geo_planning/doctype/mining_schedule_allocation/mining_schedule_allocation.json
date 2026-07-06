@@ -1,0 +1,188 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "format: ALLOC-{schedule_scenario}-{#####}",
+ "creation": "2026-07-06 10:21:15.388389",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "schedule_scenario",
+  "engine_run",
+  "calendar_day",
+  "schedule_task",
+  "mining_block",
+  "mining_block_code",
+  "material_seam",
+  "allocation_date",
+  "allocation_sequence",
+  "opening_quantity",
+  "scheduled_quantity",
+  "closing_quantity",
+  "unit",
+  "required_hours",
+  "capacity_used_percent",
+  "is_partial",
+  "allocation_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "schedule_scenario",
+   "fieldtype": "Link",
+   "label": "Schedule Scenario",
+   "options": "Mining Schedule Scenario"
+  },
+  {
+   "fieldname": "engine_run",
+   "fieldtype": "Link",
+   "label": "Engine Run",
+   "options": "Mining Schedule Engine Run"
+  },
+  {
+   "fieldname": "calendar_day",
+   "fieldtype": "Link",
+   "label": "Calendar Day",
+   "options": "Mining Schedule Calendar Day"
+  },
+  {
+   "fieldname": "schedule_task",
+   "fieldtype": "Link",
+   "label": "Schedule Task",
+   "options": "Mining Schedule Task"
+  },
+  {
+   "fieldname": "mining_block",
+   "fieldtype": "Link",
+   "label": "Mining Block",
+   "options": "Mining Block"
+  },
+  {
+   "fieldname": "mining_block_code",
+   "fieldtype": "Data",
+   "label": "Mining Block Code"
+  },
+  {
+   "fieldname": "material_seam",
+   "fieldtype": "Data",
+   "label": "Material / Seam"
+  },
+  {
+   "fieldname": "allocation_date",
+   "fieldtype": "Date",
+   "label": "Allocation Date"
+  },
+  {
+   "fieldname": "allocation_sequence",
+   "fieldtype": "Int",
+   "label": "Allocation Sequence"
+  },
+  {
+   "fieldname": "opening_quantity",
+   "fieldtype": "Float",
+   "label": "Opening Quantity"
+  },
+  {
+   "fieldname": "scheduled_quantity",
+   "fieldtype": "Float",
+   "label": "Scheduled Quantity"
+  },
+  {
+   "fieldname": "closing_quantity",
+   "fieldtype": "Float",
+   "label": "Closing Quantity"
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Select",
+   "label": "Unit",
+   "options": "BCM\nTonnes\nHours\nBlocks"
+  },
+  {
+   "fieldname": "required_hours",
+   "fieldtype": "Float",
+   "label": "Required Hours"
+  },
+  {
+   "fieldname": "capacity_used_percent",
+   "fieldtype": "Percent",
+   "label": "Capacity Used %"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_partial",
+   "fieldtype": "Check",
+   "label": "Partial"
+  },
+  {
+   "fieldname": "allocation_status",
+   "fieldtype": "Select",
+   "label": "Allocation Status",
+   "options": "Planned\nLocked\nActualised\nCancelled"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-06 11:15:39.328838",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Allocation",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Foreman",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Supervisor",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -1,0 +1,159 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "format:  {schedule_scenario}-{equipment_type}",
+ "creation": "2026-07-06 08:29:02.928826",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "schedule_scenario",
+  "rule_set",
+  "equipment_type",
+  "equipment_name",
+  "quantity",
+  "capacity_per_hour",
+  "capacity_unit",
+  "availability_percent",
+  "utilisation_percent",
+  "applies_to_materials",
+  "resource_status",
+  "source_rule_hash"
+ ],
+ "fields": [
+  {
+   "fieldname": "schedule_scenario",
+   "fieldtype": "Link",
+   "label": "Schedule Scenario",
+   "options": "Mining Schedule Scenario"
+  },
+  {
+   "fieldname": "rule_set",
+   "fieldtype": "Link",
+   "label": "Rule Set",
+   "options": "Mining Schedule Rule Set"
+  },
+  {
+   "fieldname": "equipment_type",
+   "fieldtype": "Select",
+   "label": "Equipment Type",
+   "options": "Excavator\nDozer\nTruck Fleet\nDrill\nCoal Fleet\nOther"
+  },
+  {
+   "fieldname": "equipment_name",
+   "fieldtype": "Data",
+   "label": "Equipment Name"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "capacity_per_hour",
+   "fieldtype": "Float",
+   "label": "Capacity Per Hour"
+  },
+  {
+   "default": "BCM per Hour",
+   "fieldname": "capacity_unit",
+   "fieldtype": "Select",
+   "label": "Capacity Unit",
+   "options": "BCM per Hour\nTonnes per Hour\nBlocks per Hour"
+  },
+  {
+   "default": "100",
+   "fieldname": "availability_percent",
+   "fieldtype": "Percent",
+   "label": "Availability %"
+  },
+  {
+   "default": "100",
+   "fieldname": "utilisation_percent",
+   "fieldtype": "Percent",
+   "label": "Utilisation %"
+  },
+  {
+   "fieldname": "applies_to_materials",
+   "fieldtype": "Small Text",
+   "label": "Applies To Materials"
+  },
+  {
+   "default": "Active",
+   "fieldname": "resource_status",
+   "fieldtype": "Select",
+   "label": "Resource Status",
+   "options": "Active\nInactive"
+  },
+  {
+   "fieldname": "source_rule_hash",
+   "fieldtype": "Data",
+   "label": "Source Rule Hash"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-06 08:39:07.041024",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Schedule Fleet Resource",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Foreman",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Supervisor",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

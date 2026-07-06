@@ -45,6 +45,226 @@ frappe.ui.form.on("Mining Schedule Scenario", {
 			});
 		}, __("Scheduling"));
 
+		frm.add_custom_button(__("Parse Schedule Rules"), function () {
+			if (!frm.doc.schedule_rule_text) {
+				frappe.msgprint(__("Please enter Schedule Rule Text first."));
+				return;
+			}
+
+			frappe.call({
+				method: "is_production.geo_planning.services.mining_schedule_rule_parser_service.parse_rules_for_scenario",
+				args: {
+					scenario_name: frm.doc.name
+				},
+				freeze: true,
+				freeze_message: __("Parsing schedule rules..."),
+				callback(r) {
+					if (!r.exc && r.message) {
+						frappe.msgprint({
+							title: __("Schedule Rules Parsed"),
+							message: __("Rule Set: {0}<br>Status: {1}", [
+								r.message.rule_set,
+								r.message.status
+							]),
+							indicator: r.message.status === "Warning" ? "orange" : "green"
+						});
+						frm.reload_doc();
+					}
+				}
+			});
+		}, __("Scheduling"));
+
+		frm.add_custom_button(__("Preview Schedule Rules"), function () {
+			if (!frm.doc.schedule_rule_text && !frm.doc.parsed_schedule_rules_json) {
+				frappe.msgprint(__("Please enter or parse Schedule Rule Text first."));
+				return;
+			}
+
+			frappe.call({
+				method: "is_production.geo_planning.services.mining_schedule_rule_parser_service.preview_rules_for_scenario",
+				args: {
+					scenario_name: frm.doc.name
+				},
+				freeze: true,
+				freeze_message: __("Building schedule rule preview..."),
+				callback(r) {
+					if (!r.exc && r.message) {
+						frm.set_value("rule_preview_html", r.message.preview_html);
+						frm.refresh_field("rule_preview_html");
+					}
+				}
+			});
+		}, __("Scheduling"));
+
+		frm.add_custom_button(__("Approve Schedule Rules"), function () {
+			if (!frm.doc.active_rule_set) {
+				frappe.msgprint(__("Please parse schedule rules first so an Active Rule Set is created."));
+				return;
+			}
+
+			frappe.confirm(
+				__("Approve the active rule set for future schedule generation?"),
+				function () {
+					frappe.call({
+						method: "is_production.geo_planning.services.mining_schedule_rule_parser_service.approve_active_rule_set",
+						args: {
+							scenario_name: frm.doc.name
+						},
+						freeze: true,
+						freeze_message: __("Approving schedule rules..."),
+						callback(r) {
+							if (!r.exc && r.message) {
+								frappe.msgprint({
+									title: __("Schedule Rules Approved"),
+									message: __("Rule Set: {0}", [r.message.rule_set]),
+									indicator: "green"
+								});
+								frm.reload_doc();
+							}
+						}
+					});
+				}
+			);
+		}, __("Scheduling"));
+
+		frm.add_custom_button(__("Build Capacity Calendar"), function () {
+			if (!frm.doc.active_rule_set) {
+				frappe.msgprint(__("Please parse and approve schedule rules first."));
+				return;
+			}
+
+			if (frm.doc.rule_parse_status !== "Approved") {
+				frappe.msgprint(__("Schedule rules must be approved before building the capacity calendar."));
+				return;
+			}
+
+			if (!frm.doc.start_date || !frm.doc.end_date) {
+				frappe.msgprint(__("Start Date and End Date are required before building the capacity calendar."));
+				return;
+			}
+
+			frappe.confirm(
+				__("Rebuild the capacity calendar for this scenario? Existing capacity calendar rows for this scenario will be replaced."),
+				function () {
+					frappe.call({
+						method: "is_production.geo_planning.services.mining_schedule_calendar_service.build_capacity_calendar_html",
+						args: {
+							scenario_name: frm.doc.name
+						},
+						freeze: true,
+						freeze_message: __("Building capacity calendar..."),
+						callback(r) {
+							if (!r.exc && r.message) {
+								frappe.msgprint({
+									title: __("Capacity Calendar Built"),
+									message: r.message,
+									wide: true
+								});
+								frm.reload_doc();
+							}
+						}
+					});
+				}
+			);
+		}, __("Scheduling"));
+
+		frm.add_custom_button(__("Generate Schedule Tasks"), function () {
+			if (!frm.doc.active_rule_set) {
+				frappe.msgprint(__("Please parse and approve schedule rules first."));
+				return;
+			}
+
+			if (frm.doc.rule_parse_status !== "Approved") {
+				frappe.msgprint(__("Schedule rules must be approved before generating schedule tasks."));
+				return;
+			}
+
+			if (!frm.doc.mining_schedule_selection) {
+				frappe.msgprint(__("Source Selection is required before generating schedule tasks."));
+				return;
+			}
+
+			frappe.confirm(
+				__("Generate schedule tasks from the Source Selection? Existing task rows for this scenario will be replaced."),
+				function () {
+					frappe.call({
+						method: "is_production.geo_planning.services.mining_schedule_task_service.build_schedule_tasks_html",
+						args: {
+							scenario_name: frm.doc.name
+						},
+						freeze: true,
+						freeze_message: __("Generating schedule tasks..."),
+						callback(r) {
+							if (!r.exc && r.message) {
+								frappe.msgprint({
+									title: __("Schedule Tasks Generated"),
+									message: r.message,
+									wide: true
+								});
+								frm.reload_doc();
+							}
+						}
+					});
+				}
+			);
+		}, __("Scheduling"));
+
+		frm.add_custom_button(__("Generate Rule Schedule"), function () {
+			if (!frm.doc.active_rule_set) {
+				frappe.msgprint(__("Please parse and approve schedule rules first."));
+				return;
+			}
+
+			if (frm.doc.rule_parse_status !== "Approved") {
+				frappe.msgprint(__("Schedule rules must be approved before generating the rule schedule."));
+				return;
+			}
+
+			frappe.confirm(
+				__("Generate the rule schedule for this scenario? This will create a new Engine Run and new Allocation rows."),
+				function () {
+					frappe.call({
+						method: "is_production.geo_planning.services.mining_schedule_engine_service.generate_rule_schedule_html",
+						args: {
+							scenario_name: frm.doc.name
+						},
+						freeze: true,
+						freeze_message: __("Generating rule schedule..."),
+						callback(r) {
+							if (!r.exc && r.message) {
+								frappe.msgprint({
+									title: __("Rule Schedule Generated"),
+									message: r.message,
+									wide: true
+								});
+								frm.reload_doc();
+							}
+						}
+					});
+				}
+			);
+		}, __("Scheduling"));
+
+		frm.add_custom_button(__("Review Rule Schedule"), function () {
+			frappe.call({
+				method: "is_production.geo_planning.services.mining_schedule_review_service.review_rule_schedule_html",
+				args: {
+					scenario_name: frm.doc.name
+				},
+				freeze: true,
+				freeze_message: __("Building rule schedule review..."),
+				callback(r) {
+					if (!r.exc && r.message) {
+						frappe.msgprint({
+							title: __("Rule Schedule Review"),
+							message: r.message,
+							wide: true
+						});
+					}
+				}
+			});
+		}, __("Scheduling"));
+
 		frm.add_custom_button(__("Edit Schedule Inputs"), function () {
 			frappe.call({
 				method: "is_production.geo_planning.services.mining_schedule_scenario_service.get_schedule_scenario_inputs",
