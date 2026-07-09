@@ -288,6 +288,16 @@ is_production.ui.HourlyProductionUI = class {
                 currentArea = truckWithArea ? truckWithArea.mining_areas_trucks : '';
             }
 
+            const hoursTruck = trucks.find(t => (
+                parseFloat(t.exc_start_hours || 0) ||
+                parseFloat(t.exc_stop_hours || 0) ||
+                parseFloat(t.exc_total_hours || 0)
+            )) || {};
+
+            const startHours = hoursTruck.exc_start_hours || '';
+            const stopHours = hoursTruck.exc_stop_hours || '';
+            const totalHours = hoursTruck.exc_total_hours || '';
+
             assignedHtml += `
                 <div class="excavator-block" data-excavator-name="${excavator}">
                     <div class="excavator-header">
@@ -301,6 +311,33 @@ is_production.ui.HourlyProductionUI = class {
                                 ${areaOptions}
                                 ${currentArea ? `<option value="${currentArea}" selected>${currentArea}</option>` : ''}
                             </select>
+                        </div>
+
+                        <div class="excavator-hours-row" style="display:flex; gap:8px; align-items:end; flex-wrap:wrap; margin-left:10px;">
+                            <div style="min-width:90px;">
+                                <label style="font-size:11px; margin-bottom:2px;">Start Hours</label>
+                                <input type="number" class="form-control exc-hour-input exc-start-hours"
+                                       data-excavator-name="${excavator}"
+                                       value="${startHours}"
+                                       style="height:28px; padding:2px 6px;">
+                            </div>
+
+                            <div style="min-width:90px;">
+                                <label style="font-size:11px; margin-bottom:2px;">Stop Hours</label>
+                                <input type="number" class="form-control exc-hour-input exc-stop-hours"
+                                       data-excavator-name="${excavator}"
+                                       value="${stopHours}"
+                                       style="height:28px; padding:2px 6px;">
+                            </div>
+
+                            <div style="min-width:90px;">
+                                <label style="font-size:11px; margin-bottom:2px;">Total Hours</label>
+                                <input type="number" class="form-control exc-total-hours"
+                                       data-excavator-name="${excavator}"
+                                       value="${totalHours}"
+                                       readonly
+                                       style="height:28px; padding:2px 6px; background:#f5f5f5;">
+                            </div>
                         </div>
                     </div>
                     <div class="truck-container" id="excavator-${excavator.replace(/\s+/g, '-')}">
@@ -767,6 +804,45 @@ is_production.ui.HourlyProductionUI = class {
             
             me.updateExcavatorDefaultArea(excavatorName, area);
         });
+
+        $(document).off('input.excavator_hours change.excavator_hours', '.exc-hour-input');
+        $(document).on('input.excavator_hours change.excavator_hours', '.exc-hour-input', function() {
+            const block = $(this).closest('.excavator-block');
+            const excavatorName = block.data('excavator-name');
+
+            const start = flt(block.find('.exc-start-hours').val() || 0);
+            const stop = flt(block.find('.exc-stop-hours').val() || 0);
+
+            let total = 0;
+            if (start > 0 && stop > 0 && stop >= start) {
+                total = stop - start;
+            }
+
+            block.find('.exc-total-hours').val(total ? total.toFixed(0) : '');
+
+            me.updateExcavatorHours(excavatorName, start, stop, total);
+        });
+    }
+
+    updateExcavatorHours(excavatorName, start, stop, total) {
+        if (!excavatorName) return;
+
+        const rows = (this.frm.doc.truck_loads || []).filter(r => r.asset_name_shoval === excavatorName);
+
+        rows.forEach(row => {
+            row.exc_start_hours = start || 0;
+            row.exc_stop_hours = stop || 0;
+            row.exc_total_hours = total || 0;
+
+            frappe.model.set_value(row.doctype, row.name, 'exc_start_hours', start || 0);
+            frappe.model.set_value(row.doctype, row.name, 'exc_stop_hours', stop || 0);
+            frappe.model.set_value(row.doctype, row.name, 'exc_total_hours', total || 0);
+        });
+
+        this.frm.dirty = true;
+        this.frm.doc.__unsaved = 1;
+        this.frm.refresh_field('truck_loads');
+        this.frm.toolbar.refresh();
     }
 
     updateTruckArea(rowName, area) {

@@ -4,7 +4,8 @@
 from frappe.model.document import Document
 import frappe
 from frappe import _
-from frappe.utils import getdate, add_to_date, nowdate
+from html import escape
+from frappe.utils import getdate, add_to_date, nowdate, formatdate
 
 
 class HourlyProduction(Document):
@@ -320,17 +321,943 @@ class HourlyProduction(Document):
             ]:
                 setattr(self, field, getattr(mpp, field))
 
-    @frappe.whitelist()
-    def send_whatsapp_notification(self):
+    # -------------------------------------------------------------------------
+    # Raven Production Reports
+    # Replaces old WhatsApp Hour Report and Shift Summary.
+    # -------------------------------------------------------------------------
+
+    def _raven_e(self, value):
+        return escape(str(value or ""))
+
+    def _raven_num(self, value, decimals=0):
         try:
-            notification = frappe.get_doc("WhatsApp Notification", "Hourly Production Indiv.")
-            if notification.disabled:
-                frappe.msgprint("WhatsApp notification is disabled", indicator="orange")
-                return
-            notification.send_template_message(self)
+            value = float(value or 0)
+        except Exception:
+            value = 0
+        if decimals == 0:
+            return f"{value:,.0f}"
+        return f"{value:,.{decimals}f}"
+
+    def _raven_volume_bg(self, value):
+        return "#fff2cc"
+
+    def _raven_volume_text_color(self, value):
+        try:
+            value = float(value or 0)
+        except Exception:
+            value = 0
+
+        if value < 200:
+            return "#cc0000"   # red text
+        elif value <= 219:
+            return "#e69138"   # orange text
+        else:
+            return "#38761d"   # green text
+
+    def _raven_date(self):
+        if not self.prod_date:
+            return ""
+        return formatdate(self.prod_date, "MMMM d, yyyy")
+
+    def get_raven_channel_for_production(self):
+        site = (self.location or "").strip()
+        site_key = site.lower().replace(" ", "-")
+
+        candidates = [
+            f"Raven-prod-{site_key}",
+            f"Raven-production-{site_key}",
+            f"prod-{site_key}",
+            f"production-{site_key}",
+            "Raven-production",
+            "Production",
+        ]
+
+        for channel in candidates:
+            if frappe.db.exists("Raven Channel", channel):
+                return channel
+
+        frappe.throw(_("Please create Raven channel Raven-production first."))
+
+    def insert_raven_message(self, channel_id, message):
+        if not frappe.db.exists("DocType", "Raven Message"):
+            frappe.throw(_("Raven is not installed on this site."))
+
+        meta = frappe.get_meta("Raven Message")
+        doc = frappe.new_doc("Raven Message")
+
+        if meta.has_field("channel_id"):
+            doc.channel_id = channel_id
+        elif meta.has_field("channel"):
+            doc.channel = channel_id
+        elif meta.has_field("raven_channel"):
+            doc.raven_channel = channel_id
+
+        if meta.has_field("message_type"):
+            doc.message_type = "Text"
+
+        if meta.has_field("text"):
+            doc.text = message
+        elif meta.has_field("message"):
+            doc.message = message
+        elif meta.has_field("content"):
+            doc.content = message
+
+        if meta.has_field("json"):
+            doc.json = frappe.as_json({
+                "doctype": self.doctype,
+                "docname": self.name,
+                "location": self.location,
+                "prod_date": str(self.prod_date or ""),
+                "shift": self.shift,
+                "hour_slot": self.hour_slot,
+            })
+
+        doc.insert(ignore_permissions=True)
+        return doc
+
+    def get_raven_monthly_statistics_html(self):
+        monthly_target = self.monthly_target_bcm or 0
+        production_to_date = self.month_actual_bcm or 0
+        remaining_bcm = monthly_target - production_to_date
+
+        rows = [
+            ("Monthly Target BCM", monthly_target, 0),
+            ("Daily Target", self.target_bcm_day, 0),
+            ("Target Hourly Rate", self.target_bcm_hour, 0),
+            ("Production to Date", production_to_date, 0),
+            ("Remaining BCM", remaining_bcm, 0),
+            ("Current Rate", self.mtd_bcm_hour, 0),
+            ("Required Rate", self.mtd_bcm_day, 0),
+            ("Strip Ratio", self.monthly_act_tally_survey_variance, 2),
+            ("Forecasted BCM", self.month_forecated_bcm, 0),
+        ]
+
+        html = """
+        <table style="border-collapse:collapse;width:100%;font-size:9px;background:#ffffff;color:#000000;">
+            <tr>
+                <th colspan="2" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:4px;text-align:left;font-size:9px;">
+                    Monthly Statistics
+                </th>
+            </tr>
+        """
+
+        for label, value, decimals in rows:
+            html += f"""
+            <tr>
+                <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:4px;text-align:center;width:68%;">
+                    {self._raven_e(label)}
+                </td>
+                <td style="background:#ffffff;color:#000000;border:1px solid #000;padding:4px;text-align:right;font-weight:bold;width:32%;">
+                    {self._raven_num(value, decimals)}
+                </td>
+            </tr>
+            """
+
+        html += "</table>"
+        return html
+
+    def get_raven_hour_report_html(self):
+        number_of_utilized_trucks = len({
+            row.asset_name_truck
+            for row in self.truck_loads or []
+            if row.asset_name_truck and (row.loads or 0) > 0
+        })
+
+        excavator_groups = {}
+
+        for row in self.truck_loads or []:
+            if not (row.bcms or 0):
+                continue
+
+            excavator = row.excavator_plant_no or row.asset_name_shoval or "No Excavator"
+            area = row.mining_areas_trucks or ""
+            material = row.geo_mat_layer_truck or ""
+            key = (excavator, area, material)
+
+            if key not in excavator_groups:
+                excavator_groups[key] = {
+                    "excavator": excavator,
+                    "area": area,
+                    "material": material,
+                    "trucks": set(),
+                    "loads": 0,
+                    "volume": 0,
+                }
+
+            excavator_groups[key]["trucks"].add(row.truck_plant_no or row.asset_name_truck or "")
+            excavator_groups[key]["loads"] += row.loads or 0
+            excavator_groups[key]["volume"] += row.bcms or 0
+
+        excavator_rows = ""
+
+        if excavator_groups:
+            for data in excavator_groups.values():
+                excavator_rows += f"""
+                <tr>
+                    <td colspan="3" style="background:#ffffff;color:#000000;border:1px solid #000;padding:5px;font-size:11px;font-weight:bold;">
+                        {self._raven_e(data["excavator"])} &nbsp; | &nbsp;
+                        {self._raven_e(data["area"])} &nbsp; | &nbsp;
+                        {self._raven_e(data["material"])}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:4px;text-align:center;font-size:9px;width:29%;white-space:nowrap;">
+                        Trucks<br><b style="font-size:11px;">{len(data["trucks"])}</b>
+                    </td>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:4px;text-align:center;font-size:9px;width:29%;white-space:nowrap;">
+                        Loads<br><b style="font-size:11px;">{self._raven_num(data["loads"])}</b>
+                    </td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:4px;text-align:center;font-size:9px;width:42%;white-space:nowrap;">
+                        Volume<br><b style="font-size:11px;color:{self._raven_volume_text_color(data["volume"])};">{self._raven_num(data["volume"])}</b>
+                    </td>
+                </tr>
+                """
+        else:
+            excavator_rows = """
+            <tr>
+                <td colspan="3" style="border:1px solid #000;padding:8px;text-align:center;background:#ffffff;color:#000000;font-weight:bold;">
+                    No Excavator Data
+                </td>
+            </tr>
+            """
+
+        dozer_rows = ""
+        for row in self.dozer_production or []:
+            if not (row.bcm_hour or 0):
+                continue
+
+            dozer_rows += f"""
+            <tr>
+                <td colspan="3" style="background:#ffffff;color:#000000;border:1px solid #000;padding:5px;font-size:11px;font-weight:bold;">
+                    {self._raven_e(row.dozer_plant_no or row.asset_name)} &nbsp; | &nbsp;
+                    {self._raven_e(row.mining_areas_dozer_child)} &nbsp; | &nbsp;
+                    {self._raven_e(row.dozer_geo_mat_layer)}
+                </td>
+            </tr>
+            <tr>
+                <td colspan="3" style="background:#fff2cc;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:10px;font-weight:bold;">
+                    Volume: <span style="color:{self._raven_volume_text_color(row.bcm_hour)};">{self._raven_num(row.bcm_hour)}</span>
+                </td>
+            </tr>
+            """
+
+        if not dozer_rows:
+            dozer_rows = """
+            <tr>
+                <td colspan="3" style="border:1px solid #000;padding:8px;text-align:center;background:#ffffff;color:#000000;font-weight:bold;">
+                    No Dozer Data
+                </td>
+            </tr>
+            """
+
+        return f"""
+        <div style="background:#ffffff;color:#000000;font-family:Arial,sans-serif;width:100%;max-width:430px;margin:0 auto;padding:4px;box-sizing:border-box;">
+            <div style="text-align:center;font-size:18px;font-weight:bold;color:#1f4e79;margin:2px 0 5px 0;">
+                Hour Report
+            </div>
+
+            <div style="text-align:center;font-size:11px;font-weight:bold;color:#000000;margin-bottom:6px;line-height:1.4;">
+                Site: {self._raven_e(self.location)} &nbsp; | &nbsp;
+                Shift: {self._raven_e(self.shift)}<br>
+                Date: {self._raven_e(self._raven_date())} &nbsp; | &nbsp;
+                Hour: {self._raven_e(self.hour_slot)}
+            </div>
+
+            <table style="border-collapse:collapse;width:100%;background:#ffffff;color:#000000;">
+                <tr>
+                    <td style="vertical-align:top;width:62%;padding-right:5px;background:#ffffff;color:#000000;">
+
+                        <table style="border-collapse:collapse;width:100%;font-size:10px;background:#ffffff;color:#000000;margin-bottom:6px;">
+                            <tr>
+                                <th colspan="3" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:5px;text-align:left;font-size:11px;">
+                                    Excavator Production
+                                </th>
+                            </tr>
+                            {excavator_rows}
+                        </table>
+
+                        <table style="border-collapse:collapse;width:100%;font-size:10px;background:#ffffff;color:#000000;margin-bottom:6px;">
+                            <tr>
+                                <th colspan="3" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:5px;text-align:left;font-size:11px;">
+                                    Dozer Production
+                                </th>
+                            </tr>
+                            {dozer_rows}
+                        </table>
+
+                        <table style="border-collapse:collapse;width:100%;font-size:10px;background:#ffffff;color:#000000;margin-bottom:6px;">
+                            <tr>
+                                <th colspan="3" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:5px;text-align:left;font-size:11px;">
+                                    Drill Production
+                                </th>
+                            </tr>
+                            <tr>
+                                <td colspan="3" style="border:1px solid #000;padding:8px;text-align:center;background:#ffffff;color:#000000;font-weight:bold;">
+                                    No drill data available.
+                                </td>
+                            </tr>
+                        </table>
+
+                    </td>
+
+                    <td style="vertical-align:top;width:38%;background:#ffffff;color:#000000;">
+                        {self.get_raven_monthly_statistics_html()}
+                    </td>
+                </tr>
+            </table>
+
+            <table style="border-collapse:collapse;width:100%;font-size:11px;background:#ffffff;color:#000000;margin-top:5px;">
+                <tr>
+                    <th colspan="2" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:5px;text-align:left;">
+                        Hour Summary
+                    </th>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Number of Utilized Trucks</td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">{self._raven_num(number_of_utilized_trucks, 0)}</td>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;width:72%;">Total BCM TS</td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">{self._raven_num(self.total_ts_bcm)}</td>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Total BCM Dozing</td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">{self._raven_num(self.total_dozing_bcm)}</td>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Total Shift Acc BCM</td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">{self._raven_num(self.day_total_bcm)}</td>
+                </tr>
+            </table>
+        </div>
+        """
+
+    def get_raven_shift_docs(self):
+        if not self.location or not self.prod_date or not self.shift:
+            return []
+
+        rows = frappe.get_all(
+            "Hourly Production",
+            filters={
+                "location": self.location,
+                "prod_date": self.prod_date,
+                "shift": self.shift,
+                "docstatus": ["<", 2],
+            },
+            fields=["name"],
+            order_by="hour_sort_key asc, creation asc",
+            limit_page_length=500,
+        )
+
+        return [frappe.get_doc("Hourly Production", row.name) for row in rows]
+
+    def get_raven_shift_summary_html(self):
+        docs = self.get_raven_shift_docs()
+
+        excavator_groups = {}
+        dozer_groups = {}
+        material_totals = {}
+
+        total_ts = 0
+        total_dozing = 0
+        diesel_used = 0
+        water_used = 0
+
+        for doc in docs:
+            total_ts += doc.total_ts_bcm or 0
+            total_dozing += doc.total_dozing_bcm or 0
+            diesel_used += doc.diesel_used or 0
+            water_used += doc.water_used or 0
+
+            for row in doc.truck_loads or []:
+                if not (row.bcms or 0):
+                    continue
+
+                excavator = row.excavator_plant_no or row.asset_name_shoval or "No Excavator"
+                area = row.mining_areas_trucks or ""
+                material = row.geo_mat_layer_truck or ""
+
+                key = (excavator, area, material)
+
+                if key not in excavator_groups:
+                    excavator_groups[key] = {
+                        "excavator": excavator,
+                        "area": area,
+                        "material": material,
+                        "volume": 0,
+                        "start_hours": None,
+                        "end_hours": None,
+                    }
+
+                excavator_groups[key]["volume"] += row.bcms or 0
+
+                start_hours = row.exc_start_hours or 0
+                end_hours = row.exc_stop_hours or 0
+
+                if start_hours:
+                    if excavator_groups[key]["start_hours"] is None:
+                        excavator_groups[key]["start_hours"] = start_hours
+                    else:
+                        excavator_groups[key]["start_hours"] = min(
+                            excavator_groups[key]["start_hours"],
+                            start_hours
+                        )
+
+                if end_hours:
+                    if excavator_groups[key]["end_hours"] is None:
+                        excavator_groups[key]["end_hours"] = end_hours
+                    else:
+                        excavator_groups[key]["end_hours"] = max(
+                            excavator_groups[key]["end_hours"],
+                            end_hours
+                        )
+
+                material_totals[material] = material_totals.get(material, 0) + (row.bcms or 0)
+
+            # Dozers are still shown for volume only. Hours are ignored as requested.
+            for row in doc.dozer_production or []:
+                if not (row.bcm_hour or 0):
+                    continue
+
+                dozer = row.dozer_plant_no or row.asset_name or "No Dozer"
+                area = row.mining_areas_dozer_child or ""
+                material = row.dozer_geo_mat_layer or ""
+
+                key = (dozer, area, material)
+
+                if key not in dozer_groups:
+                    dozer_groups[key] = {
+                        "dozer": dozer,
+                        "area": area,
+                        "material": material,
+                        "volume": 0,
+                    }
+
+                dozer_groups[key]["volume"] += row.bcm_hour or 0
+
+        excavator_rows = ""
+
+        if excavator_groups:
+            for data in excavator_groups.values():
+                start = data["start_hours"] or 0
+                end = data["end_hours"] or 0
+                total_hours = 0
+
+                if start and end and end >= start:
+                    total_hours = end - start
+
+                excavator_rows += f"""
+                <tr>
+                    <td colspan="4" style="background:#ffffff;color:#000000;border:1px solid #000;padding:5px;font-size:11px;font-weight:bold;">
+                        {self._raven_e(data["excavator"])} &nbsp; | &nbsp;
+                        {self._raven_e(data["area"])} &nbsp; | &nbsp;
+                        {self._raven_e(data["material"])}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:10px;width:34%;">
+                        Volume<br>
+                        <b style="font-size:11px;color:{self._raven_volume_text_color(data["volume"])};">
+                            {self._raven_num(data["volume"])}
+                        </b>
+                    </td>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:9px;width:22%;">
+                        Start<br><b>{self._raven_num(start)}</b>
+                    </td>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:9px;width:22%;">
+                        End<br><b>{self._raven_num(end)}</b>
+                    </td>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:9px;width:22%;">
+                        Hours<br><b>{self._raven_num(total_hours, 0)}</b>
+                    </td>
+                </tr>
+                """
+        else:
+            excavator_rows = """
+            <tr>
+                <td colspan="4" style="border:1px solid #000;padding:8px;text-align:center;background:#ffffff;color:#000000;font-weight:bold;">
+                    No Excavator Data
+                </td>
+            </tr>
+            """
+
+        dozer_rows = ""
+
+        if dozer_groups:
+            for data in dozer_groups.values():
+                dozer_rows += f"""
+                <tr>
+                    <td colspan="3" style="background:#ffffff;color:#000000;border:1px solid #000;padding:5px;font-size:11px;font-weight:bold;">
+                        {self._raven_e(data["dozer"])} &nbsp; | &nbsp;
+                        {self._raven_e(data["area"])} &nbsp; | &nbsp;
+                        {self._raven_e(data["material"])}
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="background:#fff2cc;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:10px;font-weight:bold;">
+                        Volume:
+                        <span style="color:{self._raven_volume_text_color(data["volume"])};">
+                            {self._raven_num(data["volume"])}
+                        </span>
+                    </td>
+                </tr>
+                """
+        else:
+            dozer_rows = """
+            <tr>
+                <td colspan="3" style="border:1px solid #000;padding:8px;text-align:center;background:#ffffff;color:#000000;font-weight:bold;">
+                    No Dozer Data
+                </td>
+            </tr>
+            """
+
+        material_rows = ""
+
+        if material_totals:
+            for material, volume in material_totals.items():
+                material_rows += f"""
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">
+                        {self._raven_e(material)}
+                    </td>
+                    <td style="background:#ffffff;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">
+                        {self._raven_num(volume)}
+                    </td>
+                </tr>
+                """
+        else:
+            material_rows = """
+            <tr>
+                <td colspan="2" style="background:#ffffff;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">
+                    No TS Material
+                </td>
+            </tr>
+            """
+
+        total_shift_bcm = total_ts + total_dozing
+
+        return f"""
+        <div style="background:#ffffff;color:#000000;font-family:Arial,sans-serif;width:100%;max-width:430px;margin:0 auto;padding:4px;box-sizing:border-box;">
+            <div style="text-align:center;font-size:18px;font-weight:bold;color:#1f4e79;margin:2px 0 5px 0;">
+                Shift Summary
+            </div>
+
+            <div style="text-align:center;font-size:11px;font-weight:bold;color:#000000;margin-bottom:6px;line-height:1.4;">
+                Site: {self._raven_e(self.location)} &nbsp; | &nbsp;
+                Shift: {self._raven_e(self.shift)}<br>
+                Date: {self._raven_e(self._raven_date())}
+            </div>
+
+            {self.get_raven_monthly_statistics_html()}
+
+            <table style="border-collapse:collapse;width:100%;font-size:10px;background:#ffffff;color:#000000;margin-bottom:7px;">
+                <tr>
+                    <th colspan="4" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:5px;text-align:left;font-size:11px;">
+                        Excavator Production Full Shift
+                    </th>
+                </tr>
+                {excavator_rows}
+            </table>
+
+            <table style="border-collapse:collapse;width:100%;font-size:10px;background:#ffffff;color:#000000;margin-bottom:7px;">
+                <tr>
+                    <th colspan="3" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:5px;text-align:left;font-size:11px;">
+                        Dozer Production Full Shift
+                    </th>
+                </tr>
+                {dozer_rows}
+            </table>
+
+            <table style="border-collapse:collapse;width:100%;font-size:11px;background:#ffffff;color:#000000;margin-top:5px;">
+                <tr>
+                    <th colspan="2" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:5px;text-align:left;">
+                        Shift Report
+                    </th>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;width:72%;">Total BCM TS</td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">{self._raven_num(total_ts)}</td>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Total BCM Dozing</td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">{self._raven_num(total_dozing)}</td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;font-weight:bold;">
+                        TS Material
+                    </td>
+                </tr>
+                {material_rows}
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Total Shift BCM</td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">{self._raven_num(total_shift_bcm)}</td>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Diesel Used</td>
+                    <td style="background:#ffffff;color:#000000;border:1px solid #000;padding:7px;text-align:center;">{self._raven_num(diesel_used)}</td>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Water Used</td>
+                    <td style="background:#ffffff;color:#000000;border:1px solid #000;padding:7px;text-align:center;">{self._raven_num(water_used)}</td>
+                </tr>
+            </table>
+        </div>
+        """
+
+
+    def get_raven_end_of_day_report_html(self):
+        docs = []
+        day_rows = frappe.get_all(
+            "Hourly Production",
+            filters={
+                "location": self.location,
+                "prod_date": self.prod_date,
+                "docstatus": ["<", 2],
+            },
+            fields=["name", "shift"],
+            order_by="shift asc, hour_slot asc, creation asc",
+        )
+
+        shifts_included = []
+
+        for row in day_rows:
+            doc = frappe.get_doc("Hourly Production", row.name)
+            docs.append(doc)
+            if doc.shift and doc.shift not in shifts_included:
+                shifts_included.append(doc.shift)
+
+        excavator_groups = {}
+        dozer_groups = {}
+        material_totals = {}
+
+        total_ts = 0
+        total_dozing = 0
+        diesel_used = 0
+        water_used = 0
+
+        for doc in docs:
+            total_ts += doc.total_ts_bcm or 0
+            total_dozing += doc.total_dozing_bcm or 0
+            diesel_used += doc.diesel_used or 0
+            water_used += doc.water_used or 0
+
+            for row in doc.truck_loads or []:
+                if not (row.bcms or 0):
+                    continue
+
+                excavator = row.excavator_plant_no or row.asset_name_shoval or "No Excavator"
+                area = row.mining_areas_trucks or ""
+                material = row.geo_mat_layer_truck or ""
+
+                key = (excavator, area, material)
+
+                if key not in excavator_groups:
+                    excavator_groups[key] = {
+                        "excavator": excavator,
+                        "area": area,
+                        "material": material,
+                        "volume": 0,
+                        "start_hours": None,
+                        "end_hours": None,
+                    }
+
+                excavator_groups[key]["volume"] += row.bcms or 0
+
+                start_hours = row.exc_start_hours or 0
+                end_hours = row.exc_stop_hours or 0
+
+                if start_hours:
+                    if excavator_groups[key]["start_hours"] is None:
+                        excavator_groups[key]["start_hours"] = start_hours
+                    else:
+                        excavator_groups[key]["start_hours"] = min(excavator_groups[key]["start_hours"], start_hours)
+
+                if end_hours:
+                    if excavator_groups[key]["end_hours"] is None:
+                        excavator_groups[key]["end_hours"] = end_hours
+                    else:
+                        excavator_groups[key]["end_hours"] = max(excavator_groups[key]["end_hours"], end_hours)
+
+                material_totals[material] = material_totals.get(material, 0) + (row.bcms or 0)
+
+            for row in doc.dozer_production or []:
+                if not (row.bcm_hour or 0):
+                    continue
+
+                dozer = row.dozer_plant_no or row.asset_name or "No Dozer"
+                area = row.mining_areas_dozer_child or ""
+                material = row.dozer_geo_mat_layer or ""
+
+                key = (dozer, area, material)
+
+                if key not in dozer_groups:
+                    dozer_groups[key] = {
+                        "dozer": dozer,
+                        "area": area,
+                        "material": material,
+                        "volume": 0,
+                    }
+
+                dozer_groups[key]["volume"] += row.bcm_hour or 0
+
+        excavator_rows = ""
+
+        if excavator_groups:
+            for data in excavator_groups.values():
+                start = data["start_hours"] or 0
+                end = data["end_hours"] or 0
+                total_hours = 0
+
+                if start and end and end >= start:
+                    total_hours = end - start
+
+                excavator_rows += f"""
+                <tr>
+                    <td colspan="4" style="background:#ffffff;color:#000000;border:1px solid #000;padding:5px;font-size:11px;font-weight:bold;">
+                        {self._raven_e(data["excavator"])} &nbsp; | &nbsp;
+                        {self._raven_e(data["area"])} &nbsp; | &nbsp;
+                        {self._raven_e(data["material"])}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:10px;width:34%;">
+                        Volume<br>
+                        <b style="font-size:11px;color:{self._raven_volume_text_color(data["volume"])};">
+                            {self._raven_num(data["volume"], 0)}
+                        </b>
+                    </td>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:9px;width:22%;">
+                        Start<br><b>{self._raven_num(start, 0)}</b>
+                    </td>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:9px;width:22%;">
+                        End<br><b>{self._raven_num(end, 0)}</b>
+                    </td>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:9px;width:22%;">
+                        Hours<br><b>{self._raven_num(total_hours, 0)}</b>
+                    </td>
+                </tr>
+                """
+        else:
+            excavator_rows = """
+            <tr>
+                <td colspan="4" style="border:1px solid #000;padding:8px;text-align:center;background:#ffffff;color:#000000;font-weight:bold;">
+                    No Excavator Data
+                </td>
+            </tr>
+            """
+
+        dozer_rows = ""
+
+        if dozer_groups:
+            for data in dozer_groups.values():
+                dozer_rows += f"""
+                <tr>
+                    <td colspan="3" style="background:#ffffff;color:#000000;border:1px solid #000;padding:5px;font-size:11px;font-weight:bold;">
+                        {self._raven_e(data["dozer"])} &nbsp; | &nbsp;
+                        {self._raven_e(data["area"])} &nbsp; | &nbsp;
+                        {self._raven_e(data["material"])}
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" style="background:#fff2cc;color:#000000;border:1px solid #000;padding:5px;text-align:center;font-size:10px;font-weight:bold;">
+                        Volume:
+                        <span style="color:{self._raven_volume_text_color(data["volume"])};">
+                            {self._raven_num(data["volume"], 0)}
+                        </span>
+                    </td>
+                </tr>
+                """
+        else:
+            dozer_rows = """
+            <tr>
+                <td colspan="3" style="border:1px solid #000;padding:8px;text-align:center;background:#ffffff;color:#000000;font-weight:bold;">
+                    No Dozer Data
+                </td>
+            </tr>
+            """
+
+        material_rows = ""
+
+        if material_totals:
+            for material, volume in material_totals.items():
+                material_rows += f"""
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">
+                        {self._raven_e(material)}
+                    </td>
+                    <td style="background:#ffffff;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">
+                        {self._raven_num(volume, 0)}
+                    </td>
+                </tr>
+                """
+        else:
+            material_rows = """
+            <tr>
+                <td colspan="2" style="background:#ffffff;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">
+                    No TS Material
+                </td>
+            </tr>
+            """
+
+        total_day_bcm = total_ts + total_dozing
+        shifts_text = ", ".join(shifts_included) if shifts_included else "N/A"
+
+        return f"""
+        <div style="background:#ffffff;color:#000000;font-family:Arial,sans-serif;width:100%;max-width:430px;margin:0 auto;padding:4px;box-sizing:border-box;">
+            <div style="text-align:center;font-size:16px;font-weight:bold;color:#1f4e79;margin:2px 0 5px 0;">
+                End of Day Production Report
+            </div>
+
+            <div style="text-align:center;font-size:11px;font-weight:bold;color:#000000;margin-bottom:6px;line-height:1.4;">
+                Site: {self._raven_e(self.location)}<br>
+                Date: {self._raven_e(self._raven_date())}<br>
+                Report: End of Day &nbsp; | &nbsp; Shifts: {self._raven_e(shifts_text)}
+            </div>
+
+            {self.get_raven_monthly_statistics_html()}
+
+            <table style="border-collapse:collapse;width:100%;font-size:10px;background:#ffffff;color:#000000;margin-bottom:7px;">
+                <tr>
+                    <th colspan="4" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:5px;text-align:left;font-size:11px;">
+                        Excavator Production Full Day
+                    </th>
+                </tr>
+                {excavator_rows}
+            </table>
+
+            <table style="border-collapse:collapse;width:100%;font-size:10px;background:#ffffff;color:#000000;margin-bottom:7px;">
+                <tr>
+                    <th colspan="3" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:5px;text-align:left;font-size:11px;">
+                        Dozer Production Full Day
+                    </th>
+                </tr>
+                {dozer_rows}
+            </table>
+
+            <table style="border-collapse:collapse;width:100%;font-size:11px;background:#ffffff;color:#000000;margin-top:5px;">
+                <tr>
+                    <th colspan="2" style="background:#1f4e79;color:#ffffff;border:1px solid #000;padding:5px;text-align:left;">
+                        End of Day Summary
+                    </th>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;width:72%;">Total BCM TS Day</td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">{self._raven_num(total_ts, 0)}</td>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Total BCM Dozing Day</td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">{self._raven_num(total_dozing, 0)}</td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;font-weight:bold;">
+                        TS Material Day
+                    </td>
+                </tr>
+                {material_rows}
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Total Day BCM</td>
+                    <td style="background:#fff2cc;color:#000000;border:1px solid #000;padding:7px;text-align:center;font-weight:bold;">{self._raven_num(total_day_bcm, 0)}</td>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Diesel Used</td>
+                    <td style="background:#ffffff;color:#000000;border:1px solid #000;padding:7px;text-align:center;">{self._raven_num(diesel_used, 0)}</td>
+                </tr>
+                <tr>
+                    <td style="background:#d9e2f3;color:#000000;border:1px solid #000;padding:7px;text-align:center;">Water Used</td>
+                    <td style="background:#ffffff;color:#000000;border:1px solid #000;padding:7px;text-align:center;">{self._raven_num(water_used, 0)}</td>
+                </tr>
+            </table>
+        </div>
+        """
+
+    def refresh_raven_monthly_statistics(self):
+        """
+        Refresh Monthly Statistics before sending Raven report.
+        Raven does not call print/form refresh methods automatically.
+        """
+        if not self.month_prod_planning:
+            return
+
+        if not frappe.db.exists("Monthly Production Planning", self.month_prod_planning):
+            return
+
+        try:
+            monthly_doc = frappe.get_doc("Monthly Production Planning", self.month_prod_planning)
+
+            # Try controller refresh if method exists
+            try:
+                if hasattr(monthly_doc, "update_mtd_production"):
+                    monthly_doc.update_mtd_production()
+            except Exception:
+                frappe.log_error(
+                    frappe.get_traceback(),
+                    "Raven Monthly Statistics Controller Refresh Failed"
+                )
+
+            monthly_doc.reload()
+
+            monthly_fields = [
+                "monthly_target_bcm",
+                "target_bcm_day",
+                "target_bcm_hour",
+                "month_actual_bcm",
+                "mtd_bcm_hour",
+                "mtd_bcm_day",
+                "monthly_act_tally_survey_variance",
+                "month_forecated_bcm",
+                "month_act_ts_bcm_tallies",
+                "month_act_dozing_bcm_tallies",
+            ]
+
+            for fieldname in monthly_fields:
+                if hasattr(monthly_doc, fieldname):
+                    self.set(fieldname, monthly_doc.get(fieldname) or 0)
+
+        except Exception:
+            frappe.log_error(
+                frappe.get_traceback(),
+                "Raven Monthly Statistics Refresh Failed"
+            )
+
+    @frappe.whitelist()
+    def send_raven_notification(self, report_type="both"):
+        try:
+            channel = self.get_raven_channel_for_production()
+            self.refresh_raven_monthly_statistics()
+            report_type = (report_type or "both").lower()
+
+            sent_reports = []
+
+            if report_type in ["hour", "both"]:
+                self.insert_raven_message(channel, self.get_raven_hour_report_html())
+                sent_reports.append("Hour Report")
+
+            if report_type in ["shift"]:
+                self.insert_raven_message(channel, self.get_raven_shift_summary_html())
+                sent_reports.append("Shift Summary")
+
+            if report_type in ["both"]:
+                self.insert_raven_message(channel, self.get_raven_end_of_day_report_html())
+                sent_reports.append("End of Day Production Report")
+
+            if not sent_reports:
+                frappe.throw(_("Please select a valid Raven report type."))
+
+            frappe.msgprint(
+                _("{0} sent to Raven channel {1}.").format(
+                    " and ".join(sent_reports),
+                    channel
+                ),
+                alert=True,
+                indicator="green"
+            )
+
         except Exception as e:
-            frappe.log_error(frappe.get_traceback(), "WhatsApp Notification Error")
-            frappe.msgprint(f"Failed to send WhatsApp notification: {str(e)}", indicator="red")
+            frappe.log_error(frappe.get_traceback(), "Hourly Production Raven Report Error")
+            frappe.msgprint(
+                _("Failed to send Raven production report: {0}").format(str(e)),
+                indicator="red"
+            )
 
     def on_update(self):
         if not self.month_prod_planning:

@@ -925,7 +925,7 @@ frappe.ui.form.on('Hourly Production', {
             cleanupUIState(frm);
         }
         
-        frm.set_df_property('whats_send', 'label', 'Send WhatsApp');
+        frm.set_df_property('whats_send', 'label', 'Send Raven');
         
         // Ensure offline sync utility is loaded and check status
         frappe.require('/assets/is_production/js/offline_sync.js').then(() => {
@@ -1033,20 +1033,49 @@ frappe.ui.form.on('Hourly Production', {
 
     whats_send: function(frm) {
         if (frm.is_new()) {
-            frappe.msgprint("Please save the document before sending WhatsApp.");
+            frappe.msgprint("Please save the document before sending Raven.");
             return;
         }
 
-        frappe.call({
-            method: 'send_whatsapp_notification',
-            doc: frm.doc,
-            callback: function(response) {
-                frm.reload_doc();
-            },
-            error: function(error) {
-                frappe.msgprint(__('Failed to send WhatsApp notification'), 'red');
+        frappe.prompt([
+            {
+                fieldname: 'report_type',
+                label: 'Select Raven Report',
+                fieldtype: 'Select',
+                options: [
+                    'Hour Report Only',
+                    'Shift Summary Only',
+                    'Both Reports'
+                ],
+                reqd: 1,
+                default: 'Hour Report Only'
             }
-        });
+        ],
+        function(values) {
+            let report_type = 'hour';
+
+            if (values.report_type === 'Shift Summary Only') {
+                report_type = 'shift';
+            } else if (values.report_type === 'Both Reports') {
+                report_type = 'both';
+            }
+
+            frappe.call({
+                method: 'send_raven_notification',
+                doc: frm.doc,
+                args: {
+                    report_type: report_type
+                },
+                callback: function(response) {
+                    frm.reload_doc();
+                },
+                error: function(error) {
+                    frappe.msgprint(__('Failed to send Raven production report'), 'red');
+                }
+            });
+        },
+        __('Send Raven Report'),
+        __('Send'));
     },
     
       dozer_service(frm, cdt, cdn) {
@@ -2253,3 +2282,56 @@ function is_weekend(frm) {
   });
 })();
 // === FORCE HOUR REPORT MONTHLY STATS HTML END ===
+
+
+// ---------------------------------------------------------------------
+// Raven Shift Summary - Excavator Hours Calculation
+// ---------------------------------------------------------------------
+frappe.ui.form.on('Truck Loads', {
+    exc_start_hours: function(frm, cdt, cdn) {
+        calculate_exc_total_hours(frm, cdt, cdn);
+    },
+    exc_end_hours: function(frm, cdt, cdn) {
+        calculate_exc_total_hours(frm, cdt, cdn);
+    }
+});
+
+function calculate_exc_total_hours(frm, cdt, cdn) {
+    let row = locals[cdt][cdn];
+
+    let start = flt(row.exc_start_hours || 0);
+    let end = flt(row.exc_end_hours || 0);
+
+    let total = 0;
+    if (end >= start && end > 0) {
+        total = end - start;
+    }
+
+    frappe.model.set_value(cdt, cdn, 'exc_total_hours', total);
+}
+
+// ---------------------------------------------------------------------
+// Excavator Start / Stop / Total Hours
+// ---------------------------------------------------------------------
+frappe.ui.form.on('Truck Loads', {
+    exc_start_hours: function(frm, cdt, cdn) {
+        calculate_exc_total_hours(frm, cdt, cdn);
+    },
+    exc_stop_hours: function(frm, cdt, cdn) {
+        calculate_exc_total_hours(frm, cdt, cdn);
+    }
+});
+
+function calculate_exc_total_hours(frm, cdt, cdn) {
+    let row = locals[cdt][cdn];
+
+    let start = flt(row.exc_start_hours || 0);
+    let stop = flt(row.exc_stop_hours || 0);
+
+    let total = 0;
+    if (stop > 0 && start > 0 && stop >= start) {
+        total = stop - start;
+    }
+
+    frappe.model.set_value(cdt, cdn, 'exc_total_hours', total);
+}

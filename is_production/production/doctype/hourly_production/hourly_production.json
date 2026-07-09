@@ -417,6 +417,13 @@
    "options": "Geo_mat_total_bcm"
   },
   {
+   "default": "Both Shift Summary",
+   "fieldname": "raven_report_type",
+   "fieldtype": "Select",
+   "label": "Raven Report Type",
+   "options": "Hourly Production Report\nProduction Shift Summary\nBoth Reports"
+  },
+  {
    "description": "Make sure form is saved before sending Whatsapp",
    "fieldname": "whats_send",
    "fieldtype": "Button",
