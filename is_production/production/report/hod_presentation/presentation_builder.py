@@ -42,30 +42,105 @@ SPARE_PURPLE = "D291FF"
 SPARE_PURPLE_DARK = "6B21A8"
 
 
-def build_hod_presentation(payload: dict, output: BinaryIO | BytesIO) -> None:
-    """Build the HOD presentation and save it to a binary file-like object."""
+def build_hod_presentation(
+    payload: dict,
+    output: BinaryIO | BytesIO,
+) -> None:
+    """Build one presentation containing all selected sites."""
 
     prs = Presentation()
     prs.slide_width = Inches(SLIDE_WIDTH)
     prs.slide_height = Inches(SLIDE_HEIGHT)
 
-    prs.core_properties.title = f"HOD Presentation - {payload.get('site', '')}"
+    site_payloads = (
+        payload.get("site_payloads")
+        or [payload]
+    )
+
+    combined_site_name = (
+        payload.get("site")
+        or " / ".join(
+            str(item.get("site") or "")
+            for item in site_payloads
+        )
+    )
+
+    title_payload = dict(site_payloads[0])
+    title_payload["site"] = combined_site_name
+
+    title_payload["period_label"] = (
+        payload.get("period_label")
+        or site_payloads[0].get(
+            "period_label",
+            "",
+        )
+    )
+
+    title_payload["generated_by"] = (
+        payload.get("generated_by")
+        or site_payloads[0].get(
+            "generated_by",
+            "",
+        )
+    )
+
+    title_payload["generated_at"] = (
+        payload.get("generated_at")
+        or site_payloads[0].get(
+            "generated_at",
+            "",
+        )
+    )
+
+    prs.core_properties.title = (
+        f"HOD Presentation - {combined_site_name}"
+    )
+
     prs.core_properties.subject = (
         "Production, excavator, availability and utilisation performance"
     )
-    prs.core_properties.author = payload.get("generated_by") or "Isambane"
+
+    prs.core_properties.author = (
+        title_payload.get("generated_by")
+        or "Isambane"
+    )
+
     prs.core_properties.keywords = (
         "production, excavator, BCM, availability, utilisation, HOD"
     )
 
-    _add_title_slide(prs, payload)
-    _add_executive_summary_slide(prs, payload)
-    _add_production_performance_slide(prs, payload)
-    _add_excavator_slides(prs, payload)
-    _add_au_overview_slide(prs, payload)
-    _add_selected_au_slides(prs, payload)
-    _apply_footer_numbers(prs)
+    _add_title_slide(
+        prs,
+        title_payload,
+    )
 
+    for site_payload in site_payloads:
+        _add_executive_summary_slide(
+            prs,
+            site_payload,
+        )
+
+        _add_production_performance_slide(
+            prs,
+            site_payload,
+        )
+
+        _add_excavator_slides(
+            prs,
+            site_payload,
+        )
+
+        _add_au_overview_slide(
+            prs,
+            site_payload,
+        )
+
+        _add_selected_au_slides(
+            prs,
+            site_payload,
+        )
+
+    _apply_footer_numbers(prs)
     prs.save(output)
 
 

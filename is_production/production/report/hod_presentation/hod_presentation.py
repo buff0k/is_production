@@ -79,62 +79,122 @@ AU_CATEGORY_TITLES = {
 }
 
 
+
+
 def execute(filters=None):
     columns = get_columns()
     filters = frappe._dict(filters or {})
 
-    # Frappe can call the report before all required Link fields have resolved.
-    if not filters.get("start_date") or not filters.get("end_date") or not filters.get("site"):
+    if (
+        not filters.get("start_date")
+        or not filters.get("end_date")
+        or not filters.get("site")
+    ):
         return columns, []
 
-    payload = get_report_payload(filters, include_au_detail=False)
-    production = payload["production"]
-    excavators = payload["excavators"]
-    availability = payload["availability"]
+    (
+        start_date,
+        end_date,
+        sites,
+        summary_type,
+        machine_scope,
+        au_target_filter,
+    ) = validate_filters(filters)
 
-    data = [
-        {
-            "site": payload["site"],
-            "period": payload["period_label"],
-            "summary_type": availability.get("summary_type"),
-            "machine_scope": availability.get("machine_scope"),
-            "au_target_filter": availability.get("au_target_filter"),
-            "monthly_target_bcm": production.get("monthly_target_bcm", 0),
-            "forecast_bcm": production.get("forecast_bcm", 0),
-            "forecast_variance_bcm": production.get("forecast_variance_bcm", 0),
-            "waste_variance_bcm": production.get("waste_variance_bcm", 0),
-            "coal_variance_tons": production.get("coal_variance_tons", 0),
-            "actual_bcm": production.get("actual_bcm", 0),
-            "actual_coal_tons": production.get("actual_coal_tons", 0),
-            "daily_required_bcm": production.get("daily_required_bcm", 0),
-            "daily_achieved_bcm": production.get("daily_achieved_bcm", 0),
-            "total_excavator_hours": excavators.get("total_hours", 0),
-            "average_bcm_h": payload.get("average_bcm_h", 0),
-            "excavator_count": excavators.get("excavator_count", 0),
-            "valid_hour_entries": excavators.get("valid_entry_count", 0),
-            "excluded_hour_entries": excavators.get("excluded_entry_count", 0),
-            "average_availability": availability.get("overall_availability") or 0,
-            "average_utilisation": availability.get("overall_utilisation") or 0,
-            "au_machine_count": availability.get("machine_count", 0),
-            "days_worked": production.get("days_worked", 0),
-            "days_left": production.get("days_left", 0),
-            "strip_ratio": production.get("strip_ratio", 0),
-            "forecast_delivery_percent": production.get(
-                "forecast_delivery_percent", 0
-            ),
-        }
+    payloads = [
+        get_report_payload(
+            filters,
+            include_au_detail=False,
+            site_override=site,
+        )
+        for site in sites
     ]
 
+    data = []
+
+    for payload in payloads:
+        production = payload["production"]
+        excavators = payload["excavators"]
+        availability = payload["availability"]
+
+        data.append(
+            {
+                "site": payload["site"],
+                "period": payload["period_label"],
+                "summary_type": availability.get("summary_type"),
+                "machine_scope": availability.get("machine_scope"),
+                "au_target_filter": availability.get("au_target_filter"),
+                "monthly_target_bcm": production.get("monthly_target_bcm", 0),
+                "forecast_bcm": production.get("forecast_bcm", 0),
+                "forecast_variance_bcm": production.get(
+                    "forecast_variance_bcm", 0
+                ),
+                "waste_variance_bcm": production.get(
+                    "waste_variance_bcm", 0
+                ),
+                "coal_variance_tons": production.get(
+                    "coal_variance_tons", 0
+                ),
+                "actual_bcm": production.get("actual_bcm", 0),
+                "actual_coal_tons": production.get(
+                    "actual_coal_tons", 0
+                ),
+                "daily_required_bcm": production.get(
+                    "daily_required_bcm", 0
+                ),
+                "daily_achieved_bcm": production.get(
+                    "daily_achieved_bcm", 0
+                ),
+                "total_excavator_hours": excavators.get(
+                    "total_hours", 0
+                ),
+                "average_bcm_h": payload.get("average_bcm_h", 0),
+                "excavator_count": excavators.get(
+                    "excavator_count", 0
+                ),
+                "valid_hour_entries": excavators.get(
+                    "valid_entry_count", 0
+                ),
+                "excluded_hour_entries": excavators.get(
+                    "excluded_entry_count", 0
+                ),
+                "average_availability": availability.get(
+                    "overall_availability"
+                )
+                or 0,
+                "average_utilisation": availability.get(
+                    "overall_utilisation"
+                )
+                or 0,
+                "au_machine_count": availability.get(
+                    "machine_count", 0
+                ),
+                "days_worked": production.get("days_worked", 0),
+                "days_left": production.get("days_left", 0),
+                "strip_ratio": production.get("strip_ratio", 0),
+                "forecast_delivery_percent": production.get(
+                    "forecast_delivery_percent", 0
+                ),
+            }
+        )
+
     message = _(
-        "Average BCM/H = Dashboard Actual BCM divided by valid excavator hours. "
-        "Availability and utilisation use the Daily Availability Dashboard backend "
-        "with the selected Summary Type, Machine Scope, site and date range."
+        "Production, excavator hours, availability and utilisation "
+        "are shown separately for each selected site."
     )
 
-    chart = get_availability_chart(availability)
-    report_summary = get_report_summary(payload)
+    chart = None
 
-    return columns, data, message, chart, report_summary
+    if len(payloads) == 1:
+        chart = get_availability_chart(
+            payloads[0]["availability"]
+        )
+
+    return columns, data, message, chart, []
+
+
+
+
 
 
 def get_columns():
@@ -314,16 +374,23 @@ def get_columns():
     ]
 
 
-def get_report_payload(filters, include_au_detail=True):
+def get_report_payload(
+    filters,
+    include_au_detail=True,
+    site_override=None,
+):
     filters = frappe._dict(filters or {})
+
     (
         start_date,
         end_date,
-        site,
+        sites,
         summary_type,
         machine_scope,
         au_target_filter,
     ) = validate_filters(filters)
+
+    site = site_override or sites[0]
 
     monthly_plan = get_monthly_plan(site, end_date)
     if not monthly_plan:
@@ -405,31 +472,100 @@ def get_report_payload(filters, include_au_detail=True):
     }
 
 
+def parse_site_filter(value):
+    if isinstance(value, (list, tuple, set)):
+        raw_sites = list(value)
+
+    elif isinstance(value, str):
+        text = value.strip()
+
+        if not text:
+            raw_sites = []
+
+        elif text.startswith("["):
+            try:
+                parsed = frappe.parse_json(text)
+
+                raw_sites = (
+                    parsed
+                    if isinstance(parsed, list)
+                    else [parsed]
+                )
+
+            except Exception:
+                raw_sites = text.split(",")
+
+        else:
+            raw_sites = text.split(",")
+
+    elif value:
+        raw_sites = [value]
+
+    else:
+        raw_sites = []
+
+    sites = []
+
+    for item in raw_sites:
+        if isinstance(item, dict):
+            item = (
+                item.get("value")
+                or item.get("name")
+                or ""
+            )
+
+        site = str(item or "").strip()
+
+        if site and site not in sites:
+            sites.append(site)
+
+    return sites
+
+
 def validate_filters(filters):
     start_date = filters.get("start_date")
     end_date = filters.get("end_date")
-    site = (filters.get("site") or "").strip()
-    summary_type = (filters.get("summary_type") or DEFAULT_SUMMARY_TYPE).strip()
-    machine_scope = (filters.get("machine_scope") or DEFAULT_MACHINE_SCOPE).strip()
+    sites = parse_site_filter(filters.get("site"))
+
+    summary_type = (
+        filters.get("summary_type")
+        or DEFAULT_SUMMARY_TYPE
+    ).strip()
+
+    machine_scope = (
+        filters.get("machine_scope")
+        or DEFAULT_MACHINE_SCOPE
+    ).strip()
+
     au_target_filter = (
-        filters.get("au_target_filter") or DEFAULT_AU_TARGET_FILTER
+        filters.get("au_target_filter")
+        or DEFAULT_AU_TARGET_FILTER
     ).strip()
 
     if not start_date:
         frappe.throw(_("Start Date is required."))
+
     if not end_date:
         frappe.throw(_("End Date is required."))
-    if not site:
-        frappe.throw(_("Site is required."))
+
+    if not sites:
+        frappe.throw(_("At least one Site is required."))
 
     start_date = getdate(start_date)
     end_date = getdate(end_date)
 
     if start_date > end_date:
-        frappe.throw(_("Start Date cannot be after End Date."))
+        frappe.throw(
+            _("Start Date cannot be after End Date.")
+        )
 
-    if not frappe.db.exists("Location", site):
-        frappe.throw(_("Location {0} does not exist.").format(frappe.bold(site)))
+    for site in sites:
+        if not frappe.db.exists("Location", site):
+            frappe.throw(
+                _("Location {0} does not exist.").format(
+                    frappe.bold(site)
+                )
+            )
 
     if summary_type not in SUMMARY_TYPES:
         frappe.throw(
@@ -455,7 +591,7 @@ def validate_filters(filters):
     return (
         start_date,
         end_date,
-        site,
+        sites,
         summary_type,
         machine_scope,
         au_target_filter,
@@ -1316,6 +1452,8 @@ def get_report_summary(payload):
     ]
 
 
+
+
 @frappe.whitelist()
 def download_presentation(
     start_date=None,
@@ -1327,16 +1465,47 @@ def download_presentation(
 ):
     check_report_access()
 
-    payload = get_report_payload(
-        {
-            "start_date": start_date,
-            "end_date": end_date,
-            "site": site,
-            "summary_type": summary_type,
-            "machine_scope": machine_scope,
-            "au_target_filter": au_target_filter,
+    filters = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "site": site,
+        "summary_type": summary_type,
+        "machine_scope": machine_scope,
+        "au_target_filter": au_target_filter,
+    }
+
+    sites = parse_site_filter(site)
+
+    if not sites:
+        frappe.throw(
+            _("At least one Site is required.")
+        )
+
+    payloads = [
+        get_report_payload(
+            filters,
+            include_au_detail=True,
+            site_override=selected_site,
+        )
+        for selected_site in sites
+    ]
+
+    if len(payloads) == 1:
+        payload = payloads[0]
+
+    else:
+        first_payload = payloads[0]
+
+        payload = {
+            "site": " / ".join(sites),
+            "start_date": first_payload["start_date"],
+            "end_date": first_payload["end_date"],
+            "period_label": first_payload["period_label"],
+            "generated_by": first_payload["generated_by"],
+            "generated_at": first_payload["generated_at"],
+            "availability": first_payload["availability"],
+            "site_payloads": payloads,
         }
-    )
 
     try:
         from .presentation_builder import (
@@ -1373,7 +1542,7 @@ def download_presentation(
     filename = (
         "HOD_Presentation_{0}_{1}_to_{2}.pptx"
     ).format(
-        safe_site or "Site",
+        safe_site or "Sites",
         payload["start_date"],
         payload["end_date"],
     )
@@ -1389,6 +1558,8 @@ def download_presentation(
     frappe.local.response[
         "display_content_as"
     ] = "attachment"
+
+
 
 
 def check_report_access():

@@ -21,10 +21,12 @@ frappe.query_reports["HOD Presentation"] = {
         },
         {
             fieldname: "site",
-            label: __("Site"),
-            fieldtype: "Link",
-            options: "Location",
-            reqd: 1
+            label: __("Sites"),
+            fieldtype: "MultiSelectList",
+            reqd: 1,
+            get_data: function (txt) {
+                return frappe.db.get_link_options("Location", txt);
+            }
         },
         {
             fieldname: "summary_type",
@@ -69,6 +71,12 @@ frappe.query_reports["HOD Presentation"] = {
 
         report.page.add_inner_button(__("Download Presentation"), () => {
             downloadHodPresentation(report);
+        });
+    },
+
+    after_refresh(report) {
+        window.requestAnimationFrame(() => {
+            renderHodPresentationLayout(report);
         });
     },
 
@@ -124,6 +132,61 @@ frappe.query_reports["HOD Presentation"] = {
     }
 };
 
+function normaliseHodSites(value) {
+    if (Array.isArray(value)) {
+        return value
+            .map(item => {
+                if (typeof item === "object" && item !== null) {
+                    return item.value || item.name || "";
+                }
+
+                return String(item || "");
+            })
+            .map(item => item.trim())
+            .filter(Boolean);
+    }
+
+    if (!value) {
+        return [];
+    }
+
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+
+        if (!trimmed) {
+            return [];
+        }
+
+        if (trimmed.startsWith("[")) {
+            try {
+                const parsed = JSON.parse(trimmed);
+
+                if (Array.isArray(parsed)) {
+                    return parsed
+                        .map(item => {
+                            if (typeof item === "object" && item !== null) {
+                                return item.value || item.name || "";
+                            }
+
+                            return String(item || "");
+                        })
+                        .map(item => item.trim())
+                        .filter(Boolean);
+                }
+            } catch (error) {
+                console.warn("Could not parse selected HOD sites.", error);
+            }
+        }
+
+        return trimmed
+            .split(",")
+            .map(item => item.trim())
+            .filter(Boolean);
+    }
+
+    return [String(value).trim()].filter(Boolean);
+}
+
 function downloadHodPresentation(report) {
     const getFilterValue = (fieldname) => {
         if (report && typeof report.get_filter_value === "function") {
@@ -132,20 +195,27 @@ function downloadHodPresentation(report) {
         return frappe.query_report.get_filter_value(fieldname);
     };
 
+    const selectedSites = normaliseHodSites(
+        getFilterValue("site")
+    );
+
     const filters = {
         start_date: getFilterValue("start_date"),
         end_date: getFilterValue("end_date"),
-        site: getFilterValue("site"),
+        site: JSON.stringify(selectedSites),
         summary_type: getFilterValue("summary_type"),
         machine_scope: getFilterValue("machine_scope"),
         au_target_filter: getFilterValue("au_target_filter")
     };
 
-    const missing = Object.entries(filters)
-        .filter(([, filterValue]) => !filterValue)
-        .map(([key]) => key.replace(/_/g, " "));
-
-    if (missing.length) {
+    if (
+        !filters.start_date ||
+        !filters.end_date ||
+        selectedSites.length === 0 ||
+        !filters.summary_type ||
+        !filters.machine_scope ||
+        !filters.au_target_filter
+    ) {
         frappe.msgprint({
             title: __("Missing Filters"),
             indicator: "orange",
@@ -172,6 +242,367 @@ function downloadHodPresentation(report) {
         window.location.assign(url);
     }
 }
+
+
+
+
+function renderHodPresentationLayout(report) {
+    if (!report || !report.page || !report.page.main) return;
+
+    const rawRows =
+        report.raw_data && Array.isArray(report.raw_data.result)
+            ? report.raw_data.result
+            : [];
+
+    const rows = (
+        rawRows.length
+            ? rawRows
+            : Array.isArray(report.data)
+                ? report.data
+                : []
+    ).filter(row => row && row.site);
+
+    report.page.main
+        .find(".hod-presentation-layout")
+        .remove();
+
+    if (report.$summary) {
+        report.$summary.hide();
+    }
+
+    if (report.$report) {
+        report.$report.hide();
+    }
+
+    if (report.$report_message) {
+        report.$report_message.hide();
+    }
+
+    if (report.$chart) {
+        report.$chart.hide();
+    }
+
+    if (!rows.length) return;
+
+    const layout = $(`
+        <div class="hod-presentation-layout">
+            <section class="hod-browser-section">
+                <div class="hod-browser-section-header">
+                    <div>
+                        <div class="hod-browser-section-title">
+                            HOD Production Summary
+                        </div>
+
+                        <div class="hod-browser-section-subtitle">
+                            ${hodEscape(rows[0].period)}
+                        </div>
+                    </div>
+
+                    <div class="hod-browser-section-badge">
+                        ${rows.length} Site${rows.length === 1 ? "" : "s"}
+                    </div>
+                </div>
+
+                <div class="hod-browser-site-grid">
+                    ${rows.map(row => hodRenderSiteCard(row)).join("")}
+                </div>
+            </section>
+        </div>
+    `);
+
+    if (report.$summary && report.$summary.length) {
+        layout.insertAfter(report.$summary);
+    } else {
+        report.page.main.prepend(layout);
+    }
+}
+
+
+function hodRenderSiteCard(row) {
+    const forecastClass =
+        hodNumber(row.forecast_variance_bcm) >= 0
+            ? "positive"
+            : "negative";
+
+    const forecastTextClass =
+        hodNumber(row.forecast_variance_bcm) >= 0
+            ? "hod-browser-positive"
+            : "hod-browser-negative";
+
+    const wasteClass =
+        hodNumber(row.waste_variance_bcm) >= 0
+            ? "hod-browser-positive"
+            : "hod-browser-negative";
+
+    const coalClass =
+        hodNumber(row.coal_variance_tons) >= 0
+            ? "hod-browser-positive"
+            : "hod-browser-negative";
+
+    const bcmHourClass =
+        hodNumber(row.average_bcm_h) > 0
+            ? "hod-browser-positive"
+            : "hod-browser-negative";
+
+    const availabilityClass =
+        hodNumber(row.average_availability) >= 85
+            ? "hod-browser-positive"
+            : "hod-browser-negative";
+
+    const utilisationClass =
+        hodNumber(row.average_utilisation) >= 80
+            ? "hod-browser-positive"
+            : "hod-browser-negative";
+
+    const excludedClass =
+        hodNumber(row.excluded_hour_entries) > 0
+            ? "hod-browser-warning"
+            : "hod-browser-muted";
+
+    return `
+        <article class="hod-browser-site-card">
+            <div class="hod-browser-site-header">
+                ${hodEscape(row.site)}
+            </div>
+
+            <div class="hod-browser-variance-box ${forecastClass}">
+                <div class="hod-browser-variance-label">
+                    Forecast Variance
+                </div>
+
+                <div class="hod-browser-variance-value ${forecastTextClass}">
+                    ${hodFormatSigned(row.forecast_variance_bcm, 0)} BCM
+                </div>
+            </div>
+
+            <table class="hod-browser-metric-table">
+                <tbody>
+                    ${hodMetricRow(
+                        "Monthly target",
+                        "BCM",
+                        hodFormatNumber(row.monthly_target_bcm, 0)
+                    )}
+
+                    ${hodMetricRow(
+                        "Forecast",
+                        "BCM",
+                        hodFormatNumber(row.forecast_bcm, 0)
+                    )}
+
+                    ${hodMetricRow(
+                        "Waste variance",
+                        "BCM",
+                        hodFormatSigned(row.waste_variance_bcm, 0),
+                        wasteClass
+                    )}
+
+                    ${hodMetricRow(
+                        "Coal variance",
+                        "TONS",
+                        hodFormatSigned(row.coal_variance_tons, 0),
+                        coalClass
+                    )}
+
+                    ${hodMetricRow(
+                        "Actual BCMs",
+                        "BCM",
+                        hodFormatNumber(row.actual_bcm, 0),
+                        "hod-browser-primary"
+                    )}
+
+                    ${hodMetricRow(
+                        "Actual coal",
+                        "TONS",
+                        hodFormatNumber(row.actual_coal_tons, 0)
+                    )}
+
+                    ${hodMetricRow(
+                        "Daily required",
+                        "BCM",
+                        hodFormatNumber(row.daily_required_bcm, 1)
+                    )}
+
+                    ${hodMetricRow(
+                        "Daily achieved",
+                        "BCM",
+                        hodFormatNumber(row.daily_achieved_bcm, 1)
+                    )}
+
+                    ${hodMetricRow(
+                        "Excavator hours",
+                        "HRS",
+                        hodFormatNumber(row.total_excavator_hours, 1)
+                    )}
+
+                    ${hodMetricRow(
+                        "Average BCM/H",
+                        "",
+                        hodFormatNumber(row.average_bcm_h, 1),
+                        bcmHourClass
+                    )}
+
+                    ${hodMetricRow(
+                        "Availability",
+                        "%",
+                        hodFormatNumber(row.average_availability, 1),
+                        availabilityClass
+                    )}
+
+                    ${hodMetricRow(
+                        "Utilisation",
+                        "%",
+                        hodFormatNumber(row.average_utilisation, 1),
+                        utilisationClass
+                    )}
+
+                    ${hodMetricRow(
+                        "A & U machines",
+                        "",
+                        hodFormatNumber(row.au_machine_count, 0)
+                    )}
+
+                    ${hodMetricRow(
+                        "Excavators",
+                        "",
+                        hodFormatNumber(row.excavator_count, 0)
+                    )}
+
+                    ${hodMetricRow(
+                        "Excluded entries",
+                        "",
+                        hodFormatNumber(row.excluded_hour_entries, 0),
+                        excludedClass
+                    )}
+
+                    ${hodMetricRow(
+                        "Days worked / left",
+                        "",
+                        `${hodFormatNumber(row.days_worked, 0)} / ${hodFormatNumber(row.days_left, 0)}`
+                    )}
+
+                    ${hodMetricRow(
+                        "Strip ratio",
+                        "",
+                        hodFormatNumber(row.strip_ratio, 1)
+                    )}
+                </tbody>
+            </table>
+
+            <div class="hod-browser-site-footer">
+                <span>${hodEscape(row.summary_type)}</span>
+                <span>${hodEscape(row.machine_scope)}</span>
+                <span>${hodEscape(row.au_target_filter)}</span>
+            </div>
+        </article>
+    `;
+}
+
+
+
+
+
+function hodMetricRow(
+    label,
+    unit,
+    value,
+    className = ""
+) {
+    return `
+        <tr>
+            <td class="hod-browser-metric-label">
+                ${hodEscape(label)}
+            </td>
+
+            <td class="hod-browser-metric-unit ${className}">
+                ${hodEscape(unit)}
+            </td>
+
+            <td class="hod-browser-metric-value ${className}">
+                ${hodEscape(value)}
+            </td>
+        </tr>
+    `;
+}
+
+
+function hodKpiCard(
+    label,
+    value,
+    note,
+    className = ""
+) {
+    return `
+        <div class="hod-browser-kpi-card ${className}">
+            <div class="hod-browser-kpi-label">
+                ${hodEscape(label)}
+            </div>
+
+            <div class="hod-browser-kpi-value">
+                ${hodEscape(value)}
+            </div>
+
+            <div class="hod-browser-kpi-note">
+                ${hodEscape(note)}
+            </div>
+        </div>
+    `;
+}
+
+
+function hodNumber(value) {
+    const numericValue = Number(
+        String(value ?? 0)
+            .replace(/,/g, "")
+            .replace(/%/g, "")
+            .trim()
+    );
+
+    return Number.isFinite(numericValue)
+        ? numericValue
+        : 0;
+}
+
+
+function hodFormatNumber(
+    value,
+    decimals = 0
+) {
+    return new Intl.NumberFormat(
+        "en-US",
+        {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        }
+    ).format(
+        hodNumber(value)
+    );
+}
+
+
+function hodFormatSigned(
+    value,
+    decimals = 0
+) {
+    const numericValue = hodNumber(value);
+
+    const sign =
+        numericValue >= 0
+            ? "+"
+            : "-";
+
+    return `${sign}${hodFormatNumber(
+        Math.abs(numericValue),
+        decimals
+    )}`;
+}
+
+
+function hodEscape(value) {
+    return frappe.utils.escape_html(
+        String(value ?? "")
+    );
+}
+
 
 function injectHodPresentationStyles() {
     if (document.getElementById("hod-presentation-report-style")) return;
@@ -226,6 +657,383 @@ function injectHodPresentationStyles() {
         .hod-muted {
             color: #64748b;
             font-weight: 700;
+        }
+
+        .hod-presentation-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin: 12px 0 28px;
+        }
+
+        .hod-browser-section {
+            background: #f7f8fa;
+            border: 1px solid #cfd6de;
+            border-radius: 10px;
+            padding: 12px;
+            box-shadow: 0 2px 8px rgba(15, 31, 83, 0.06);
+        }
+
+        .hod-browser-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            background: #0f1f53;
+            color: #ffffff;
+            border-radius: 7px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+        }
+
+        .hod-browser-section-title {
+            font-size: 17px;
+            line-height: 1.2;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .hod-browser-section-subtitle {
+            margin-top: 3px;
+            font-size: 11px;
+            color: #d9e2ec;
+            font-weight: 600;
+        }
+
+        .hod-browser-section-badge {
+            background: #ffffff;
+            color: #0f1f53;
+            border-radius: 999px;
+            padding: 5px 12px;
+            font-size: 11px;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .hod-browser-production-card {
+            background: #ffffff;
+            border: 1px solid #d7dde5;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .hod-browser-variance-box {
+            border-radius: 7px;
+            padding: 14px;
+            margin-bottom: 12px;
+            text-align: center;
+            background: #f5eaea;
+        }
+
+        .hod-browser-variance-box.positive {
+            background: #dfeee5;
+        }
+
+        .hod-browser-variance-box.negative {
+            background: #f5eaea;
+        }
+
+        .hod-browser-variance-label {
+            color: #62708a;
+            font-size: 11px;
+            line-height: 1.2;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .hod-browser-variance-value {
+            font-size: 26px;
+            line-height: 1.1;
+            font-weight: 900;
+        }
+
+        .hod-browser-metric-table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+            border-radius: 7px;
+        }
+
+        .hod-browser-metric-table tr:nth-child(even) {
+            background: #f0f2f5;
+        }
+
+        .hod-browser-metric-table td {
+            border: 1px solid #d7dde5;
+            padding: 7px 10px;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+
+        .hod-browser-metric-label {
+            width: 55%;
+            color: #5e6c84;
+            font-weight: 600;
+        }
+
+        .hod-browser-metric-unit {
+            width: 15%;
+            color: #304055;
+            text-align: right;
+            font-weight: 800;
+        }
+
+        .hod-browser-metric-value {
+            width: 30%;
+            color: #304055;
+            text-align: right;
+            font-weight: 900;
+        }
+
+        .hod-browser-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .hod-browser-au-grid {
+            grid-template-columns: repeat(3, minmax(180px, 1fr));
+        }
+
+        .hod-browser-kpi-card {
+            background: #ffffff;
+            border: 1px solid #d7dde5;
+            border-top: 4px solid #0f1f53;
+            border-radius: 8px;
+            padding: 14px;
+            min-height: 125px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .hod-browser-kpi-card.hod-browser-positive {
+            border-top-color: #18a957;
+        }
+
+        .hod-browser-kpi-card.hod-browser-negative {
+            border-top-color: #e03124;
+        }
+
+        .hod-browser-kpi-card.hod-browser-warning {
+            border-top-color: #d97706;
+        }
+
+        .hod-browser-kpi-card.hod-browser-primary {
+            border-top-color: #0f1f53;
+        }
+
+        .hod-browser-kpi-label {
+            color: #62708a;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 7px;
+        }
+
+        .hod-browser-kpi-value {
+            color: #0f1f53;
+            font-size: 27px;
+            line-height: 1.05;
+            font-weight: 900;
+        }
+
+        .hod-browser-kpi-card.hod-browser-positive
+        .hod-browser-kpi-value {
+            color: #18a957;
+        }
+
+        .hod-browser-kpi-card.hod-browser-negative
+        .hod-browser-kpi-value {
+            color: #e03124;
+        }
+
+        .hod-browser-kpi-card.hod-browser-warning
+        .hod-browser-kpi-value {
+            color: #d97706;
+        }
+
+        .hod-browser-kpi-note {
+            color: #64748b;
+            font-size: 10px;
+            line-height: 1.25;
+            margin-top: 8px;
+        }
+
+        .hod-browser-filter-ribbon {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(180px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .hod-browser-filter-item {
+            background: #ffffff;
+            border: 1px solid #d7dde5;
+            border-radius: 7px;
+            padding: 9px 11px;
+        }
+
+        .hod-browser-filter-item span {
+            display: block;
+            color: #64748b;
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .hod-browser-filter-item strong {
+            display: block;
+            color: #102a43;
+            font-size: 12px;
+            line-height: 1.25;
+        }
+
+        .hod-browser-chart-title {
+            color: #102a43;
+            font-size: 13px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin: 16px 2px 8px;
+        }
+
+        .hod-browser-chart-slot {
+            width: 100%;
+        }
+
+        .hod-browser-chart {
+            display: block !important;
+            width: 100%;
+            margin: 0 !important;
+            padding: 12px;
+            background: #ffffff;
+            border: 1px solid #d7dde5;
+            border-radius: 8px;
+        }
+
+        .hod-browser-chart .chart-container {
+            margin: 0 !important;
+        }
+
+        .hod-browser-empty {
+            background: #ffffff;
+            border: 1px dashed #cfd6de;
+            border-radius: 8px;
+            padding: 22px;
+            color: #64748b;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .hod-browser-positive {
+            color: #18a957 !important;
+        }
+
+        .hod-browser-negative {
+            color: #e03124 !important;
+        }
+
+        .hod-browser-primary {
+            color: #0f1f53 !important;
+        }
+
+        .hod-browser-warning {
+            color: #d97706 !important;
+        }
+
+        .hod-browser-muted {
+            color: #64748b !important;
+        }
+
+        .hod-browser-site-grid {
+            display: grid;
+            grid-template-columns: repeat(
+                auto-fit,
+                minmax(430px, 1fr)
+            );
+            gap: 12px;
+            align-items: start;
+        }
+
+        .hod-browser-site-card {
+            min-width: 0;
+            background: #f7f8fa;
+            border: 1px solid #cfd6de;
+            border-radius: 9px;
+            padding: 10px;
+        }
+
+        .hod-browser-site-header {
+            background: #0f1f53;
+            color: #ffffff;
+            text-align: center;
+            text-transform: uppercase;
+            font-size: 17px;
+            line-height: 1.1;
+            font-weight: 900;
+            letter-spacing: 0.3px;
+            border-radius: 6px;
+            padding: 9px 12px;
+            margin-bottom: 10px;
+        }
+
+        .hod-browser-site-footer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 9px;
+        }
+
+        .hod-browser-site-footer span {
+            background: #ffffff;
+            border: 1px solid #d7dde5;
+            border-radius: 999px;
+            color: #62708a;
+            padding: 4px 8px;
+            font-size: 9px;
+            font-weight: 800;
+        }
+
+        @media (max-width: 1100px) {
+            .hod-browser-site-grid,
+            .hod-browser-kpi-grid,
+            .hod-browser-au-grid {
+                grid-template-columns: repeat(2, minmax(160px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hod-browser-section-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .hod-browser-site-grid,
+            .hod-browser-kpi-grid,
+            .hod-browser-au-grid,
+            .hod-browser-filter-ribbon {
+                grid-template-columns: 1fr;
+            }
+
+            .hod-browser-section-badge {
+                align-self: flex-start;
+            }
+
+            .hod-browser-metric-label {
+                width: 48%;
+            }
+
+            .hod-browser-metric-unit {
+                width: 18%;
+            }
+
+            .hod-browser-metric-value {
+                width: 34%;
+            }
         }
     `;
 
