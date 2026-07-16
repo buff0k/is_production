@@ -1,0 +1,1438 @@
+from __future__ import annotations
+
+from collections import defaultdict
+from copy import deepcopy
+from datetime import timedelta
+from io import BytesIO
+import importlib
+import re
+
+import frappe
+from frappe import _
+from frappe.utils import flt, formatdate, getdate, get_fullname, now_datetime
+
+from is_production.production.page.production_summary_dashboard.production_summary_dashboard import (
+    build_site_row,
+    get_monthly_plan,
+)
+
+
+REPORT_NAME = "HOD Presentation"
+PPTX_CONTENT_TYPE = (
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+)
+MAX_VALID_WORKING_HOURS = 24.0
+EXCAVATOR_CATEGORY_PATTERN = "%excavat%"
+
+DAILY_AVAILABILITY_MODULE = (
+    "engineering.engineering.page.daily_availability_dashboard."
+    "daily_availability_dashboard"
+)
+
+SUMMARY_TYPES = (
+    "Daily Summary",
+    "Average Per Machine",
+    "Weekly Summary",
+    "Monthly Summary",
+)
+MACHINE_SCOPES = (
+    "Production Machines",
+    "Swing/Spare Machines",
+    "Include Swing/Spare",
+)
+AU_TARGET_FILTERS = (
+    "100% A & U",
+    "85% A & U",
+)
+
+DEFAULT_SUMMARY_TYPE = "Average Per Machine"
+DEFAULT_MACHINE_SCOPE = "Include Swing/Spare"
+DEFAULT_AU_TARGET_FILTER = "85% A & U"
+
+AVAILABILITY_TARGET = 85.0
+UTILISATION_TARGET = 80.0
+
+AU_CATEGORIES = [
+    "ADT",
+    "Dozer",
+    "Excavator",
+    "Grader",
+    "Service Truck",
+    "TLB",
+    "Water Bowser",
+    "Diesel Bowsers",
+    "Drills",
+    "Loader",
+]
+
+AU_CATEGORY_TITLES = {
+    "ADT": "ADT",
+    "Dozer": "DOZER",
+    "Excavator": "EXCAVATOR",
+    "Grader": "GRADER",
+    "Service Truck": "SERVICE TRUCK",
+    "TLB": "TLB",
+    "Water Bowser": "WATER BOWSER",
+    "Diesel Bowsers": "DIESEL BOWSERS",
+    "Drills": "DRILLS",
+    "Loader": "LOADER",
+}
+
+
+def execute(filters=None):
+    columns = get_columns()
+    filters = frappe._dict(filters or {})
+
+    # Frappe can call the report before all required Link fields have resolved.
+    if not filters.get("start_date") or not filters.get("end_date") or not filters.get("site"):
+        return columns, []
+
+    payload = get_report_payload(filters, include_au_detail=False)
+    production = payload["production"]
+    excavators = payload["excavators"]
+    availability = payload["availability"]
+
+    data = [
+        {
+            "site": payload["site"],
+            "period": payload["period_label"],
+            "summary_type": availability.get("summary_type"),
+            "machine_scope": availability.get("machine_scope"),
+            "au_target_filter": availability.get("au_target_filter"),
+            "monthly_target_bcm": production.get("monthly_target_bcm", 0),
+            "forecast_bcm": production.get("forecast_bcm", 0),
+            "forecast_variance_bcm": production.get("forecast_variance_bcm", 0),
+            "waste_variance_bcm": production.get("waste_variance_bcm", 0),
+            "coal_variance_tons": production.get("coal_variance_tons", 0),
+            "actual_bcm": production.get("actual_bcm", 0),
+            "actual_coal_tons": production.get("actual_coal_tons", 0),
+            "daily_required_bcm": production.get("daily_required_bcm", 0),
+            "daily_achieved_bcm": production.get("daily_achieved_bcm", 0),
+            "total_excavator_hours": excavators.get("total_hours", 0),
+            "average_bcm_h": payload.get("average_bcm_h", 0),
+            "excavator_count": excavators.get("excavator_count", 0),
+            "valid_hour_entries": excavators.get("valid_entry_count", 0),
+            "excluded_hour_entries": excavators.get("excluded_entry_count", 0),
+            "average_availability": availability.get("overall_availability") or 0,
+            "average_utilisation": availability.get("overall_utilisation") or 0,
+            "au_machine_count": availability.get("machine_count", 0),
+            "days_worked": production.get("days_worked", 0),
+            "days_left": production.get("days_left", 0),
+            "strip_ratio": production.get("strip_ratio", 0),
+            "forecast_delivery_percent": production.get(
+                "forecast_delivery_percent", 0
+            ),
+        }
+    ]
+
+    message = _(
+        "Average BCM/H = Dashboard Actual BCM divided by valid excavator hours. "
+        "Availability and utilisation use the Daily Availability Dashboard backend "
+        "with the selected Summary Type, Machine Scope, site and date range."
+    )
+
+    chart = get_availability_chart(availability)
+    report_summary = get_report_summary(payload)
+
+    return columns, data, message, chart, report_summary
+
+
+def get_columns():
+    return [
+        {
+            "label": _("Site"),
+            "fieldname": "site",
+            "fieldtype": "Link",
+            "options": "Location",
+            "width": 145,
+        },
+        {
+            "label": _("Period"),
+            "fieldname": "period",
+            "fieldtype": "Data",
+            "width": 180,
+        },
+        {
+            "label": _("A&U Summary"),
+            "fieldname": "summary_type",
+            "fieldtype": "Data",
+            "width": 145,
+        },
+        {
+            "label": _("Machine Scope"),
+            "fieldname": "machine_scope",
+            "fieldtype": "Data",
+            "width": 165,
+        },
+        {
+            "label": _("A&U Target Mode"),
+            "fieldname": "au_target_filter",
+            "fieldtype": "Data",
+            "width": 125,
+        },
+        {
+            "label": _("Monthly Target"),
+            "fieldname": "monthly_target_bcm",
+            "fieldtype": "Float",
+            "precision": 0,
+            "width": 125,
+        },
+        {
+            "label": _("Forecast"),
+            "fieldname": "forecast_bcm",
+            "fieldtype": "Float",
+            "precision": 0,
+            "width": 115,
+        },
+        {
+            "label": _("Forecast Variance"),
+            "fieldname": "forecast_variance_bcm",
+            "fieldtype": "Float",
+            "precision": 0,
+            "width": 145,
+        },
+        {
+            "label": _("Waste Variance"),
+            "fieldname": "waste_variance_bcm",
+            "fieldtype": "Float",
+            "precision": 0,
+            "width": 135,
+        },
+        {
+            "label": _("Coal Variance"),
+            "fieldname": "coal_variance_tons",
+            "fieldtype": "Float",
+            "precision": 0,
+            "width": 130,
+        },
+        {
+            "label": _("Actual BCM"),
+            "fieldname": "actual_bcm",
+            "fieldtype": "Float",
+            "precision": 0,
+            "width": 115,
+        },
+        {
+            "label": _("Actual Coal"),
+            "fieldname": "actual_coal_tons",
+            "fieldtype": "Float",
+            "precision": 0,
+            "width": 115,
+        },
+        {
+            "label": _("Daily Required"),
+            "fieldname": "daily_required_bcm",
+            "fieldtype": "Float",
+            "precision": 1,
+            "width": 125,
+        },
+        {
+            "label": _("Daily Achieved"),
+            "fieldname": "daily_achieved_bcm",
+            "fieldtype": "Float",
+            "precision": 1,
+            "width": 125,
+        },
+        {
+            "label": _("Excavator Hours"),
+            "fieldname": "total_excavator_hours",
+            "fieldtype": "Float",
+            "precision": 1,
+            "width": 135,
+        },
+        {
+            "label": _("Average BCM/H"),
+            "fieldname": "average_bcm_h",
+            "fieldtype": "Float",
+            "precision": 1,
+            "width": 130,
+        },
+        {
+            "label": _("Average Availability"),
+            "fieldname": "average_availability",
+            "fieldtype": "Percent",
+            "precision": 1,
+            "width": 145,
+        },
+        {
+            "label": _("Average Utilisation"),
+            "fieldname": "average_utilisation",
+            "fieldtype": "Percent",
+            "precision": 1,
+            "width": 145,
+        },
+        {
+            "label": _("A&U Machines"),
+            "fieldname": "au_machine_count",
+            "fieldtype": "Int",
+            "width": 105,
+        },
+        {
+            "label": _("Excavators"),
+            "fieldname": "excavator_count",
+            "fieldtype": "Int",
+            "width": 95,
+        },
+        {
+            "label": _("Valid Hour Entries"),
+            "fieldname": "valid_hour_entries",
+            "fieldtype": "Int",
+            "width": 130,
+        },
+        {
+            "label": _("Excluded Entries"),
+            "fieldname": "excluded_hour_entries",
+            "fieldtype": "Int",
+            "width": 120,
+        },
+        {
+            "label": _("Days Worked"),
+            "fieldname": "days_worked",
+            "fieldtype": "Int",
+            "width": 105,
+        },
+        {
+            "label": _("Days Left"),
+            "fieldname": "days_left",
+            "fieldtype": "Int",
+            "width": 90,
+        },
+        {
+            "label": _("Strip Ratio"),
+            "fieldname": "strip_ratio",
+            "fieldtype": "Float",
+            "precision": 1,
+            "width": 95,
+        },
+        {
+            "label": _("Forecast Delivery %"),
+            "fieldname": "forecast_delivery_percent",
+            "fieldtype": "Percent",
+            "precision": 1,
+            "width": 135,
+        },
+    ]
+
+
+def get_report_payload(filters, include_au_detail=True):
+    filters = frappe._dict(filters or {})
+    (
+        start_date,
+        end_date,
+        site,
+        summary_type,
+        machine_scope,
+        au_target_filter,
+    ) = validate_filters(filters)
+
+    monthly_plan = get_monthly_plan(site, end_date)
+    if not monthly_plan:
+        frappe.throw(
+            _("No Monthly Production Planning record was found for {0} on {1}.").format(
+                frappe.bold(site), formatdate(end_date)
+            )
+        )
+
+    plan_start = getdate(monthly_plan.prod_month_start_date)
+    plan_end = getdate(monthly_plan.prod_month_end_date)
+
+    # The existing Production Summary Dashboard calculates Actual BCM month-to-date.
+    # Requiring the same month start keeps the BCM numerator and hours denominator aligned.
+    if start_date != plan_start:
+        frappe.throw(
+            _(
+                "Start Date must be {0} for this site. The Production Summary Dashboard "
+                "Actual BCM is month-to-date, so all presentation data must begin on "
+                "the Monthly Production Planning start date."
+            ).format(frappe.bold(formatdate(plan_start)))
+        )
+
+    if end_date < plan_start or end_date > plan_end:
+        frappe.throw(
+            _("End Date must be between {0} and {1}.").format(
+                frappe.bold(formatdate(plan_start)),
+                frappe.bold(formatdate(plan_end)),
+            )
+        )
+
+    production = build_site_row(site, end_date)
+    if not production:
+        frappe.throw(
+            _("Production Summary Dashboard data could not be built for {0}.").format(
+                frappe.bold(site)
+            )
+        )
+
+    production = {
+        key: value
+        for key, value in production.items()
+        if not str(key).startswith("_summary_")
+    }
+
+    excavators = get_excavator_hour_summary(start_date, end_date, site)
+    total_hours = flt(excavators.get("total_hours"))
+    actual_bcm = flt(production.get("actual_bcm"))
+    average_bcm_h = round(actual_bcm / total_hours, 1) if total_hours else 0
+
+    availability = get_availability_summary(
+        start_date=start_date,
+        end_date=end_date,
+        site=site,
+        summary_type=summary_type,
+        machine_scope=machine_scope,
+        au_target_filter=au_target_filter,
+        include_detail=include_au_detail,
+    )
+
+    generated_at = now_datetime()
+
+    return {
+        "site": site,
+        "start_date": str(start_date),
+        "end_date": str(end_date),
+        "period_label": _("{0} to {1}").format(
+            formatdate(start_date), formatdate(end_date)
+        ),
+        "plan_name": monthly_plan.name,
+        "plan_start_date": str(plan_start),
+        "plan_end_date": str(plan_end),
+        "production": production,
+        "excavators": excavators,
+        "average_bcm_h": average_bcm_h,
+        "availability": availability,
+        "generated_by": get_fullname(frappe.session.user) or frappe.session.user,
+        "generated_at": generated_at.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+def validate_filters(filters):
+    start_date = filters.get("start_date")
+    end_date = filters.get("end_date")
+    site = (filters.get("site") or "").strip()
+    summary_type = (filters.get("summary_type") or DEFAULT_SUMMARY_TYPE).strip()
+    machine_scope = (filters.get("machine_scope") or DEFAULT_MACHINE_SCOPE).strip()
+    au_target_filter = (
+        filters.get("au_target_filter") or DEFAULT_AU_TARGET_FILTER
+    ).strip()
+
+    if not start_date:
+        frappe.throw(_("Start Date is required."))
+    if not end_date:
+        frappe.throw(_("End Date is required."))
+    if not site:
+        frappe.throw(_("Site is required."))
+
+    start_date = getdate(start_date)
+    end_date = getdate(end_date)
+
+    if start_date > end_date:
+        frappe.throw(_("Start Date cannot be after End Date."))
+
+    if not frappe.db.exists("Location", site):
+        frappe.throw(_("Location {0} does not exist.").format(frappe.bold(site)))
+
+    if summary_type not in SUMMARY_TYPES:
+        frappe.throw(
+            _("Summary Type must be one of: {0}.").format(
+                ", ".join(SUMMARY_TYPES)
+            )
+        )
+
+    if machine_scope not in MACHINE_SCOPES:
+        frappe.throw(
+            _("Machine Scope must be one of: {0}.").format(
+                ", ".join(MACHINE_SCOPES)
+            )
+        )
+
+    if au_target_filter not in AU_TARGET_FILTERS:
+        frappe.throw(
+            _("A & U Target must be one of: {0}.").format(
+                ", ".join(AU_TARGET_FILTERS)
+            )
+        )
+
+    return (
+        start_date,
+        end_date,
+        site,
+        summary_type,
+        machine_scope,
+        au_target_filter,
+    )
+
+
+def get_excavator_hour_summary(start_date, end_date, site):
+    raw_rows = frappe.db.sql(
+        """
+        SELECT
+            p.name AS pre_use_name,
+            p.shift_date,
+            p.shift,
+            a.asset_category,
+            a.asset_name,
+            a.item_name,
+            a.eng_hrs_start,
+            a.eng_hrs_end,
+            a.working_hours
+        FROM `tabPre-Use Hours` p
+        INNER JOIN `tabPre-use Assets` a
+            ON a.parent = p.name
+        WHERE p.shift_date BETWEEN %(start_date)s AND %(end_date)s
+          AND p.location = %(site)s
+          AND LOWER(COALESCE(a.asset_category, '')) LIKE %(category_pattern)s
+        ORDER BY
+            a.asset_name,
+            p.shift_date,
+            p.shift
+        """,
+        {
+            "start_date": start_date,
+            "end_date": end_date,
+            "site": site,
+            "category_pattern": EXCAVATOR_CATEGORY_PATTERN,
+        },
+        as_dict=True,
+    )
+
+    daily_rows = collapse_pre_use_rows(raw_rows)
+    valid_rows = []
+    excluded_rows = []
+
+    for row in daily_rows:
+        working_hours = row.get("working_hours")
+
+        if working_hours is None:
+            excluded_rows.append({**row, "exclusion_reason": "Missing hours"})
+            continue
+
+        working_hours = round(flt(working_hours), 1)
+
+        if working_hours <= 0:
+            excluded_rows.append({**row, "exclusion_reason": "Hours are 0 or negative"})
+            continue
+
+        if working_hours > MAX_VALID_WORKING_HOURS:
+            excluded_rows.append({**row, "exclusion_reason": "Hours exceed 24"})
+            continue
+
+        valid_rows.append({**row, "working_hours": working_hours})
+
+    by_asset = defaultdict(
+        lambda: {
+            "asset_name": "",
+            "item_name": "",
+            "asset_category": "",
+            "dates": set(),
+            "valid_entries": 0,
+            "total_hours": 0.0,
+        }
+    )
+
+    for row in valid_rows:
+        asset_name = row.get("asset_name") or _("Unknown Excavator")
+        entry = by_asset[asset_name]
+        entry["asset_name"] = asset_name
+        entry["item_name"] = row.get("item_name") or entry["item_name"]
+        entry["asset_category"] = (
+            row.get("asset_category") or entry["asset_category"]
+        )
+        entry["dates"].add(str(row.get("shift_date")))
+        entry["valid_entries"] += 1
+        entry["total_hours"] += flt(row.get("working_hours"))
+
+    breakdown = []
+    for entry in by_asset.values():
+        days = len(entry["dates"])
+        total_hours = round(entry["total_hours"], 1)
+        breakdown.append(
+            {
+                "asset_name": entry["asset_name"],
+                "item_name": entry["item_name"],
+                "asset_category": entry["asset_category"],
+                "working_days": days,
+                "valid_entries": entry["valid_entries"],
+                "total_hours": total_hours,
+                "average_hours_per_day": round(total_hours / days, 1)
+                if days
+                else 0,
+            }
+        )
+
+    breakdown.sort(key=lambda item: (-flt(item.get("total_hours")), item["asset_name"]))
+
+    return {
+        "total_hours": round(
+            sum(flt(row.get("working_hours")) for row in valid_rows), 1
+        ),
+        "excavator_count": len(breakdown),
+        "raw_record_count": len(raw_rows),
+        "collapsed_entry_count": len(daily_rows),
+        "valid_entry_count": len(valid_rows),
+        "excluded_entry_count": len(excluded_rows),
+        "breakdown": breakdown,
+        "excluded_rows": excluded_rows,
+    }
+
+def collapse_pre_use_rows(rows):
+    """Build one working-hours entry per excavator per date.
+
+    This mirrors the Pre-Use Report's no-shift behaviour: Day/Morning supplies the
+    beginning meter and Night/Afternoon supplies the ending meter. If one side is
+    unavailable, valid per-shift differences are summed as a fallback.
+    """
+
+    grouped = {}
+
+    for row in rows:
+        key = (
+            row.get("asset_category"),
+            row.get("asset_name"),
+            row.get("shift_date"),
+        )
+
+        if key not in grouped:
+            grouped[key] = {
+                "asset_category": row.get("asset_category"),
+                "shift_date": row.get("shift_date"),
+                "asset_name": row.get("asset_name"),
+                "item_name": row.get("item_name"),
+                "start_hours": None,
+                "end_hours": None,
+                "shift_hour_candidates": [],
+            }
+
+        entry = grouped[key]
+
+        if row.get("item_name"):
+            entry["item_name"] = row.get("item_name")
+
+        shift = (row.get("shift") or "").strip().lower()
+        start_hours = row.get("eng_hrs_start")
+        end_hours = row.get("eng_hrs_end")
+
+        if shift in {"day", "morning"} and start_hours is not None:
+            start_value = flt(start_hours)
+
+            entry["start_hours"] = (
+                start_value
+                if entry["start_hours"] is None
+                else min(entry["start_hours"], start_value)
+            )
+
+        if shift in {"night", "afternoon"} and end_hours is not None:
+            end_value = flt(end_hours)
+
+            entry["end_hours"] = (
+                end_value
+                if entry["end_hours"] is None
+                else max(entry["end_hours"], end_value)
+            )
+
+        candidate = calculate_shift_hours(row)
+
+        if candidate is not None:
+            entry["shift_hour_candidates"].append(candidate)
+
+    collapsed = []
+
+    for entry in grouped.values():
+        start_hours = entry.get("start_hours")
+        end_hours = entry.get("end_hours")
+        working_hours = None
+
+        if start_hours is not None and end_hours is not None:
+            working_hours = (
+                0
+                if end_hours == 0
+                else round(end_hours - start_hours, 1)
+            )
+
+        elif entry["shift_hour_candidates"]:
+            working_hours = round(
+                sum(entry["shift_hour_candidates"]),
+                1,
+            )
+
+        collapsed.append(
+            {
+                "asset_category": entry.get("asset_category"),
+                "shift_date": entry.get("shift_date"),
+                "asset_name": entry.get("asset_name"),
+                "item_name": entry.get("item_name"),
+                "start_hours": start_hours,
+                "end_hours": end_hours,
+                "working_hours": working_hours,
+            }
+        )
+
+    collapsed.sort(
+        key=lambda item: (
+            item.get("asset_name") or "",
+            str(item.get("shift_date") or ""),
+        )
+    )
+
+    return collapsed
+
+
+def calculate_shift_hours(row):
+    start_hours = row.get("eng_hrs_start")
+    end_hours = row.get("eng_hrs_end")
+
+    if start_hours is not None and end_hours is not None:
+        end_value = flt(end_hours)
+
+        if end_value == 0:
+            return 0
+
+        return round(
+            end_value - flt(start_hours),
+            1,
+        )
+
+    if row.get("working_hours") is not None:
+        return round(
+            flt(row.get("working_hours")),
+            1,
+        )
+
+    return None
+
+
+def get_availability_summary(
+    *,
+    start_date,
+    end_date,
+    site,
+    summary_type,
+    machine_scope,
+    au_target_filter,
+    include_detail=True,
+):
+    module = _load_daily_availability_module()
+    _require_daily_availability_functions(module)
+
+    start_text = str(start_date)
+    end_text = str(end_date)
+
+    filters = frappe._dict(
+        {
+            "start_date": start_text,
+            "end_date": end_text,
+            "from_date": start_text,
+            "to_date": end_text,
+            "location": site,
+            "site": site,
+            "summary_type": summary_type,
+            "machine_scope": machine_scope,
+            "au_target_filter": au_target_filter,
+        }
+    )
+
+    try:
+        source_rows = module.fetch_grouped_data(
+            site,
+            start_text,
+            end_text,
+            machine_scope,
+        ) or []
+
+        spare_map = module.get_spare_swing_asset_map(
+            filters
+        ) or {}
+
+        source_rows = (
+            module.apply_machine_scope_filter_to_dashboard_rows(
+                source_rows,
+                filters,
+                spare_map,
+            )
+            or []
+        )
+
+        category_averages = (
+            module.build_summary_averages_from_source_rows(
+                source_rows
+            )
+            or {}
+        )
+
+        machine_series = (
+            module.build_machine_series_from_source_rows(
+                source_rows
+            )
+            or {}
+        )
+
+        category_averages, machine_series = (
+            _apply_au_target_filter(
+                module,
+                category_averages,
+                machine_series,
+                filters,
+            )
+        )
+
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "HOD Presentation Daily Availability Data",
+        )
+
+        frappe.throw(
+            _(
+                "Daily Availability Dashboard data could not be loaded for {0}. "
+                "Check the selected filters and the Engineering dashboard configuration."
+            ).format(
+                frappe.bold(site)
+            )
+        )
+
+    categories = []
+    normalised_machine_series = {}
+
+    for category in AU_CATEGORIES:
+        values = category_averages.get(category) or {}
+        machines = []
+
+        for row in machine_series.get(category) or []:
+            if not isinstance(row, dict):
+                continue
+
+            machine = str(
+                row.get("machine") or ""
+            ).strip()
+
+            if not machine:
+                continue
+
+            spare_reason = _get_spare_reason(
+                module,
+                machine,
+                spare_map,
+            )
+
+            is_spare = (
+                machine_scope == "Swing/Spare Machines"
+                or bool(spare_reason)
+            )
+
+            machines.append(
+                {
+                    "machine": machine,
+                    "availability": _percentage_or_none(
+                        row.get("avail")
+                    ),
+                    "utilisation": _percentage_or_none(
+                        row.get("util")
+                    ),
+                    "is_spare": bool(is_spare),
+                    "spare_reason": spare_reason,
+                }
+            )
+
+        machines.sort(
+            key=lambda item: item["machine"]
+        )
+
+        normalised_machine_series[category] = machines
+
+        categories.append(
+            {
+                "category": category,
+                "title": AU_CATEGORY_TITLES.get(
+                    category,
+                    category.upper(),
+                ),
+                "availability": _percentage_or_none(
+                    values.get("avail")
+                ),
+                "utilisation": _percentage_or_none(
+                    values.get("util")
+                ),
+                "machine_count": len(machines),
+            }
+        )
+
+    availability_values = [
+        row["availability"]
+        for row in categories
+        if row.get("availability") is not None
+    ]
+
+    utilisation_values = [
+        row["utilisation"]
+        for row in categories
+        if row.get("utilisation") is not None
+    ]
+
+    daily_series = {}
+
+    if include_detail and summary_type == "Daily Summary":
+        daily_series = _build_daily_availability_series(
+            module=module,
+            start_date=start_date,
+            end_date=end_date,
+            site=site,
+            machine_scope=machine_scope,
+            au_target_filter=au_target_filter,
+        )
+
+    return {
+        "summary_type": summary_type,
+        "machine_scope": machine_scope,
+        "au_target_filter": au_target_filter,
+        "target_multiplier": (
+            0.85
+            if au_target_filter == "85% A & U"
+            else 1.0
+        ),
+        "availability_target": AVAILABILITY_TARGET,
+        "utilisation_target": UTILISATION_TARGET,
+        "overall_availability": _average_or_none(
+            availability_values
+        ),
+        "overall_utilisation": _average_or_none(
+            utilisation_values
+        ),
+        "machine_count": sum(
+            row["machine_count"]
+            for row in categories
+        ),
+        "source_row_count": len(source_rows),
+        "categories": categories,
+        "machine_series": normalised_machine_series,
+        "daily_series": daily_series,
+    }
+
+
+def _build_daily_availability_series(
+    *,
+    module,
+    start_date,
+    end_date,
+    site,
+    machine_scope,
+    au_target_filter,
+):
+    output = {
+        category: []
+        for category in AU_CATEGORIES
+    }
+
+    current_date = getdate(start_date)
+    final_date = getdate(end_date)
+
+    while current_date <= final_date:
+        date_text = str(current_date)
+
+        filters = frappe._dict(
+            {
+                "start_date": date_text,
+                "end_date": date_text,
+                "from_date": date_text,
+                "to_date": date_text,
+                "location": site,
+                "site": site,
+                "summary_type": "Daily Summary",
+                "machine_scope": machine_scope,
+                "au_target_filter": au_target_filter,
+            }
+        )
+
+        rows = module.fetch_grouped_data(
+            site,
+            date_text,
+            date_text,
+            machine_scope,
+        ) or []
+
+        spare_map = module.get_spare_swing_asset_map(
+            filters
+        ) or {}
+
+        rows = (
+            module.apply_machine_scope_filter_to_dashboard_rows(
+                rows,
+                filters,
+                spare_map,
+            )
+            or []
+        )
+
+        averages = (
+            module.build_summary_averages_from_source_rows(
+                rows
+            )
+            or {}
+        )
+
+        averages, _ = _apply_au_target_filter(
+            module,
+            averages,
+            {
+                category: []
+                for category in AU_CATEGORIES
+            },
+            filters,
+        )
+
+        for category in AU_CATEGORIES:
+            values = averages.get(category) or {}
+
+            output[category].append(
+                {
+                    "date": date_text,
+                    "day": current_date.strftime("%d"),
+                    "availability": _percentage_or_none(
+                        values.get("avail")
+                    ),
+                    "utilisation": _percentage_or_none(
+                        values.get("util")
+                    ),
+                }
+            )
+
+        current_date += timedelta(days=1)
+
+    return output
+
+
+def _load_daily_availability_module():
+    try:
+        return importlib.import_module(
+            DAILY_AVAILABILITY_MODULE
+        )
+
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "HOD Presentation Daily Availability Import",
+        )
+
+        frappe.throw(
+            _(
+                "The Daily Availability Dashboard backend could not be imported. "
+                "Confirm that the Engineering app and daily-availability-dashboard page are installed."
+            )
+        )
+
+
+def _require_daily_availability_functions(module):
+    required = (
+        "fetch_grouped_data",
+        "get_spare_swing_asset_map",
+        "apply_machine_scope_filter_to_dashboard_rows",
+        "build_summary_averages_from_source_rows",
+        "build_machine_series_from_source_rows",
+    )
+
+    missing = [
+        name
+        for name in required
+        if not callable(
+            getattr(module, name, None)
+        )
+    ]
+
+    if missing:
+        frappe.throw(
+            _(
+                "The Daily Availability Dashboard backend is missing required functions: {0}."
+            ).format(
+                ", ".join(missing)
+            )
+        )
+
+
+def _apply_au_target_filter(
+    module,
+    averages,
+    machine_series,
+    filters,
+):
+    averages = deepcopy(averages or {})
+    machine_series = deepcopy(
+        machine_series or {}
+    )
+
+    apply_method = getattr(
+        module,
+        "apply_au_target_to_values",
+        None,
+    )
+
+    if callable(apply_method):
+        result = apply_method(
+            averages,
+            machine_series,
+            filters,
+        )
+
+        if (
+            isinstance(result, (list, tuple))
+            and len(result) >= 2
+        ):
+            return (
+                result[0] or {},
+                result[1] or {},
+            )
+
+        return averages, machine_series
+
+    if (
+        (filters or {}).get("au_target_filter")
+        != "85% A & U"
+    ):
+        return averages, machine_series
+
+    multiplier = 0.85
+
+    for values in averages.values():
+        if not isinstance(values, dict):
+            continue
+
+        for field in ("avail", "util"):
+            if values.get(field) is not None:
+                values[field] = round(
+                    flt(values.get(field))
+                    * multiplier,
+                    1,
+                )
+
+    for rows in machine_series.values():
+        for row in rows or []:
+            if not isinstance(row, dict):
+                continue
+
+            for field in ("avail", "util"):
+                if row.get(field) is not None:
+                    row[field] = round(
+                        flt(row.get(field))
+                        * multiplier,
+                        1,
+                    )
+
+    return averages, machine_series
+
+
+def _get_spare_reason(
+    module,
+    machine,
+    spare_map,
+):
+    get_reason = getattr(
+        module,
+        "get_spare_swing_reason",
+        None,
+    )
+
+    if callable(get_reason):
+        try:
+            return str(
+                get_reason(
+                    machine,
+                    spare_map,
+                )
+                or ""
+            )
+
+        except Exception:
+            pass
+
+    return str(
+        (spare_map or {}).get(machine)
+        or ""
+    )
+
+
+def _percentage_or_none(value):
+    if value in (None, ""):
+        return None
+
+    try:
+        value = float(
+            str(value)
+            .replace("%", "")
+            .replace(",", "")
+            .strip()
+        )
+
+    except (TypeError, ValueError):
+        return None
+
+    return round(
+        max(
+            0.0,
+            min(100.0, value),
+        ),
+        1,
+    )
+
+
+def _average_or_none(values):
+    values = [
+        float(value)
+        for value in values
+        if value is not None
+    ]
+
+    if not values:
+        return None
+
+    return round(
+        sum(values) / len(values),
+        1,
+    )
+
+
+def get_availability_chart(availability):
+    categories = availability.get(
+        "categories"
+    ) or []
+
+    rows = [
+        row
+        for row in categories
+        if (
+            row.get("availability") is not None
+            or row.get("utilisation") is not None
+        )
+    ]
+
+    if not rows:
+        return None
+
+    return {
+        "data": {
+            "labels": [
+                row.get("title")
+                for row in rows
+            ],
+            "datasets": [
+                {
+                    "name": _("Availability %"),
+                    "values": [
+                        flt(row.get("availability"))
+                        for row in rows
+                    ],
+                },
+                {
+                    "name": _("Utilisation %"),
+                    "values": [
+                        flt(row.get("utilisation"))
+                        for row in rows
+                    ],
+                },
+            ],
+        },
+        "type": "bar",
+        "height": 300,
+    }
+
+
+def get_report_summary(payload):
+    production = payload["production"]
+    availability = payload["availability"]
+
+    forecast_variance = flt(
+        production.get(
+            "forecast_variance_bcm"
+        )
+    )
+
+    average_availability = flt(
+        availability.get(
+            "overall_availability"
+        )
+    )
+
+    average_utilisation = flt(
+        availability.get(
+            "overall_utilisation"
+        )
+    )
+
+    return [
+        {
+            "value": flt(
+                production.get("actual_bcm")
+            ),
+            "label": _("Actual BCM"),
+            "datatype": "Float",
+            "indicator": "Blue",
+        },
+        {
+            "value": flt(
+                payload.get("average_bcm_h")
+            ),
+            "label": _("Average BCM/H"),
+            "datatype": "Float",
+            "indicator": (
+                "Green"
+                if flt(
+                    payload.get("average_bcm_h")
+                ) > 0
+                else "Red"
+            ),
+        },
+        {
+            "value": average_availability,
+            "label": _("Average Availability %"),
+            "datatype": "Percent",
+            "indicator": (
+                "Green"
+                if (
+                    average_availability
+                    >= AVAILABILITY_TARGET
+                )
+                else "Red"
+            ),
+        },
+        {
+            "value": average_utilisation,
+            "label": _("Average Utilisation %"),
+            "datatype": "Percent",
+            "indicator": (
+                "Green"
+                if (
+                    average_utilisation
+                    >= UTILISATION_TARGET
+                )
+                else "Red"
+            ),
+        },
+        {
+            "value": forecast_variance,
+            "label": _("Forecast Variance BCM"),
+            "datatype": "Float",
+            "indicator": (
+                "Green"
+                if forecast_variance >= 0
+                else "Red"
+            ),
+        },
+    ]
+
+
+@frappe.whitelist()
+def download_presentation(
+    start_date=None,
+    end_date=None,
+    site=None,
+    summary_type=None,
+    machine_scope=None,
+    au_target_filter=None,
+):
+    check_report_access()
+
+    payload = get_report_payload(
+        {
+            "start_date": start_date,
+            "end_date": end_date,
+            "site": site,
+            "summary_type": summary_type,
+            "machine_scope": machine_scope,
+            "au_target_filter": au_target_filter,
+        }
+    )
+
+    try:
+        from .presentation_builder import (
+            build_hod_presentation,
+        )
+
+    except ModuleNotFoundError as exc:
+        if exc.name == "pptx":
+            frappe.throw(
+                _(
+                    "PowerPoint export requires python-pptx. "
+                    "Install python-pptx==1.0.2 in the bench environment "
+                    "and restart Bench."
+                )
+            )
+
+        raise
+
+    output = BytesIO()
+
+    build_hod_presentation(
+        payload,
+        output,
+    )
+
+    output.seek(0)
+
+    safe_site = re.sub(
+        r"[^A-Za-z0-9_-]+",
+        "_",
+        payload["site"],
+    ).strip("_")
+
+    filename = (
+        "HOD_Presentation_{0}_{1}_to_{2}.pptx"
+    ).format(
+        safe_site or "Site",
+        payload["start_date"],
+        payload["end_date"],
+    )
+
+    frappe.local.response["type"] = "download"
+    frappe.local.response["filename"] = filename
+    frappe.local.response["filecontent"] = (
+        output.getvalue()
+    )
+    frappe.local.response["content_type"] = (
+        PPTX_CONTENT_TYPE
+    )
+    frappe.local.response[
+        "display_content_as"
+    ] = "attachment"
+
+
+def check_report_access():
+    report = frappe.get_doc(
+        "Report",
+        REPORT_NAME,
+    )
+
+    if not report.is_permitted():
+        frappe.throw(
+            _(
+                "You do not have access to the {0} report."
+            ).format(
+                REPORT_NAME
+            ),
+            frappe.PermissionError,
+        )
+
+    if not frappe.has_permission(
+        report.ref_doctype,
+        "report",
+    ):
+        frappe.throw(
+            _(
+                "You do not have report permission on {0}."
+            ).format(
+                report.ref_doctype
+            ),
+            frappe.PermissionError,
+        )
+
+    if not (
+        frappe.has_permission(
+            "Pre-Use Hours",
+            "report",
+        )
+        or frappe.has_permission(
+            "Pre-Use Hours",
+            "read",
+        )
+    ):
+        frappe.throw(
+            _(
+                "You do not have permission to report on Pre-Use Hours."
+            ),
+            frappe.PermissionError,
+        )
