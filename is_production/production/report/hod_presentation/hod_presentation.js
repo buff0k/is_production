@@ -245,12 +245,18 @@ function downloadHodPresentation(report) {
 
 
 
-
 function renderHodPresentationLayout(report) {
-    if (!report || !report.page || !report.page.main) return;
+    if (
+        !report ||
+        !report.page ||
+        !report.page.main
+    ) {
+        return;
+    }
 
     const rawRows =
-        report.raw_data && Array.isArray(report.raw_data.result)
+        report.raw_data &&
+        Array.isArray(report.raw_data.result)
             ? report.raw_data.result
             : [];
 
@@ -282,10 +288,39 @@ function renderHodPresentationLayout(report) {
         report.$chart.hide();
     }
 
-    if (!rows.length) return;
+    if (!rows.length) {
+        return;
+    }
+
+    const renderToken = [
+        "hod",
+        Date.now(),
+        Math.random()
+            .toString(36)
+            .slice(2)
+    ].join("-");
+
+    const availabilitySlots = rows
+        .map((row, index) => {
+            return `
+                <div
+                    class="hod-browser-au-site"
+                    data-site-index="${index}"
+                >
+                    <div class="hod-browser-au-loading">
+                        Loading Availability &amp; Utilisation
+                        for ${hodEscape(row.site)}...
+                    </div>
+                </div>
+            `;
+        })
+        .join("");
 
     const layout = $(`
-        <div class="hod-presentation-layout">
+        <div
+            class="hod-presentation-layout"
+            data-render-token="${renderToken}"
+        >
             <section class="hod-browser-section">
                 <div class="hod-browser-section-header">
                     <div>
@@ -299,22 +334,211 @@ function renderHodPresentationLayout(report) {
                     </div>
 
                     <div class="hod-browser-section-badge">
-                        ${rows.length} Site${rows.length === 1 ? "" : "s"}
+                        ${rows.length}
+                        Site${rows.length === 1 ? "" : "s"}
                     </div>
                 </div>
 
                 <div class="hod-browser-site-grid">
-                    ${rows.map(row => hodRenderSiteCard(row)).join("")}
+                    ${rows
+                        .map(row => hodRenderSiteCard(row))
+                        .join("")}
+                </div>
+            </section>
+
+            <section
+                class="
+                    hod-browser-section
+                    hod-browser-au-section
+                "
+            >
+                <div class="hod-browser-section-header">
+                    <div>
+                        <div class="hod-browser-section-title">
+                            Availability &amp; Utilisation
+                        </div>
+
+                        <div class="hod-browser-section-subtitle">
+                            ${hodEscape(rows[0].period)}
+                        </div>
+                    </div>
+
+                    <div class="hod-browser-section-badge">
+                        ${rows.length}
+                        Site${rows.length === 1 ? "" : "s"}
+                    </div>
+                </div>
+
+                <div class="hod-browser-au-site-stack">
+                    ${availabilitySlots}
                 </div>
             </section>
         </div>
     `);
 
-    if (report.$summary && report.$summary.length) {
-        layout.insertAfter(report.$summary);
+    if (
+        report.$summary &&
+        report.$summary.length
+    ) {
+        layout.insertAfter(
+            report.$summary
+        );
     } else {
-        report.page.main.prepend(layout);
+        report.page.main.prepend(
+            layout
+        );
     }
+
+    loadHodAvailabilityDashboards(
+        report,
+        rows,
+        renderToken
+    );
+}
+
+
+async function loadHodAvailabilityDashboards(
+    report,
+    rows,
+    renderToken
+) {
+    const getFilterValue = fieldname => {
+        if (
+            report &&
+            typeof report.get_filter_value === "function"
+        ) {
+            return report.get_filter_value(
+                fieldname
+            );
+        }
+
+        return frappe.query_report
+            .get_filter_value(
+                fieldname
+            );
+    };
+
+    const method =
+        "is_production.production.report." +
+        "hod_presentation.hod_presentation." +
+        "get_availability_dashboard_html";
+
+    const commonArgs = {
+        start_date: getFilterValue(
+            "start_date"
+        ),
+        end_date: getFilterValue(
+            "end_date"
+        ),
+        summary_type: getFilterValue(
+            "summary_type"
+        ),
+        machine_scope: getFilterValue(
+            "machine_scope"
+        ),
+        au_target_filter: getFilterValue(
+            "au_target_filter"
+        )
+    };
+
+    const jobs = rows.map(
+        async (row, index) => {
+            const findTarget = () => {
+                const $layout =
+                    report.page.main.find(
+                        `.hod-presentation-layout[data-render-token="${renderToken}"]`
+                    );
+
+                return $layout.find(
+                    `.hod-browser-au-site[data-site-index="${index}"]`
+                );
+            };
+
+            try {
+                const response =
+                    await frappe.call({
+                        method,
+                        args: {
+                            ...commonArgs,
+                            site: row.site
+                        },
+                        freeze: false
+                    });
+
+                const payload =
+                    response.message || {};
+
+                const dashboardHtml =
+                    payload.html || "";
+
+                const $target =
+                    findTarget();
+
+                if (!$target.length) {
+                    return;
+                }
+
+                if (!dashboardHtml) {
+                    $target.html(`
+                        <div class="hod-browser-au-error">
+                            No Availability &amp; Utilisation
+                            dashboard was returned for
+                            ${hodEscape(row.site)}.
+                        </div>
+                    `);
+
+                    return;
+                }
+
+                const $dashboard = $(`
+                    <div class="hod-browser-au-dashboard-copy"></div>
+                `);
+
+                $dashboard.html(
+                    dashboardHtml
+                );
+
+                $target
+                    .empty()
+                    .append(
+                        $dashboard
+                    );
+            } catch (error) {
+                const $target =
+                    findTarget();
+
+                if (!$target.length) {
+                    return;
+                }
+
+                const errorMessage =
+                    error?.message ||
+                    __(
+                        "Unable to load Availability & Utilisation."
+                    );
+
+                $target.html(`
+                    <div class="hod-browser-au-error">
+                        <strong>
+                            ${hodEscape(row.site)}
+                        </strong>
+                        <br>
+                        ${hodEscape(errorMessage)}
+                    </div>
+                `);
+            }
+        }
+    );
+
+    await Promise.all(
+        jobs
+    );
+
+    window.setTimeout(() => {
+        window.dispatchEvent(
+            new Event("resize")
+        );
+    }, 100);
 }
 
 
@@ -996,6 +1220,91 @@ function injectHodPresentationStyles() {
             padding: 4px 8px;
             font-size: 9px;
             font-weight: 800;
+        }
+
+        .hod-browser-au-section {
+            padding: 12px;
+        }
+
+        .hod-browser-au-site-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .hod-browser-au-site {
+            width: 100%;
+            min-width: 0;
+            background: #ffffff;
+            border: 1px solid #d7dde5;
+            border-radius: 9px;
+            overflow: hidden;
+        }
+
+        .hod-browser-au-loading,
+        .hod-browser-au-error {
+            min-height: 110px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 22px;
+            text-align: center;
+            color: #64748b;
+            background: #ffffff;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .hod-browser-au-error {
+            color: #b91c1c;
+            background: #fff7f7;
+        }
+
+        .hod-browser-au-dashboard-copy {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            background: #ffffff;
+        }
+
+        .hod-browser-au-dashboard-copy
+        .eng-dashboard--daily-availability,
+        .hod-browser-au-dashboard-copy
+        .eng-dashboard,
+        .hod-browser-au-dashboard-copy
+        .isd-hourly-dashboard {
+            width: 100% !important;
+            min-width: 1180px;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .hod-browser-au-dashboard-copy
+        .isd-note {
+            display: none !important;
+        }
+
+        .hod-browser-au-dashboard-copy
+        .isd-site {
+            margin: 0 !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+        }
+
+        .hod-browser-au-dashboard-copy
+        .isd-site-title {
+            border-radius: 0 !important;
+        }
+
+        .hod-browser-au-dashboard-copy
+        .isd-chart-stack {
+            width: 100% !important;
+        }
+
+        .hod-browser-au-dashboard-copy
+        .isd-contentrow {
+            width: 100% !important;
         }
 
         @media (max-width: 1100px) {

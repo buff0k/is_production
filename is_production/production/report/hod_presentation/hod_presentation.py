@@ -1455,6 +1455,135 @@ def get_report_summary(payload):
 
 
 @frappe.whitelist()
+def get_availability_dashboard_html(
+    start_date=None,
+    end_date=None,
+    site=None,
+    summary_type=None,
+    machine_scope=None,
+    au_target_filter=None,
+):
+    check_report_access()
+
+    if not start_date:
+        frappe.throw(
+            _("Start Date is required.")
+        )
+
+    if not end_date:
+        frappe.throw(
+            _("End Date is required.")
+        )
+
+    site = str(site or "").strip()
+
+    if not site:
+        frappe.throw(
+            _("Site is required.")
+        )
+
+    start_date = getdate(start_date)
+    end_date = getdate(end_date)
+
+    if start_date > end_date:
+        frappe.throw(
+            _("Start Date cannot be after End Date.")
+        )
+
+    if not frappe.db.exists(
+        "Location",
+        site,
+    ):
+        frappe.throw(
+            _("Location {0} does not exist.").format(
+                frappe.bold(site)
+            )
+        )
+
+    summary_type = (
+        summary_type
+        or DEFAULT_SUMMARY_TYPE
+    )
+
+    machine_scope = (
+        machine_scope
+        or DEFAULT_MACHINE_SCOPE
+    )
+
+    au_target_filter = (
+        au_target_filter
+        or DEFAULT_AU_TARGET_FILTER
+    )
+
+    module = _load_daily_availability_module()
+
+    dashboard_filters = frappe._dict(
+        {
+            "start_date": str(start_date),
+            "end_date": str(end_date),
+            "from_date": str(start_date),
+            "to_date": str(end_date),
+            "location": site,
+            "site": site,
+            "summary_type": summary_type,
+            "machine_scope": machine_scope,
+            "au_target_filter": au_target_filter,
+        }
+    )
+
+    try:
+        result = module.execute(
+            dashboard_filters
+        )
+
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "HOD Presentation Availability Dashboard HTML",
+        )
+
+        frappe.throw(
+            _(
+                "The Availability and Utilisation dashboard "
+                "could not be generated for {0}."
+            ).format(
+                frappe.bold(site)
+            )
+        )
+
+    dashboard_html = ""
+
+    if isinstance(
+        result,
+        (list, tuple),
+    ):
+        if len(result) >= 3:
+            dashboard_html = result[2] or ""
+
+    elif isinstance(result, dict):
+        dashboard_html = (
+            result.get("html")
+            or result.get("message")
+            or ""
+        )
+
+    if not dashboard_html:
+        frappe.throw(
+            _(
+                "No Availability and Utilisation dashboard "
+                "HTML was returned for {0}."
+            ).format(
+                frappe.bold(site)
+            )
+        )
+
+    return {
+        "site": site,
+        "html": dashboard_html,
+    }
+
+
+@frappe.whitelist()
 def download_presentation(
     start_date=None,
     end_date=None,
