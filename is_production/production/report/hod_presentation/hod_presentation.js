@@ -430,9 +430,7 @@ async function loadHodAvailabilityDashboards(
         end_date: getFilterValue(
             "end_date"
         ),
-        summary_type: getFilterValue(
-            "summary_type"
-        ),
+        summary_type: "Average Per Machine",
         machine_scope: getFilterValue(
             "machine_scope"
         ),
@@ -1305,6 +1303,46 @@ function injectHodPresentationStyles() {
         .hod-browser-au-dashboard-copy
         .isd-contentrow {
             width: 100% !important;
+        }
+
+        /*
+         * HOD Presentation only displays ADT Availability
+         * and Utilisation. ADT is the first dashboard metric
+         * and the first chart section returned by the
+         * Daily Availability Dashboard.
+         */
+        .hod-browser-au-dashboard-copy
+        .isd-metric:not(:first-child),
+        .hod-browser-au-dashboard-copy
+        .isd-chart-section:not(:first-child) {
+            display: none !important;
+        }
+
+        .hod-browser-au-dashboard-copy
+        .isd-metrics {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            justify-content: flex-start !important;
+            align-items: stretch !important;
+            gap: 8px !important;
+        }
+
+        .hod-browser-au-dashboard-copy
+        .isd-metric {
+            flex: 0 0 190px !important;
+            width: 190px !important;
+            max-width: 190px !important;
+        }
+
+        .hod-browser-au-dashboard-copy
+        .isd-chart-stack {
+            width: 100% !important;
+        }
+
+        .hod-browser-au-dashboard-copy
+        .isd-chart-section {
+            width: 100% !important;
+            margin-bottom: 0 !important;
         }
 
         @media (max-width: 1100px) {
