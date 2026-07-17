@@ -670,12 +670,27 @@ function hodRenderSiteCard(row) {
                     )}
 
                     ${hodMetricRow(
+                        "Excavator hours",
+                        "HRS",
+                        hodFormatNumber(
+                            row.total_excavator_hours,
+                            1
+                        )
+                    )}
+
+                    ${hodMetricRow(
                         "Average BCM/H",
                         "",
-                        hodFormatNumber(
+                        `${hodFormatNumber(
                             row.average_bcm_h,
                             1
-                        ),
+                        )} (${hodFormatNumber(
+                            row.actual_bcm,
+                            0
+                        )} BCM / ${hodFormatNumber(
+                            row.total_excavator_hours,
+                            1
+                        )} HRS)`,
                         bcmHourClass
                     )}
 
