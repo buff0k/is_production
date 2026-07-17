@@ -4,6 +4,7 @@ from collections import defaultdict
 from copy import deepcopy
 from datetime import timedelta
 from io import BytesIO
+import base64
 import importlib
 import re
 
@@ -1823,6 +1824,73 @@ def download_presentation(
     frappe.local.response[
         "display_content_as"
     ] = "attachment"
+
+
+
+@frappe.whitelist()
+def download_captured_presentation(
+    captured_slides=None,
+    site=None,
+    start_date=None,
+    end_date=None,
+    period_label=None,
+):
+    check_report_access()
+
+    slides = frappe.parse_json(
+        captured_slides or "[]"
+    )
+
+    if not isinstance(slides, list) or not slides:
+        frappe.throw(
+            _("No report sections were captured.")
+        )
+
+    payload = {
+        "site": site or "HOD Presentation",
+        "start_date": start_date or "",
+        "end_date": end_date or "",
+        "period_label": period_label or "",
+        "generated_by": (
+            get_fullname(frappe.session.user)
+            or frappe.session.user
+        ),
+        "generated_at": now_datetime().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
+        "captured_slides": slides,
+    }
+
+    from .presentation_builder import (
+        build_hod_presentation,
+    )
+
+    output = BytesIO()
+
+    build_hod_presentation(
+        payload,
+        output,
+    )
+
+    output.seek(0)
+
+    safe_site = re.sub(
+        r"[^A-Za-z0-9_-]+",
+        "_",
+        str(site or "Sites"),
+    ).strip("_")
+
+    filename = (
+        f"HOD_Presentation_{safe_site}_"
+        f"{start_date}_to_{end_date}.pptx"
+    )
+
+    return {
+        "filename": filename,
+        "content": base64.b64encode(
+            output.getvalue()
+        ).decode("ascii"),
+    }
 
 
 

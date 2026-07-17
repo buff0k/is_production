@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "html2canvas": "^1.4.1",
     "sortablejs": "^1.15.7",
     "three": "^0.184.0"
   }

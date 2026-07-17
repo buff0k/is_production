@@ -187,61 +187,302 @@ function normaliseHodSites(value) {
     return [String(value).trim()].filter(Boolean);
 }
 
-function downloadHodPresentation(report) {
-    const getFilterValue = (fieldname) => {
-        if (report && typeof report.get_filter_value === "function") {
+
+
+async function downloadHodPresentation(report) {
+    const getFilterValue = fieldname => {
+        if (
+            report &&
+            typeof report.get_filter_value === "function"
+        ) {
             return report.get_filter_value(fieldname);
         }
-        return frappe.query_report.get_filter_value(fieldname);
+
+        return frappe.query_report.get_filter_value(
+            fieldname
+        );
     };
 
     const selectedSites = normaliseHodSites(
         getFilterValue("site")
     );
 
-    const filters = {
-        start_date: getFilterValue("start_date"),
-        end_date: getFilterValue("end_date"),
-        site: JSON.stringify(selectedSites),
-        summary_type: getFilterValue("summary_type"),
-        machine_scope: getFilterValue("machine_scope"),
-        au_target_filter: getFilterValue("au_target_filter")
-    };
+    const startDate = getFilterValue("start_date");
+    const endDate = getFilterValue("end_date");
 
     if (
-        !filters.start_date ||
-        !filters.end_date ||
-        selectedSites.length === 0 ||
-        !filters.summary_type ||
-        !filters.machine_scope ||
-        !filters.au_target_filter
+        !startDate ||
+        !endDate ||
+        !selectedSites.length
     ) {
         frappe.msgprint({
             title: __("Missing Filters"),
             indicator: "orange",
-            message: __("Complete all required filters before downloading the presentation.")
+            message: __(
+                "Complete all required filters before downloading."
+            )
         });
+
         return;
     }
 
-    if (filters.start_date > filters.end_date) {
+    if (startDate > endDate) {
         frappe.msgprint({
             title: __("Invalid Date Range"),
             indicator: "red",
-            message: __("Start Date cannot be after End Date.")
+            message: __(
+                "Start Date cannot be after End Date."
+            )
         });
+
         return;
     }
 
-    const method = "is_production.production.report.hod_presentation.hod_presentation.download_presentation";
-    const params = new URLSearchParams(filters);
-    const url = `/api/method/${method}?${params.toString()}`;
+    try {
+        frappe.dom.freeze(
+            __("Generating presentation...")
+        );
 
-    const downloadWindow = window.open(url, "_blank");
-    if (!downloadWindow) {
-        window.location.assign(url);
+        await frappe.require(
+            "/assets/is_production/js/html2canvas.min.js"
+        );
+
+        if (
+            typeof window.html2canvas !== "function"
+        ) {
+            throw new Error(
+                __(
+                    "The presentation capture library did not load."
+                )
+            );
+        }
+
+        const $layout = report.page.main.find(
+            ".hod-presentation-layout"
+        );
+
+        if (!$layout.length) {
+            throw new Error(
+                __(
+                    "The presentation layout was not found."
+                )
+            );
+        }
+
+        const layout = $layout[0];
+
+        await waitForHodDashboards(
+            layout
+        );
+
+        const capturedSlides = [];
+
+        const productionSection =
+            layout.querySelector(
+                ".hod-browser-section:first-child"
+            );
+
+        if (productionSection) {
+            capturedSlides.push({
+                title: "HOD Production Summary",
+                image_data: await captureHodSection(
+                    productionSection
+                )
+            });
+        }
+
+        const auSites = layout.querySelectorAll(
+            ".hod-browser-au-site"
+        );
+
+        for (
+            let index = 0;
+            index < auSites.length;
+            index += 1
+        ) {
+            capturedSlides.push({
+                title:
+                    "Availability & Utilisation - " +
+                    (
+                        selectedSites[index] ||
+                        `Site ${index + 1}`
+                    ),
+                image_data: await captureHodSection(
+                    auSites[index]
+                )
+            });
+        }
+
+        if (!capturedSlides.length) {
+            throw new Error(
+                __(
+                    "No report sections were available to capture."
+                )
+            );
+        }
+
+        const response = await frappe.call({
+            method:
+                "is_production.production.report." +
+                "hod_presentation.hod_presentation." +
+                "download_captured_presentation",
+            args: {
+                captured_slides:
+                    JSON.stringify(capturedSlides),
+                site: selectedSites.join(" / "),
+                start_date: startDate,
+                end_date: endDate,
+                period_label:
+                    `${startDate} to ${endDate}`
+            },
+            freeze: false
+        });
+
+        const result = response.message || {};
+
+        downloadHodBase64File(
+            result.content,
+            result.filename
+        );
+    } catch (error) {
+        console.error(
+            "HOD presentation generation failed.",
+            error
+        );
+
+        frappe.msgprint({
+            title: __("Presentation Error"),
+            indicator: "red",
+            message:
+                error?.message ||
+                __(
+                    "The presentation could not be generated."
+                )
+        });
+    } finally {
+        frappe.dom.unfreeze();
     }
 }
+
+
+async function waitForHodDashboards(
+    layout
+) {
+    const maximumChecks = 30;
+
+    for (
+        let check = 0;
+        check < maximumChecks;
+        check += 1
+    ) {
+        const loadingItems =
+            layout.querySelectorAll(
+                ".hod-browser-au-loading"
+            );
+
+        if (!loadingItems.length) {
+            return;
+        }
+
+        await new Promise(resolve => {
+            window.setTimeout(
+                resolve,
+                250
+            );
+        });
+    }
+
+    throw new Error(
+        __(
+            "Availability and Utilisation graphs are still loading. Please try again."
+        )
+    );
+}
+
+
+async function captureHodSection(element) {
+    const canvas = await window.html2canvas(
+        element,
+        {
+            scale: 1.5,
+            backgroundColor: "#f7f8fa",
+            useCORS: true,
+            logging: false,
+            removeContainer: true,
+            scrollX: 0,
+            scrollY: 0,
+            windowWidth: Math.max(
+                element.scrollWidth,
+                element.clientWidth
+            ),
+            windowHeight: Math.max(
+                element.scrollHeight,
+                element.clientHeight
+            )
+        }
+    );
+
+    return canvas.toDataURL(
+        "image/jpeg",
+        0.88
+    );
+}
+
+
+function downloadHodBase64File(
+    base64Content,
+    filename
+) {
+    if (!base64Content) {
+        throw new Error(
+            __("No PowerPoint file was returned.")
+        );
+    }
+
+    const binary = window.atob(
+        base64Content
+    );
+
+    const bytes = new Uint8Array(
+        binary.length
+    );
+
+    for (
+        let index = 0;
+        index < binary.length;
+        index += 1
+    ) {
+        bytes[index] = binary.charCodeAt(
+            index
+        );
+    }
+
+    const blob = new Blob(
+        [bytes],
+        {
+            type:
+                "application/vnd.openxmlformats-" +
+                "officedocument.presentationml.presentation"
+        }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download =
+        filename ||
+        "HOD_Presentation.pptx";
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => {
+        URL.revokeObjectURL(url);
+    }, 1000);
+}
+
 
 
 
