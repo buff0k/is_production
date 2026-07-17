@@ -540,6 +540,8 @@ async function loadHodAvailabilityDashboards(
 }
 
 
+
+
 function hodRenderSiteCard(row) {
     const forecastClass =
         hodNumber(row.forecast_variance_bcm) >= 0
@@ -566,20 +568,10 @@ function hodRenderSiteCard(row) {
             ? "hod-browser-positive"
             : "hod-browser-negative";
 
-    const availabilityClass =
-        hodNumber(row.average_availability) >= 85
+    const forecastDeliveryClass =
+        hodNumber(row.forecast_delivery_percent) >= 100
             ? "hod-browser-positive"
-            : "hod-browser-negative";
-
-    const utilisationClass =
-        hodNumber(row.average_utilisation) >= 80
-            ? "hod-browser-positive"
-            : "hod-browser-negative";
-
-    const excludedClass =
-        hodNumber(row.excluded_hour_entries) > 0
-            ? "hod-browser-warning"
-            : "hod-browser-muted";
+            : "hod-browser-warning";
 
     return `
         <article class="hod-browser-site-card">
@@ -593,7 +585,10 @@ function hodRenderSiteCard(row) {
                 </div>
 
                 <div class="hod-browser-variance-value ${forecastTextClass}">
-                    ${hodFormatSigned(row.forecast_variance_bcm, 0)} BCM
+                    ${hodFormatSigned(
+                        row.forecast_variance_bcm,
+                        0
+                    )} BCM
                 </div>
             </div>
 
@@ -602,125 +597,123 @@ function hodRenderSiteCard(row) {
                     ${hodMetricRow(
                         "Monthly target",
                         "BCM",
-                        hodFormatNumber(row.monthly_target_bcm, 0)
+                        hodFormatNumber(
+                            row.monthly_target_bcm,
+                            0
+                        )
                     )}
 
                     ${hodMetricRow(
                         "Forecast",
                         "BCM",
-                        hodFormatNumber(row.forecast_bcm, 0)
+                        hodFormatNumber(
+                            row.forecast_bcm,
+                            0
+                        )
                     )}
 
                     ${hodMetricRow(
                         "Waste variance",
                         "BCM",
-                        hodFormatSigned(row.waste_variance_bcm, 0),
+                        hodFormatSigned(
+                            row.waste_variance_bcm,
+                            0
+                        ),
                         wasteClass
                     )}
 
                     ${hodMetricRow(
                         "Coal variance",
                         "TONS",
-                        hodFormatSigned(row.coal_variance_tons, 0),
+                        hodFormatSigned(
+                            row.coal_variance_tons,
+                            0
+                        ),
                         coalClass
                     )}
 
                     ${hodMetricRow(
                         "Actual BCMs",
                         "BCM",
-                        hodFormatNumber(row.actual_bcm, 0),
+                        hodFormatNumber(
+                            row.actual_bcm,
+                            0
+                        ),
                         "hod-browser-primary"
                     )}
 
                     ${hodMetricRow(
                         "Actual coal",
                         "TONS",
-                        hodFormatNumber(row.actual_coal_tons, 0)
+                        hodFormatNumber(
+                            row.actual_coal_tons,
+                            0
+                        )
                     )}
 
                     ${hodMetricRow(
                         "Daily required",
                         "BCM",
-                        hodFormatNumber(row.daily_required_bcm, 1)
+                        hodFormatNumber(
+                            row.daily_required_bcm,
+                            1
+                        )
                     )}
 
                     ${hodMetricRow(
                         "Daily achieved",
                         "BCM",
-                        hodFormatNumber(row.daily_achieved_bcm, 1)
-                    )}
-
-                    ${hodMetricRow(
-                        "Excavator hours",
-                        "HRS",
-                        hodFormatNumber(row.total_excavator_hours, 1)
+                        hodFormatNumber(
+                            row.daily_achieved_bcm,
+                            1
+                        )
                     )}
 
                     ${hodMetricRow(
                         "Average BCM/H",
                         "",
-                        hodFormatNumber(row.average_bcm_h, 1),
+                        hodFormatNumber(
+                            row.average_bcm_h,
+                            1
+                        ),
                         bcmHourClass
-                    )}
-
-                    ${hodMetricRow(
-                        "Availability",
-                        "%",
-                        hodFormatNumber(row.average_availability, 1),
-                        availabilityClass
-                    )}
-
-                    ${hodMetricRow(
-                        "Utilisation",
-                        "%",
-                        hodFormatNumber(row.average_utilisation, 1),
-                        utilisationClass
-                    )}
-
-                    ${hodMetricRow(
-                        "A & U machines",
-                        "",
-                        hodFormatNumber(row.au_machine_count, 0)
-                    )}
-
-                    ${hodMetricRow(
-                        "Excavators",
-                        "",
-                        hodFormatNumber(row.excavator_count, 0)
-                    )}
-
-                    ${hodMetricRow(
-                        "Excluded entries",
-                        "",
-                        hodFormatNumber(row.excluded_hour_entries, 0),
-                        excludedClass
                     )}
 
                     ${hodMetricRow(
                         "Days worked / left",
                         "",
-                        `${hodFormatNumber(row.days_worked, 0)} / ${hodFormatNumber(row.days_left, 0)}`
+                        `${hodFormatNumber(
+                            row.days_worked,
+                            0
+                        )} / ${hodFormatNumber(
+                            row.days_left,
+                            0
+                        )}`
                     )}
 
                     ${hodMetricRow(
                         "Strip ratio",
                         "",
-                        hodFormatNumber(row.strip_ratio, 1)
+                        hodFormatNumber(
+                            row.strip_ratio,
+                            1
+                        )
                     )}
                 </tbody>
             </table>
 
-            <div class="hod-browser-site-footer">
-                <span>${hodEscape(row.summary_type)}</span>
-                <span>${hodEscape(row.machine_scope)}</span>
-                <span>${hodEscape(row.au_target_filter)}</span>
+            <div class="hod-browser-forecast-footer">
+                Forecast delivery
+                <strong class="${forecastDeliveryClass}">
+                    ${hodFormatNumber(
+                        row.forecast_delivery_percent,
+                        1
+                    )}%
+                </strong>
             </div>
         </article>
     `;
 }
-
-
-
 
 
 function hodMetricRow(
@@ -1220,6 +1213,20 @@ function injectHodPresentationStyles() {
             font-weight: 800;
         }
 
+
+        .hod-browser-forecast-footer {
+            color: #62708a;
+            padding: 8px 4px 1px;
+            font-size: 11px;
+            line-height: 1.2;
+            font-weight: 600;
+        }
+
+        .hod-browser-forecast-footer strong {
+            margin-left: 3px;
+            font-weight: 900;
+        }
+
         .hod-browser-au-section {
             padding: 12px;
         }
@@ -1306,13 +1313,11 @@ function injectHodPresentationStyles() {
         }
 
         /*
-         * HOD Presentation only displays ADT Availability
-         * and Utilisation. ADT is the first dashboard metric
-         * and the first chart section returned by the
-         * Daily Availability Dashboard.
+         * Show every asset-category average bubble.
+         * Only the first graph is displayed because
+         * ADT is the first chart section returned by
+         * the Daily Availability Dashboard.
          */
-        .hod-browser-au-dashboard-copy
-        .isd-metric:not(:first-child),
         .hod-browser-au-dashboard-copy
         .isd-chart-section:not(:first-child) {
             display: none !important;
@@ -1321,17 +1326,19 @@ function injectHodPresentationStyles() {
         .hod-browser-au-dashboard-copy
         .isd-metrics {
             display: flex !important;
-            flex-wrap: wrap !important;
-            justify-content: flex-start !important;
+            flex-wrap: nowrap !important;
+            justify-content: stretch !important;
             align-items: stretch !important;
             gap: 8px !important;
+            width: 100% !important;
         }
 
         .hod-browser-au-dashboard-copy
         .isd-metric {
-            flex: 0 0 190px !important;
-            width: 190px !important;
-            max-width: 190px !important;
+            flex: 1 1 0 !important;
+            width: auto !important;
+            min-width: 105px !important;
+            max-width: none !important;
         }
 
         .hod-browser-au-dashboard-copy
