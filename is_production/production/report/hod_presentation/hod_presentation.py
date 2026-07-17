@@ -781,6 +781,8 @@ def get_excavator_hour_summary(start_date, end_date, site):
         "excluded_rows": excluded_rows,
     }
 
+
+
 def get_non_production_excavator_hours(
     start_date,
     end_date,
@@ -800,18 +802,30 @@ def get_non_production_excavator_hours(
             ON c.parent = p.name
            AND c.parenttype = 'Non-Production Worked Hours'
            AND c.parentfield = 'equipment_non_production_hours'
-        INNER JOIN `tabAsset` asset
-            ON asset.name = c.machine
-           AND asset.asset_category = 'Excavator'
         WHERE p.docstatus < 2
           AND p.shift_date BETWEEN %(start_date)s
                                AND %(end_date)s
           AND p.site = %(site)s
+          AND EXISTS (
+              SELECT 1
+              FROM `tabAsset` asset
+              WHERE (
+                    asset.name = c.machine
+                    OR asset.asset_name = c.machine
+              )
+                AND LOWER(
+                    COALESCE(
+                        asset.asset_category,
+                        ''
+                    )
+                ) LIKE %(category_pattern)s
+          )
         """,
         {
             "start_date": start_date,
             "end_date": end_date,
             "site": site,
+            "category_pattern": EXCAVATOR_CATEGORY_PATTERN,
         },
         as_dict=True,
     )
@@ -827,6 +841,9 @@ def get_non_production_excavator_hours(
         ),
         1,
     )
+
+
+
 
 
 def collapse_pre_use_rows(rows):
