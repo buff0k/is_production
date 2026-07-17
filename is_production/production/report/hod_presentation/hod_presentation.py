@@ -13,7 +13,10 @@ from frappe import _
 from frappe.utils import flt, formatdate, getdate, get_fullname, now_datetime
 
 from is_production.production.page.production_summary_dashboard.production_summary_dashboard import (
-    build_site_row,
+    COAL_CONVERSION,
+    get_completed_production_days,
+    get_mtd_actual_bcms_from_days,
+    get_mtd_coal_dynamic,
     get_monthly_plan,
 )
 
@@ -430,38 +433,21 @@ def get_report_payload(
     plan_start = getdate(monthly_plan.prod_month_start_date)
     plan_end = getdate(monthly_plan.prod_month_end_date)
 
-    # The existing Production Summary Dashboard calculates Actual BCM month-to-date.
-    # Requiring the same month start keeps the BCM numerator and hours denominator aligned.
-    if start_date != plan_start:
-        frappe.throw(
-            _(
-                "Start Date must be {0} for this site. The Production Summary Dashboard "
-                "Actual BCM is month-to-date, so all presentation data must begin on "
-                "the Monthly Production Planning start date."
-            ).format(frappe.bold(formatdate(plan_start)))
-        )
-
     if end_date < plan_start or end_date > plan_end:
         frappe.throw(
-            _("End Date must be between {0} and {1}.").format(
+            _("End Date must be between {0} and {1} for {2}.").format(
                 frappe.bold(formatdate(plan_start)),
                 frappe.bold(formatdate(plan_end)),
+                frappe.bold(site),
             )
         )
 
-    production = build_site_row(site, end_date)
-    if not production:
-        frappe.throw(
-            _("Production Summary Dashboard data could not be built for {0}.").format(
-                frappe.bold(site)
-            )
-        )
-
-    production = {
-        key: value
-        for key, value in production.items()
-        if not str(key).startswith("_summary_")
-    }
+    production = build_filtered_production_row(
+        site=site,
+        start_date=start_date,
+        end_date=end_date,
+        monthly_plan=monthly_plan,
+    )
 
     excavators = get_excavator_hour_summary(
         start_date,
@@ -542,6 +528,243 @@ def get_report_payload(
         "generated_by": get_fullname(frappe.session.user) or frappe.session.user,
         "generated_at": generated_at.strftime("%Y-%m-%d %H:%M:%S"),
     }
+
+
+def build_filtered_production_row(
+    *,
+    site,
+    start_date,
+    end_date,
+    monthly_plan,
+):
+    plan_start = getdate(
+        monthly_plan.prod_month_start_date
+    )
+
+    plan_end = getdate(
+        monthly_plan.prod_month_end_date
+    )
+
+    selected_start = max(
+        getdate(start_date),
+        plan_start,
+    )
+
+    selected_end = min(
+        getdate(end_date),
+        plan_end,
+    )
+
+    monthly_target = flt(
+        monthly_plan.monthly_target_bcm
+    )
+
+    waste_bcms_planned = flt(
+        monthly_plan.waste_bcms_planned
+    )
+
+    coal_tons_planned = flt(
+        monthly_plan.coal_tons_planned
+    )
+
+    num_prod_days = flt(
+        monthly_plan.num_prod_days
+    )
+
+    forecast = flt(
+        monthly_plan.month_forecated_bcm
+    )
+
+    selected_worked_days = (
+        get_completed_production_days(
+            monthly_plan.name,
+            selected_start,
+            selected_end,
+        )
+    )
+
+    month_to_date_worked_days = (
+        get_completed_production_days(
+            monthly_plan.name,
+            plan_start,
+            selected_end,
+        )
+    )
+
+    selected_actual_bcm = flt(
+        get_mtd_actual_bcms_from_days(
+            monthly_plan.name,
+            selected_start,
+            selected_end,
+        )
+    )
+
+    month_to_date_actual_bcm = flt(
+        get_mtd_actual_bcms_from_days(
+            monthly_plan.name,
+            plan_start,
+            selected_end,
+        )
+    )
+
+    if not month_to_date_actual_bcm:
+        month_to_date_actual_bcm = flt(
+            monthly_plan.month_actual_bcm
+        )
+
+    if (
+        selected_start == plan_start
+        and not selected_actual_bcm
+    ):
+        selected_actual_bcm = (
+            month_to_date_actual_bcm
+        )
+
+    selected_actual_coal = flt(
+        get_mtd_coal_dynamic(
+            site,
+            selected_end,
+            selected_start,
+        )
+    )
+
+    selected_actual_waste = (
+        selected_actual_bcm
+        - (
+            selected_actual_coal
+            / COAL_CONVERSION
+        )
+    )
+
+    selected_target_waste = (
+        (
+            waste_bcms_planned
+            / num_prod_days
+        )
+        * selected_worked_days
+        if num_prod_days
+        else 0
+    )
+
+    selected_target_coal = (
+        (
+            coal_tons_planned
+            / num_prod_days
+        )
+        * selected_worked_days
+        if num_prod_days
+        else 0
+    )
+
+    waste_variance = (
+        selected_actual_waste
+        - selected_target_waste
+    )
+
+    coal_variance = (
+        selected_actual_coal
+        - selected_target_coal
+    )
+
+    days_left = max(
+        num_prod_days
+        - month_to_date_worked_days,
+        0,
+    )
+
+    remaining_volume = (
+        monthly_target
+        - month_to_date_actual_bcm
+    )
+
+    daily_required = (
+        remaining_volume
+        / max(days_left, 1)
+    )
+
+    daily_achieved = (
+        selected_actual_bcm
+        / selected_worked_days
+        if selected_worked_days
+        else 0
+    )
+
+    strip_ratio = (
+        selected_actual_waste
+        / selected_actual_coal
+        if selected_actual_coal
+        else 0
+    )
+
+    forecast_variance = (
+        forecast
+        - monthly_target
+    )
+
+    forecast_delivery_percent = (
+        (
+            forecast
+            / monthly_target
+        )
+        * 100
+        if monthly_target
+        else 0
+    )
+
+    return {
+        "site": site,
+        "monthly_target_bcm": round(
+            monthly_target,
+            0,
+        ),
+        "forecast_bcm": round(
+            forecast,
+            0,
+        ),
+        "forecast_variance_bcm": round(
+            forecast_variance,
+            0,
+        ),
+        "waste_variance_bcm": round(
+            waste_variance,
+            0,
+        ),
+        "coal_variance_tons": round(
+            coal_variance,
+            0,
+        ),
+        "actual_bcm": round(
+            selected_actual_bcm,
+            0,
+        ),
+        "actual_coal_tons": round(
+            selected_actual_coal,
+            0,
+        ),
+        "daily_required_bcm": round(
+            daily_required,
+            1,
+        ),
+        "daily_achieved_bcm": round(
+            daily_achieved,
+            1,
+        ),
+        "days_worked": int(
+            selected_worked_days
+        ),
+        "days_left": int(
+            days_left
+        ),
+        "strip_ratio": round(
+            strip_ratio,
+            1,
+        ),
+        "forecast_delivery_percent": round(
+            forecast_delivery_percent,
+            1,
+        ),
+    }
+
 
 
 def parse_site_filter(value):
