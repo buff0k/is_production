@@ -146,9 +146,21 @@ def execute(filters=None):
                     "daily_achieved_bcm", 0
                 ),
                 "total_excavator_hours": excavators.get(
-                    "total_hours", 0
+                    "total_hours",
+                    0,
                 ),
-                "average_bcm_h": payload.get("average_bcm_h", 0),
+                "non_production_excavator_hours": excavators.get(
+                    "non_production_hours",
+                    0,
+                ),
+                "production_excavator_hours": excavators.get(
+                    "production_hours",
+                    0,
+                ),
+                "average_bcm_h": payload.get(
+                    "average_bcm_h",
+                    0,
+                ),
                 "excavator_count": excavators.get(
                     "excavator_count", 0
                 ),
@@ -294,11 +306,25 @@ def get_columns():
             "width": 125,
         },
         {
-            "label": _("Excavator Hours"),
+            "label": _("Excavator Hours (From Pre-Use)"),
             "fieldname": "total_excavator_hours",
             "fieldtype": "Float",
             "precision": 1,
-            "width": 135,
+            "width": 175,
+        },
+        {
+            "label": _("Non-Production Hours"),
+            "fieldname": "non_production_excavator_hours",
+            "fieldtype": "Float",
+            "precision": 1,
+            "width": 165,
+        },
+        {
+            "label": _("Excavator Production Hours"),
+            "fieldname": "production_excavator_hours",
+            "fieldtype": "Float",
+            "precision": 1,
+            "width": 180,
         },
         {
             "label": _("Average BCM/H"),
@@ -436,10 +462,55 @@ def get_report_payload(
         if not str(key).startswith("_summary_")
     }
 
-    excavators = get_excavator_hour_summary(start_date, end_date, site)
-    total_hours = flt(excavators.get("total_hours"))
-    actual_bcm = flt(production.get("actual_bcm"))
-    average_bcm_h = round(actual_bcm / total_hours, 1) if total_hours else 0
+    excavators = get_excavator_hour_summary(
+        start_date,
+        end_date,
+        site,
+    )
+
+    total_hours = round(
+        flt(
+            excavators.get("total_hours")
+        ),
+        1,
+    )
+
+    non_production_hours = (
+        get_non_production_excavator_hours(
+            start_date,
+            end_date,
+            site,
+        )
+    )
+
+    production_hours = round(
+        max(
+            total_hours - non_production_hours,
+            0.0,
+        ),
+        1,
+    )
+
+    excavators["non_production_hours"] = (
+        non_production_hours
+    )
+
+    excavators["production_hours"] = (
+        production_hours
+    )
+
+    actual_bcm = flt(
+        production.get("actual_bcm")
+    )
+
+    average_bcm_h = (
+        round(
+            actual_bcm / production_hours,
+            1,
+        )
+        if production_hours
+        else 0
+    )
 
     availability = get_availability_summary(
         start_date=start_date,
@@ -709,6 +780,54 @@ def get_excavator_hour_summary(start_date, end_date, site):
         "breakdown": breakdown,
         "excluded_rows": excluded_rows,
     }
+
+def get_non_production_excavator_hours(
+    start_date,
+    end_date,
+    site,
+):
+    rows = frappe.db.sql(
+        """
+        SELECT
+            COALESCE(
+                SUM(
+                    COALESCE(c.hours, 0)
+                ),
+                0
+            ) AS non_production_hours
+        FROM `tabNon-Production Worked Hours` p
+        INNER JOIN `tabEquipment Breakdown` c
+            ON c.parent = p.name
+           AND c.parenttype = 'Non-Production Worked Hours'
+           AND c.parentfield = 'equipment_non_production_hours'
+        INNER JOIN `tabAsset` asset
+            ON asset.name = c.machine
+           AND asset.asset_category = 'Excavator'
+        WHERE p.docstatus < 2
+          AND p.shift_date BETWEEN %(start_date)s
+                               AND %(end_date)s
+          AND p.site = %(site)s
+        """,
+        {
+            "start_date": start_date,
+            "end_date": end_date,
+            "site": site,
+        },
+        as_dict=True,
+    )
+
+    if not rows:
+        return 0.0
+
+    return round(
+        flt(
+            rows[0].get(
+                "non_production_hours"
+            )
+        ),
+        1,
+    )
+
 
 def collapse_pre_use_rows(rows):
     """Build one working-hours entry per excavator per date.

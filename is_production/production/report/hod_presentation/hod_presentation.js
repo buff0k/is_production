@@ -568,6 +568,20 @@ function hodRenderSiteCard(row) {
             ? "hod-browser-positive"
             : "hod-browser-negative";
 
+    const nonProductionHoursClass =
+        hodNumber(
+            row.non_production_excavator_hours
+        ) > 0
+            ? "hod-browser-warning"
+            : "hod-browser-muted";
+
+    const productionHoursClass =
+        hodNumber(
+            row.production_excavator_hours
+        ) > 0
+            ? "hod-browser-primary"
+            : "hod-browser-negative";
+
     const forecastDeliveryClass =
         hodNumber(row.forecast_delivery_percent) >= 100
             ? "hod-browser-positive"
@@ -670,7 +684,7 @@ function hodRenderSiteCard(row) {
                     )}
 
                     ${hodMetricRow(
-                        "Excavator hours",
+                        "Excavator hours (From Pre-Use)",
                         "HRS",
                         hodFormatNumber(
                             row.total_excavator_hours,
@@ -679,18 +693,38 @@ function hodRenderSiteCard(row) {
                     )}
 
                     ${hodMetricRow(
-                        "Average BCM/H",
-                        "",
-                        `${hodFormatNumber(
-                            row.average_bcm_h,
+                        "Non-production hours",
+                        "HRS",
+                        hodFormatNumber(
+                            row.non_production_excavator_hours,
                             1
-                        )} (${hodFormatNumber(
+                        ),
+                        nonProductionHoursClass
+                    )}
+
+                    ${hodMetricRow(
+                        "Excavator hours (Production Hours)",
+                        "HRS",
+                        hodFormatNumber(
+                            row.production_excavator_hours,
+                            1
+                        ),
+                        productionHoursClass
+                    )}
+
+                    ${hodMetricRow(
+                        `Average BCM/H (${hodFormatNumber(
                             row.actual_bcm,
                             0
                         )} BCM / ${hodFormatNumber(
-                            row.total_excavator_hours,
+                            row.production_excavator_hours,
                             1
                         )} HRS)`,
+                        "",
+                        hodFormatNumber(
+                            row.average_bcm_h,
+                            1
+                        ),
                         bcmHourClass
                     )}
 
