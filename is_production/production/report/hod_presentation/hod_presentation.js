@@ -244,11 +244,12 @@ async function downloadHodPresentation(report) {
         );
 
         await frappe.require(
-            "/assets/is_production/js/html2canvas.min.js"
+            "/assets/is_production/js/html-to-image.js"
         );
 
         if (
-            typeof window.html2canvas !== "function"
+            !window.htmlToImage ||
+            typeof window.htmlToImage.toJpeg !== "function"
         ) {
             throw new Error(
                 __(
@@ -368,7 +369,7 @@ async function downloadHodPresentation(report) {
 async function waitForHodDashboards(
     layout
 ) {
-    const maximumChecks = 30;
+    const maximumChecks = 120;
 
     for (
         let check = 0;
@@ -401,89 +402,123 @@ async function waitForHodDashboards(
 
 
 async function captureHodSection(element) {
-    const canvas = await window.html2canvas(
-        element,
-        {
-            scale: 1,
-            backgroundColor: "#f7f8fa",
-            useCORS: true,
-            allowTaint: false,
-            logging: false,
-            removeContainer: true,
-            foreignObjectRendering: false,
-            imageTimeout: 5000,
-            scrollX: 0,
-            scrollY: 0,
+    if (!element) {
+        throw new Error(
+            __("The report section was not found.")
+        );
+    }
 
-            width: element.scrollWidth,
-            height: element.scrollHeight,
+    const captureWidth = Math.max(
+        element.scrollWidth,
+        element.offsetWidth,
+        element.clientWidth,
+        1
+    );
 
-            windowWidth: element.scrollWidth,
-            windowHeight: element.scrollHeight,
+    const captureHeight = Math.max(
+        element.scrollHeight,
+        element.offsetHeight,
+        element.clientHeight,
+        1
+    );
 
-            ignoreElements: node => {
-                if (!node) {
-                    return false;
-                }
+    const capturePromise =
+        window.htmlToImage.toJpeg(
+            element,
+            {
+                quality: 0.82,
+                pixelRatio: 0.75,
+                backgroundColor: "#f7f8fa",
+                cacheBust: true,
+                width: captureWidth,
+                height: captureHeight,
 
-                const tagName = (
-                    node.tagName || ""
-                ).toLowerCase();
+                style: {
+                    overflow: "visible"
+                },
 
-                if (
-                    tagName === "script" ||
-                    tagName === "iframe"
-                ) {
+                filter: node => {
+                    if (!node) {
+                        return true;
+                    }
+
+                    const tagName = (
+                        node.tagName || ""
+                    ).toLowerCase();
+
+                    if (
+                        tagName === "script" ||
+                        tagName === "iframe" ||
+                        tagName === "grammarly-extension"
+                    ) {
+                        return false;
+                    }
+
+                    if (
+                        node.hasAttribute &&
+                        (
+                            node.hasAttribute(
+                                "data-gramm"
+                            ) ||
+                            node.hasAttribute(
+                                "data-gramm_editor"
+                            ) ||
+                            node.hasAttribute(
+                                "data-grammarly-shadow-root"
+                            )
+                        )
+                    ) {
+                        return false;
+                    }
+
+                    const className =
+                        typeof node.className === "string"
+                            ? node.className
+                            : "";
+
+                    if (
+                        className.includes(
+                            "grammarly"
+                        ) ||
+                        className.includes(
+                            "gr_"
+                        )
+                    ) {
+                        return false;
+                    }
+
                     return true;
                 }
-
-                if (
-                    node.hasAttribute &&
-                    (
-                        node.hasAttribute("data-gramm") ||
-                        node.hasAttribute("data-gramm_editor") ||
-                        node.hasAttribute("data-grammarly-shadow-root")
-                    )
-                ) {
-                    return true;
-                }
-
-                const className =
-                    typeof node.className === "string"
-                        ? node.className
-                        : "";
-
-                return (
-                    className.includes("grammarly") ||
-                    className.includes("gr_")
-                );
-            },
-
-            onclone: clonedDocument => {
-                clonedDocument
-                    .querySelectorAll(
-                        [
-                            "script",
-                            "iframe",
-                            "grammarly-extension",
-                            "[data-gramm]",
-                            "[data-gramm_editor]",
-                            "[data-grammarly-shadow-root]"
-                        ].join(",")
-                    )
-                    .forEach(node => node.remove());
             }
-        }
-    );
+        );
 
-    return canvas.toDataURL(
-        "image/jpeg",
-        0.78
-    );
+    const timeoutPromise =
+        new Promise(
+            (_, reject) => {
+                window.setTimeout(
+                    () => {
+                        reject(
+                            new Error(
+                                __(
+                                    "Capturing a presentation slide exceeded 45 seconds."
+                                )
+                            )
+                        );
+                    },
+                    45000
+                );
+            }
+        );
+
+    return Promise.race([
+        capturePromise,
+        timeoutPromise
+    ]);
 }
 
 
 function downloadHodBase64File(
+
     base64Content,
     filename
 ) {
