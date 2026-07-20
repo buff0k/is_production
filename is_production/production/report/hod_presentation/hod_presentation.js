@@ -404,27 +404,81 @@ async function captureHodSection(element) {
     const canvas = await window.html2canvas(
         element,
         {
-            scale: 1.5,
+            scale: 1,
             backgroundColor: "#f7f8fa",
             useCORS: true,
+            allowTaint: false,
             logging: false,
             removeContainer: true,
+            foreignObjectRendering: false,
+            imageTimeout: 5000,
             scrollX: 0,
             scrollY: 0,
-            windowWidth: Math.max(
-                element.scrollWidth,
-                element.clientWidth
-            ),
-            windowHeight: Math.max(
-                element.scrollHeight,
-                element.clientHeight
-            )
+
+            width: element.scrollWidth,
+            height: element.scrollHeight,
+
+            windowWidth: element.scrollWidth,
+            windowHeight: element.scrollHeight,
+
+            ignoreElements: node => {
+                if (!node) {
+                    return false;
+                }
+
+                const tagName = (
+                    node.tagName || ""
+                ).toLowerCase();
+
+                if (
+                    tagName === "script" ||
+                    tagName === "iframe"
+                ) {
+                    return true;
+                }
+
+                if (
+                    node.hasAttribute &&
+                    (
+                        node.hasAttribute("data-gramm") ||
+                        node.hasAttribute("data-gramm_editor") ||
+                        node.hasAttribute("data-grammarly-shadow-root")
+                    )
+                ) {
+                    return true;
+                }
+
+                const className =
+                    typeof node.className === "string"
+                        ? node.className
+                        : "";
+
+                return (
+                    className.includes("grammarly") ||
+                    className.includes("gr_")
+                );
+            },
+
+            onclone: clonedDocument => {
+                clonedDocument
+                    .querySelectorAll(
+                        [
+                            "script",
+                            "iframe",
+                            "grammarly-extension",
+                            "[data-gramm]",
+                            "[data-gramm_editor]",
+                            "[data-grammarly-shadow-root]"
+                        ].join(",")
+                    )
+                    .forEach(node => node.remove());
+            }
         }
     );
 
     return canvas.toDataURL(
         "image/jpeg",
-        0.88
+        0.78
     );
 }
 
