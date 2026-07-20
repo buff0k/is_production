@@ -1,9 +1,13 @@
-frappe.query_reports["Production Summary"] = {
+// Copyright (c) 2025, Isambane Mining (Pty) Ltd
+// For license information, please see license.txt
+
+frappe.query_reports["Weekly Report"] = {
   filters: [
     {
       fieldname: "end_date",
       label: __("Report Date"),
       fieldtype: "Date",
+      default: frappe.datetime.get_today(),
       reqd: 1
     },
     {
@@ -16,13 +20,17 @@ frappe.query_reports["Production Summary"] = {
   ],
 
   onload: function (report) {
-    console.log("✅ Production Summary loaded — 2x1 cm week box active.");
-
     setTimeout(() => {
       const weekBox = document.querySelector(".week-input");
+
       if (weekBox) {
-        weekBox.addEventListener("focus", () => (weekBox.style.backgroundColor = "#ffffcc"));
-        weekBox.addEventListener("blur", () => (weekBox.style.backgroundColor = "#fff"));
+        weekBox.addEventListener("focus", () => {
+          weekBox.style.backgroundColor = "#ffffcc";
+        });
+
+        weekBox.addEventListener("blur", () => {
+          weekBox.style.backgroundColor = "#fff";
+        });
       }
     }, 800);
   }
