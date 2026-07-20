@@ -669,6 +669,35 @@ function renderHodPresentationLayout(report) {
                     </div>
                 </div>
 
+                <div class="hod-browser-filter-ribbon">
+                    <div class="hod-browser-filter-item">
+                        <span>Summary Type</span>
+                        <strong>
+                            ${hodEscape(
+                                rows[0].summary_type
+                            )}
+                        </strong>
+                    </div>
+
+                    <div class="hod-browser-filter-item">
+                        <span>Machine Scope</span>
+                        <strong>
+                            ${hodEscape(
+                                rows[0].machine_scope
+                            )}
+                        </strong>
+                    </div>
+
+                    <div class="hod-browser-filter-item">
+                        <span>A &amp; U Target</span>
+                        <strong>
+                            ${hodEscape(
+                                rows[0].au_target_filter
+                            )}
+                        </strong>
+                    </div>
+                </div>
+
                 <div class="hod-browser-site-grid">
                     ${rows
                         .map(row => hodRenderSiteCard(row))
@@ -760,7 +789,9 @@ async function loadHodAvailabilityDashboards(
         end_date: getFilterValue(
             "end_date"
         ),
-        summary_type: "Average Per Machine",
+        summary_type: getFilterValue(
+            "summary_type"
+        ),
         machine_scope: getFilterValue(
             "machine_scope"
         ),
