@@ -219,21 +219,30 @@ def _get_hours_by_asset(
 		f"""
 			select
 				entry.asset_name,
-				max(
-					coalesce(entry.item_name, '')
-				) as model,
-				max(
-					coalesce(entry.asset_category, '')
-				) as asset_category,
-				sum(
-					coalesce(entry.working_hours, 0)
-				) as working_hours
+				entry.item_name as model,
+				entry.asset_category,
+				entry.eng_hrs_start,
+				entry.eng_hrs_end,
+				entry.working_hours,
+				parent.shift_date,
+				parent.shift
 			from `tab{HOURS_CHILD}` entry
+			inner join `tab{HOURS_PARENT}` parent
+				on parent.name = entry.parent
 			where entry.parent in %(parents)s
 				and entry.parenttype = %(parenttype)s
 				and entry.parentfield = %(parentfield)s
 				and coalesce(entry.asset_name, '') != ''
-			group by entry.asset_name
+			order by
+				entry.asset_name,
+				parent.shift_date,
+				case parent.shift
+					when 'Morning' then 1
+					when 'Day' then 1
+					when 'Afternoon' then 2
+					when 'Night' then 3
+					else 4
+				end
 		""",
 		values={
 			"parents": tuple(
@@ -245,10 +254,78 @@ def _get_hours_by_asset(
 		as_dict=True,
 	)
 
-	return {
-		row.asset_name: row
-		for row in rows
-	}
+	daily_hours: dict[tuple[str, object], frappe._dict] = {}
+
+	for row in rows:
+		key = (
+			row.asset_name,
+			getdate(row.shift_date),
+		)
+
+		if key not in daily_hours:
+			daily_hours[key] = frappe._dict(
+				asset_name=row.asset_name,
+				model=row.model or "",
+				asset_category=row.asset_category or "",
+				start_hours=None,
+				end_hours=None,
+			)
+
+		daily_row = daily_hours[key]
+
+		if row.model:
+			daily_row.model = row.model
+
+		if row.asset_category:
+			daily_row.asset_category = row.asset_category
+
+		if row.shift in ("Day", "Morning"):
+			daily_row.start_hours = row.eng_hrs_start
+
+		elif row.shift in ("Night", "Afternoon"):
+			daily_row.end_hours = row.eng_hrs_end
+
+	hours_by_asset: dict[str, frappe._dict] = {}
+
+	for daily_row in daily_hours.values():
+		asset_name = daily_row.asset_name
+
+		if asset_name not in hours_by_asset:
+			hours_by_asset[asset_name] = frappe._dict(
+				asset_name=asset_name,
+				model=daily_row.model,
+				asset_category=daily_row.asset_category,
+				working_hours=0,
+			)
+
+		asset_row = hours_by_asset[asset_name]
+
+		if daily_row.model:
+			asset_row.model = daily_row.model
+
+		if daily_row.asset_category:
+			asset_row.asset_category = daily_row.asset_category
+
+		start_hours = daily_row.start_hours
+		end_hours = daily_row.end_hours
+
+		if start_hours is None or end_hours is None:
+			continue
+
+		if flt(end_hours) == 0:
+			continue
+
+		working_hours = flt(end_hours) - flt(start_hours)
+
+		if working_hours < 0 or working_hours > 24:
+			continue
+
+		asset_row.working_hours = flt(
+			asset_row.working_hours + working_hours,
+			2,
+		)
+
+	return hours_by_asset
 
 
 def _get_assets(
