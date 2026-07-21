@@ -10,7 +10,15 @@ import re
 
 import frappe
 from frappe import _
-from frappe.utils import flt, formatdate, getdate, get_fullname, now_datetime
+from frappe.utils import (
+    flt,
+    formatdate,
+    getdate,
+    get_datetime,
+    get_fullname,
+    now_datetime,
+    time_diff_in_hours,
+)
 
 from is_production.production.page.production_summary_dashboard.production_summary_dashboard import (
     COAL_CONVERSION,
@@ -1811,7 +1819,496 @@ def get_report_summary(payload):
         },
     ]
 
+def get_hod_downtime_summary(
+    start_date,
+    end_date,
+    site,
+):
+    start_date = getdate(start_date)
+    end_date = getdate(end_date)
 
+    range_start = get_datetime(
+        f"{start_date} 00:00:00"
+    )
+    range_end = get_datetime(
+        f"{end_date + timedelta(days=1)} 00:00:00"
+    )
+
+    rows = frappe.db.sql(
+        """
+        SELECT
+            pbm.name,
+            pbm.asset_name AS plant_no,
+            pbm.asset_category,
+            pbm.breakdown_reason,
+            pbm.breakdown_start_datetime,
+            pbm.resolved_datetime,
+            pbm.open_closed
+        FROM `tabPlant Breakdown or Maintenance` pbm
+        WHERE pbm.location = %(site)s
+          AND pbm.breakdown_start_datetime IS NOT NULL
+          AND pbm.breakdown_start_datetime < %(range_end)s
+          AND (
+                pbm.resolved_datetime IS NULL
+                OR pbm.resolved_datetime = ''
+                OR pbm.resolved_datetime > %(range_start)s
+          )
+        ORDER BY pbm.breakdown_start_datetime ASC
+        """,
+        {
+            "site": site,
+            "range_start": range_start,
+            "range_end": range_end,
+        },
+        as_dict=True,
+    )
+
+    current_time = now_datetime()
+    processed_rows = []
+
+    for row in rows:
+        actual_start = get_datetime(
+            row.get("breakdown_start_datetime")
+        )
+
+        actual_end = (
+            get_datetime(row.get("resolved_datetime"))
+            if row.get("resolved_datetime")
+            else current_time
+        )
+
+        clipped_start = max(
+            actual_start,
+            range_start,
+        )
+        clipped_end = min(
+            actual_end,
+            range_end,
+        )
+
+        if clipped_end <= clipped_start:
+            continue
+
+        hours = round(
+            float(
+                time_diff_in_hours(
+                    clipped_end,
+                    clipped_start,
+                )
+            ),
+            2,
+        )
+
+        if hours <= 0:
+            continue
+
+        status = (
+            row.get("open_closed")
+            or (
+                "Closed"
+                if row.get("resolved_datetime")
+                else "Open"
+            )
+        )
+
+        processed_rows.append(
+            {
+                "plant_no": (
+                    row.get("plant_no")
+                    or "Unknown"
+                ),
+                "asset_category": (
+                    row.get("asset_category")
+                    or "Unknown"
+                ),
+                "reason": (
+                    row.get("breakdown_reason")
+                    or "No reason captured"
+                ),
+                "start": clipped_start,
+                "end": clipped_end,
+                "hours": hours,
+                "status": status,
+            }
+        )
+
+    day_count = (
+        end_date - start_date
+    ).days + 1
+
+    if day_count <= 7:
+        grouping = "Daily"
+    elif day_count <= 31:
+        grouping = "Weekly"
+    else:
+        grouping = "Monthly"
+
+    grouped = {}
+
+    machine_hours = defaultdict(float)
+    category_hours = defaultdict(float)
+    reason_hours = defaultdict(float)
+
+    for row in processed_rows:
+        row_date = getdate(row["start"])
+
+        if grouping == "Daily":
+            key = str(row_date)
+            label = formatdate(row_date)
+
+        elif grouping == "Weekly":
+            week_start = (
+                row_date
+                - timedelta(
+                    days=row_date.weekday()
+                )
+            )
+
+            week_end = min(
+                week_start + timedelta(days=6),
+                end_date,
+            )
+
+            key = str(week_start)
+            label = "{0} to {1}".format(
+                formatdate(week_start),
+                formatdate(week_end),
+            )
+
+        else:
+            key = row_date.strftime("%Y-%m")
+            label = row_date.strftime("%B %Y")
+
+        bucket = grouped.setdefault(
+            key,
+            {
+                "label": label,
+                "hours": 0.0,
+                "records": 0,
+                "open": 0,
+                "closed": 0,
+                "machine_hours": defaultdict(float),
+                "reason_hours": defaultdict(float),
+            },
+        )
+
+        bucket["hours"] += row["hours"]
+        bucket["records"] += 1
+
+        if (
+            str(row["status"])
+            .strip()
+            .lower()
+            == "open"
+        ):
+            bucket["open"] += 1
+        else:
+            bucket["closed"] += 1
+
+        bucket["machine_hours"][
+            row["plant_no"]
+        ] += row["hours"]
+
+        bucket["reason_hours"][
+            row["reason"]
+        ] += row["hours"]
+
+        machine_hours[
+            row["plant_no"]
+        ] += row["hours"]
+
+        category_hours[
+            row["asset_category"]
+        ] += row["hours"]
+
+        reason_hours[
+            row["reason"]
+        ] += row["hours"]
+
+    grouped_rows = []
+
+    for key in sorted(grouped):
+        bucket = grouped[key]
+
+        top_machine = (
+            max(
+                bucket["machine_hours"],
+                key=bucket["machine_hours"].get,
+            )
+            if bucket["machine_hours"]
+            else "-"
+        )
+
+        top_reason = (
+            max(
+                bucket["reason_hours"],
+                key=bucket["reason_hours"].get,
+            )
+            if bucket["reason_hours"]
+            else "-"
+        )
+
+        grouped_rows.append(
+            {
+                "label": bucket["label"],
+                "hours": round(
+                    bucket["hours"],
+                    2,
+                ),
+                "records": bucket["records"],
+                "open": bucket["open"],
+                "closed": bucket["closed"],
+                "top_machine": top_machine,
+                "top_reason": top_reason,
+            }
+        )
+
+    total_hours = round(
+        sum(
+            row["hours"]
+            for row in processed_rows
+        ),
+        2,
+    )
+
+    open_count = sum(
+        1
+        for row in processed_rows
+        if (
+            str(row["status"])
+            .strip()
+            .lower()
+            == "open"
+        )
+    )
+
+    return {
+        "grouping": grouping,
+        "total_hours": total_hours,
+        "record_count": len(processed_rows),
+        "open_count": open_count,
+        "closed_count": (
+            len(processed_rows)
+            - open_count
+        ),
+        "top_machine": (
+            max(
+                machine_hours,
+                key=machine_hours.get,
+            )
+            if machine_hours
+            else "-"
+        ),
+        "top_category": (
+            max(
+                category_hours,
+                key=category_hours.get,
+            )
+            if category_hours
+            else "-"
+        ),
+        "top_reason": (
+            max(
+                reason_hours,
+                key=reason_hours.get,
+            )
+            if reason_hours
+            else "-"
+        ),
+        "rows": grouped_rows,
+    }
+
+
+def build_hod_downtime_html(
+    summary,
+    site,
+    start_date,
+    end_date,
+):
+    summary = summary or {}
+    rows = summary.get("rows") or []
+
+    table_rows = []
+
+    for row in rows:
+        table_rows.append(
+            """
+            <tr>
+                <td>{label}</td>
+                <td>{hours:.2f}</td>
+                <td>{records}</td>
+                <td>{open_count}</td>
+                <td>{closed_count}</td>
+                <td>{top_machine}</td>
+                <td>{top_reason}</td>
+            </tr>
+            """.format(
+                label=frappe.utils.escape_html(
+                    str(
+                        row.get("label")
+                        or ""
+                    )
+                ),
+                hours=flt(
+                    row.get("hours")
+                ),
+                records=int(
+                    row.get("records")
+                    or 0
+                ),
+                open_count=int(
+                    row.get("open")
+                    or 0
+                ),
+                closed_count=int(
+                    row.get("closed")
+                    or 0
+                ),
+                top_machine=frappe.utils.escape_html(
+                    str(
+                        row.get("top_machine")
+                        or "-"
+                    )
+                ),
+                top_reason=frappe.utils.escape_html(
+                    str(
+                        row.get("top_reason")
+                        or "-"
+                    )
+                ),
+            )
+        )
+
+    if not table_rows:
+        table_rows.append(
+            """
+            <tr>
+                <td
+                    colspan="7"
+                    class="hod-downtime-empty"
+                >
+                    No downtime records found for this period.
+                </td>
+            </tr>
+            """
+        )
+
+    return """
+        <div class="hod-downtime-summary">
+            <div class="hod-downtime-header">
+                <div class="hod-downtime-title">
+                    Downtime Summary - {site}
+                </div>
+
+                <div class="hod-downtime-period">
+                    {start_date} to {end_date}
+                    | Grouped {grouping}
+                </div>
+            </div>
+
+            <div class="hod-downtime-kpis">
+                <div class="hod-downtime-kpi">
+                    <span>Total Downtime</span>
+                    <strong>
+                        {total_hours:.2f} HRS
+                    </strong>
+                </div>
+
+                <div class="hod-downtime-kpi">
+                    <span>Records</span>
+                    <strong>{record_count}</strong>
+                </div>
+
+                <div class="
+                    hod-downtime-kpi
+                    hod-downtime-open
+                ">
+                    <span>Open</span>
+                    <strong>{open_count}</strong>
+                </div>
+
+                <div class="
+                    hod-downtime-kpi
+                    hod-downtime-closed
+                ">
+                    <span>Closed</span>
+                    <strong>{closed_count}</strong>
+                </div>
+
+                <div class="hod-downtime-kpi">
+                    <span>Top Machine</span>
+                    <strong>{top_machine}</strong>
+                </div>
+
+                <div class="hod-downtime-kpi">
+                    <span>Top Category</span>
+                    <strong>{top_category}</strong>
+                </div>
+            </div>
+
+            <table class="hod-downtime-table">
+                <thead>
+                    <tr>
+                        <th>Period</th>
+                        <th>Hours</th>
+                        <th>Records</th>
+                        <th>Open</th>
+                        <th>Closed</th>
+                        <th>Top Machine</th>
+                        <th>Top Reason</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {table_rows}
+                </tbody>
+            </table>
+        </div>
+    """.format(
+        site=frappe.utils.escape_html(
+            str(site or "")
+        ),
+        start_date=frappe.utils.escape_html(
+            str(start_date)
+        ),
+        end_date=frappe.utils.escape_html(
+            str(end_date)
+        ),
+        grouping=frappe.utils.escape_html(
+            str(
+                summary.get("grouping")
+                or "Daily"
+            )
+        ),
+        total_hours=flt(
+            summary.get("total_hours")
+        ),
+        record_count=int(
+            summary.get("record_count")
+            or 0
+        ),
+        open_count=int(
+            summary.get("open_count")
+            or 0
+        ),
+        closed_count=int(
+            summary.get("closed_count")
+            or 0
+        ),
+        top_machine=frappe.utils.escape_html(
+            str(
+                summary.get("top_machine")
+                or "-"
+            )
+        ),
+        top_category=frappe.utils.escape_html(
+            str(
+                summary.get("top_category")
+                or "-"
+            )
+        ),
+        table_rows="".join(table_rows),
+    )
 
 
 @frappe.whitelist()
@@ -1937,9 +2434,22 @@ def get_availability_dashboard_html(
             )
         )
 
+    downtime_summary = get_hod_downtime_summary(
+        start_date=start_date,
+        end_date=end_date,
+        site=site,
+    )
+
+    downtime_html = build_hod_downtime_html(
+        downtime_summary,
+        site,
+        start_date,
+        end_date,
+    )
+
     return {
         "site": site,
-        "html": dashboard_html,
+        "html": dashboard_html + downtime_html,
     }
 
 

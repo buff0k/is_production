@@ -1799,6 +1799,219 @@ function injectHodPresentationStyles() {
                 width: 34%;
             }
         }
+
+        .hod-downtime-summary {
+            margin: 16px;
+            padding: 16px;
+            background: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            box-shadow: 0 6px 18px rgba(15, 31, 83, 0.10);
+            overflow: hidden;
+        }
+
+        .hod-downtime-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            margin: -16px -16px 16px;
+            background: linear-gradient(135deg, #0f1f53 0%, #1d3b82 100%);
+            color: #ffffff;
+            border-bottom: 4px solid #e03124;
+        }
+
+        .hod-downtime-title {
+            font-size: 18px;
+            line-height: 1.2;
+            font-weight: 900;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+
+        .hod-downtime-period {
+            margin-top: 5px;
+            color: #dbeafe;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .hod-downtime-kpis {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(130px, 1fr));
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .hod-downtime-kpi {
+            position: relative;
+            min-height: 92px;
+            padding: 13px 10px;
+            background: #ffffff;
+            border: 1px solid #d7dee8;
+            border-radius: 12px;
+            box-shadow: 0 3px 10px rgba(15, 31, 83, 0.07);
+            text-align: center;
+            overflow: hidden;
+        }
+
+        .hod-downtime-kpi::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: #0f1f53;
+        }
+
+        .hod-downtime-kpi span {
+            display: block;
+            margin-top: 5px;
+            margin-bottom: 8px;
+            color: #64748b;
+            font-size: 9px;
+            line-height: 1.2;
+            font-weight: 900;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+
+        .hod-downtime-kpi strong {
+            display: block;
+            color: #102a43;
+            font-size: 18px;
+            line-height: 1.15;
+            font-weight: 900;
+            overflow-wrap: anywhere;
+        }
+
+        .hod-downtime-open::before {
+            background: #e03124;
+        }
+
+        .hod-downtime-open strong {
+            color: #c81e1e;
+        }
+
+        .hod-downtime-closed::before {
+            background: #18a957;
+        }
+
+        .hod-downtime-closed strong {
+            color: #168447;
+        }
+
+        .hod-downtime-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            background: #ffffff;
+            border: 1px solid #d7dee8;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 3px 10px rgba(15, 31, 83, 0.06);
+        }
+
+        .hod-downtime-table thead th {
+            padding: 11px 10px;
+            background: #0f1f53;
+            color: #ffffff;
+            border-right: 1px solid rgba(255, 255, 255, 0.18);
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.3px;
+            text-align: left;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .hod-downtime-table thead th:last-child {
+            border-right: none;
+        }
+
+        .hod-downtime-table tbody td {
+            padding: 11px 10px;
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            color: #334155;
+            font-size: 11px;
+            line-height: 1.35;
+            font-weight: 700;
+            vertical-align: middle;
+        }
+
+        .hod-downtime-table tbody td:last-child {
+            border-right: none;
+        }
+
+        .hod-downtime-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .hod-downtime-table tbody tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        .hod-downtime-table tbody tr:hover {
+            background: #eef4ff;
+        }
+
+        .hod-downtime-table tbody td:nth-child(2),
+        .hod-downtime-table tbody td:nth-child(3),
+        .hod-downtime-table tbody td:nth-child(4),
+        .hod-downtime-table tbody td:nth-child(5) {
+            text-align: center;
+            font-weight: 900;
+        }
+
+        .hod-downtime-table tbody td:nth-child(2) {
+            color: #b45309;
+        }
+
+        .hod-downtime-table tbody td:nth-child(4) {
+            color: #c81e1e;
+        }
+
+        .hod-downtime-table tbody td:nth-child(5) {
+            color: #168447;
+        }
+
+        .hod-downtime-empty {
+            padding: 24px !important;
+            text-align: center !important;
+            color: #64748b !important;
+            font-style: italic;
+        }
+
+        @media (max-width: 1200px) {
+            .hod-downtime-kpis {
+                grid-template-columns: repeat(3, minmax(150px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hod-downtime-summary {
+                margin: 8px;
+                padding: 10px;
+            }
+
+            .hod-downtime-header {
+                margin: -10px -10px 12px;
+                padding: 12px;
+            }
+
+            .hod-downtime-kpis {
+                grid-template-columns: repeat(2, minmax(130px, 1fr));
+            }
+
+            .hod-downtime-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
+
     `;
 
     document.head.appendChild(style);
