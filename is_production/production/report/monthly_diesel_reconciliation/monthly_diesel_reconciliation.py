@@ -7,7 +7,7 @@ from collections import defaultdict
 
 import frappe
 from frappe import _
-from frappe.utils import flt, get_first_day, get_last_day, getdate
+from frappe.utils import flt, getdate
 
 
 DIESEL_PARENT = "Daily Diesel Sheet"
@@ -27,22 +27,25 @@ def execute(filters: dict | None = None):
 	_validate_filters(filters)
 	_check_permissions()
 
-	period = _get_period(filters.month)
+	start_date = filters.from_date
+	end_date = filters.to_date
 
 	diesel_sheets = _get_permitted_parents(
 		DIESEL_PARENT,
 		"daily_sheet_date",
 		filters.site,
-		period.start_date,
-		period.end_date,
+		start_date,
+		end_date,
+		submitted_only=True,
 	)
 
 	hours_sheets = _get_permitted_parents(
 		HOURS_PARENT,
 		"shift_date",
 		filters.site,
-		period.start_date,
-		period.end_date,
+		start_date,
+		end_date,
+		submitted_only=False,
 	)
 
 	diesel_by_asset = _get_diesel_by_asset(diesel_sheets)
@@ -64,7 +67,7 @@ def execute(filters: dict | None = None):
 
 	rates = _get_effective_rates(
 		models,
-		period.end_date,
+		end_date,
 	)
 
 	capture_days = _get_capture_days(
@@ -102,10 +105,19 @@ def _validate_filters(filters: frappe._dict) -> None:
 	if not filters.get("site"):
 		frappe.throw(_("Site is required."))
 
-	if not filters.get("month"):
-		frappe.throw(_("Month is required."))
+	if not filters.get("from_date"):
+		frappe.throw(_("From Date is required."))
 
-	filters.month = getdate(filters.month)
+	if not filters.get("to_date"):
+		frappe.throw(_("To Date is required."))
+
+	filters.from_date = getdate(filters.from_date)
+	filters.to_date = getdate(filters.to_date)
+
+	if filters.from_date > filters.to_date:
+		frappe.throw(
+			_("From Date cannot be after To Date.")
+		)
 
 
 def _check_permissions() -> None:
@@ -124,13 +136,6 @@ def _check_permissions() -> None:
 			)
 
 
-def _get_period(month) -> frappe._dict:
-	month = getdate(month)
-
-	return frappe._dict(
-		start_date=get_first_day(month),
-		end_date=get_last_day(month),
-	)
 
 
 def _get_permitted_parents(
@@ -139,19 +144,26 @@ def _get_permitted_parents(
 	site: str,
 	start_date,
 	end_date,
+	submitted_only: bool = True,
 ) -> list[frappe._dict]:
-	"""Get submitted parent documents while respecting user permissions."""
+	"""Get records for the selected site and date range."""
+
+	filters = {
+		"location": site,
+		date_field: [
+			"between",
+			[start_date, end_date],
+		],
+	}
+
+	if submitted_only:
+		filters["docstatus"] = 1
+	else:
+		filters["docstatus"] = ["<", 2]
 
 	return frappe.get_list(
 		doctype,
-		filters={
-			"docstatus": 1,
-			"location": site,
-			date_field: [
-				"between",
-				[start_date, end_date],
-			],
-		},
+		filters=filters,
 		fields=[
 			"name",
 			date_field,
@@ -436,7 +448,7 @@ def _build_asset_rows(
 				"asset_category": asset_category,
 				"fleet_number": asset_name,
 				"model": model,
-				"quantity": 1,
+				"quantity": None,
 				"litres_mtd": litres,
 				"average_litres_day": (
 					flt(
@@ -449,11 +461,6 @@ def _build_asset_rows(
 				"mtd_hours": working_hours,
 				"actual_lph": actual_lph,
 				"oem_burn_rate": oem_rate,
-				"rate_effective_from": (
-					rate_row.get(
-						"effective_from"
-					)
-				),
 				"variance": variance,
 			}
 		)
@@ -632,12 +639,6 @@ def _get_columns() -> list[dict]:
 			"width": 120,
 		},
 		{
-			"fieldname": "rate_effective_from",
-			"label": _("Rate Effective From"),
-			"fieldtype": "Date",
-			"width": 125,
-		},
-		{
 			"fieldname": "variance",
 			"label": _("Variance"),
 			"fieldtype": "Float",
@@ -746,6 +747,7 @@ def _get_summary(
 	]
 
 
+
 def _get_message(
 	diesel_sheets: list[frappe._dict],
 	hours_sheets: list[frappe._dict],
@@ -757,15 +759,15 @@ def _get_message(
 		messages.append(
 			_(
 				"No submitted Daily Diesel Sheets "
-				"were found."
+				"were found for the selected date range."
 			)
 		)
 
 	if not hours_sheets:
 		messages.append(
 			_(
-				"No submitted Pre-Use Hours "
-				"records were found."
+				"No Pre-Use Hours records were found "
+				"for the selected date range."
 			)
 		)
 
@@ -773,7 +775,7 @@ def _get_message(
 		messages.append(
 			_(
 				"No Assets were found for the "
-				"selected Site and Month."
+				"selected Site and date range."
 			)
 		)
 	else:
@@ -786,10 +788,18 @@ def _get_message(
 		if missing_rates:
 			messages.append(
 				_(
-					"{0} machine(s) have no "
-					"effective OEM diesel burn "
-					"rate for this month."
+					"{0} machine(s) have no effective "
+					"OEM diesel burn rate for the "
+					"selected date range."
 				).format(missing_rates)
 			)
 
 	return " ".join(messages) or None
+
+
+
+
+
+
+
+
