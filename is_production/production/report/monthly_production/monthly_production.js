@@ -1,48 +1,54 @@
 frappe.query_reports["Monthly Production"] = {
-  "filters": [
-    {
-      fieldname: "start_date",
-      label: "Start Date",
-      fieldtype: "Date",
-      reqd: 0
-    },
-    {
-      fieldname: "end_date",
-      label: "End Date",
-      fieldtype: "Date",
-      reqd: 0
-    },
-    {
-      fieldname: "site",
-      label: "Site",
-      fieldtype: "Link",
-      options: "Location",
-      reqd: 0
-    },
-    {
-      fieldname: "monthly_production",
-      label: "Monthly Production",
-      fieldtype: "Link",
-      options: "Monthly Production Planning",
-      reqd: 1,
-      get_query: () => {
-        const site = frappe.query_report.get_filter_value('site');
-        if (!site) {
-          frappe.msgprint(__('Please select a Site first.'));
-          return { filters: [] };
+    filters: [
+        {
+            fieldname: "monthly_production",
+            label: __("Monthly Production"),
+            fieldtype: "Link",
+            options: "Monthly Production Planning"
+        },
+        {
+            fieldname: "site",
+            label: __("Site"),
+            fieldtype: "Link",
+            options: "Location"
+        },
+        {
+            fieldname: "start_date",
+            label: __("Start Date"),
+            fieldtype: "Date"
+        },
+        {
+            fieldname: "end_date",
+            label: __("End Date"),
+            fieldtype: "Date"
+        },
+        {
+            fieldname: "shift",
+            label: __("Shift"),
+            fieldtype: "Select",
+            options: "\nDay\nNight"
         }
-        return {
-          filters: { location: site },
-          order_by: 'creation desc'
-        };
-      }
-    },
-    {
-      fieldname: "shift",
-      label: "Shift",
-      fieldtype: "Select",
-      options: ["", "Day", "Night"],
-      reqd: 0
+    ],
+
+    formatter(value, row, column, data, default_formatter) {
+        value = default_formatter(value, row, column, data);
+
+        if (column.fieldname === "material_loaded") {
+            return `
+                <div style="
+                    white-space: normal;
+                    overflow-wrap: anywhere;
+                    word-break: normal;
+                    line-height: 1.35;
+                    min-width: 190px;
+                    max-width: 240px;
+                    padding: 2px 4px;
+                ">
+                    ${value || ""}
+                </div>
+            `;
+        }
+
+        return value;
     }
-  ]
 };

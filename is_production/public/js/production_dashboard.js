@@ -50,6 +50,662 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
 
   page.set_primary_action(__('Run'), () => refresh_all(true)); 
 
+  // -------- Dashboard PDF and Excel Export --------
+
+  function load_xlsx_library() {
+    return new Promise((resolve, reject) => {
+      if (window.XLSX) {
+        resolve(window.XLSX);
+        return;
+      }
+
+      const existing = document.getElementById('production-dashboard-xlsx-lib');
+
+      if (existing) {
+        existing.addEventListener('load', () => resolve(window.XLSX), { once: true });
+        existing.addEventListener('error', reject, { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.id = 'production-dashboard-xlsx-lib';
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      script.onload = () => resolve(window.XLSX);
+      script.onerror = () => reject(new Error('Failed to load the Excel export library.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  function get_active_tab_details() {
+    const tabs = {
+      1: {
+        name: 'Production Dashboard',
+        pane: tab1Pane
+      },
+      2: {
+        name: 'Production Dashboard Update',
+        pane: tab2Pane
+      },
+      3: {
+        name: 'Weekly Report',
+        pane: tab3Pane
+      },
+      4: {
+        name: 'Daily and Shift Report',
+        pane: tab4Pane
+      }
+    };
+
+    return tabs[active_tab] || tabs[1];
+  }
+
+  function safe_export_filename(value) {
+    return String(value || '')
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, '-')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_');
+  }
+
+  function get_export_filename(extension) {
+    const filters = get_filters() || {};
+    const tab = get_active_tab_details();
+
+    const parts = [
+      'Production_Dashboard',
+      tab.name,
+      filters.site,
+      filters.start_date,
+      filters.end_date,
+      filters.shift
+    ].filter(Boolean);
+
+    return `${safe_export_filename(parts.join('_'))}.${extension}`;
+  }
+
+  function get_filter_export_rows() {
+    const filters = get_filters() || {};
+
+    return [
+      ['Production Dashboard Export'],
+      [],
+      ['Report Tab', get_active_tab_details().name],
+      ['Start Date', filters.start_date || ''],
+      ['End Date', filters.end_date || ''],
+      ['Site', filters.site || ''],
+      ['Monthly Production', filters.monthly_production || ''],
+      ['Shift', filters.shift || 'All Shifts'],
+      ['Exported By', frappe.session.user || ''],
+      ['Exported At', frappe.datetime.now_datetime()]
+    ];
+  }
+
+  function get_summary_export_rows() {
+    const summaryFields = [
+      ['Total BCM Tallies', 'total-bcm'],
+      ['Actual BCM (Survey + HP)', 'actual-bcm-survey'],
+      ['Survey Variance', 'survey-variance'],
+      ['Overall Team Productivity per Hour', 'excavator-prod'],
+      ['Overall Dozing Productivity per Hour', 'dozer-prod']
+    ];
+
+    const rows = [['Metric', 'Value']];
+
+    summaryFields.forEach(([label, id]) => {
+      const element = document.getElementById(id);
+
+      if (element) {
+        rows.push([
+          label,
+          element.textContent.trim()
+        ]);
+      }
+    });
+
+    return rows;
+  }
+
+  function table_to_array(table) {
+    return Array.from(table.rows).map(row =>
+      Array.from(row.cells).map(cell =>
+        cell.innerText
+          .replace(/\s+/g, ' ')
+          .trim()
+      )
+    );
+  }
+
+  function get_table_title(table, index) {
+    const card = table.closest('.frappe-card, .compact-card');
+
+    if (card) {
+      const heading = card.querySelector(
+        'h1, h2, h3, h4, h5, h6, .card-title, .section-title, .control-label'
+      );
+
+      if (heading && heading.textContent.trim()) {
+        return heading.textContent.trim();
+      }
+    }
+
+    const previousHeading = table.previousElementSibling;
+
+    if (previousHeading && previousHeading.textContent.trim()) {
+      return previousHeading.textContent.trim();
+    }
+
+    return `Table ${index + 1}`;
+  }
+
+  function unique_sheet_name(name, usedNames) {
+    let cleaned = String(name || 'Sheet')
+      .replace(/[\\/*?:[\]]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 31) || 'Sheet';
+
+    let candidate = cleaned;
+    let number = 2;
+
+    while (usedNames.has(candidate)) {
+      const suffix = ` ${number}`;
+      candidate = cleaned.slice(0, 31 - suffix.length) + suffix;
+      number += 1;
+    }
+
+    usedNames.add(candidate);
+    return candidate;
+  }
+
+  function set_reasonable_column_widths(worksheet, rows) {
+    if (!rows.length) return;
+
+    const maxColumns = Math.max(...rows.map(row => row.length));
+
+    worksheet['!cols'] = Array.from({ length: maxColumns }, (_, columnIndex) => {
+      let maxLength = 10;
+
+      rows.forEach(row => {
+        const value = row[columnIndex];
+
+        if (value !== undefined && value !== null) {
+          maxLength = Math.max(maxLength, String(value).length);
+        }
+      });
+
+      return {
+        wch: Math.min(maxLength + 2, 45)
+      };
+    });
+  }
+
+  async function export_dashboard_excel() {
+    const active = get_active_tab_details();
+
+    if (!active.pane) {
+      frappe.msgprint(__('The active dashboard tab could not be found.'));
+      return;
+    }
+
+    const tables = Array.from(active.pane.querySelectorAll('table'))
+      .filter(table => table.offsetParent !== null);
+
+    if (!tables.length && active_tab !== 1) {
+      frappe.msgprint(__('There is no visible table data to export on this tab.'));
+      return;
+    }
+
+    frappe.show_alert({
+      message: __('Preparing Excel export...'),
+      indicator: 'blue'
+    });
+
+    try {
+      await load_xlsx_library();
+
+      if (!window.XLSX) {
+        throw new Error('Excel library is unavailable.');
+      }
+
+      const workbook = XLSX.utils.book_new();
+      const usedNames = new Set();
+
+      const overviewRows = [
+        ...get_filter_export_rows(),
+        [],
+        ...get_summary_export_rows()
+      ];
+
+      const overviewSheet = XLSX.utils.aoa_to_sheet(overviewRows);
+      set_reasonable_column_widths(overviewSheet, overviewRows);
+
+      XLSX.utils.book_append_sheet(
+        workbook,
+        overviewSheet,
+        unique_sheet_name('Summary', usedNames)
+      );
+
+      tables.forEach((table, index) => {
+        const rows = table_to_array(table);
+
+        if (!rows.length) return;
+
+        const title = get_table_title(table, index);
+        const worksheet = XLSX.utils.aoa_to_sheet(rows);
+
+        set_reasonable_column_widths(worksheet, rows);
+
+        XLSX.utils.book_append_sheet(
+          workbook,
+          worksheet,
+          unique_sheet_name(title, usedNames)
+        );
+      });
+
+      XLSX.writeFile(workbook, get_export_filename('xlsx'));
+
+      frappe.show_alert({
+        message: __('Excel export completed.'),
+        indicator: 'green'
+      });
+    } catch (error) {
+      console.error('Production Dashboard Excel export failed:', error);
+
+      frappe.msgprint({
+        title: __('Excel Export Failed'),
+        message: __('The dashboard could not be exported to Excel. Please check the browser console.'),
+        indicator: 'red'
+      });
+    }
+  }
+
+  function copy_canvas_images(sourcePane, clonedPane) {
+    const sourceCanvases = sourcePane.querySelectorAll('canvas');
+    const clonedCanvases = clonedPane.querySelectorAll('canvas');
+
+    sourceCanvases.forEach((canvas, index) => {
+      const clonedCanvas = clonedCanvases[index];
+
+      if (!clonedCanvas) return;
+
+      try {
+        const image = document.createElement('img');
+        image.src = canvas.toDataURL('image/png', 1.0);
+        image.style.display = 'block';
+        image.style.width = '100%';
+        image.style.maxWidth = '100%';
+        image.style.height = 'auto';
+
+        clonedCanvas.replaceWith(image);
+      } catch (error) {
+        console.warn('Could not copy dashboard chart into PDF:', error);
+      }
+    });
+  }
+
+  function load_external_script(id, src, readyCheck) {
+    return new Promise((resolve, reject) => {
+      if (readyCheck()) {
+        resolve();
+        return;
+      }
+
+      const existing = document.getElementById(id);
+
+      if (existing) {
+        const waitForLibrary = setInterval(() => {
+          if (readyCheck()) {
+            clearInterval(waitForLibrary);
+            resolve();
+          }
+        }, 100);
+
+        setTimeout(() => {
+          clearInterval(waitForLibrary);
+
+          if (!readyCheck()) {
+            reject(new Error(`Library ${id} did not finish loading.`));
+          }
+        }, 15000);
+
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.id = id;
+      script.src = src;
+      script.onload = () => {
+        if (readyCheck()) {
+          resolve();
+        } else {
+          reject(new Error(`Library ${id} loaded but is unavailable.`));
+        }
+      };
+      script.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
+  function get_server_pdf_html(active, filters) {
+    const clonedPane = active.pane.cloneNode(true);
+    const isFullReportTab = active_tab === 3 || active_tab === 4;
+
+    // Replace Chart.js canvases with images for server-side PDF rendering.
+    copy_canvas_images(active.pane, clonedPane);
+
+    clonedPane.querySelectorAll(
+      'button, script, iframe, .dropdown-menu, .modal, .tooltip, [hidden], .d-none'
+    ).forEach(element => element.remove());
+
+    // Keep currently rendered report content visible.
+    clonedPane.querySelectorAll('.collapse').forEach(element => {
+      element.classList.add('show');
+      element.style.display = 'block';
+      element.style.height = 'auto';
+      element.style.visibility = 'visible';
+    });
+
+    clonedPane.querySelectorAll('table').forEach(table => {
+      table.style.width = '100%';
+      table.style.borderCollapse = 'collapse';
+    });
+
+    const escape = value =>
+      frappe.utils.escape_html(String(value ?? ''));
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 6mm;
+            }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            html,
+            body {
+              width: 100%;
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+              color: #1f272e;
+              font-family: Arial, Helvetica, sans-serif;
+              font-size: 7px;
+            }
+
+            .pdf-header {
+              border-bottom: 2px solid #1f272e;
+              margin-bottom: 8px;
+              padding-bottom: 6px;
+            }
+
+            .pdf-header h1 {
+              margin: 0 0 3px;
+              font-size: 17px;
+            }
+
+            .pdf-header h2 {
+              margin: 0;
+              color: #5e6c84;
+              font-size: 11px;
+              font-weight: 600;
+            }
+
+            .pdf-filters {
+              width: 100%;
+              margin-bottom: 6px;
+              border: 1px solid #d1d8dd;
+              border-collapse: collapse;
+              background: #f7f8fa;
+            }
+
+            .pdf-filters td {
+              width: 33.333%;
+              border: 1px solid #d1d8dd;
+              padding: 4px 5px;
+              font-size: 7px;
+            }
+
+            .row {
+              display: table;
+              width: 100%;
+              table-layout: fixed;
+            }
+
+            .col-lg-6 {
+              display: table-cell;
+              width: 50%;
+              padding: 3px;
+              vertical-align: top;
+            }
+
+            .frappe-card,
+            .compact-card {
+              width: 100%;
+              margin-bottom: 5px;
+              padding: 6px;
+              border: 1px solid #d1d8dd;
+              border-radius: 4px;
+              box-shadow: none;
+              page-break-inside: auto;
+            }
+
+            .dashboard-pdf-content {
+              page-break-before: avoid;
+            }
+
+            img {
+              display: block;
+              width: 100%;
+              max-width: 100%;
+              height: auto;
+            }
+
+            table {
+              width: 100%;
+              margin-bottom: 6px;
+              border-collapse: collapse;
+              page-break-inside: auto;
+            }
+
+            thead {
+              display: table-header-group;
+            }
+
+            tr {
+              page-break-inside: avoid;
+            }
+
+            th,
+            td {
+              border: 1px solid #c8ced6;
+              padding: 2px 3px;
+              font-size: 7px;
+              line-height: 1.25;
+              vertical-align: top;
+              word-wrap: break-word;
+            }
+
+            th {
+              background: #eef1f5;
+              font-weight: 700;
+            }
+
+            .collapse {
+              display: block !important;
+              height: auto !important;
+              visibility: visible !important;
+            }
+          </style>
+        </head>
+
+        <body>
+          ${
+            isFullReportTab
+              ? ''
+              : `
+                <div class="pdf-header">
+                  <h1>Production Dashboard</h1>
+                  <h2>${escape(active.name)}</h2>
+                </div>
+
+                <table class="pdf-filters">
+                  <tr>
+                    <td>
+                      <strong>Start Date:</strong>
+                      ${escape(filters.start_date)}
+                    </td>
+
+                    <td>
+                      <strong>End Date:</strong>
+                      ${escape(filters.end_date)}
+                    </td>
+
+                    <td>
+                      <strong>Site:</strong>
+                      ${escape(filters.site)}
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <strong>Monthly Production:</strong>
+                      ${escape(filters.monthly_production)}
+                    </td>
+
+                    <td>
+                      <strong>Shift:</strong>
+                      ${escape(filters.shift || 'All Shifts')}
+                    </td>
+
+                    <td>
+                      <strong>Generated:</strong>
+                      ${escape(frappe.datetime.now_datetime())}
+                    </td>
+                  </tr>
+                </table>
+              `
+          }
+
+          <div class="dashboard-pdf-content">
+            ${clonedPane.outerHTML}
+          </div>
+        </body>
+      </html>
+    `;
+  }
+
+  function download_base64_pdf(base64Content, filename) {
+    const binary = window.atob(base64Content);
+    const bytes = new Uint8Array(binary.length);
+
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+
+    const blob = new Blob(
+      [bytes],
+      { type: 'application/pdf' }
+    );
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = filename || 'Production_Dashboard.pdf';
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+    }, 1500);
+  }
+
+  async function download_dashboard_pdf() {
+    const active = get_active_tab_details();
+    const filters = get_filters();
+
+    if (!filters) {
+      frappe.msgprint(
+        __('Please select the required filters and click Run before downloading the PDF.')
+      );
+      return;
+    }
+
+    if (!active.pane) {
+      frappe.msgprint(
+        __('The active dashboard tab could not be found.')
+      );
+      return;
+    }
+
+    const html = get_server_pdf_html(active, filters);
+    const filename = get_export_filename('pdf').replace(/\.pdf$/i, '');
+
+    frappe.show_alert({
+      message: __('Generating PDF on server...'),
+      indicator: 'blue'
+    });
+
+    try {
+      const response = await frappe.call({
+        method:
+          'is_production.production.page.production_dashboard.production_dashboard.download_dashboard_pdf',
+        args: {
+          html,
+          filename
+        },
+        freeze: false
+      });
+
+      const result = response.message || {};
+
+      if (!result.content) {
+        throw new Error('The server returned an empty PDF response.');
+      }
+
+      download_base64_pdf(
+        result.content,
+        result.filename
+      );
+
+      frappe.show_alert({
+        message: __('PDF downloaded successfully.'),
+        indicator: 'green'
+      });
+    } catch (error) {
+      console.error(
+        'Server-side Production Dashboard PDF failed:',
+        error
+      );
+
+      frappe.msgprint({
+        title: __('PDF Download Failed'),
+        message: __(
+          'The server could not generate the PDF. Please check the ERP Error Log.'
+        ),
+        indicator: 'red'
+      });
+    }
+  }
+
+  page.add_inner_button(__('Download PDF'), download_dashboard_pdf);
+  page.add_inner_button(__('Export Excel'), export_dashboard_excel);
+
+  // Start loading Excel support before the user clicks the button.
+  load_xlsx_library().catch(error => {
+    console.warn('Excel export library did not preload:', error);
+  });
+
   // -------- Tabs -------- 
   const tabNav = document.createElement('div'); 
   tabNav.className = 'mb-3'; 

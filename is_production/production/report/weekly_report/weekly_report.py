@@ -28,8 +28,10 @@ def execute(filters=None):
         "mtd_prog_actual_coal": 0,
         "mtd_prog_actual_waste": 0,
         "mtd_prog_target_waste": 0,
+        "forecast_waste": 0,
         "short_over_waste": 0,
         "mtd_prog_target_coal": 0,
+        "forecast_coal": 0,
         "short_over_coal": 0,
         "remaining_volume": 0,
         "daily_required": 0,
@@ -97,6 +99,22 @@ def execute(filters=None):
         data["mtd_actual_bcms"] = mtd_actual_bcms
         data["mtd_prog_actual_coal"] = mtd_prog_actual_coal
         data["mtd_prog_actual_waste"] = mtd_prog_actual_waste
+
+        # Forecast formula requested:
+        # (MTD Actual / Worked Days) * Monthly Available Days + MTD Actual
+        if worked_days:
+            data["forecast_waste"] = (
+                (data["mtd_prog_actual_waste"] / worked_days)
+                * data["month_remaining_prod_days"]
+            ) + data["mtd_prog_actual_waste"]
+
+            data["forecast_coal"] = (
+                (data["mtd_prog_actual_coal"] / worked_days)
+                * data["month_remaining_prod_days"]
+            ) + data["mtd_prog_actual_coal"]
+        else:
+            data["forecast_waste"] = data["mtd_prog_actual_waste"]
+            data["forecast_coal"] = data["mtd_prog_actual_coal"]
 
         data["mtd_prog_target_waste"] = (
             (data["waste_bcms_planned"] / data["num_prod_days"]) * data["num_prod_days_completed"]
@@ -329,12 +347,14 @@ def build_html(site, formatted_date, d):
             <tr><td colspan="3" style="height:12px; border:none;"></td></tr>
 
             <tr><td class="label bold">Monthly Waste Target</td><td class="unit">BCM</td><td class="num">{fmt(d["waste_bcms_planned"])}</td></tr>
+            <tr><td class="label bold">Forecast Waste</td><td class="unit">BCM</td><td class="num">{fmt(d["forecast_waste"])}</td></tr>
             <tr><td class="label">MTD Prog Actual Waste</td><td class="unit">BCM</td><td class="num">{fmt(d["mtd_prog_actual_waste"])}</td></tr>
             <tr><td class="label">MTD Prog Target Waste</td><td class="unit">BCM</td><td class="num">{fmt(d["mtd_prog_target_waste"])}</td></tr>
             <tr><td class="label bold">SHORT / OVER</td><td class="unit">BCM</td><td class="num">{color_num(d["short_over_waste"])}</td></tr>
             <tr><td colspan="3" style="height:12px; border:none;"></td></tr>
 
             <tr><td class="label bold">Monthly Coal Target</td><td class="unit">TONS</td><td class="num">{fmt(d["coal_tons_planned"])}</td></tr>
+            <tr><td class="label bold">Forecast Coal</td><td class="unit">TONS</td><td class="num">{fmt(d["forecast_coal"])}</td></tr>
             <tr><td class="label">MTD Prog Actual COAL</td><td class="unit">TONS</td><td class="num">{fmt(d["mtd_prog_actual_coal"])}</td></tr>
             <tr><td class="label">MTD Prog Target COAL</td><td class="unit">TONS</td><td class="num">{fmt(d["mtd_prog_target_coal"])}</td></tr>
             <tr><td class="label bold">SHORT / OVER</td><td class="unit">TONS</td><td class="num">{color_num(d["short_over_coal"])}</td></tr>
