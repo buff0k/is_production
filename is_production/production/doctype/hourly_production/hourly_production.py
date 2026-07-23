@@ -79,7 +79,7 @@ class HourlyProduction(Document):
         self.populate_truck_material_types()
         self.validate_truck_loads()
         self.validate_dozer_production()
-        self.validate_and_apply_tub_factors()
+        # self.validate_and_apply_tub_factors()
         self.before_save_logic()  # <-- NOW RUNS AUTOMATICALLY
 
     def populate_truck_loads_if_blank(self):
