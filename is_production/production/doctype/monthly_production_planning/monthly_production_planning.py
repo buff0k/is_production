@@ -11,6 +11,15 @@ from frappe.utils import add_days, flt, get_datetime, getdate
 
 
 class MonthlyProductionPlanning(Document):
+    def before_insert(self):
+        """
+        Copy approved Tub Factors from the latest previous Monthly
+        Production Plan for the same Location.
+
+        Existing manually selected Tub Factors are never overwritten.
+        """
+        self.copy_tub_factors_from_previous_plan()
+
     def validate(self):
         """
         Validate document before saving.
@@ -18,8 +27,94 @@ class MonthlyProductionPlanning(Document):
         """
         self.validate_shift_hours()
 
+        # Production Month End Invoicing must follow the captured Production Month End Date.
+        # Each site can have its own captured month-end date.
+        if getattr(self, "prod_month_end_date", None):
+            self.prod_month_end = self.prod_month_end_date
+
         if self.should_sync_month_prod_days():
             self.sync_month_prod_days()
+
+    def copy_tub_factors_from_previous_plan(self):
+        """
+        Copy Tub Factors from the latest previous Monthly Production
+        Planning document for the same Location.
+
+        This only runs for a new document and only when the new document's
+        Tub Factors table is empty.
+        """
+        if not self.is_new():
+            return
+
+        if not self.location:
+            return
+
+        if self.get("tub_factors"):
+            return
+
+        previous_plan = frappe.db.sql(
+            """
+            SELECT mpp.name
+            FROM `tabMonthly Production Planning` mpp
+            WHERE mpp.location = %(location)s
+              AND mpp.docstatus < 2
+              AND EXISTS (
+                    SELECT 1
+                    FROM `tabMonthly Production Tub Factor` mptf
+                    WHERE mptf.parent = mpp.name
+                      AND mptf.parenttype =
+                          'Monthly Production Planning'
+                      AND mptf.parentfield = 'tub_factors'
+                      AND IFNULL(mptf.tub_factor, '') != ''
+              )
+            ORDER BY
+                mpp.prod_month_end_date DESC,
+                mpp.creation DESC
+            LIMIT 1
+            """,
+            {
+                "location": self.location,
+            },
+            as_dict=True,
+        )
+
+        if not previous_plan:
+            return
+
+        previous_doc = frappe.get_doc(
+            "Monthly Production Planning",
+            previous_plan[0].name,
+        )
+
+        copied_names = set()
+
+        for previous_row in previous_doc.get("tub_factors") or []:
+            tub_factor_name = previous_row.tub_factor
+
+            if not tub_factor_name:
+                continue
+
+            if tub_factor_name in copied_names:
+                continue
+
+            if not frappe.db.exists(
+                "Tub Factor",
+                {
+                    "name": tub_factor_name,
+                    "docstatus": 1,
+                },
+            ):
+                continue
+
+            self.append(
+                "tub_factors",
+                {
+                    "tub_factor": tub_factor_name,
+                },
+            )
+
+            copied_names.add(tub_factor_name)
+
         
     def validate_shift_hours(self):
         """
@@ -406,3 +501,50 @@ def update_mtd_production(name):
             title="update_mtd_production RPC"
         )
         return {"status": "error", "message": str(e)}
+
+@frappe.whitelist()
+def dashboard_monthly_production_query(doctype, txt, searchfield, start, page_len, filters):
+    """
+    Monthly Production dropdown for Production Dashboard.
+    Display only Production Month End Invoicing date, while selecting the real Monthly Production Planning name.
+    """
+    location = None
+
+    if filters:
+        location = filters.get("location") or filters.get("site")
+
+    conditions = []
+    values = {
+        "txt": f"%{txt or ''}%",
+        "start": start,
+        "page_len": page_len,
+    }
+
+    if location:
+        conditions.append("location = %(location)s")
+        values["location"] = location
+
+    if txt:
+        conditions.append("""
+            (
+                name LIKE %(txt)s
+                OR location LIKE %(txt)s
+                OR DATE_FORMAT(prod_month_end, '%%d-%%m-%%Y') LIKE %(txt)s
+                OR DATE_FORMAT(prod_month_end_date, '%%d-%%m-%%Y') LIKE %(txt)s
+            )
+        """)
+
+    where_clause = " AND ".join(conditions)
+    if where_clause:
+        where_clause = "WHERE " + where_clause
+
+    return frappe.db.sql(f"""
+        SELECT
+            name,
+            DATE_FORMAT(prod_month_end, '%%d-%%m-%%Y') AS description
+        FROM `tabMonthly Production Planning`
+        {where_clause}
+        ORDER BY prod_month_end DESC, name DESC
+        LIMIT %(start)s, %(page_len)s
+    """, values)
+

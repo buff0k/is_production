@@ -76,8 +76,10 @@ class HourlyProduction(Document):
 
         # v16 migration safety: ensure Link fields store Asset.name (primary key)
         self.normalize_asset_links()
+        self.populate_truck_material_types()
         self.validate_truck_loads()
         self.validate_dozer_production()
+        self.validate_and_apply_tub_factors()
         self.before_save_logic()  # <-- NOW RUNS AUTOMATICALLY
 
     def populate_truck_loads_if_blank(self):
@@ -123,6 +125,39 @@ class HourlyProduction(Document):
                 "mat_type": "Softs",
             })
 
+
+    def populate_truck_material_types(self):
+        """
+        Populate Truck Load material types from the selected Geo Material
+        Layer before Tub Factor validation runs.
+        """
+        if not self.month_prod_planning:
+            return
+
+        if not frappe.db.exists(
+            "Monthly Production Planning",
+            self.month_prod_planning,
+        ):
+            return
+
+        mpp = frappe.get_doc(
+            "Monthly Production Planning",
+            self.month_prod_planning,
+        )
+
+        material_map = {
+            row.geo_ref_description: row.custom_material_type
+            for row in (mpp.get("geo_mat_layer") or [])
+            if row.geo_ref_description
+        }
+
+        for row in getattr(self, "truck_loads", []) or []:
+            if row.geo_mat_layer_truck and not row.mat_type:
+                row.mat_type = material_map.get(
+                    row.geo_mat_layer_truck
+                )
+
+
     def validate_truck_loads(self):
         for row in getattr(self, "truck_loads", []):
             if (row.loads or 0) > 0:
@@ -136,6 +171,176 @@ class HourlyProduction(Document):
                         _("Row {0}: Please select a Mining Area for truck {1}")
                         .format(row.idx, row.asset_name_truck or "")
                     )
+
+    def validate_and_apply_tub_factors(self):
+        """
+        Validate Truck Load Tub Factors against the selected
+        Monthly Production Planning document.
+
+        Rules:
+        - Only submitted Tub Factors approved on the selected MPP may be used.
+        - Truck model and material type must match.
+        - If one approved factor exists, select it automatically.
+        - If multiple approved factors exist, the user must select one.
+        - BCM is always recalculated from the validated linked Tub Factor.
+        """
+        truck_rows = getattr(self, "truck_loads", []) or []
+
+        rows_requiring_factor = [
+            row
+            for row in truck_rows
+            if float(row.loads or 0) > 0
+        ]
+
+        if not rows_requiring_factor:
+            return
+
+        if not self.month_prod_planning:
+            frappe.throw(
+                _(
+                    "Please select a Monthly Production Plan before "
+                    "capturing truck loads."
+                )
+            )
+
+        if not frappe.db.exists(
+            "Monthly Production Planning",
+            self.month_prod_planning,
+        ):
+            frappe.throw(
+                _("Monthly Production Plan {0} does not exist.").format(
+                    self.month_prod_planning
+                )
+            )
+
+        mpp = frappe.get_doc(
+            "Monthly Production Planning",
+            self.month_prod_planning,
+        )
+
+        approved_factor_names = {
+            row.tub_factor
+            for row in (mpp.get("tub_factors") or [])
+            if row.tub_factor
+        }
+
+        approved_factors = {}
+
+        if approved_factor_names:
+            factor_rows = frappe.get_all(
+                "Tub Factor",
+                filters={
+                    "name": ["in", list(approved_factor_names)],
+                    "docstatus": 1,
+                },
+                fields=[
+                    "name",
+                    "item_name",
+                    "mat_type",
+                    "tub_factor",
+                ],
+                limit_page_length=500,
+            )
+
+            approved_factors = {
+                factor.name: factor
+                for factor in factor_rows
+            }
+
+        for row in truck_rows:
+            loads = float(row.loads or 0)
+
+            if loads <= 0:
+                row.bcms = 0
+                continue
+
+            matching_factors = [
+                factor
+                for factor in approved_factors.values()
+                if factor.item_name == row.item_name
+                and factor.mat_type == row.mat_type
+            ]
+
+            selected_factor = None
+
+            if row.tub_factor_doc_link:
+                selected_factor = approved_factors.get(
+                    row.tub_factor_doc_link
+                )
+
+                if not selected_factor:
+                    frappe.throw(
+                        _(
+                            "Row {0}: Tub Factor {1} is not approved "
+                            "on Monthly Production Plan {2}."
+                        ).format(
+                            row.idx,
+                            row.tub_factor_doc_link,
+                            self.month_prod_planning,
+                        )
+                    )
+
+                if selected_factor.item_name != row.item_name:
+                    frappe.throw(
+                        _(
+                            "Row {0}: Tub Factor {1} is for truck model "
+                            "{2}, not {3}."
+                        ).format(
+                            row.idx,
+                            selected_factor.name,
+                            selected_factor.item_name,
+                            row.item_name,
+                        )
+                    )
+
+                if selected_factor.mat_type != row.mat_type:
+                    frappe.throw(
+                        _(
+                            "Row {0}: Tub Factor {1} is for material "
+                            "{2}, not {3}."
+                        ).format(
+                            row.idx,
+                            selected_factor.name,
+                            selected_factor.mat_type,
+                            row.mat_type,
+                        )
+                    )
+
+            elif len(matching_factors) == 1:
+                selected_factor = matching_factors[0]
+                row.tub_factor_doc_link = selected_factor.name
+
+            elif len(matching_factors) > 1:
+                frappe.throw(
+                    _(
+                        "Row {0}: Multiple Tub Factors are approved for "
+                        "{1} and {2}. Please select the applicable "
+                        "Tub Factor."
+                    ).format(
+                        row.idx,
+                        row.item_name,
+                        row.mat_type,
+                    )
+                )
+
+            else:
+                frappe.throw(
+                    _(
+                        "Row {0}: No submitted Tub Factor is approved "
+                        "on Monthly Production Plan {1} for {2} and {3}."
+                    ).format(
+                        row.idx,
+                        self.month_prod_planning,
+                        row.item_name,
+                        row.mat_type,
+                    )
+                )
+
+            row.tub_factor = selected_factor.tub_factor
+            row.bcms = loads * float(
+                selected_factor.tub_factor or 0
+            )
+
 
     def validate_dozer_production(self):
         for row in getattr(self, "dozer_production", []):
@@ -172,45 +377,20 @@ class HourlyProduction(Document):
         total_softs_bcm = total_hards_bcm = total_coal_bcm = total_ts_bcm = 0.0
         num_prod_trucks = 0
 
-        if hasattr(self, 'truck_loads'):
-            for row in self.truck_loads:
-                if row.geo_mat_layer_truck and not row.mat_type:
-                    mpp = frappe.get_doc("Monthly Production Planning", self.month_prod_planning)
-                    for geo_row in mpp.geo_mat_layer:
-                        if geo_row.geo_ref_description == row.geo_mat_layer_truck:
-                            row.mat_type = geo_row.custom_material_type
-                            break
+
 
         if hasattr(self, 'truck_loads'):
             for row in self.truck_loads:
 
-                # ==============================================================
-                # SPECIAL RULE FOR KRIEL REHABILITATION (your custom requirement)
-                # ==============================================================
-                if self.location == "Kriel Rehabilitation":
-                    row.tub_factor = 16
-                    row.tub_factor_doc_lookup = None
-
-                else:
-                    # --- Normal Tub Factor lookup (unchanged logic) ---
-                    tf = frappe.get_all(
-                        "Tub Factor",
-                        filters={"item_name": row.item_name, "mat_type": row.mat_type},
-                        fields=["name", "tub_factor"],
-                        limit=1
-                    )
-                    if tf:
-                        row.tub_factor_doc_lookup = tf[0]["name"]
-                        row.tub_factor = tf[0]["tub_factor"]
-                    else:
-                        row.tub_factor_doc_lookup = None
-                        row.tub_factor = None
-
-                # BCM Calculation
+                # Tub Factor validation and BCM calculation are handled by
+                # validate_and_apply_tub_factors() before this method runs.
                 try:
-                    row.bcms = float(row.loads or 0) * float(row.tub_factor or 0)
+                    row.bcms = (
+                        float(row.loads or 0)
+                        * float(row.tub_factor or 0)
+                    )
                 except Exception:
-                    row.bcms = None
+                    row.bcms = 0
 
                 if row.bcms:
                     total_ts_bcm += row.bcms
@@ -1462,3 +1642,70 @@ def get_day_total_bcm(location, prod_date, exclude_name=None):
         params,
     )
     return res[0][0] if res else 0
+
+
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def get_mpp_tub_factor_options(
+    doctype,
+    txt,
+    searchfield,
+    start,
+    page_len,
+    filters,
+):
+    """
+    Return only submitted Tub Factors approved on the selected
+    Monthly Production Planning document for the matching truck model
+    and material type.
+    """
+    filters = frappe._dict(filters or {})
+
+    monthly_production_plan = filters.get(
+        "monthly_production_plan"
+    )
+    item_name = filters.get("item_name")
+    mat_type = filters.get("mat_type")
+
+    if not monthly_production_plan or not item_name or not mat_type:
+        return []
+
+    return frappe.db.sql(
+        """
+        SELECT
+            tf.name,
+            CONCAT(
+                tf.item_name,
+                ' | ',
+                tf.mat_type,
+                ' | Factor ',
+                tf.tub_factor
+            ) AS description
+        FROM `tabMonthly Production Tub Factor` mptf
+        INNER JOIN `tabTub Factor` tf
+            ON tf.name = mptf.tub_factor
+        WHERE mptf.parent = %(monthly_production_plan)s
+          AND mptf.parenttype = 'Monthly Production Planning'
+          AND mptf.parentfield = 'tub_factors'
+          AND tf.docstatus = 1
+          AND tf.item_name = %(item_name)s
+          AND tf.mat_type = %(mat_type)s
+          AND (
+                tf.name LIKE %(txt)s
+                OR tf.item_name LIKE %(txt)s
+                OR tf.mat_type LIKE %(txt)s
+              )
+        ORDER BY tf.tub_factor ASC, tf.name ASC
+        LIMIT %(start)s, %(page_len)s
+        """,
+        {
+            "monthly_production_plan": monthly_production_plan,
+            "item_name": item_name,
+            "mat_type": mat_type,
+            "txt": f"%{txt or ''}%",
+            "start": int(start or 0),
+            "page_len": int(page_len or 20),
+        },
+    )
