@@ -229,8 +229,26 @@ def get_columns():
         {"label": "Actual Hours", "fieldname": "actual_hours", "fieldtype": "Float", "width": 105, "precision": 1},
         {"label": "Planned Downtime", "fieldname": "planned_downtime", "fieldtype": "Float", "width": 130, "precision": 1},
         {"label": "Req Hrs", "fieldname": "shift_required_hours", "fieldtype": "Float", "width": 80, "precision": 1},
-        {"label": "Work Hrs", "fieldname": "shift_working_hours", "fieldtype": "Float", "width": 85, "precision": 1},
-        {"label": "Avail Hrs", "fieldname": "shift_available_hours", "fieldtype": "Float", "width": 85, "precision": 1},
+        {
+            "label": "Work Hrs",
+            "fieldname": "shift_working_hours",
+            "fieldtype": "Float",
+            "width": 85,
+            "precision": 1,
+        },
+        {
+            "label": "Invalid Pre-Use Hours",
+            "fieldname": "invalid_pre_use_hours_status",
+            "fieldtype": "Data",
+            "width": 150,
+        },
+        {
+            "label": "Avail Hrs",
+            "fieldname": "shift_available_hours",
+            "fieldtype": "Float",
+            "width": 85,
+            "precision": 1,
+        },
         {"label": "Mechanical Downtime", "fieldname": "shift_breakdown_hours", "fieldtype": "Float", "width": 155, "precision": 1},
         {"label": "Actual Breakdown Time", "fieldname": "actual_breakdown_time", "fieldtype": "Float", "width": 165, "precision": 1},
         {"label": "Actual Planned Maintenance Time", "fieldname": "actual_planned_maintenance_time", "fieldtype": "Float", "width": 210, "precision": 1},
@@ -337,6 +355,77 @@ def calc_employee_availability(req_hrs, other_lost_hrs):
     return r1(clamp_percentage(((req_hrs - other_lost_hrs) / req_hrs) * 100))
 
 
+def mark_invalid_pre_use_hours(records):
+    """
+    Mark invalid Pre-Use hours inside the report only.
+
+    Invalid when:
+    - One shift has more than 12 working hours.
+    - One machine has more than 24 combined working hours
+      for the same location and shift date.
+    """
+    daily_hours_map = {}
+
+    for record in records:
+        key = (
+            record.get("location"),
+            str(record.get("shift_date")),
+            record.get("asset_name"),
+        )
+
+        daily_hours_map[key] = (
+            daily_hours_map.get(key, 0)
+            + float(record.get("shift_working_hours") or 0)
+        )
+
+    for record in records:
+        key = (
+            record.get("location"),
+            str(record.get("shift_date")),
+            record.get("asset_name"),
+        )
+
+        shift_working_hours = float(
+            record.get("shift_working_hours") or 0
+        )
+
+        daily_working_hours = float(
+            daily_hours_map.get(key, 0)
+        )
+
+        invalid_shift_hours = (
+            shift_working_hours > 12
+        )
+
+        invalid_daily_hours = (
+            daily_working_hours > 24
+        )
+
+        is_invalid = (
+            invalid_shift_hours
+            or invalid_daily_hours
+        )
+
+        record["invalid_pre_use_hours"] = (
+            1 if is_invalid else 0
+        )
+
+        record["invalid_pre_use_hours_status"] = (
+            "Invalid" if is_invalid else "Valid"
+        )
+
+        record["daily_working_hours"] = (
+            daily_working_hours
+        )
+
+        if is_invalid:
+            record["shift_available_hours_above_100"] = 0
+            record["plant_shift_availability_above_100"] = 0
+            record["true_availability_percent"] = 0
+
+    return records
+
+
 def apply_formula_fields(row):
     row["plant_shift_availability"] = calc_availability(
         row.get("shift_required_hours"),
@@ -354,6 +443,18 @@ def apply_formula_fields(row):
     row["avail_target_percent"] = r1(
         (row.get("plant_shift_availability") or 0) * 0.85
     )
+
+    if row.get("invalid_pre_use_hours"):
+        row["shift_available_hours_above_100"] = 0
+        row["plant_shift_availability_above_100"] = 0
+        row["true_availability_percent"] = 0
+
+        row["util_target_percent"] = r1(
+            (row.get("plant_shift_utilisation") or 0)
+            * 0.85
+        )
+
+        return row
 
     required_hours = float(
         row.get("shift_required_hours") or 0
@@ -663,11 +764,32 @@ def recalculate_summary_rows(data):
                 row.get("asset_name"),
             )
             children = asset_map.get(key, [])
-            if not children:
+
+            valid_children = [
+                child
+                for child in children
+                if not child.get(
+                    "invalid_pre_use_hours"
+                )
+            ]
+
+            if not valid_children:
+                for field in SUM_FIELDS:
+                    row[field] = 0
+
+                apply_formula_fields(row)
                 continue
 
             for field in SUM_FIELDS:
-                row[field] = r1(sum((child.get(field) or 0) for child in children))
+                row[field] = r1(
+                    sum(
+                        (
+                            child.get(field)
+                            or 0
+                        )
+                        for child in valid_children
+                    )
+                )
 
             apply_formula_fields(row)
 
@@ -689,11 +811,32 @@ def recalculate_summary_rows(data):
                 row.get("location"),
             )
             children = date_map.get(key, [])
-            if not children:
+
+            valid_children = [
+                child
+                for child in children
+                if not child.get(
+                    "invalid_pre_use_hours"
+                )
+            ]
+
+            if not valid_children:
+                for field in SUM_FIELDS:
+                    row[field] = 0
+
+                apply_formula_fields(row)
                 continue
 
             for field in SUM_FIELDS:
-                row[field] = r1(sum((child.get(field) or 0) for child in children))
+                row[field] = r1(
+                    sum(
+                        (
+                            child.get(field)
+                            or 0
+                        )
+                        for child in valid_children
+                    )
+                )
 
             apply_formula_fields(row)
 
@@ -705,12 +848,36 @@ def recalculate_summary_rows(data):
 
     for row in data:
         if row.get("indent") == 0:
-            children = category_map.get(row.get("asset_category"), [])
-            if not children:
+            children = category_map.get(
+                row.get("asset_category"),
+                [],
+            )
+
+            valid_children = [
+                child
+                for child in children
+                if not child.get(
+                    "invalid_pre_use_hours"
+                )
+            ]
+
+            if not valid_children:
+                for field in SUM_FIELDS:
+                    row[field] = 0
+
+                apply_formula_fields(row)
                 continue
 
             for field in SUM_FIELDS:
-                row[field] = r1(sum((child.get(field) or 0) for child in children))
+                row[field] = r1(
+                    sum(
+                        (
+                            child.get(field)
+                            or 0
+                        )
+                        for child in valid_children
+                    )
+                )
 
             apply_formula_fields(row)
 
@@ -754,11 +921,20 @@ def get_grouped_data(filters):
     """, tuple(args), as_dict=True)
 
     records = [
-        record for record in records
-        if (record.get("asset_category") or "") not in EXCLUDED_ASSET_CATEGORIES
+        record
+        for record in records
+        if (
+            record.get("asset_category") or ""
+        ) not in EXCLUDED_ASSET_CATEGORIES
     ]
 
-    spare_swing_asset_map = get_spare_swing_asset_map(filters)
+    records = mark_invalid_pre_use_hours(
+        records
+    )
+
+    spare_swing_asset_map = get_spare_swing_asset_map(
+        filters
+    )
     records = apply_machine_scope_filter(records, filters, spare_swing_asset_map)
 
     if not records:
@@ -903,6 +1079,12 @@ def get_grouped_data(filters):
 def combine_shifts(rows):
     total = {}
 
+    valid_rows = [
+        row
+        for row in rows
+        if not row.get("invalid_pre_use_hours")
+    ]
+
     for key in [
         "shift_required_hours",
         "shift_working_hours",
@@ -919,11 +1101,25 @@ def combine_shifts(rows):
         "shift_available_hours_above_100",
         "shift_other_lost_hours",
     ]:
-        total[key] = sum((r.get(key) or 0) for r in rows)
+        total[key] = sum(
+            (row.get(key) or 0)
+            for row in valid_rows
+        )
 
-    count = len(rows)
+    count = len(valid_rows)
     total["captured_other_lost_hours"] = (
-        sum((r.get("captured_other_lost_hours") or 0) for r in rows) / count if count else 0
+        sum(
+            (
+                row.get(
+                    "captured_other_lost_hours"
+                )
+                or 0
+            )
+            for row in valid_rows
+        )
+        / count
+        if count
+        else 0
     )
     total["other_lost_hours_variance"] = (
         (total.get("shift_other_lost_hours") or 0) - (total.get("captured_other_lost_hours") or 0)
