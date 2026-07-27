@@ -241,8 +241,34 @@ def get_columns():
         {"label": "Other Lost Hrs", "fieldname": "shift_other_lost_hours", "fieldtype": "Float", "width": 110, "precision": 1},        
         {"label": "General & Specific Other Lost Hours", "fieldname": "captured_other_lost_hours", "fieldtype": "Float", "width": 235, "precision": 1},
         {"label": "Other Lost Hours Variance", "fieldname": "other_lost_hours_variance", "fieldtype": "Float", "width": 190, "precision": 1},
-        {"label": "Avail (%)", "fieldname": "avail_target_percent", "fieldtype": "Percent", "width": 100, "precision": 1},
-        {"label": "Util (%)", "fieldname": "util_target_percent", "fieldtype": "Percent", "width": 100, "precision": 1},
+        {
+            "label": "Avail (%)",
+            "fieldname": "avail_target_percent",
+            "fieldtype": "Percent",
+            "width": 100,
+            "precision": 1,
+        },
+        {
+            "label": "Availability above 100%",
+            "fieldname": "plant_shift_availability_above_100",
+            "fieldtype": "Percent",
+            "width": 180,
+            "precision": 1,
+        },
+        {
+            "label": "True Availability %",
+            "fieldname": "true_availability_percent",
+            "fieldtype": "Percent",
+            "width": 150,
+            "precision": 1,
+        },
+        {
+            "label": "Util (%)",
+            "fieldname": "util_target_percent",
+            "fieldtype": "Percent",
+            "width": 100,
+            "precision": 1,
+        },
         {"label": "Emp Avail (%)", "fieldname": "employee_availability", "fieldtype": "Percent", "width": 100, "precision": 1},
         {"label": "Breakdown Reason", "fieldname": "breakdown_reason", "fieldtype": "Data", "width": 170},
         {"label": "Other Delay Reason", "fieldname": "other_delay_reason", "fieldtype": "Data", "width": 170},
@@ -271,6 +297,7 @@ SUM_FIELDS = [
     "actual_unplanned_maintenance_time",
     "mechanical_outsourced_work",
     "shift_available_hours",
+    "shift_available_hours_above_100",
     "shift_other_lost_hours",
     "captured_other_lost_hours",
     "other_lost_hours_variance",
@@ -324,8 +351,53 @@ def apply_formula_fields(row):
         row.get("shift_other_lost_hours"),
     )
 
-    row["avail_target_percent"] = r1((row.get("plant_shift_availability") or 0) * 0.85)
-    row["util_target_percent"] = r1((row.get("plant_shift_utilisation") or 0) * 0.85)
+    row["avail_target_percent"] = r1(
+        (row.get("plant_shift_availability") or 0) * 0.85
+    )
+
+    required_hours = float(
+        row.get("shift_required_hours") or 0
+    )
+
+    available_hours_above_100 = float(
+        row.get("shift_available_hours_above_100") or 0
+    )
+
+    stored_availability_above_100 = row.get(
+        "plant_shift_availability_above_100"
+    )
+
+    if stored_availability_above_100 is not None:
+        row["plant_shift_availability_above_100"] = r1(
+            stored_availability_above_100
+        )
+    else:
+        row["plant_shift_availability_above_100"] = (
+            r1(
+                (
+                    available_hours_above_100
+                    / required_hours
+                )
+                * 100
+            )
+            if required_hours > 0
+            else 0
+        )
+
+    row["true_availability_percent"] = r1(
+        (
+            row.get(
+                "plant_shift_availability_above_100"
+            )
+            or 0
+        )
+        * 0.85
+    )
+
+    row["util_target_percent"] = r1(
+        (row.get("plant_shift_utilisation") or 0)
+        * 0.85
+    )
 
     return row
 
@@ -671,8 +743,10 @@ def get_grouped_data(filters):
             shift_working_hours,
             shift_breakdown_hours,
             shift_available_hours,
+            shift_available_hours_above_100,
             shift_other_lost_hours,
             plant_shift_availability,
+            plant_shift_availability_above_100,
             plant_shift_utilisation
         FROM `tabAvailability and Utilisation`
         {condition_str}
@@ -697,8 +771,29 @@ def get_grouped_data(filters):
         date = str(record["shift_date"])
         asset = record["asset_name"]
 
-        record["plant_shift_availability"] = r1(record.get("plant_shift_availability"))
-        record["plant_shift_utilisation"] = r1(record.get("plant_shift_utilisation"))
+        record["plant_shift_availability"] = r1(
+            record.get("plant_shift_availability")
+        )
+
+        record["plant_shift_availability_above_100"] = r1(
+            record.get(
+                "plant_shift_availability_above_100"
+            )
+        )
+
+        record["true_availability_percent"] = r1(
+            (
+                record.get(
+                    "plant_shift_availability_above_100"
+                )
+                or 0
+            )
+            * 0.85
+        )
+
+        record["plant_shift_utilisation"] = r1(
+            record.get("plant_shift_utilisation")
+        )
         record["employee_availability"] = calc_employee_availability(
             record.get("shift_required_hours"),
             record.get("shift_other_lost_hours"),
@@ -753,14 +848,42 @@ def get_grouped_data(filters):
                         "actual_unplanned_maintenance_time",
                         "mechanical_outsourced_work",
                         "shift_available_hours",
+                        "shift_available_hours_above_100",
                         "shift_other_lost_hours",
                         "captured_other_lost_hours",
                         "other_lost_hours_variance",
                     ]:
                         row[field] = r1(row.get(field))
 
-                    row["plant_shift_availability"] = r1(row.get("plant_shift_availability"))
-                    row["plant_shift_utilisation"] = r1(row.get("plant_shift_utilisation"))
+                    row["plant_shift_availability"] = r1(
+                        row.get(
+                            "plant_shift_availability"
+                        )
+                    )
+
+                    row[
+                        "plant_shift_availability_above_100"
+                    ] = r1(
+                        row.get(
+                            "plant_shift_availability_above_100"
+                        )
+                    )
+
+                    row["true_availability_percent"] = r1(
+                        (
+                            row.get(
+                                "plant_shift_availability_above_100"
+                            )
+                            or 0
+                        )
+                        * 0.85
+                    )
+
+                    row["plant_shift_utilisation"] = r1(
+                        row.get(
+                            "plant_shift_utilisation"
+                        )
+                    )
                     row["employee_availability"] = calc_employee_availability(
                         row.get("shift_required_hours"),
                         row.get("shift_other_lost_hours"),
@@ -793,6 +916,7 @@ def combine_shifts(rows):
         "actual_unplanned_maintenance_time",
         "mechanical_outsourced_work",
         "shift_available_hours",
+        "shift_available_hours_above_100",
         "shift_other_lost_hours",
     ]:
         total[key] = sum((r.get(key) or 0) for r in rows)
@@ -828,13 +952,52 @@ def summary_row(rows, indent, **extra_fields):
         "actual_inspection_time": r1(combined.get("actual_inspection_time")),
         "actual_unplanned_maintenance_time": r1(combined.get("actual_unplanned_maintenance_time")),
         "mechanical_outsourced_work": r1(combined.get("mechanical_outsourced_work")),
-        "shift_available_hours": r1(combined.get("shift_available_hours")),
-        "shift_other_lost_hours": r1(combined.get("shift_other_lost_hours")),
+        "shift_available_hours": r1(
+            combined.get("shift_available_hours")
+        ),
+        "shift_available_hours_above_100": r1(
+            combined.get(
+                "shift_available_hours_above_100"
+            )
+        ),
+        "shift_other_lost_hours": r1(
+            combined.get("shift_other_lost_hours")
+        ),
         "captured_other_lost_hours": r1(combined.get("captured_other_lost_hours")),
         "other_lost_hours_variance": r1(combined.get("other_lost_hours_variance")),
-        "plant_shift_availability": r1(combined.get("plant_shift_availability")),
-        "avail_target_percent": r1((combined.get("plant_shift_availability") or 0) * 0.85),
-        "plant_shift_utilisation": r1(combined.get("plant_shift_utilisation")),
+        "plant_shift_availability": r1(
+            combined.get(
+                "plant_shift_availability"
+            )
+        ),
+        "avail_target_percent": r1(
+            (
+                combined.get(
+                    "plant_shift_availability"
+                )
+                or 0
+            )
+            * 0.85
+        ),
+        "plant_shift_availability_above_100": r1(
+            combined.get(
+                "plant_shift_availability_above_100"
+            )
+        ),
+        "true_availability_percent": r1(
+            (
+                combined.get(
+                    "plant_shift_availability_above_100"
+                )
+                or 0
+            )
+            * 0.85
+        ),
+        "plant_shift_utilisation": r1(
+            combined.get(
+                "plant_shift_utilisation"
+            )
+        ),
         "util_target_percent": r1((combined.get("plant_shift_utilisation") or 0) * 0.85),
         "employee_availability": r1(combined.get("employee_availability")),
         "indent": indent,
