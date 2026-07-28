@@ -1,6 +1,7 @@
 import frappe
+from frappe.desk.query_report import run
 import datetime
-from frappe.utils import now_datetime
+from frappe.utils import flt, now_datetime
 
 
 EXCLUDED_ASSET_CATEGORIES = {
@@ -926,6 +927,14 @@ def get_grouped_data(filters):
         if (
             record.get("asset_category") or ""
         ) not in EXCLUDED_ASSET_CATEGORIES
+    ]
+
+    records = [
+        record
+        for record in records
+        if flt(
+            record.get("shift_required_hours")
+        ) > 0
     ]
 
     records = mark_invalid_pre_use_hours(
