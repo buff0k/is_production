@@ -250,6 +250,14 @@ def get_columns():
             "width": 85,
             "precision": 1,
         },
+        {
+            "label": "Avail Hrs Above 100",
+            "fieldname": "shift_available_hours_above_100",
+            "fieldtype": "Float",
+            "width": 145,
+            "precision": 1,
+        },
+
         {"label": "Mechanical Downtime", "fieldname": "shift_breakdown_hours", "fieldtype": "Float", "width": 155, "precision": 1},
         {"label": "Actual Breakdown Time", "fieldname": "actual_breakdown_time", "fieldtype": "Float", "width": 165, "precision": 1},
         {"label": "Actual Planned Maintenance Time", "fieldname": "actual_planned_maintenance_time", "fieldtype": "Float", "width": 210, "precision": 1},
