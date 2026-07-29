@@ -270,7 +270,7 @@ def get_columns():
         {"label": "Other Lost Hours Variance", "fieldname": "other_lost_hours_variance", "fieldtype": "Float", "width": 190, "precision": 1},
         {
             "label": "Avail (%)",
-            "fieldname": "avail_target_percent",
+            "fieldname": "plant_shift_availability",
             "fieldtype": "Percent",
             "width": 100,
             "precision": 1,
@@ -291,7 +291,7 @@ def get_columns():
         },
         {
             "label": "Util (%)",
-            "fieldname": "util_target_percent",
+            "fieldname": "plant_shift_utilisation",
             "fieldtype": "Percent",
             "width": 100,
             "precision": 1,
