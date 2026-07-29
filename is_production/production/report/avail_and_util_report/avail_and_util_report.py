@@ -304,7 +304,7 @@ def get_columns():
             "precision": 1,
         },
         {
-            "label": "True Utilisation",
+            "label": "True Utilisation %",
             "fieldname": "true_utilisation_percent",
             "fieldtype": "Percent",
             "width": 140,
