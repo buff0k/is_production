@@ -1775,10 +1775,12 @@ def get_report_summary(payload):
             "datatype": "Float",
             "indicator": (
                 "Green"
-                if flt(
-                    payload.get("average_bcm_h")
-                ) > 0
-                else "Red"
+                if flt(payload.get("average_bcm_h")) >= 220
+                else (
+                    "Orange"
+                    if flt(payload.get("average_bcm_h")) >= 200
+                    else "Red"
+                )
             ),
         },
         {

@@ -97,9 +97,15 @@ frappe.query_reports["HOD Presentation"] = {
         }
 
         if (column.fieldname === "average_bcm_h") {
-            const className = Number(data.average_bcm_h || 0) > 0
-                ? "hod-kpi-good"
-                : "hod-negative";
+            const averageBcmH = Number(data.average_bcm_h || 0);
+
+            const className =
+                averageBcmH >= 220
+                    ? "hod-kpi-good"
+                    : averageBcmH >= 200
+                        ? "hod-kpi-warning"
+                        : "hod-kpi-bad";
+
             return `<span class="${className}">${value}</span>`;
         }
 
@@ -924,10 +930,14 @@ function hodRenderSiteCard(row) {
             ? "hod-browser-positive"
             : "hod-browser-negative";
 
+    const averageBcmH = hodNumber(row.average_bcm_h);
+
     const bcmHourClass =
-        hodNumber(row.average_bcm_h) > 0
+        averageBcmH >= 220
             ? "hod-browser-positive"
-            : "hod-browser-negative";
+            : averageBcmH >= 200
+                ? "hod-browser-warning"
+                : "hod-browser-negative";
 
     const nonProductionHoursClass =
         hodNumber(
@@ -1251,6 +1261,8 @@ function injectHodPresentationStyles() {
         }
 
         .hod-kpi-good,
+        .hod-kpi-warning,
+        .hod-kpi-bad,
         .hod-au-good,
         .hod-au-bad {
             display: inline-block;
@@ -1268,6 +1280,13 @@ function injectHodPresentationStyles() {
             border: 1px solid #86efac;
         }
 
+        .hod-kpi-warning {
+            color: #92400e;
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+        }
+
+        .hod-kpi-bad,
         .hod-au-bad {
             color: #b91c1c;
             background: #fee2e2;
