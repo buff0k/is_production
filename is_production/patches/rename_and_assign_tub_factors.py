@@ -15,6 +15,9 @@ TRUCK_LOADS_DOCTYPE = "Truck Loads"
 HOURLY_PRODUCTION_DOCTYPE = "Hourly Production"
 
 
+_ITEM_LINK_CACHE = {}
+
+
 def execute():
     """
     Migrate Tub Factors to immutable names and reconstruct all historic MPP
@@ -85,9 +88,58 @@ def _assert_required_schema():
         )
 
 
+def _resolve_item_link(value):
+    """Resolve legacy Truck Loads values to the actual Item document name.
+
+    Historic rows may contain Item.item_name (for example ``KOMATSU``) while
+    Link fields must contain Item.name / item_code (for example ``HM400``).
+    Exact Item names always take precedence. A descriptive Item Name is only
+    accepted when it resolves to exactly one Item.
+    """
+    value = str(value or "").strip()
+    if not value:
+        return value
+
+    if value in _ITEM_LINK_CACHE:
+        return _ITEM_LINK_CACHE[value]
+
+    if frappe.db.exists("Item", value):
+        _ITEM_LINK_CACHE[value] = value
+        return value
+
+    matches = frappe.get_all(
+        "Item",
+        filters={"item_name": value},
+        pluck="name",
+        order_by="name asc",
+        limit_page_length=2,
+    )
+
+    if len(matches) == 1:
+        _ITEM_LINK_CACHE[value] = matches[0]
+        return matches[0]
+
+    if len(matches) > 1:
+        frappe.throw(
+            _(
+                "Cannot resolve legacy Truck Model {0}: multiple Items use "
+                "that Item Name ({1})."
+            ).format(frappe.bold(value), ", ".join(matches)),
+            title=_("Ambiguous Truck Model"),
+        )
+
+    frappe.throw(
+        _("Cannot resolve legacy Truck Model {0} to an Item.").format(
+            frappe.bold(value)
+        ),
+        title=_("Missing Truck Model Item"),
+    )
+
+
 def _canonical_name(item_name, mat_type, factor_value):
+    item_name = _resolve_item_link(item_name)
     return (
-        f"{str(item_name or '').strip()}-"
+        f"{item_name}-"
         f"{str(mat_type or '').strip()}-"
         f"{cint(factor_value)}"
     )
@@ -95,7 +147,7 @@ def _canonical_name(item_name, mat_type, factor_value):
 
 def _factor_key(item_name, mat_type, factor_value):
     return (
-        str(item_name or "").strip(),
+        _resolve_item_link(item_name),
         str(mat_type or "").strip(),
         cint(factor_value),
     )
@@ -276,27 +328,41 @@ def _repair_known_link_references(rename_map):
 
 
 def _repair_truck_load_links():
-    unresolved = frappe.db.sql(
+    factor_map = _get_factor_map()
+    rows = frappe.db.sql(
         """
         SELECT
+            tl.name,
             tl.parent,
             tl.idx,
             tl.item_name,
             tl.mat_type,
-            tl.tub_factor
+            tl.tub_factor,
+            tl.tub_factor_doc_link
         FROM `tabTruck Loads` tl
-        LEFT JOIN `tabTub Factor` tf
-            ON tf.item_name = tl.item_name
-           AND tf.mat_type = tl.mat_type
-           AND tf.tub_factor = tl.tub_factor
         WHERE COALESCE(tl.item_name, '') != ''
           AND COALESCE(tl.mat_type, '') != ''
           AND COALESCE(tl.tub_factor, 0) > 0
-          AND tf.name IS NULL
-        LIMIT 20
+        ORDER BY tl.parent, tl.idx
         """,
         as_dict=True,
     )
+
+    unresolved = []
+    updates = []
+
+    for row in rows:
+        key = _factor_key(row.item_name, row.mat_type, row.tub_factor)
+        factor_name = factor_map.get(key)
+
+        if not factor_name:
+            unresolved.append(row)
+            if len(unresolved) >= 20:
+                break
+            continue
+
+        if row.tub_factor_doc_link != factor_name:
+            updates.append((factor_name, row.name))
 
     if unresolved:
         preview = "; ".join(
@@ -305,27 +371,17 @@ def _repair_truck_load_links():
             for r in unresolved
         )
         frappe.throw(
-            _("Historic Truck Loads could not be resolved: {0}")
-            .format(preview)
+            _("Historic Truck Loads could not be resolved: {0}").format(preview)
         )
 
-    frappe.db.sql(
-        """
-        UPDATE `tabTruck Loads` tl
-        INNER JOIN `tabTub Factor` tf
-            ON tf.item_name = tl.item_name
-           AND tf.mat_type = tl.mat_type
-           AND tf.tub_factor = tl.tub_factor
-        SET tl.tub_factor_doc_link = tf.name
-        WHERE COALESCE(tl.item_name, '') != ''
-          AND COALESCE(tl.mat_type, '') != ''
-          AND COALESCE(tl.tub_factor, 0) > 0
-          AND (
-              COALESCE(tl.tub_factor_doc_link, '') = ''
-              OR tl.tub_factor_doc_link != tf.name
-          )
-        """
-    )
+    for factor_name, row_name in updates:
+        frappe.db.set_value(
+            TRUCK_LOADS_DOCTYPE,
+            row_name,
+            "tub_factor_doc_link",
+            factor_name,
+            update_modified=False,
+        )
 
 
 def _get_mpp_distinct_historic_factors(plan_name):
