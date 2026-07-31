@@ -374,7 +374,7 @@ def _repair_truck_load_links():
             _("Historic Truck Loads could not be resolved: {0}").format(preview)
         )
 
-    for factor_name, row_name in updates:
+    for idx, (factor_name, row_name) in enumerate(updates, start=1):
         frappe.db.set_value(
             TRUCK_LOADS_DOCTYPE,
             row_name,
@@ -382,6 +382,9 @@ def _repair_truck_load_links():
             factor_name,
             update_modified=False,
         )
+
+        if idx % 500 == 0:
+            frappe.db.commit()
 
 
 def _get_mpp_distinct_historic_factors(plan_name):
