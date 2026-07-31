@@ -62,7 +62,51 @@ frappe.query_reports["Avail and Util report"] = {
     },
 
     formatter: function(value, row, column, data, default_formatter) {
-        value = default_formatter(value, row, column, data);
+        const utilisation_fields = [
+            "plant_shift_utilisation",
+            "plant_shift_utilisation_above_100",
+            "true_utilisation_percent"
+        ];
+
+        const raw_value = data
+            ? data[column.fieldname]
+            : null;
+
+        const is_na_utilisation = (
+            data
+            && utilisation_fields.includes(
+                column.fieldname
+            )
+            && (
+                raw_value === null
+                || raw_value === undefined
+                || raw_value === ""
+            )
+        );
+
+        value = default_formatter(
+            value,
+            row,
+            column,
+            data
+        );
+
+        if (is_na_utilisation) {
+            value = `
+                <span style="
+                    display:inline-block;
+                    min-width:55px;
+                    text-align:center;
+                    padding:3px 9px;
+                    border-radius:999px;
+                    background:#e5e7eb;
+                    color:#4b5563;
+                    font-weight:700;
+                ">
+                    N/A
+                </span>
+            `;
+        }
 
         setTimeout(function() {
             apply_avail_util_freeze_columns();

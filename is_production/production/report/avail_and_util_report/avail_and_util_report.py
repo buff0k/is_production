@@ -343,6 +343,10 @@ SUM_FIELDS = [
     "shift_other_lost_hours",
     "captured_other_lost_hours",
     "other_lost_hours_variance",
+    "utilisation_valid_count",
+    "utilisation_working_hours",
+    "utilisation_available_hours",
+    "utilisation_available_hours_above_100",
 ]
 
 
@@ -366,9 +370,74 @@ def calc_availability(req_hrs, avail_hrs):
 def calc_utilisation(work_hrs, avail_hrs):
     work_hrs = float(work_hrs or 0)
     avail_hrs = float(avail_hrs or 0)
+
     if avail_hrs <= 0:
         return 0.0
-    return r1(clamp_percentage((work_hrs / avail_hrs) * 100))
+
+    return r1(
+        clamp_percentage(
+            (work_hrs / avail_hrs) * 100
+        )
+    )
+
+
+def is_full_shift_breakdown(row):
+    required_hours = flt(
+        row.get("shift_required_hours")
+    )
+
+    breakdown_hours = flt(
+        row.get("shift_breakdown_hours")
+    )
+
+    return (
+        required_hours > 0
+        and breakdown_hours >= required_hours
+    )
+
+
+def r1_or_none(value):
+    if value is None:
+        return None
+
+    return r1(value)
+
+
+def prepare_utilisation_fields(row):
+    """
+    Full-shift breakdowns remain in availability totals,
+    but are excluded from utilisation calculations.
+    """
+
+    if is_full_shift_breakdown(row):
+        row["utilisation_valid_count"] = 0
+        row["utilisation_working_hours"] = 0
+        row["utilisation_available_hours"] = 0
+        row[
+            "utilisation_available_hours_above_100"
+        ] = 0
+
+        return row
+
+    row["utilisation_valid_count"] = 1
+
+    row["utilisation_working_hours"] = flt(
+        row.get("shift_working_hours")
+    )
+
+    row["utilisation_available_hours"] = flt(
+        row.get("shift_available_hours")
+    )
+
+    row[
+        "utilisation_available_hours_above_100"
+    ] = flt(
+        row.get(
+            "available_hours_above_100_capped"
+        )
+    )
+
+    return row
 
 
 def calc_employee_availability(req_hrs, other_lost_hrs):
@@ -452,23 +521,23 @@ def mark_invalid_pre_use_hours(records):
 
     return records
 
-
 def apply_formula_fields(row):
     row["plant_shift_availability"] = calc_availability(
         row.get("shift_required_hours"),
         row.get("shift_available_hours"),
     )
-    row["plant_shift_utilisation"] = calc_utilisation(
-        row.get("shift_working_hours"),
-        row.get("shift_available_hours"),
-    )
+
     row["employee_availability"] = calc_employee_availability(
         row.get("shift_required_hours"),
         row.get("shift_other_lost_hours"),
     )
 
     row["avail_target_percent"] = r1(
-        (row.get("plant_shift_availability") or 0) * 0.85
+        (
+            row.get("plant_shift_availability")
+            or 0
+        )
+        * 0.85
     )
 
     if row.get("invalid_pre_use_hours"):
@@ -476,22 +545,22 @@ def apply_formula_fields(row):
         row["plant_shift_availability_above_100"] = 0
         row["true_availability_percent"] = 0
         row["available_hours_above_100_capped"] = 0
+
+        row["plant_shift_utilisation"] = 0
         row["plant_shift_utilisation_above_100"] = 0
         row["true_utilisation_percent"] = 0
-
-        row["util_target_percent"] = r1(
-            (row.get("plant_shift_utilisation") or 0)
-            * 0.85
-        )
+        row["util_target_percent"] = 0
 
         return row
 
-    required_hours = float(
-        row.get("shift_required_hours") or 0
+    required_hours = flt(
+        row.get("shift_required_hours")
     )
 
-    available_hours_above_100 = float(
-        row.get("shift_available_hours_above_100") or 0
+    available_hours_above_100 = flt(
+        row.get(
+            "shift_available_hours_above_100"
+        )
     )
 
     stored_availability_above_100 = row.get(
@@ -499,11 +568,15 @@ def apply_formula_fields(row):
     )
 
     if stored_availability_above_100 is not None:
-        row["plant_shift_availability_above_100"] = r1(
+        row[
+            "plant_shift_availability_above_100"
+        ] = r1(
             stored_availability_above_100
         )
     else:
-        row["plant_shift_availability_above_100"] = (
+        row[
+            "plant_shift_availability_above_100"
+        ] = (
             r1(
                 (
                     available_hours_above_100
@@ -525,43 +598,63 @@ def apply_formula_fields(row):
         * 0.85
     )
 
+    if row.get("utilisation_valid_count") is None:
+        prepare_utilisation_fields(row)
+
+    if flt(
+        row.get("utilisation_valid_count")
+    ) <= 0:
+        row["plant_shift_utilisation"] = None
+        row[
+            "plant_shift_utilisation_above_100"
+        ] = None
+        row["true_utilisation_percent"] = None
+        row["util_target_percent"] = None
+
+        return row
+
+    utilisation_working_hours = flt(
+        row.get("utilisation_working_hours")
+    )
+
+    utilisation_available_hours = flt(
+        row.get("utilisation_available_hours")
+    )
+
+    utilisation_available_hours_above_100 = flt(
+        row.get(
+            "utilisation_available_hours_above_100"
+        )
+    )
+
+    row["plant_shift_utilisation"] = calc_utilisation(
+        utilisation_working_hours,
+        utilisation_available_hours,
+    )
+
     row["util_target_percent"] = r1(
-        (row.get("plant_shift_utilisation") or 0)
+        row["plant_shift_utilisation"]
         * 0.85
     )
 
-    capped_available_hours = float(
-        row.get("available_hours_above_100_capped") or 0
-    )
-
-    stored_utilisation_above_100 = row.get(
+    row[
         "plant_shift_utilisation_above_100"
-    )
-
-    if stored_utilisation_above_100 is not None:
-        row["plant_shift_utilisation_above_100"] = r1(
-            stored_utilisation_above_100
-        )
-    else:
-        row["plant_shift_utilisation_above_100"] = (
-            r1(
-                (
-                    float(row.get("shift_working_hours") or 0)
-                    / capped_available_hours
-                )
-                * 100
+    ] = (
+        r1(
+            (
+                utilisation_working_hours
+                / utilisation_available_hours_above_100
             )
-            if capped_available_hours > 0
-            else 0
+            * 100
         )
+        if utilisation_available_hours_above_100 > 0
+        else 0
+    )
 
     row["true_utilisation_percent"] = r1(
-        (
-            row.get(
-                "plant_shift_utilisation_above_100"
-            )
-            or 0
-        )
+        row[
+            "plant_shift_utilisation_above_100"
+        ]
         * 0.85
     )
 
@@ -1007,6 +1100,10 @@ def get_grouped_data(filters):
         records
     )
 
+    for record in records:
+        prepare_utilisation_fields(record)
+        apply_formula_fields(record)
+
     spare_swing_asset_map = get_spare_swing_asset_map(
         filters
     )
@@ -1022,49 +1119,52 @@ def get_grouped_data(filters):
         date = str(record["shift_date"])
         asset = record["asset_name"]
 
+        apply_formula_fields(record)
+
         record["plant_shift_availability"] = r1(
-            record.get("plant_shift_availability")
+            record.get(
+                "plant_shift_availability"
+            )
         )
 
-        record["plant_shift_availability_above_100"] = r1(
+        record[
+            "plant_shift_availability_above_100"
+        ] = r1(
             record.get(
                 "plant_shift_availability_above_100"
             )
         )
 
         record["true_availability_percent"] = r1(
-            (
-                record.get(
-                    "plant_shift_availability_above_100"
-                )
-                or 0
+            record.get(
+                "true_availability_percent"
             )
-            * 0.85
         )
 
-        record["plant_shift_utilisation"] = r1(
-            record.get("plant_shift_utilisation")
+        record["plant_shift_utilisation"] = r1_or_none(
+            record.get(
+                "plant_shift_utilisation"
+            )
         )
 
-        record["plant_shift_utilisation_above_100"] = r1(
+        record[
+            "plant_shift_utilisation_above_100"
+        ] = r1_or_none(
             record.get(
                 "plant_shift_utilisation_above_100"
             )
         )
 
-        record["true_utilisation_percent"] = r1(
-            (
-                record.get(
-                    "plant_shift_utilisation_above_100"
-                )
-                or 0
+        record["true_utilisation_percent"] = r1_or_none(
+            record.get(
+                "true_utilisation_percent"
             )
-            * 0.85
         )
 
-        record["employee_availability"] = calc_employee_availability(
-            record.get("shift_required_hours"),
-            record.get("shift_other_lost_hours"),
+        record["employee_availability"] = r1(
+            record.get(
+                "employee_availability"
+            )
         )
 
         grouped.setdefault(cat, {}).setdefault(date, {}).setdefault(asset, []).append(record)
@@ -1147,7 +1247,9 @@ def get_grouped_data(filters):
                         * 0.85
                     )
 
-                    row["plant_shift_utilisation"] = r1(
+                    apply_formula_fields(row)
+
+                    row["plant_shift_utilisation"] = r1_or_none(
                         row.get(
                             "plant_shift_utilisation"
                         )
@@ -1155,20 +1257,16 @@ def get_grouped_data(filters):
 
                     row[
                         "plant_shift_utilisation_above_100"
-                    ] = r1(
+                    ] = r1_or_none(
                         row.get(
                             "plant_shift_utilisation_above_100"
                         )
                     )
 
-                    row["true_utilisation_percent"] = r1(
-                        (
-                            row.get(
-                                "plant_shift_utilisation_above_100"
-                            )
-                            or 0
+                    row["true_utilisation_percent"] = r1_or_none(
+                        row.get(
+                            "true_utilisation_percent"
                         )
-                        * 0.85
                     )
 
                     row["employee_availability"] = calc_employee_availability(
@@ -1212,6 +1310,10 @@ def combine_shifts(rows):
         "shift_available_hours_above_100",
         "available_hours_above_100_capped",
         "shift_other_lost_hours",
+        "utilisation_valid_count",
+        "utilisation_working_hours",
+        "utilisation_available_hours",
+        "utilisation_available_hours_above_100",
     ]:
         total[key] = sum(
             (row.get(key) or 0)
@@ -1271,7 +1373,31 @@ def summary_row(rows, indent, **extra_fields):
         "shift_other_lost_hours": r1(
             combined.get("shift_other_lost_hours")
         ),
-        "captured_other_lost_hours": r1(combined.get("captured_other_lost_hours")),
+        "utilisation_valid_count": flt(
+            combined.get(
+                "utilisation_valid_count"
+            )
+        ),
+        "utilisation_working_hours": flt(
+            combined.get(
+                "utilisation_working_hours"
+            )
+        ),
+        "utilisation_available_hours": flt(
+            combined.get(
+                "utilisation_available_hours"
+            )
+        ),
+        "utilisation_available_hours_above_100": flt(
+            combined.get(
+                "utilisation_available_hours_above_100"
+            )
+        ),
+        "captured_other_lost_hours": r1(
+            combined.get(
+                "captured_other_lost_hours"
+            )
+        ),
         "other_lost_hours_variance": r1(combined.get("other_lost_hours_variance")),
         "plant_shift_availability": r1(
             combined.get(
@@ -1301,33 +1427,25 @@ def summary_row(rows, indent, **extra_fields):
             )
             * 0.85
         ),
-        "plant_shift_utilisation": r1(
+        "plant_shift_utilisation": r1_or_none(
             combined.get(
                 "plant_shift_utilisation"
             )
         ),
-        "util_target_percent": r1(
-            (
-                combined.get(
-                    "plant_shift_utilisation"
-                )
-                or 0
+        "util_target_percent": r1_or_none(
+            combined.get(
+                "util_target_percent"
             )
-            * 0.85
         ),
-        "plant_shift_utilisation_above_100": r1(
+        "plant_shift_utilisation_above_100": r1_or_none(
             combined.get(
                 "plant_shift_utilisation_above_100"
             )
         ),
-        "true_utilisation_percent": r1(
-            (
-                combined.get(
-                    "plant_shift_utilisation_above_100"
-                )
-                or 0
+        "true_utilisation_percent": r1_or_none(
+            combined.get(
+                "true_utilisation_percent"
             )
-            * 0.85
         ),
         "employee_availability": r1(combined.get("employee_availability")),
         "indent": indent,
