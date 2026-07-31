@@ -13,6 +13,7 @@ console.log("📦 Custom JS: monthly_production_planning.js loaded — version 2
 
 function calculateGeoRefDescription(frm, cdt, cdn) {
   const row  = locals[cdt][cdn];
+
   const desc = row.geo_mat_type_description || '';
   const rows = frm.doc.geo_mat_layer || [];
   const idx  = rows.findIndex(r => r.name === row.name) + 1;

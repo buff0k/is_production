@@ -1,5 +1,7 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_import": 1,
  "allow_rename": 1,
  "autoname": "format:{prod_month_end_date}-{location}",
  "creation": "2024-10-11 20:47:33.946485",
@@ -17,6 +19,7 @@
   "mining_areas",
   "section_break_zozx",
   "geo_mat_layer",
+  "tub_factors",
   "month_planned_production_plant_section",
   "dnd_html_truck_ui",
   "dnd_dozer_assigned",
@@ -566,16 +569,22 @@
    "fieldname": "mtd_coal_survey",
    "fieldtype": "Float",
    "label": "MTD Coal With Survey"
+  },
+  {
+   "fieldname": "tub_factors",
+   "fieldtype": "Table",
+   "label": "Tub Factors",
+   "options": "Monthly Production Tub Factor"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-16 15:09:59.824223",
+ "modified": "2026-07-29 07:23:51.123375",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Monthly Production Planning",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
