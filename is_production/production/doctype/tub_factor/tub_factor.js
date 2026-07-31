@@ -3,11 +3,13 @@
 
 frappe.ui.form.on("Tub Factor", {
     setup(frm) {
-        frm.set_query("item_name", () => ({
-            filters: [
-                ["Item", "item_group", "in", ["ADT", "RIGID"]]
-            ]
-        }));
+        frm.set_query("item_name", function () {
+            return {
+                filters: {
+                    item_group: ["in", ["ADT", "RIGID"]]
+                }
+            };
+        });
     },
 
     refresh(frm) {

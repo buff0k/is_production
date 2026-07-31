@@ -52,10 +52,32 @@ class TubFactor(Document):
     def _validate_definition(self):
         if not self.item_name:
             frappe.throw(_("Truck Model is required."))
+
+        item_group = frappe.db.get_value(
+            "Item",
+            self.item_name,
+            "item_group",
+        )
+
+        if not item_group:
+            frappe.throw(
+                _("Truck Model {0} does not exist.")
+                .format(frappe.bold(self.item_name))
+            )
+
+        if item_group not in ("ADT", "RIGID"):
+            frappe.throw(
+                _(
+                    "Truck Model {0} must belong to the ADT or RIGID Item Group."
+                ).format(frappe.bold(self.item_name))
+            )
+
         if not self.mat_type:
             frappe.throw(_("Material Type is required."))
+
         if self.tub_factor in (None, ""):
             frappe.throw(_("Tub Factor is required."))
+
         if cint(self.tub_factor) < 0:
             frappe.throw(_("Tub Factor cannot be negative."))
 

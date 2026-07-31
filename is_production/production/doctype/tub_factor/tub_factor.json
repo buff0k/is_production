@@ -18,7 +18,6 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Truck Model",
-   "link_filters": "[[\"Item\",\"item_group\",\"in\",[\"ADT\",\"RIGID\"]]]",
    "options": "Item"
   },
   {
@@ -52,7 +51,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-07-16 07:52:52.010232",
+ "modified": "2026-07-31 13:20:08.036652",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Tub Factor",
