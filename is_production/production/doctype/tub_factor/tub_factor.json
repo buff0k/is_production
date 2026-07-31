@@ -1,8 +1,8 @@
 {
  "actions": [],
+ "allow_bulk_edit": 1,
  "allow_import": 1,
  "allow_rename": 1,
- "autoname": "format:{item_name}-{mat_type}",
  "creation": "2024-10-12 12:19:10.833036",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -10,7 +10,7 @@
   "item_name",
   "mat_type",
   "tub_factor",
-  "tub_factor_lookup"
+  "amended_from"
  ],
  "fields": [
   {
@@ -38,20 +38,25 @@
    "reqd": 1
   },
   {
-   "fieldname": "tub_factor_lookup",
-   "fieldtype": "Data",
-   "label": "Tub Factor Lookup",
-   "read_only": 1
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Tub Factor",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
+ "is_submittable": 1,
  "links": [],
- "modified": "2025-04-16 10:28:59.186095",
+ "modified": "2026-07-16 07:52:52.010232",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Tub Factor",
- "naming_rule": "Expression",
+ "naming_rule": "By script",
  "owner": "Administrator",
  "permissions": [
   {
@@ -88,5 +93,7 @@
  "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1
 }

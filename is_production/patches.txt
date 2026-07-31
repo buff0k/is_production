@@ -4,3 +4,4 @@
 
 [post_model_sync]
 is_production.patches.create_diesel_bowsers
+is_production.patches.rename_and_assign_tub_factors
