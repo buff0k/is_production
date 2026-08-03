@@ -23,7 +23,6 @@ from frappe.utils import (
 from is_production.production.page.production_summary_dashboard.production_summary_dashboard import (
     COAL_CONVERSION,
     get_completed_production_days,
-    get_mtd_actual_bcms_from_days,
     get_mtd_coal_dynamic,
     get_monthly_plan,
 )
@@ -600,33 +599,12 @@ def build_filtered_production_row(
     )
 
     selected_actual_bcm = flt(
-        get_mtd_actual_bcms_from_days(
-            monthly_plan.name,
-            selected_start,
-            selected_end,
-        )
+        monthly_plan.month_actual_bcm
     )
 
     month_to_date_actual_bcm = flt(
-        get_mtd_actual_bcms_from_days(
-            monthly_plan.name,
-            plan_start,
-            selected_end,
-        )
+        monthly_plan.month_actual_bcm
     )
-
-    if not month_to_date_actual_bcm:
-        month_to_date_actual_bcm = flt(
-            monthly_plan.month_actual_bcm
-        )
-
-    if (
-        selected_start == plan_start
-        and not selected_actual_bcm
-    ):
-        selected_actual_bcm = (
-            month_to_date_actual_bcm
-        )
 
     selected_actual_coal = flt(
         get_mtd_coal_dynamic(
