@@ -257,6 +257,13 @@ def get_columns():
             "width": 145,
             "precision": 1,
         },
+        {
+            "label": "Capped Avail Hrs",
+            "fieldname": "available_hours_above_100_capped",
+            "fieldtype": "Float",
+            "width": 135,
+            "precision": 1,
+        },
 
         {"label": "Mechanical Downtime", "fieldname": "shift_breakdown_hours", "fieldtype": "Float", "width": 155, "precision": 1},
         {"label": "Actual Breakdown Time", "fieldname": "actual_breakdown_time", "fieldtype": "Float", "width": 165, "precision": 1},
@@ -1217,6 +1224,7 @@ def get_grouped_data(filters):
                         "mechanical_outsourced_work",
                         "shift_available_hours",
                         "shift_available_hours_above_100",
+                        "available_hours_above_100_capped",
                         "shift_other_lost_hours",
                         "captured_other_lost_hours",
                         "other_lost_hours_variance",
@@ -1368,6 +1376,11 @@ def summary_row(rows, indent, **extra_fields):
         "shift_available_hours_above_100": r1(
             combined.get(
                 "shift_available_hours_above_100"
+            )
+        ),
+        "available_hours_above_100_capped": r1(
+            combined.get(
+                "available_hours_above_100_capped"
             )
         ),
         "shift_other_lost_hours": r1(
