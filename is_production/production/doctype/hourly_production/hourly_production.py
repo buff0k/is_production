@@ -77,6 +77,7 @@ class HourlyProduction(Document):
         # v16 migration safety: ensure Link fields store Asset.name (primary key)
         self.normalize_asset_links()
         self.populate_truck_material_types()
+        self.apply_planning_tub_factors()
         self.validate_truck_loads()
         self.validate_dozer_production()
         # self.validate_and_apply_tub_factors()
@@ -156,6 +157,73 @@ class HourlyProduction(Document):
                 row.mat_type = material_map.get(
                     row.geo_mat_layer_truck
                 )
+
+
+    def apply_planning_tub_factors(self):
+        """
+        Apply Tub Factors directly from the selected Monthly Production
+        Planning document.
+
+        Matching trims truck model and material type values so legacy
+        Asset records containing extra spaces still match planning.
+        """
+        if not self.month_prod_planning:
+            return
+
+        if not frappe.db.exists(
+            "Monthly Production Planning",
+            self.month_prod_planning,
+        ):
+            return
+
+        plan = frappe.get_doc(
+            "Monthly Production Planning",
+            self.month_prod_planning,
+        )
+
+        factor_map = {}
+
+        for factor_row in plan.get("tub_factors") or []:
+            item_name = str(
+                factor_row.item_name or ""
+            ).strip()
+
+            mat_type = str(
+                factor_row.mat_type or ""
+            ).strip()
+
+            if not item_name or not mat_type:
+                continue
+
+            factor_map[(item_name, mat_type)] = {
+                "link": factor_row.tub_factor,
+                "value": float(
+                    factor_row.factor_value or 0
+                ),
+            }
+
+        for row in self.get("truck_loads") or []:
+            item_name = str(
+                row.item_name or ""
+            ).strip()
+
+            mat_type = str(
+                row.mat_type or ""
+            ).strip()
+
+            factor = factor_map.get(
+                (item_name, mat_type)
+            )
+
+            if not factor:
+                continue
+
+            row.tub_factor_doc_link = factor["link"]
+            row.tub_factor = factor["value"]
+            row.bcms = (
+                float(row.loads or 0)
+                * factor["value"]
+            )
 
 
     def validate_truck_loads(self):
@@ -1644,6 +1712,45 @@ def get_day_total_bcm(location, prod_date, exclude_name=None):
     return res[0][0] if res else 0
 
 
+
+
+@frappe.whitelist()
+def get_planning_tub_factor(
+    monthly_production_plan,
+    item_name,
+    mat_type,
+):
+    """Return the matching factor directly from planning."""
+    if (
+        not monthly_production_plan
+        or not item_name
+        or not mat_type
+    ):
+        return {}
+
+    result = frappe.db.sql(
+        """
+        SELECT
+            mptf.tub_factor AS tub_factor_doc_link,
+            mptf.factor_value AS factor_value
+        FROM `tabMonthly Production Tub Factor` mptf
+        WHERE mptf.parent = %(monthly_production_plan)s
+          AND mptf.parenttype = 'Monthly Production Planning'
+          AND mptf.parentfield = 'tub_factors'
+          AND TRIM(mptf.item_name) = TRIM(%(item_name)s)
+          AND TRIM(mptf.mat_type) = TRIM(%(mat_type)s)
+        ORDER BY mptf.idx ASC
+        LIMIT 1
+        """,
+        {
+            "monthly_production_plan": monthly_production_plan,
+            "item_name": item_name,
+            "mat_type": mat_type,
+        },
+        as_dict=True,
+    )
+
+    return result[0] if result else {}
 
 
 @frappe.whitelist()
