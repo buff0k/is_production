@@ -22,6 +22,24 @@ frappe.query_reports["Avail and Util report"] = {
             reqd: 0
         },
         {
+            fieldname: "asset_name",
+            label: __("Asset"),
+            fieldtype: "Link",
+            options: "Asset",
+            reqd: 0,
+            get_query: function() {
+                const location = frappe.query_report.get_filter_value("location");
+
+                return {
+                    filters: location
+                        ? {
+                            location: location
+                        }
+                        : {}
+                };
+            }
+        },
+        {
             fieldname: "machine_scope",
             label: __("Production Machines, Swing/Spare Machines AND Include Swing/Spare"),
             fieldtype: "Select",

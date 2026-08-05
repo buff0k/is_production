@@ -1052,6 +1052,10 @@ def get_grouped_data(filters):
         conditions.append("location = %s")
         args.append(filters["location"])
 
+    if filters.get("asset_name"):
+        conditions.append("asset_name = %s")
+        args.append(filters["asset_name"])
+
     condition_str = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
     records = frappe.db.sql(f"""
