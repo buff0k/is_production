@@ -257,13 +257,6 @@ def get_columns():
             "width": 145,
             "precision": 1,
         },
-        {
-            "label": "Capped Avail Hrs",
-            "fieldname": "available_hours_above_100_capped",
-            "fieldtype": "Float",
-            "width": 135,
-            "precision": 1,
-        },
 
         {"label": "Mechanical Downtime", "fieldname": "shift_breakdown_hours", "fieldtype": "Float", "width": 155, "precision": 1},
         {"label": "Actual Breakdown Time", "fieldname": "actual_breakdown_time", "fieldtype": "Float", "width": 165, "precision": 1},
@@ -346,7 +339,6 @@ SUM_FIELDS = [
     "mechanical_outsourced_work",
     "shift_available_hours",
     "shift_available_hours_above_100",
-    "available_hours_above_100_capped",
     "shift_other_lost_hours",
     "captured_other_lost_hours",
     "other_lost_hours_variance",
@@ -440,7 +432,7 @@ def prepare_utilisation_fields(row):
         "utilisation_available_hours_above_100"
     ] = flt(
         row.get(
-            "available_hours_above_100_capped"
+            "shift_available_hours"
         )
     )
 
@@ -522,7 +514,6 @@ def mark_invalid_pre_use_hours(records):
             record["shift_available_hours_above_100"] = 0
             record["plant_shift_availability_above_100"] = 0
             record["true_availability_percent"] = 0
-            record["available_hours_above_100_capped"] = 0
             record["plant_shift_utilisation_above_100"] = 0
             record["true_utilisation_percent"] = 0
 
@@ -551,7 +542,6 @@ def apply_formula_fields(row):
         row["shift_available_hours_above_100"] = 0
         row["plant_shift_availability_above_100"] = 0
         row["true_availability_percent"] = 0
-        row["available_hours_above_100_capped"] = 0
 
         row["plant_shift_utilisation"] = 0
         row["plant_shift_utilisation_above_100"] = 0
@@ -1076,7 +1066,6 @@ def get_grouped_data(filters):
             shift_breakdown_hours,
             shift_available_hours,
             shift_available_hours_above_100,
-            available_hours_above_100_capped,
             shift_other_lost_hours,
             plant_shift_availability,
             plant_shift_availability_above_100,
@@ -1224,7 +1213,6 @@ def get_grouped_data(filters):
                         "mechanical_outsourced_work",
                         "shift_available_hours",
                         "shift_available_hours_above_100",
-                        "available_hours_above_100_capped",
                         "shift_other_lost_hours",
                         "captured_other_lost_hours",
                         "other_lost_hours_variance",
@@ -1316,7 +1304,6 @@ def combine_shifts(rows):
         "mechanical_outsourced_work",
         "shift_available_hours",
         "shift_available_hours_above_100",
-        "available_hours_above_100_capped",
         "shift_other_lost_hours",
         "utilisation_valid_count",
         "utilisation_working_hours",
@@ -1376,11 +1363,6 @@ def summary_row(rows, indent, **extra_fields):
         "shift_available_hours_above_100": r1(
             combined.get(
                 "shift_available_hours_above_100"
-            )
-        ),
-        "available_hours_above_100_capped": r1(
-            combined.get(
-                "available_hours_above_100_capped"
             )
         ),
         "shift_other_lost_hours": r1(
