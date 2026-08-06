@@ -1238,76 +1238,116 @@ def attach_pbm_popup_times(data, filters):
             pbm_row.get("location")
         )
 
-        calculated = (
-            month_end
-            .get_required_downtime_minutes_for_breakdown(
-                row_filters,
-                pbm_row.get("asset_name"),
+        current_date = frappe.utils.getdate(
+            clipped_start
+        )
+
+        current_day_start = (
+            frappe.utils.get_datetime(
+                f"{current_date} 06:00:00"
+            )
+        )
+
+        if clipped_start < current_day_start:
+            current_date = frappe.utils.add_days(
+                current_date,
+                -1,
+            )
+
+        while True:
+            day_start = frappe.utils.get_datetime(
+                f"{current_date} 06:00:00"
+            )
+
+            day_end = frappe.utils.add_to_date(
+                day_start,
+                days=1,
+                as_datetime=True,
+            )
+
+            if day_start >= clipped_end:
+                break
+
+            segment_start = max(
                 clipped_start,
+                day_start,
+            )
+
+            segment_end = min(
                 clipped_end,
+                day_end,
             )
-        )
 
-        key = (
-            pbm_row.get("asset_name"),
-            str(
-                frappe.utils.getdate(
-                    clipped_start
+            if segment_end > segment_start:
+                key = (
+                    pbm_row.get("asset_name"),
+                    str(current_date),
+                    pbm_row.get("location"),
                 )
-            ),
-            pbm_row.get("location"),
-        )
 
-        if key not in visible_keys:
-            continue
+                if key in visible_keys:
+                    calculated = (
+                        month_end
+                        .get_required_downtime_minutes_for_breakdown(
+                            row_filters,
+                            pbm_row.get("asset_name"),
+                            segment_start,
+                            segment_end,
+                        )
+                    )
 
-        target = pbm_map.setdefault(
-            key,
-            {
-                "pbm_elapsed_time": 0.0,
-                "pbm_startup_fatigue_time": 0.0,
-                "pbm_sunday_time": 0.0,
-                "pbm_total_downtime": 0.0,
-            },
-        )
+                    target = pbm_map.setdefault(
+                        key,
+                        {
+                            "pbm_elapsed_time": 0.0,
+                            "pbm_startup_fatigue_time": 0.0,
+                            "pbm_sunday_time": 0.0,
+                            "pbm_total_downtime": 0.0,
+                        },
+                    )
 
-        target["pbm_elapsed_time"] += (
-            flt(
-                calculated.get(
-                    "total_minutes"
-                )
+                    target["pbm_elapsed_time"] += (
+                        flt(
+                            calculated.get(
+                                "total_minutes"
+                            )
+                        )
+                        / 60
+                    )
+
+                    target[
+                        "pbm_startup_fatigue_time"
+                    ] += (
+                        flt(
+                            calculated.get(
+                                "excluded_minutes"
+                            )
+                        )
+                        / 60
+                    )
+
+                    target["pbm_sunday_time"] += (
+                        flt(
+                            calculated.get(
+                                "sunday_minutes"
+                            )
+                        )
+                        / 60
+                    )
+
+                    target["pbm_total_downtime"] += (
+                        flt(
+                            calculated.get(
+                                "required_downtime_minutes"
+                            )
+                        )
+                        / 60
+                    )
+
+            current_date = frappe.utils.add_days(
+                current_date,
+                1,
             )
-            / 60
-        )
-
-        target[
-            "pbm_startup_fatigue_time"
-        ] += (
-            flt(
-                calculated.get(
-                    "excluded_minutes"
-                )
-            )
-            / 60
-        )
-
-        target["pbm_sunday_time"] += (
-            flt(
-                calculated.get(
-                    "sunday_minutes"
-                )
-            )
-            / 60
-        )
-
-        target["pbm_total_downtime"] += (
-            flt(
-                calculated.get(
-                    "required_downtime_minutes"
-                )
-            )
-            / 60
-        )
 
     for row in machine_rows:
         key = (
