@@ -1,3 +1,28 @@
+function format_avail_util_pbm_time(hours_value) {
+    const total_minutes = Math.round(
+        flt(hours_value || 0) * 60
+    );
+
+    const hours = Math.floor(
+        total_minutes / 60
+    );
+
+    const minutes = (
+        total_minutes % 60
+    );
+
+    if (hours && minutes) {
+        return `${hours}h ${minutes}m`;
+    }
+
+    if (hours) {
+        return `${hours}h`;
+    }
+
+    return `${minutes}m`;
+}
+
+
 frappe.query_reports["Avail and Util report"] = {
     filters: [
         {
@@ -124,6 +149,24 @@ frappe.query_reports["Avail and Util report"] = {
                     N/A
                 </span>
             `;
+        }
+
+        const pbm_time_fields = [
+            "pbm_elapsed_time",
+            "pbm_startup_fatigue_time",
+            "pbm_sunday_time",
+            "pbm_total_downtime"
+        ];
+
+        if (
+            data
+            && pbm_time_fields.includes(
+                column.fieldname
+            )
+        ) {
+            value = format_avail_util_pbm_time(
+                raw_value
+            );
         }
 
         setTimeout(function() {
@@ -257,6 +300,20 @@ function apply_avail_util_freeze_columns() {
             color: #4b0082 !important;
             font-weight: 600 !important;
             border-left: 3px solid #7b2cbf !important;
+        }
+
+        .dt-header .dt-cell--col-13,
+        .dt-header .dt-cell--col-14,
+        .dt-header .dt-cell--col-15,
+        .dt-header .dt-cell--col-16,
+        .dt-cell--header.dt-cell--col-13,
+        .dt-cell--header.dt-cell--col-14,
+        .dt-cell--header.dt-cell--col-15,
+        .dt-cell--header.dt-cell--col-16 {
+            background: #dcfce7 !important;
+            color: #166534 !important;
+            font-weight: 800 !important;
+            border-bottom: 2px solid #16a34a !important;
         }
     `;
 

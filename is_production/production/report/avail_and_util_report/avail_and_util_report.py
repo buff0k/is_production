@@ -215,8 +215,12 @@ def apply_spare_swing_flags(data, spare_swing_asset_map):
 
 
 def execute(filters=None):
+    filters = frappe._dict(filters or {})
+    filters["include_pbm_columns"] = 1
+
     columns = get_columns()
     data = get_grouped_data(filters)
+
     return columns, data
 
 
@@ -259,6 +263,34 @@ def get_columns():
         },
 
         {"label": "Mechanical Downtime", "fieldname": "shift_breakdown_hours", "fieldtype": "Float", "width": 155, "precision": 1},
+        {
+            "label": "PBM Elapsed Time",
+            "fieldname": "pbm_elapsed_time",
+            "fieldtype": "Float",
+            "width": 145,
+            "precision": 3,
+        },
+        {
+            "label": "PBM Start-up + Fatigue",
+            "fieldname": "pbm_startup_fatigue_time",
+            "fieldtype": "Float",
+            "width": 190,
+            "precision": 3,
+        },
+        {
+            "label": "PBM Sunday Time",
+            "fieldname": "pbm_sunday_time",
+            "fieldtype": "Float",
+            "width": 150,
+            "precision": 3,
+        },
+        {
+            "label": "PBM Total Downtime",
+            "fieldname": "pbm_total_downtime",
+            "fieldtype": "Float",
+            "width": 165,
+            "precision": 3,
+        },
         {"label": "Actual Breakdown Time", "fieldname": "actual_breakdown_time", "fieldtype": "Float", "width": 165, "precision": 1},
         {"label": "Actual Planned Maintenance Time", "fieldname": "actual_planned_maintenance_time", "fieldtype": "Float", "width": 210, "precision": 1},
         {"label": "Actual Inspection Time", "fieldname": "actual_inspection_time", "fieldtype": "Float", "width": 160, "precision": 1},
@@ -1037,6 +1069,340 @@ def recalculate_summary_rows(data):
             apply_formula_fields(row)
 
 
+def attach_pbm_popup_times(data, filters):
+    pbm_fields = [
+        "pbm_elapsed_time",
+        "pbm_startup_fatigue_time",
+        "pbm_sunday_time",
+        "pbm_total_downtime",
+    ]
+
+    for row in data:
+        for fieldname in pbm_fields:
+            row[fieldname] = 0.0
+
+    if not filters.get("include_pbm_columns"):
+        return data
+
+    machine_rows = [
+        row
+        for row in data
+        if row.get("indent") == 2
+        and row.get("asset_name")
+        and row.get("shift_date")
+    ]
+
+    if not machine_rows:
+        return data
+
+    try:
+        from engineering.engineering.report.availability_and_utilisation_month_end_report import (
+            availability_and_utilisation_month_end_report as month_end,
+        )
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            "Avail Util PBM Import",
+        )
+        return data
+
+    report_start = frappe.utils.get_datetime(
+        f"{filters.get('start_date')} 06:00:00"
+    )
+
+    report_end_date = frappe.utils.add_days(
+        filters.get("end_date"),
+        1,
+    )
+
+    report_end = frappe.utils.get_datetime(
+        f"{report_end_date} 06:00:00"
+    )
+
+    visible_keys = set()
+
+    for row in machine_rows:
+        visible_keys.add((
+            row.get("asset_name"),
+            str(row.get("shift_date")),
+            row.get("location"),
+        ))
+
+    asset_names = sorted({
+        row.get("asset_name")
+        for row in machine_rows
+        if row.get("asset_name")
+    })
+
+    if not asset_names:
+        return data
+
+    conditions = [
+        "IFNULL(asset_name, '') != ''",
+        "IFNULL(breakdown_reason, '') != ''",
+        "IFNULL(exclude_from_au, 0) = 0",
+        "asset_name IN %(asset_names)s",
+        "breakdown_start_datetime <= %(report_end)s",
+        (
+            "(resolved_datetime >= %(report_start)s "
+            "OR resolved_datetime IS NULL)"
+        ),
+    ]
+
+    values = {
+        "asset_names": tuple(asset_names),
+        "report_start": report_start,
+        "report_end": report_end,
+    }
+
+    if filters.get("location"):
+        conditions.append(
+            "location = %(location)s"
+        )
+        values["location"] = filters.get(
+            "location"
+        )
+
+    pbm_rows = frappe.db.sql(
+        f"""
+        SELECT
+            asset_name,
+            location,
+            breakdown_start_datetime,
+            resolved_datetime
+        FROM `tabPlant Breakdown or Maintenance`
+        WHERE {" AND ".join(conditions)}
+        ORDER BY breakdown_start_datetime ASC
+        """,
+        values,
+        as_dict=True,
+    )
+
+    pbm_map = {}
+    seen_intervals = set()
+
+    for pbm_row in pbm_rows:
+        start_datetime = pbm_row.get(
+            "breakdown_start_datetime"
+        )
+
+        resolved_datetime = pbm_row.get(
+            "resolved_datetime"
+        )
+
+        if not start_datetime:
+            continue
+
+        start_dt = frappe.utils.get_datetime(
+            start_datetime
+        )
+
+        end_dt = (
+            frappe.utils.get_datetime(
+                resolved_datetime
+            )
+            if resolved_datetime
+            else report_end
+        )
+
+        clipped_start = max(
+            start_dt,
+            report_start,
+        )
+
+        clipped_end = min(
+            end_dt,
+            report_end,
+        )
+
+        if clipped_end <= clipped_start:
+            continue
+
+        interval_key = (
+            pbm_row.get("asset_name"),
+            pbm_row.get("location"),
+            str(clipped_start),
+            str(clipped_end),
+        )
+
+        if interval_key in seen_intervals:
+            continue
+
+        seen_intervals.add(interval_key)
+
+        row_filters = frappe._dict(
+            filters.copy()
+        )
+
+        row_filters["location"] = (
+            pbm_row.get("location")
+        )
+
+        calculated = (
+            month_end
+            .get_required_downtime_minutes_for_breakdown(
+                row_filters,
+                pbm_row.get("asset_name"),
+                clipped_start,
+                clipped_end,
+            )
+        )
+
+        key = (
+            pbm_row.get("asset_name"),
+            str(
+                frappe.utils.getdate(
+                    clipped_start
+                )
+            ),
+            pbm_row.get("location"),
+        )
+
+        if key not in visible_keys:
+            continue
+
+        target = pbm_map.setdefault(
+            key,
+            {
+                "pbm_elapsed_time": 0.0,
+                "pbm_startup_fatigue_time": 0.0,
+                "pbm_sunday_time": 0.0,
+                "pbm_total_downtime": 0.0,
+            },
+        )
+
+        target["pbm_elapsed_time"] += (
+            flt(
+                calculated.get(
+                    "total_minutes"
+                )
+            )
+            / 60
+        )
+
+        target[
+            "pbm_startup_fatigue_time"
+        ] += (
+            flt(
+                calculated.get(
+                    "excluded_minutes"
+                )
+            )
+            / 60
+        )
+
+        target["pbm_sunday_time"] += (
+            flt(
+                calculated.get(
+                    "sunday_minutes"
+                )
+            )
+            / 60
+        )
+
+        target["pbm_total_downtime"] += (
+            flt(
+                calculated.get(
+                    "required_downtime_minutes"
+                )
+            )
+            / 60
+        )
+
+    for row in machine_rows:
+        key = (
+            row.get("asset_name"),
+            str(row.get("shift_date")),
+            row.get("location"),
+        )
+
+        values_for_row = pbm_map.get(
+            key,
+            {},
+        )
+
+        for fieldname in pbm_fields:
+            row[fieldname] = round(
+                flt(
+                    values_for_row.get(
+                        fieldname
+                    )
+                ),
+                3,
+            )
+
+    date_rows = [
+        row
+        for row in data
+        if row.get("indent") == 1
+    ]
+
+    for date_row in date_rows:
+        children = [
+            row
+            for row in machine_rows
+            if (
+                row.get("asset_category")
+                == date_row.get(
+                    "asset_category"
+                )
+                and str(row.get("shift_date"))
+                == str(
+                    date_row.get(
+                        "shift_date"
+                    )
+                )
+                and row.get("location")
+                == date_row.get("location")
+            )
+        ]
+
+        for fieldname in pbm_fields:
+            date_row[fieldname] = round(
+                sum(
+                    flt(
+                        child.get(
+                            fieldname
+                        )
+                    )
+                    for child in children
+                ),
+                3,
+            )
+
+    category_rows = [
+        row
+        for row in data
+        if row.get("indent") == 0
+    ]
+
+    for category_row in category_rows:
+        children = [
+            row
+            for row in date_rows
+            if (
+                row.get("asset_category")
+                == category_row.get(
+                    "asset_category"
+                )
+            )
+        ]
+
+        for fieldname in pbm_fields:
+            category_row[fieldname] = round(
+                sum(
+                    flt(
+                        child.get(
+                            fieldname
+                        )
+                    )
+                    for child in children
+                ),
+                3,
+            )
+
+    return data
+
 def get_grouped_data(filters):
     filters = filters or {}
     conditions = []
@@ -1080,13 +1446,16 @@ def get_grouped_data(filters):
         ORDER BY asset_category, shift_date, asset_name, shift
     """, tuple(args), as_dict=True)
 
-    records = [
-        record
-        for record in records
-        if (
-            record.get("asset_category") or ""
-        ) not in EXCLUDED_ASSET_CATEGORIES
-    ]
+    if not filters.get(
+        "include_excluded_asset_categories"
+    ):
+        records = [
+            record
+            for record in records
+            if (
+                record.get("asset_category") or ""
+            ) not in EXCLUDED_ASSET_CATEGORIES
+        ]
 
     records = [
         record
@@ -1280,6 +1649,7 @@ def get_grouped_data(filters):
     attach_msr_actuals(data, filters)
     attach_planned_and_actual_hours(data)
     recalculate_summary_rows(data)
+    attach_pbm_popup_times(data, filters)
     apply_spare_swing_flags(data, spare_swing_asset_map)
 
     return data
