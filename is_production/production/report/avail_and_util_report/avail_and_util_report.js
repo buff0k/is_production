@@ -302,14 +302,14 @@ function apply_avail_util_freeze_columns() {
             border-left: 3px solid #7b2cbf !important;
         }
 
-        .dt-header .dt-cell--col-13,
         .dt-header .dt-cell--col-14,
         .dt-header .dt-cell--col-15,
         .dt-header .dt-cell--col-16,
-        .dt-cell--header.dt-cell--col-13,
+        .dt-header .dt-cell--col-17,
         .dt-cell--header.dt-cell--col-14,
         .dt-cell--header.dt-cell--col-15,
-        .dt-cell--header.dt-cell--col-16 {
+        .dt-cell--header.dt-cell--col-16,
+        .dt-cell--header.dt-cell--col-17 {
             background: #dcfce7 !important;
             color: #166534 !important;
             font-weight: 800 !important;
