@@ -362,10 +362,18 @@ function apply_avail_util_freeze_columns() {
             border-left: 3px solid #7b2cbf !important;
         }
 
+        .dt-header .dt-cell--col-6,
+        .dt-header .dt-cell--col-7,
+        .dt-header .dt-cell--col-8,
+        .dt-header .dt-cell--col-9,
         .dt-header .dt-cell--col-14,
         .dt-header .dt-cell--col-15,
         .dt-header .dt-cell--col-16,
         .dt-header .dt-cell--col-17,
+        .dt-cell--header.dt-cell--col-6,
+        .dt-cell--header.dt-cell--col-7,
+        .dt-cell--header.dt-cell--col-8,
+        .dt-cell--header.dt-cell--col-9,
         .dt-cell--header.dt-cell--col-14,
         .dt-cell--header.dt-cell--col-15,
         .dt-cell--header.dt-cell--col-16,
