@@ -158,15 +158,75 @@ frappe.query_reports["Avail and Util report"] = {
             "pbm_total_downtime"
         ];
 
+        const sunday_identity_fields = [
+            "asset_category",
+            "shift_date",
+            "asset_name",
+            "shift",
+            "location",
+            "breakdown_reason",
+            "other_delay_reason"
+        ];
+
+        const is_sunday_row = (
+            data
+            && data.shift_date
+            && moment(
+                data.shift_date
+            ).day() === 0
+        );
+
         if (
             data
             && pbm_time_fields.includes(
                 column.fieldname
             )
         ) {
-            value = format_avail_util_pbm_time(
-                raw_value
-            );
+            if (
+                is_sunday_row
+                && column.fieldname
+                    === "pbm_startup_fatigue_time"
+                && flt(raw_value || 0) === 0
+            ) {
+                value = `
+                    <span style="
+                        display:inline-block;
+                        min-width:55px;
+                        text-align:center;
+                        padding:3px 9px;
+                        border-radius:999px;
+                        background:#e5e7eb;
+                        color:#4b5563;
+                        font-weight:700;
+                    ">
+                        N/A
+                    </span>
+                `;
+            } else {
+                value = format_avail_util_pbm_time(
+                    raw_value
+                );
+            }
+        } else if (
+            is_sunday_row
+            && !sunday_identity_fields.includes(
+                column.fieldname
+            )
+        ) {
+            value = `
+                <span style="
+                    display:inline-block;
+                    min-width:55px;
+                    text-align:center;
+                    padding:3px 9px;
+                    border-radius:999px;
+                    background:#e5e7eb;
+                    color:#4b5563;
+                    font-weight:700;
+                ">
+                    N/A
+                </span>
+            `;
         }
 
         setTimeout(function() {

@@ -1500,9 +1500,19 @@ def get_grouped_data(filters):
     records = [
         record
         for record in records
-        if flt(
-            record.get("shift_required_hours")
-        ) > 0
+        if (
+            flt(
+                record.get(
+                    "shift_required_hours"
+                )
+            ) > 0
+            or (
+                record.get("shift_date")
+                and frappe.utils.getdate(
+                    record.get("shift_date")
+                ).weekday() == 6
+            )
+        )
     ]
 
     records = mark_invalid_pre_use_hours(
