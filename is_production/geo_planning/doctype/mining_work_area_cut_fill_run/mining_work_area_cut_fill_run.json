@@ -1,0 +1,137 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-07-15 14:14:02.651425",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "run_details",
+  "run_name",
+  "mining_work_area",
+  "geo_project",
+  "geo_pit_layout",
+  "column_break_main",
+  "pit_outline_batch",
+  "area_source",
+  "surface_selection_section",
+  "surface_batches",
+  "calculation_settings_section",
+  "calculation_method",
+  "maximum_match_distance",
+  "elevation_tolerance",
+  "cell_size_x"
+ ],
+ "fields": [
+  {
+   "fieldname": "run_details",
+   "fieldtype": "Section Break",
+   "label": "Run Details"
+  },
+  {
+   "fieldname": "run_name",
+   "fieldtype": "Data",
+   "label": "Run Name"
+  },
+  {
+   "fieldname": "mining_work_area",
+   "fieldtype": "Link",
+   "label": "Mining Work Area",
+   "options": "Mining Work Area"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "geo_pit_layout",
+   "fieldtype": "Link",
+   "label": "Geo Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break",
+   "label": "Column Break"
+  },
+  {
+   "fieldname": "pit_outline_batch",
+   "fieldtype": "Link",
+   "label": "Pit Outline Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "area_source",
+   "fieldtype": "Select",
+   "label": "Area Source",
+   "options": "Existing Mining Blocks\nImported Polygon\nDrawn Polygon"
+  },
+  {
+   "fieldname": "surface_selection_section",
+   "fieldtype": "Section Break",
+   "label": "Surface Selection"
+  },
+  {
+   "fieldname": "surface_batches",
+   "fieldtype": "Table",
+   "label": "Surface Batches",
+   "options": "Mining Work Area Surface Batch"
+  },
+  {
+   "fieldname": "calculation_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Calculation Settings"
+  },
+  {
+   "fieldname": "calculation_method",
+   "fieldtype": "Select",
+   "label": "Calculation Method",
+   "options": "Nearest Point Match\nGrid Cell Difference\nInterpolated Surface"
+  },
+  {
+   "fieldname": "maximum_match_distance",
+   "fieldtype": "Float",
+   "label": "Maximum Match Distance"
+  },
+  {
+   "default": "0.001",
+   "fieldname": "elevation_tolerance",
+   "fieldtype": "Float",
+   "label": "Elevation Tolerance"
+  },
+  {
+   "fieldname": "cell_size_x",
+   "fieldtype": "Float",
+   "label": "Cell Size X"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-15 14:23:37.772359",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Work Area Cut Fill Run",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

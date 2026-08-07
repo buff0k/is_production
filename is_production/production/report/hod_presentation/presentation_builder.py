@@ -250,6 +250,7 @@ def _add_text(
     return box
 
 
+
 def _rgb(hex_colour: str) -> RGBColor:
     text = str(hex_colour or "000000").strip().lstrip("#")
     return RGBColor(

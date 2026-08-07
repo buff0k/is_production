@@ -1,0 +1,90 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-07-15 13:58:33.614889",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "surface_role",
+  "geo_import_batch",
+  "surface_label",
+  "variable_code",
+  "variable_name",
+  "full_name",
+  "version_tag",
+  "include_in_calculation",
+  "priority",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "surface_role",
+   "fieldtype": "Select",
+   "label": "Surface Role",
+   "options": "Base\nTarget"
+  },
+  {
+   "fieldname": "geo_import_batch",
+   "fieldtype": "Link",
+   "label": "Geo Import Batch",
+   "options": "Geo Import Batch"
+  },
+  {
+   "fieldname": "surface_label",
+   "fieldtype": "Data",
+   "label": "Surface Label"
+  },
+  {
+   "fieldname": "variable_code",
+   "fieldtype": "Data",
+   "label": "Variable Code"
+  },
+  {
+   "fieldname": "variable_name",
+   "fieldtype": "Data",
+   "label": "Variable Name"
+  },
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "label": "Full Name"
+  },
+  {
+   "fieldname": "version_tag",
+   "fieldtype": "Data",
+   "label": "Version Tag"
+  },
+  {
+   "default": "1",
+   "fieldname": "include_in_calculation",
+   "fieldtype": "Check",
+   "label": "Include In Calculation"
+  },
+  {
+   "fieldname": "priority",
+   "fieldtype": "Int",
+   "label": "Priority"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-15 14:02:40.832708",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Work Area Surface Batch",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
