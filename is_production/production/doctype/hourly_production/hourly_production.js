@@ -1704,6 +1704,9 @@ frappe.ui.form.on('Truck Loads', {
     mat_type(frm, cdt, cdn) {
         _update_tub_factor(frm, cdt, cdn);
     },
+    tub_factor_doc_link(frm, cdt, cdn) {
+        _apply_selected_tub_factor(frm, cdt, cdn);
+    },
     bcms(frm, cdt, cdn) {
         // When BCMS changes in any row, recalculate if it's in the selected area
         const row = frappe.get_doc(cdt, cdn);
@@ -1821,28 +1824,129 @@ frappe.ui.form.on('Dozer Production', {
 
 function _update_tub_factor(frm, cdt, cdn) {
     const row = frappe.get_doc(cdt, cdn);
-    if (!row.item_name || !row.mat_type) return;
+
+    if (!frm.doc.month_prod_planning || !row.item_name || !row.mat_type) {
+        frappe.model.set_value(cdt, cdn, 'tub_factor_doc_link', null);
+        frappe.model.set_value(cdt, cdn, 'tub_factor', null);
+        frappe.model.set_value(cdt, cdn, 'bcms', null);
+        return;
+    }
 
     frappe.call({
-        method: 'frappe.client.get_list',
+        method: 'is_production.production.doctype.hourly_production.hourly_production.get_mpp_tub_factor_options',
         args: {
             doctype: 'Tub Factor',
-            filters: { item_name: row.item_name, mat_type: row.mat_type },
-            fields: ['name', 'tub_factor'],
-            limit_page_length: 1
+            txt: '',
+            searchfield: 'name',
+            start: 0,
+            page_len: 100,
+            filters: {
+                monthly_production_plan: frm.doc.month_prod_planning,
+                item_name: row.item_name,
+                mat_type: row.mat_type
+            }
         },
         callback: r => {
-            const doc = r.message[0];
-            if (doc) {
-                frappe.model.set_value(cdt, cdn, 'tub_factor_doc_link', doc.name);
-                frappe.model.set_value(cdt, cdn, 'tub_factor', doc.tub_factor);
-            } else {
-                
-                frappe.model.set_value(cdt, cdn, 'tub_factor_doc_link', null);
-                frappe.model.set_value(cdt, cdn, 'tub_factor', null);
+            const options = r.message || [];
+            const approvedNames = options.map(option => option[0]);
+
+            if (options.length === 1) {
+                frappe.model.set_value(
+                    cdt,
+                    cdn,
+                    'tub_factor_doc_link',
+                    options[0][0]
+                );
+                return;
             }
+
+            if (
+                row.tub_factor_doc_link &&
+                !approvedNames.includes(row.tub_factor_doc_link)
+            ) {
+                frappe.model.set_value(
+                    cdt,
+                    cdn,
+                    'tub_factor_doc_link',
+                    null
+                );
+                frappe.model.set_value(cdt, cdn, 'tub_factor', null);
+                frappe.model.set_value(cdt, cdn, 'bcms', null);
+            }
+
+            if (options.length === 0) {
+                frappe.show_alert({
+                    message: __(
+                        'No submitted Tub Factor is approved in the Monthly Production Plan for this truck model and material.'
+                    ),
+                    indicator: 'red'
+                });
+            } else if (options.length > 1 && !row.tub_factor_doc_link) {
+                frappe.show_alert({
+                    message: __(
+                        'Multiple Tub Factors are approved. Select the applicable Tub Factor on this truck row.'
+                    ),
+                    indicator: 'orange'
+                });
+            }
+
             frm.refresh_field('truck_loads');
         }
+    });
+}
+
+
+function _apply_selected_tub_factor(frm, cdt, cdn) {
+    const row = frappe.get_doc(cdt, cdn);
+
+    if (!row.tub_factor_doc_link) {
+        frappe.model.set_value(cdt, cdn, 'tub_factor', null);
+        frappe.model.set_value(cdt, cdn, 'bcms', null);
+        return;
+    }
+
+    frappe.db.get_value(
+        'Tub Factor',
+        row.tub_factor_doc_link,
+        ['item_name', 'mat_type', 'tub_factor', 'docstatus']
+    ).then(r => {
+        const factor = r.message || {};
+
+        const factorDocstatus = Number(factor.docstatus);
+        const factorItemName = String(factor.item_name || '').trim();
+        const rowItemName = String(row.item_name || '').trim();
+        const factorMatType = String(factor.mat_type || '').trim();
+        const rowMatType = String(row.mat_type || '').trim();
+
+        if (
+            factorDocstatus !== 1 ||
+            factorItemName !== rowItemName ||
+            factorMatType !== rowMatType
+        ) {
+            frappe.model.set_value(
+                cdt,
+                cdn,
+                'tub_factor_doc_link',
+                null
+            );
+            frappe.model.set_value(cdt, cdn, 'tub_factor', null);
+            frappe.model.set_value(cdt, cdn, 'bcms', null);
+
+            frappe.throw(
+                __(
+                    'The selected Tub Factor is not a submitted factor matching this truck model and material.'
+                )
+            );
+        }
+
+        frappe.model.set_value(
+            cdt,
+            cdn,
+            'tub_factor',
+            factor.tub_factor
+        ).then(() => {
+            _calculate_bcms(frm, cdt, cdn);
+        });
     });
 }
 
