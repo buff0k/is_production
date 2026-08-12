@@ -133,8 +133,7 @@ def get_columns():
 		{
 			"fieldname": "diesel_receipt_tank",
 			"label": _("Receipt Tank"),
-			"fieldtype": "Link",
-			"options": "Diesel Site Tank Setup",
+			"fieldtype": "Data",
 			"width": 150,
 		},
 		{
@@ -223,6 +222,7 @@ def get_receipts(filters):
 				if value.strip()
 			]
 
+
 	if diesel_bowsers:
 		conditions.append(
 			"dr.asset_name IN %(diesel_bowsers)s"
@@ -231,14 +231,26 @@ def get_receipts(filters):
 			diesel_bowsers
 		)
 
-	if filters.get("receipt_tank"):
+		# Selected bowsers show diesel supplied from
+		# either a Main Tank or a Bulk Tank.
 		conditions.append(
+			"("
 			"dr.diesel_receipt_tank "
-			"= %(receipt_tank)s"
+			"LIKE %(main_tank_pattern)s "
+			"OR "
+			"dr.diesel_receipt_tank "
+			"LIKE %(bulk_tank_pattern)s"
+			")"
 		)
-		parameters["receipt_tank"] = (
-			filters.receipt_tank
+
+		parameters["main_tank_pattern"] = (
+			"%Main Tank%"
 		)
+
+		parameters["bulk_tank_pattern"] = (
+			"%Bulk Tank%"
+		)
+
 
 	return frappe.db.sql(
 		f"""
@@ -250,7 +262,17 @@ def get_receipts(filters):
 					AS receipt_datetime,
 				dr.diesel_receipt,
 				dr.asset_name,
-				dr.diesel_receipt_tank,
+				CASE
+					WHEN dr.diesel_receipt_tank
+						LIKE '%%Main Tank%%'
+					THEN 'Main Tank'
+
+					WHEN dr.diesel_receipt_tank
+						LIKE '%%Bulk Tank%%'
+					THEN 'Bulk Tank'
+
+					ELSE dr.diesel_receipt_tank
+				END AS diesel_receipt_tank,
 				dr.open_reading_ltrs
 					AS opening_reading,
 				dr.close_reading_ltrs

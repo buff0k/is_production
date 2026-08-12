@@ -1,0 +1,185 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-07-15 13:48:09.768331",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "polygon_details",
+  "polygon_name",
+  "geo_project",
+  "geo_pit_layout",
+  "polygon_type",
+  "source_type",
+  "source_file",
+  "geometry_section",
+  "polygon_geojson",
+  "effective_area",
+  "centroid_x",
+  "centroid_y",
+  "point_count",
+  "validation_section",
+  "validation_status",
+  "validation_message",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "polygon_details",
+   "fieldtype": "Section Break",
+   "label": "Polygon Details"
+  },
+  {
+   "fieldname": "polygon_name",
+   "fieldtype": "Data",
+   "label": "Polygon Name"
+  },
+  {
+   "fieldname": "geo_project",
+   "fieldtype": "Link",
+   "label": "Geo Project",
+   "options": "Geo Project"
+  },
+  {
+   "fieldname": "geo_pit_layout",
+   "fieldtype": "Link",
+   "label": "Geo Pit Layout",
+   "options": "Geo Pit Layout"
+  },
+  {
+   "fieldname": "polygon_type",
+   "fieldtype": "Select",
+   "label": "Polygon Type",
+   "options": "Work Area\nPit Boundary\nSurvey Area\nCut Fill Area\nOther"
+  },
+  {
+   "fieldname": "source_type",
+   "fieldtype": "Select",
+   "label": "Source Type",
+   "options": "Imported CSV\nImported GeoJSON\nDrawn In Workspace"
+  },
+  {
+   "fieldname": "source_file",
+   "fieldtype": "Attach",
+   "label": "Source File"
+  },
+  {
+   "fieldname": "geometry_section",
+   "fieldtype": "Section Break",
+   "label": "Geometry"
+  },
+  {
+   "fieldname": "polygon_geojson",
+   "fieldtype": "Code",
+   "label": "Polygon GeoJSON",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "effective_area",
+   "fieldtype": "Float",
+   "label": "Effective Area"
+  },
+  {
+   "fieldname": "centroid_x",
+   "fieldtype": "Float",
+   "label": "Centroid X"
+  },
+  {
+   "fieldname": "centroid_y",
+   "fieldtype": "Float",
+   "label": "centroid_y"
+  },
+  {
+   "fieldname": "point_count",
+   "fieldtype": "Int",
+   "label": "Point Count"
+  },
+  {
+   "fieldname": "validation_section",
+   "fieldtype": "Section Break",
+   "label": "Validation"
+  },
+  {
+   "fieldname": "validation_status",
+   "fieldtype": "Select",
+   "label": "Validation Status",
+   "options": "Draft\nValid\nInvalid"
+  },
+  {
+   "fieldname": "validation_message",
+   "fieldtype": "Small Text",
+   "label": "Validation Message"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-15 13:56:51.459835",
+ "modified_by": "Administrator",
+ "module": "Geo Planning",
+ "name": "Mining Workspace Polygon",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Foreman",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Supervisor",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

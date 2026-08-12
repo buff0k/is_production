@@ -27,6 +27,7 @@ frappe.query_reports["Diesel Receipt Site Analyses"] = {
 			fieldname: "diesel_bowsers",
 			label: __("Diesel Bowsers"),
 			fieldtype: "MultiSelectList",
+			description: __("Selecting bowsers automatically shows diesel taken from Main Tank or Bulk Tank."),
 			get_data(txt) {
 				const site =
 					frappe.query_report.get_filter_value("site");
@@ -44,26 +45,6 @@ frappe.query_reports["Diesel Receipt Site Analyses"] = {
 					txt,
 					filters
 				);
-			},
-		},
-		{
-			fieldname: "receipt_tank",
-			label: __("Main/Bulk Tank"),
-			fieldtype: "Link",
-			options: "Diesel Site Tank Setup",
-			get_query() {
-				const site =
-					frappe.query_report.get_filter_value("site");
-
-				if (site) {
-					return {
-						filters: {
-							location: site,
-						},
-					};
-				}
-
-				return {};
 			},
 		},
 		{

@@ -14,16 +14,39 @@
  * - Provides UI feedback for offline state and sync operations
  */
 
-// --- Offline status tag and sync popup ---
-function showOfflineStatus(frm) {
+// --- Offline sync loader, status tag and sync popup ---
+let hourlyProductionOfflinePromise = null;
+let hourlyProductionOfflineEventsBound = false;
+
+function loadHourlyProductionOffline() {
+    if (window.HourlyProductionOffline) {
+        return Promise.resolve(window.HourlyProductionOffline);
+    }
+
+    if (!hourlyProductionOfflinePromise) {
+        hourlyProductionOfflinePromise = frappe
+            .require('/assets/is_production/js/offline_sync.js')
+            .then(() => window.HourlyProductionOffline || null)
+            .catch(error => {
+                hourlyProductionOfflinePromise = null;
+                console.error('Unable to load Hourly Production offline sync:', error);
+                return null;
+            });
+    }
+
+    return hourlyProductionOfflinePromise;
+}
+
+function showOfflineStatus(frm, offline = window.HourlyProductionOffline) {
     if (!frm) return;
-    let tagId = 'offline-status-tag';
-    let $tag = $('#' + tagId);
-    // Use form header or wrapper for robustness
-    let $header = frm.$wrapper.find('.form-title, .page-title') || frm.$wrapper;
-    if (!window.HourlyProductionOffline.isOnline()) {
+
+    const tagId = 'offline-status-tag';
+    const $tag = $('#' + tagId);
+    const $header = frm.$wrapper.find('.form-title, .page-title');
+
+    if (offline && !offline.isOnline()) {
         if ($tag.length === 0) {
-            let $el = $('<span id="' + tagId + '" class="indicator orange" style="margin-left:10px;">Offline</span>');
+            const $el = $('<span id="' + tagId + '" class="indicator orange" style="margin-left:10px;">Offline</span>');
             if ($header.length) {
                 $header.append($el);
             } else {
@@ -35,26 +58,33 @@ function showOfflineStatus(frm) {
     }
 }
 
-// Listen for online/offline events to update tag and show sync popup
 function setupOfflineStatusEvents(frm) {
-    window.addEventListener('offline', () => showOfflineStatus(frm));
+    if (hourlyProductionOfflineEventsBound) return;
+    hourlyProductionOfflineEventsBound = true;
+
+    window.addEventListener('offline', () => {
+        loadHourlyProductionOffline().then(offline => showOfflineStatus(frm, offline));
+    });
+
     window.addEventListener('online', () => {
-        showOfflineStatus(frm);
-        // Wait for sync, then show popup
-        window.HourlyProductionOffline.syncCachedDocs().then(() => {
-            if (frappe.show_alert) {
-                frappe.show_alert({
-                    message: __('Offline changes synced!'),
-                    indicator: 'green'
-                });
-            } else {
-                frappe.msgprint(__('Offline changes synced!'));
-            }
+        loadHourlyProductionOffline().then(offline => {
+            showOfflineStatus(frm, offline);
+            if (!offline) return;
+
+            return offline.syncCachedDocs().then(() => {
+                if (frappe.show_alert) {
+                    frappe.show_alert({
+                        message: __('Offline changes synced!'),
+                        indicator: 'green'
+                    });
+                } else {
+                    frappe.msgprint(__('Offline changes synced!'));
+                }
+            });
         });
     });
 }
-// Import offline sync utility
-frappe.require('/assets/is_production/js/offline_sync.js');
+
 //Complete table is working and no ui
 // apps/is_production/public/js/hourly_production.js
 // 
@@ -754,6 +784,64 @@ frappe.ui.form.on('Mining Areas Options', {
 
 frappe.ui.form.on('Hourly Production', {
     setup(frm) {
+        frm.set_query("tub_factor_doc_link", "truck_loads", function(doc, cdt, cdn) {
+            const row = locals[cdt][cdn];
+
+            if (!frm.doc.month_prod_planning || !row.item_name || !row.mat_type) {
+                return {
+                    filters: {
+                        name: ["in", []]
+                    }
+                };
+            }
+
+            return {
+                query: "is_production.production.doctype.hourly_production.hourly_production.get_mpp_tub_factor_options",
+                filters: {
+                    monthly_production_plan: frm.doc.month_prod_planning,
+                    item_name: row.item_name,
+                    mat_type: row.mat_type
+                }
+            };
+        });
+
+        // Make the Tub Factor selector available in the Truck Loads grid.
+        // Use the grid API rather than mutating get_field().df directly:
+        // in Frappe v16 get_field() may return a grid field wrapper without df.
+        const truckLoadsGrid = frm.fields_dict.truck_loads?.grid;
+        const tubFactorDocField = frappe.meta.get_docfield(
+            "Truck Loads",
+            "tub_factor_doc_link",
+            frm.doc.name
+        );
+
+        if (truckLoadsGrid && tubFactorDocField) {
+            truckLoadsGrid.update_docfield_property(
+                "tub_factor_doc_link",
+                "hidden",
+                0
+            );
+            truckLoadsGrid.update_docfield_property(
+                "tub_factor_doc_link",
+                "read_only",
+                0
+            );
+            truckLoadsGrid.update_docfield_property(
+                "tub_factor_doc_link",
+                "in_list_view",
+                1
+            );
+            truckLoadsGrid.update_docfield_property(
+                "tub_factor_doc_link",
+                "columns",
+                2
+            );
+        } else {
+            console.warn(
+                "Truck Loads.tub_factor_doc_link is not available in loaded DocType metadata."
+            );
+        }
+
             // 🕐 Enable full 24-hour time picker including midnight
         const timeFields = [
             'day_shift_start',
@@ -775,8 +863,7 @@ frappe.ui.form.on('Hourly Production', {
             }
         });
 
-        // Load offline sync utility (keep this line after picker setup)
-        frappe.require('/assets/is_production/js/offline_sync.js');
+        // Offline sync is loaded once through loadHourlyProductionOffline().
  
         
         cleanupUIState(frm);
@@ -838,77 +925,64 @@ frappe.ui.form.on('Hourly Production', {
     },
     
     onload_post_render(frm) {
-    // This will trigger for both new and existing docs
-    if (frm.is_new()) {
-        cleanupUIState(frm);
-    }
-
-    // ✅ Restore locked hour_slot if it exists (prevents recalculation)
-    if (frm.doc.locked_hour_slot && frm.doc.hour_slot !== frm.doc.locked_hour_slot) {
-        frm.set_value('hour_slot', frm.doc.locked_hour_slot);
-        frm.refresh_field('hour_slot');
-        console.log('Restored locked hour slot:', frm.doc.locked_hour_slot);
-    }
-
-    frappe.require(['/assets/is_production/js/offline_sync.js'], function() {
-        // Ensure offline sync is ready
-        if (!window.HourlyProductionOffline) {
-            console.error('Offline sync utility not loaded');
-            return;
+        if (frm.is_new()) {
+            cleanupUIState(frm);
         }
 
-        // Restore cached doc if offline and cached
-        if (!window.HourlyProductionOffline.isOnline()) {
-            const cached = window.HourlyProductionOffline.getCachedDocs().find(d => d.name === frm.doc.name);
-            if (cached) {
-                frappe.confirm(
-                    __('You have unsynced offline changes for this record. Restore them?'),
-                    () => {
-                        frm.doc.truck_loads = cached.truck_loads || [];
-                        frm.doc.dozer_production = cached.dozer_production || [];
-                        frm.doc.mining_areas_options = cached.mining_areas_options || [];
-                        frm.doc.ts_area_bcm_total = cached.ts_area_bcm_total || [];
-                        frm.doc.geo_mat_total_bcm = cached.geo_mat_total_bcm || [];
-                        
-                        Object.keys(cached).forEach(key => {
-                            if (!Array.isArray(cached[key]) && typeof cached[key] !== 'object') {
-                                frm.doc[key] = cached[key];
-                            }
-                        });
-                        
-                        frm.refresh();
-                        ['truck_loads', 'dozer_production', 'mining_areas_options', 
-                         'ts_area_bcm_total', 'geo_mat_total_bcm'].forEach(table => {
-                            frm.refresh_field(table);
-                        });
-                        
-                        frappe.show_alert({
-                            message: __('Offline changes restored'),
-                            indicator: 'green'
-                        });
-                    }
-                );
+        if (frm.doc.locked_hour_slot && frm.doc.hour_slot !== frm.doc.locked_hour_slot) {
+            frm.set_value('hour_slot', frm.doc.locked_hour_slot);
+            frm.refresh_field('hour_slot');
+            console.log('Restored locked hour slot:', frm.doc.locked_hour_slot);
+        }
+
+        loadHourlyProductionOffline().then(offline => {
+            if (!offline) return;
+
+            if (!offline.isOnline()) {
+                const cached = offline.getCachedDocs().find(doc => doc.name === frm.doc.name);
+
+                if (cached) {
+                    frappe.confirm(
+                        __('You have unsynced offline changes for this record. Restore them?'),
+                        () => {
+                            frm.doc.truck_loads = cached.truck_loads || [];
+                            frm.doc.dozer_production = cached.dozer_production || [];
+                            frm.doc.mining_areas_options = cached.mining_areas_options || [];
+                            frm.doc.ts_area_bcm_total = cached.ts_area_bcm_total || [];
+                            frm.doc.geo_mat_total_bcm = cached.geo_mat_total_bcm || [];
+
+                            Object.keys(cached).forEach(key => {
+                                if (!Array.isArray(cached[key]) && typeof cached[key] !== 'object') {
+                                    frm.doc[key] = cached[key];
+                                }
+                            });
+
+                            frm.refresh();
+                            ['truck_loads', 'dozer_production', 'mining_areas_options', 'ts_area_bcm_total', 'geo_mat_total_bcm']
+                                .forEach(table => frm.refresh_field(table));
+
+                            frappe.show_alert({
+                                message: __('Offline changes restored'),
+                                indicator: 'green'
+                            });
+                        }
+                    );
+                }
+
+                frm.page.set_indicator('Offline Mode', 'orange');
+                if (!frm.custom_buttons['View Cached Changes']) {
+                    frm.add_custom_button(__('View Cached Changes'), function() {
+                        const docs = offline.getCachedDocs();
+                        const formattedDocs = docs.map(doc => `${doc.name} (${doc.doctype})`).join('\n');
+                        frappe.msgprint(formattedDocs || 'No cached changes');
+                    }, __('Offline'));
+                }
             }
-        }
 
-        setTimeout(() => {
-            showOfflineStatus(frm);
+            showOfflineStatus(frm, offline);
             setupOfflineStatusEvents(frm);
-        }, 300);
-
-        if (!window.HourlyProductionOffline.isOnline()) {
-            frm.page.set_indicator('Offline Mode', 'orange');
-            
-            if (!frm.custom_buttons['View Cached Changes']) {
-                frm.add_custom_button(__('View Cached Changes'), function() {
-                    const docs = window.HourlyProductionOffline.getCachedDocs();
-                    const formattedDocs = docs.map(doc => `${doc.name} (${doc.doctype})`).join('\n');
-                    frappe.msgprint(formattedDocs || 'No cached changes');
-                }, __('Offline'));
-            }
-        }
-    });
-},
+        });
+    },
 
 
      total_coal_bcm(frm) {
@@ -927,29 +1001,23 @@ frappe.ui.form.on('Hourly Production', {
         
         frm.set_df_property('whats_send', 'label', 'Send Raven');
         
-        // Ensure offline sync utility is loaded and check status
-        frappe.require('/assets/is_production/js/offline_sync.js').then(() => {
-            // Show offline status and handle cached changes
-            const cachedDocs = window.HourlyProductionOffline.getCachedDocs();
+        // Load offline support once and update the form state safely.
+        loadHourlyProductionOffline().then(offline => {
+            if (!offline) return;
+
+            const cachedDocs = offline.getCachedDocs();
             const hasCachedChanges = cachedDocs.some(doc => doc.name === frm.doc.name);
-            
-            if (!window.HourlyProductionOffline.isOnline()) {
+
+            if (!offline.isOnline()) {
                 frm.page.set_indicator('Offline Mode', 'orange');
-                
-                // Show view cached changes button
                 frm.add_custom_button(__('View Cached Changes'), function() {
-                    const formattedDocs = cachedDocs.map(doc => {
-                        return `${doc.name} (${doc.doctype})`;
-                    }).join('\n');
+                    const formattedDocs = cachedDocs.map(doc => `${doc.name} (${doc.doctype})`).join('\n');
                     frappe.msgprint(formattedDocs || 'No cached changes');
                 }, __('Offline'));
-                
             } else if (hasCachedChanges) {
                 frm.page.set_indicator('Has offline changes', 'orange');
-                
-                // Show sync button
                 frm.add_custom_button(__('Sync Changes'), function() {
-                    window.HourlyProductionOffline.syncCachedDocs().then((results) => {
+                    offline.syncCachedDocs().then(results => {
                         if (results.success > 0) {
                             frappe.show_alert({
                                 message: __('Changes synced successfully!'),
@@ -960,7 +1028,6 @@ frappe.ui.form.on('Hourly Production', {
                     });
                 }, __('Offline'));
             } else {
-                // Clear indicator if online and no cached changes
                 frm.page.clear_indicator();
             }
         });
@@ -1017,17 +1084,16 @@ frappe.ui.form.on('Hourly Production', {
             calculate_excavators_count(frm);
         }
 
-    // Update offline status tag (robust)
-    setTimeout(() => showOfflineStatus(frm), 300);
+        loadHourlyProductionOffline().then(offline => {
+            showOfflineStatus(frm, offline);
+            if (!offline || offline.getCachedDocs().length === 0) return;
 
-        // Add manual sync button if offline changes exist
-        if (window.HourlyProductionOffline.getCachedDocs().length > 0) {
             frm.add_custom_button(__('Sync Offline Changes'), function() {
-                window.HourlyProductionOffline.syncCachedDocs().then(() => {
+                offline.syncCachedDocs().then(() => {
                     frappe.show_alert('Offline changes synced!');
                 });
             });
-        }
+        });
         
     },
 
@@ -1104,15 +1170,16 @@ frappe.ui.form.on('Hourly Production', {
     if (frm.is_new() || !frm.doc.dozer_production || frm.doc.dozer_production.length === 0) {
         populate_dozer_production_table(frm);
     }
-        // If offline, cache doc on location change
-        if (!window.HourlyProductionOffline.isOnline()) {
-            window.HourlyProductionOffline.cacheDoc(frm.doc);
-            frappe.show_alert({
-                message: __('Offline: changes cached and will sync when online.'),
-                indicator: 'orange'
-            });
-        }
-    setTimeout(() => showOfflineStatus(frm), 300);
+        loadHourlyProductionOffline().then(offline => {
+            if (offline && !offline.isOnline()) {
+                offline.cacheDoc(frm.doc);
+                frappe.show_alert({
+                    message: __('Offline: changes cached and will sync when online.'),
+                    indicator: 'orange'
+                });
+            }
+            showOfflineStatus(frm, offline);
+        });
     },
 
     prod_date(frm) {
@@ -1244,9 +1311,9 @@ after_save(frm) {
     }
 
     
-    frappe.require(['/assets/is_production/js/offline_sync.js'], function() {
+    loadHourlyProductionOffline().then(offline => {
         // Check if we're offline
-        if (window.HourlyProductionOffline && !window.HourlyProductionOffline.isOnline()) {
+        if (offline && !offline.isOnline()) {
             // Cache the full doc with all its fields and child tables
             const docToCache = {
                 ...frm.doc,
@@ -1258,7 +1325,7 @@ after_save(frm) {
                 geo_mat_total_bcm: frm.doc.geo_mat_total_bcm || []
             };
             
-            window.HourlyProductionOffline.cacheDoc(docToCache);
+            offline.cacheDoc(docToCache);
             frm.page.set_indicator('Saved Offline', 'orange');
             
             frappe.show_alert({
@@ -1269,7 +1336,7 @@ after_save(frm) {
             // Add sync button if not already present
             if (!frm.custom_buttons['Sync Changes']) {
                 frm.add_custom_button(__('Sync Changes'), function() {
-                    window.HourlyProductionOffline.syncCachedDocs().then((results) => {
+                    offline.syncCachedDocs().then((results) => {
                         if (results.success > 0) {
                             frappe.show_alert({
                                 message: __('Changes synced successfully!'),

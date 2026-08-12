@@ -29,16 +29,13 @@ frappe.pages['production-dashboard'].on_page_load = function (wrapper) {
     fieldtype: 'Link', options: 'Monthly Production Planning', reqd: 1 
   }); 
 
-  monthly_production.get_query = () => { 
-    const site_val = site.get_value(); 
-    if (!site_val) { 
-      frappe.msgprint(__('Please select a Site first.')); 
-      return { filters: [] }; 
-    } 
-    return { 
-      filters: { location: site_val }, 
-      order_by: 'creation desc' 
-    }; 
+  monthly_production.get_query = () => {
+    return {
+      query: "is_production.production.doctype.monthly_production_planning.monthly_production_planning.dashboard_monthly_production_query",
+      filters: {
+        location: site.get_value()
+      }
+    };
   }; 
 
   const shift = page.add_field({ 
