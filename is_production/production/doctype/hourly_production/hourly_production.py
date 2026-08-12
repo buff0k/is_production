@@ -1768,6 +1768,9 @@ def get_mpp_tub_factor_options(
     Monthly Production Planning document for the matching truck model
     and material type.
     """
+    if isinstance(filters, str):
+        filters = frappe.parse_json(filters)
+
     filters = frappe._dict(filters or {})
 
     monthly_production_plan = filters.get(

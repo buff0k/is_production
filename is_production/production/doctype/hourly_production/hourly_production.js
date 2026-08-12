@@ -1979,10 +1979,16 @@ function _apply_selected_tub_factor(frm, cdt, cdn) {
     ).then(r => {
         const factor = r.message || {};
 
+        const factorDocstatus = Number(factor.docstatus);
+        const factorItemName = String(factor.item_name || '').trim();
+        const rowItemName = String(row.item_name || '').trim();
+        const factorMatType = String(factor.mat_type || '').trim();
+        const rowMatType = String(row.mat_type || '').trim();
+
         if (
-            factor.docstatus !== 1 ||
-            factor.item_name !== row.item_name ||
-            factor.mat_type !== row.mat_type
+            factorDocstatus !== 1 ||
+            factorItemName !== rowItemName ||
+            factorMatType !== rowMatType
         ) {
             frappe.model.set_value(
                 cdt,
@@ -2010,7 +2016,6 @@ function _apply_selected_tub_factor(frm, cdt, cdn) {
         });
     });
 }
-
 
 function _calculate_bcms(frm, cdt, cdn) {
     const row = frappe.get_doc(cdt, cdn);
