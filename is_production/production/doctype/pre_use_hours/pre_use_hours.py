@@ -129,19 +129,31 @@ class PreUseHours(Document):
             if flt(prev_row.eng_hrs_start) == 0:
                 continue            
 
-            if working_hours < 0 or working_hours > 12:
+            (
+                max_shift_hours,
+                _max_daily_hours,
+                saturday_plan_hours,
+            ) = get_preuse_hour_limits(
+                prev_row.location,
+                prev_row.shift_date,
+            )
+
+            if working_hours < 0 or working_hours > max_shift_hours:
                 bad_assets.append({
                     "asset": cr.asset_name,
                     "prev_start": prev_row.eng_hrs_start,
                     "new_start": cr.eng_hrs_start,
                     "wh": working_hours,
+                    "max_hours": max_shift_hours,
+                    "saturday_plan_hours": saturday_plan_hours,
                     "prev_doc": prev_row.parent,
                 })
 
         if bad_assets:
             rows_html = "".join(
                 f"<tr><td>{b['asset']}</td><td>{b['prev_doc']}</td><td>{b['prev_start']}</td>"
-                f"<td>{b['new_start']}</td><td>{b['wh']}</td></tr>"
+                f"<td>{b['new_start']}</td><td>{b['wh']}</td>"
+                f"<td>{b['max_hours']:g}</td></tr>"
                 for b in bad_assets
             )
             table_html = f"""
@@ -154,12 +166,13 @@ class PreUseHours(Document):
                         <th>Previous Start</th>
                         <th>Current Start</th>
                         <th>Calculated Hours</th>
+                        <th>Maximum Allowed</th>
                     </tr>
                     {rows_html}
                 </table>
                 <p style="color:gray; margin-top:10px;">
                     Please adjust the <b>engine start hours</b> in the current shift so that the
-                    previous shift's working hours are valid (0–12).
+                    previous shift's working hours are within the configured maximum shown above.
                 </p>
             """
             frappe.throw(table_html)
@@ -243,7 +256,7 @@ class PreUseHours(Document):
                 <hr>
                 <h5>Legend & Help</h5>
                 <p>
-                  <b>🔴 Red (Critical):</b> Negative or unrealistic working hours (&gt;12 hrs).<br>
+                  <b>🔴 Red (Critical):</b> Negative working hours or hours above the configured shift maximum.<br>
                   <b>🟠 Yellow (Warning):</b> Missing data or zero hours.<br>
                   <b>🟢 Green (Valid):</b> All data checks passed.
                 </p>
@@ -294,6 +307,42 @@ class PreUseHours(Document):
 
 
 
+        (
+            max_shift_hours,
+            max_daily_hours,
+            saturday_plan_hours,
+        ) = get_preuse_hour_limits(
+            self.location,
+            self.shift_date,
+        )
+
+        is_saturday = (
+            bool(self.shift_date)
+            and getdate(self.shift_date).weekday() == 5
+        )
+
+        if is_saturday:
+            saturday_plan_text = (
+                f"{saturday_plan_hours:g}"
+                if saturday_plan_hours is not None
+                else "Not Found"
+            )
+
+            rule_note = (
+                "<p>"
+                "<b>Saturday Pre-Use validation:</b> "
+                f"Monthly Planning Saturday Hours = {saturday_plan_text}; "
+                f"Maximum Working Hours per shift = {max_shift_hours:g}."
+                "</p>"
+            )
+        else:
+            rule_note = (
+                "<p>"
+                "<b>Pre-Use validation:</b> "
+                f"Maximum Working Hours per shift = {max_shift_hours:g}."
+                "</p>"
+            )
+
         for idx, row in enumerate(self.get("pre_use_assets", []), start=1):
             row_issues = []
             eng_hrs_start = row.eng_hrs_start
@@ -314,8 +363,12 @@ class PreUseHours(Document):
 
                 if working_hours < 0:
                     row_issues.append("❌ <span style='color:red;'>Negative Working Hours</span>")
-                elif working_hours > 12:
-                    row_issues.append("❌ <span style='color:red;'>Unrealistic Working Hours &gt; 12</span>")
+                elif working_hours > max_shift_hours:
+                    row_issues.append(
+                        "❌ <span style='color:red;'>"
+                        f"Unrealistic Working Hours &gt; {max_shift_hours:g}"
+                        "</span>"
+                    )
                 elif working_hours == 0:
                     row_issues.append("⚠️ <span style='color:orange;'>Zero Working Hours</span>")
 
@@ -342,15 +395,116 @@ class PreUseHours(Document):
                 for e in errors
             )
             self.data_integrity_summary = f"""
+                {rule_note}
                 <table class="table table-bordered">
                     <tr><th>Row</th><th>Asset</th><th>Issues</th></tr>
                     {rows_html}
                 </table>
             """
         else:
-            self.data_integrity_summary = "<p><b>✅ No integrity issues found.</b></p>"
+            self.data_integrity_summary = (
+                rule_note
+                + "<p><b>✅ No integrity issues found.</b></p>"
+            )
 
         self.data_integ_indicator = indicator
+
+
+# ISAMBANE SATURDAY PRE-USE LIMITS
+def get_preuse_hour_limits(location, shift_date):
+    """
+    Return the valid Pre-Use working-hour limits for a site/date.
+
+    Current business rules:
+
+    Monday-Friday / Sunday:
+        Shift maximum = 12 hours
+        Daily maximum = 24 hours
+
+    Saturday:
+        Monthly Planning saturday_shift_hours = 9
+            Shift maximum = 12 hours
+            Daily maximum = 24 hours
+
+        Monthly Planning saturday_shift_hours = 7
+            Shift maximum = 9 hours
+            Daily maximum = 18 hours
+
+    Returns:
+        (
+            max_shift_hours,
+            max_daily_hours,
+            saturday_plan_hours,
+        )
+    """
+
+    shift_date = getdate(shift_date)
+
+    # Existing/default Pre-Use rule
+    max_shift_hours = 12.0
+    max_daily_hours = 24.0
+    saturday_plan_hours = None
+
+    if not shift_date:
+        return (
+            max_shift_hours,
+            max_daily_hours,
+            saturday_plan_hours,
+        )
+
+    # Python:
+    # Monday    = 0
+    # Tuesday   = 1
+    # Wednesday = 2
+    # Thursday  = 3
+    # Friday    = 4
+    # Saturday  = 5
+    # Sunday    = 6
+    if shift_date.weekday() != 5:
+        return (
+            max_shift_hours,
+            max_daily_hours,
+            saturday_plan_hours,
+        )
+
+    monthly_plan = get_monthly_production_plan(
+        location,
+        shift_date,
+    )
+
+    if not monthly_plan:
+        return (
+            max_shift_hours,
+            max_daily_hours,
+            saturday_plan_hours,
+        )
+
+    saturday_plan_hours = flt(
+        monthly_plan.get("saturday_shift_hours")
+    )
+
+    if saturday_plan_hours == 7:
+        max_shift_hours = 9.0
+        max_daily_hours = 18.0
+
+    elif saturday_plan_hours == 9:
+        max_shift_hours = 12.0
+        max_daily_hours = 24.0
+
+    else:
+        frappe.throw(
+            "Saturday Shift No. Working Hours in Monthly Production "
+            "Planning must be 7 or 9 for Pre-Use integrity validation. "
+            f"Site: {location}, "
+            f"Date: {shift_date}, "
+            f"Configured value: {saturday_plan_hours:g}"
+        )
+
+    return (
+        max_shift_hours,
+        max_daily_hours,
+        saturday_plan_hours,
+    )
 
 
 def get_monthly_production_plan(location, shift_date):
@@ -365,7 +519,15 @@ def get_monthly_production_plan(location, shift_date):
             "prod_month_end_date": [">=", shift_date],
             "site_status": "Producing"
         },
-        fields=["name", "prod_month_start_date", "prod_month_end_date", "shift_system"],
+        fields=[
+            "name",
+            "prod_month_start_date",
+            "prod_month_end_date",
+            "shift_system",
+            "weekday_shift_hours",
+            "saturday_shift_hours",
+            "num_sat_shifts",
+        ],
         limit=1
     )
     return records[0] if records else None
