@@ -486,6 +486,29 @@ class MonthlyProductionPlanning(Document):
             )
 
 
+def update_all_active_mpp_mtd():
+    today = getdate()
+
+    mpps = frappe.get_all(
+        "Monthly Production Planning",
+        filters={
+            "prod_month_start_date": ["<=", today],
+            "prod_month_end_date": [">=", today],
+            "docstatus": ["<", 2],
+        },
+        pluck="name",
+    )
+
+    for name in mpps:
+        try:
+            doc = frappe.get_doc("Monthly Production Planning", name)
+            doc.update_mtd_production()
+        except Exception:
+            frappe.log_error(
+                frappe.get_traceback(),
+                f"Hourly MPP MTD Update - {name}",
+            )
+
 @frappe.whitelist()
 def update_mtd_production(name):
     """

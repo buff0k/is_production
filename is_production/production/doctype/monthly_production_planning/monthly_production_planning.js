@@ -430,192 +430,42 @@ refresh_machines_from_assets(frm) {
   // Section 7: Update MTD Production
 
 
-
-  update_mtd_production(frm) {
-    try {
-      if (!frm.doc.name) {
-        frappe.msgprint(__('Save first.'));
+update_mtd_production(frm) {
+    if (!frm.doc.name) {
+        frappe.msgprint(__('Save the Monthly Production Planning document first.'));
         return;
-      }
-
-      const refs = (frm.doc.month_prod_days || [])
-        .map(r => r.hourly_production_reference)
-        .filter(Boolean);
-
-      if (!refs.length) {
-        frappe.msgprint(__('No hourly production references found. Save or populate production days first.'));
-        return;
-      }
-
-      frappe.call({
-        method: 'frappe.client.get_list',
-        args: {
-          doctype: 'Hourly Production',
-          filters: [
-            ['month_prod_planning', '=', frm.doc.name],
-            ['monthly_production_child_ref', 'in', refs]
-          ],
-          fields: [
-            'name',
-            'monthly_production_child_ref as ref',
-            'shift',
-            'total_ts_bcm',
-            'total_dozing_bcm'
-          ],
-          limit_page_length: 0,
-          limit_start: 0
-        },
-        callback: hp => {
-          try {
-            const hpRecords = hp.message || [];
-            const sumsMap = {};
-
-            hpRecords.forEach(e => {
-              const ts = flt(e.total_ts_bcm);
-              const dz = flt(e.total_dozing_bcm);
-              const bcm = ts + dz;
-              const shift = e.shift || '';
-
-              sumsMap[e.ref] = sumsMap[e.ref] || {
-                Day: 0,
-                Night: 0,
-                total: 0,
-                ts: 0,
-                dz: 0,
-                record_count: 0
-              };
-
-              // Control/report must use Day and Night only.
-              // Legacy Morning/Afternoon reports are not used for shift totals.
-              if (shift === 'Day') {
-                sumsMap[e.ref].Day += bcm;
-                sumsMap[e.ref].record_count += 1;
-              }
-
-              if (shift === 'Night') {
-                sumsMap[e.ref].Night += bcm;
-                sumsMap[e.ref].record_count += 1;
-              }
-
-              if (shift === 'Day' || shift === 'Night') {
-                sumsMap[e.ref].total += bcm;
-                sumsMap[e.ref].ts += ts;
-                sumsMap[e.ref].dz += dz;
-              }
-            });
-
-            (frm.doc.month_prod_days || []).forEach(row => {
-              const s = sumsMap[row.hourly_production_reference] || {
-                Day: 0,
-                Night: 0,
-                total: 0,
-                ts: 0,
-                dz: 0
-              };
-
-              frappe.model.set_value(row.doctype, row.name, {
-                day_shift_bcms: s.Day,
-                night_shift_bcms: s.Night,
-                morning_shift_bcms: 0,
-                afternoon_shift_bcms: 0,
-                total_daily_bcms: s.total,
-                total_ts_bcms: s.ts,
-                total_dozing_bcms: s.dz
-              });
-            });
-
-            frm.refresh_field('month_prod_days');
-
-            let runTs = 0;
-            let runDz = 0;
-
-            (frm.doc.month_prod_days || [])
-              .slice()
-              .sort((a, b) => new Date(a.shift_start_date) - new Date(b.shift_start_date))
-              .forEach(rw => {
-                runTs += flt(rw.total_ts_bcms);
-                runDz += flt(rw.total_dozing_bcms);
-
-                frappe.model.set_value(rw.doctype, rw.name, {
-                  cum_ts_bcms: runTs,
-                  tot_cumulative_dozing_bcms: runDz
-                });
-              });
-
-            frm.refresh_field('month_prod_days');
-
-            let totalTs = 0;
-            let totalDz = 0;
-
-            (frm.doc.month_prod_days || []).forEach(r => {
-              totalTs += flt(r.total_ts_bcms);
-              totalDz += flt(r.total_dozing_bcms);
-            });
-
-            calculateAndSetProductionStats(frm);
-
-            const actual =
-              totalTs +
-              totalDz +
-              flt(frm.doc.monthly_act_tally_survey_variance);
-
-            const doneDays = flt(frm.doc.prod_days_completed);
-            const doneHrs = flt(frm.doc.month_prod_hours_completed);
-
-            const mtdDay = doneDays ? actual / doneDays : 0;
-            const mtdHr = doneHrs ? actual / doneHrs : 0;
-            const forecast = mtdHr * flt(frm.doc.total_month_prod_hours);
-
-            frm.set_value({
-              month_act_ts_bcm_tallies: totalTs,
-              month_act_dozing_bcm_tallies: totalDz,
-              month_actual_bcm: actual,
-              mtd_bcm_day: mtdDay,
-              mtd_bcm_hour: mtdHr,
-              month_forecated_bcm: forecast
-            });
-
-            frm.refresh_fields([
-              'month_act_ts_bcm_tallies',
-              'month_act_dozing_bcm_tallies',
-              'month_actual_bcm',
-              'mtd_bcm_day',
-              'mtd_bcm_hour',
-              'month_forecated_bcm',
-              'tot_shift_day_hours',
-              'tot_shift_night_hours',
-              'tot_shift_morning_hours',
-              'tot_shift_afternoon_hours',
-              'total_month_prod_hours',
-              'prod_days_completed',
-              'month_prod_hours_completed',
-              'month_remaining_production_days',
-              'month_remaining_prod_hours'
-            ]);
-
-            if (typeof renderProductionDaysUI === 'function') {
-              renderProductionDaysUI(frm);
-            }
-
-            frm.save().then(() => {
-              frappe.msgprint(__('Month to Date Production updated using Day/Night shifts.'));
-            });
-          } catch (inner) {
-            logError('Processing Hourly Production Callback', inner);
-          }
-        },
-        error: err => {
-          logError('Call Hourly Production', err);
-          frappe.msgprint(__('Unable to load Hourly Production data. See Error Log.'));
-        }
-      });
-    } catch (e) {
-      logError('update_mtd_production', e);
-      frappe.msgprint(__('An unexpected error occurred. Check the Error Log.'));
     }
-  },
 
+    frappe.call({
+        method: 'is_production.production.doctype.monthly_production_planning.monthly_production_planning.update_mtd_production',
+        args: {
+            name: frm.doc.name
+        },
+        freeze: true,
+        freeze_message: __('Updating Month to Date Production...'),
 
+        callback: function(r) {
+            if (r.message && r.message.status === 'success') {
+                frm.reload_doc().then(() => {
+                    frappe.show_alert({
+                        message: __('Month to Date Production updated successfully.'),
+                        indicator: 'green'
+                    });
+                });
+            } else {
+                frappe.msgprint(
+                    __('Month to Date Production update failed. Check the Error Log.')
+                );
+            }
+        },
+
+        error: function() {
+            frappe.msgprint(
+                __('Month to Date Production update failed. Check the Error Log.')
+            );
+        }
+    });
+},
 
 
   // Section 8: Child Table Triggers

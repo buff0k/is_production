@@ -56,6 +56,10 @@ page_js = {
 }
 
 scheduler_events = {
+    "hourly": [
+        "is_production.production.doctype.monthly_production_planning.monthly_production_planning.update_all_active_mpp_mtd",
+    ],
+
     "cron": {
         # DAILY 05:55 - CEO Dashboard 1 PDF snapshot email
         "55 5 * * *": [
