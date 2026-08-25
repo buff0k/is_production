@@ -561,11 +561,47 @@ is_production.ui.HourlyProductionUI = class {
     setupDozerEvents() {
     const me = this;
 
-    $(document).on('change', '.dozer-service', function () {
-        const name = $(this).data('dozer-name');
-        const value = this.value;
-        me.updateDozerField(name, 'dozer_service', value);
-    });
+    $(document)
+        .off('change.krielDozerService', '.dozer-service')
+        .on('change.krielDozerService', '.dozer-service', function () {
+            const name = $(this).data('dozer-name');
+            const value = this.value;
+            const location = String(me.frm.doc.location || '').trim();
+
+            // Always update the selected service in the child row.
+            me.updateDozerField(name, 'dozer_service', value);
+
+            let bcmHour = null;
+
+            // Non-production dozing services must be zero.
+            if (
+                value === 'No Dozing' ||
+                value === 'Tip Dozing' ||
+                value === 'Levelling'
+            ) {
+                bcmHour = 0;
+            }
+
+            // Kriel Rehabilitation fixed production dozing rates.
+            if (location === 'Kriel Rehabilitation') {
+                if (value === 'Production Dozing-50m') {
+                    bcmHour = 75;
+                } else if (value === 'Production Dozing-100m') {
+                    bcmHour = 150;
+                }
+            }
+
+            // If this service has an automatic BCM value,
+            // update both the child row and visible card immediately.
+            if (bcmHour !== null) {
+                me.updateDozerField(name, 'bcm_hour', bcmHour);
+
+                $(this)
+                    .closest('.dozer-block')
+                    .find('.dozer-production')
+                    .val(bcmHour);
+            }
+        });
 
     $(document).on('change', '.dozer-production', function () {
         const name = $(this).data('dozer-name');

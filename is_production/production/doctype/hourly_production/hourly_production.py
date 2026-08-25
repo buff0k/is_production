@@ -485,7 +485,17 @@ class HourlyProduction(Document):
                             "For Dozer Service '{0}', only a BCM in Hour value of 0 is allowed."
                         ).format(row.dozer_service))
                 elif row.dozer_service in ["Production Dozing-50m", "Production Dozing-100m"]:
-                    if row.bcm_hour not in allowed_bcm_values:
+                    # Kriel Rehabilitation uses fixed production dozing rates.
+                    # Enforce the value server-side as well so API/import/stale
+                    # browser saves cannot store a different BCM/Hour.
+                    if self.location == "Kriel Rehabilitation":
+                        required_bcm = (
+                            75
+                            if row.dozer_service == "Production Dozing-50m"
+                            else 150
+                        )
+                        row.bcm_hour = required_bcm
+                    elif row.bcm_hour not in allowed_bcm_values:
                         frappe.throw(_(
                             "For Dozer Service '{0}', BCM in Hour value must be one of {1}."
                         ).format(row.dozer_service, allowed_bcm_values))
