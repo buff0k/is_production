@@ -418,6 +418,28 @@ is_production.ui.HourlyProductionUI = class {
     dozerNames.forEach(dozerName => {
         const dozerData = this.frm.doc.dozer_production?.find(d => d.asset_name === dozerName) || {};
 
+        // Kriel Rehabilitation fixed BCM rates must also be applied
+        // when an existing dozer row is first rendered.
+        let displayBcmHour = parseFloat(dozerData.bcm_hour) || 0;
+        const location = String(this.frm.doc.location || '').trim();
+
+        if (location === 'Kriel Rehabilitation') {
+            if (dozerData.dozer_service === 'Production Dozing-50m') {
+                displayBcmHour = 75;
+                dozerData.bcm_hour = 75;
+            } else if (dozerData.dozer_service === 'Production Dozing-100m') {
+                displayBcmHour = 150;
+                dozerData.bcm_hour = 150;
+            } else if (
+                dozerData.dozer_service === 'No Dozing' ||
+                dozerData.dozer_service === 'Tip Dozing' ||
+                dozerData.dozer_service === 'Levelling'
+            ) {
+                displayBcmHour = 0;
+                dozerData.bcm_hour = 0;
+            }
+        }
+
         const serviceOptionsHtml = // In renderDozersUI, replace the service options part with:
         `
             <option value="No Dozing" ${dozerData.dozer_service === 'No Dozing' ? 'selected' : ''}>No Dozing</option>
@@ -443,7 +465,7 @@ is_production.ui.HourlyProductionUI = class {
                 <label>BCM/Hour</label>
                         <input type="number"
                             class="form-control dozer-production"
-                            value="${dozerData.bcm_hour || 0}"
+                            value="${displayBcmHour}"
                             data-dozer-name="${dozerName}"
                             readonly
                             disabled>
@@ -561,11 +583,47 @@ is_production.ui.HourlyProductionUI = class {
     setupDozerEvents() {
     const me = this;
 
-    $(document).on('change', '.dozer-service', function () {
-        const name = $(this).data('dozer-name');
-        const value = this.value;
-        me.updateDozerField(name, 'dozer_service', value);
-    });
+    $(document)
+        .off('change.krielDozerService', '.dozer-service')
+        .on('change.krielDozerService', '.dozer-service', function () {
+            const name = $(this).data('dozer-name');
+            const value = this.value;
+            const location = String(me.frm.doc.location || '').trim();
+
+            // Always update the selected service in the child row.
+            me.updateDozerField(name, 'dozer_service', value);
+
+            let bcmHour = null;
+
+            // Non-production dozing services must be zero.
+            if (
+                value === 'No Dozing' ||
+                value === 'Tip Dozing' ||
+                value === 'Levelling'
+            ) {
+                bcmHour = 0;
+            }
+
+            // Kriel Rehabilitation fixed production dozing rates.
+            if (location === 'Kriel Rehabilitation') {
+                if (value === 'Production Dozing-50m') {
+                    bcmHour = 75;
+                } else if (value === 'Production Dozing-100m') {
+                    bcmHour = 150;
+                }
+            }
+
+            // If this service has an automatic BCM value,
+            // update both the child row and visible card immediately.
+            if (bcmHour !== null) {
+                me.updateDozerField(name, 'bcm_hour', bcmHour);
+
+                $(this)
+                    .closest('.dozer-block')
+                    .find('.dozer-production')
+                    .val(bcmHour);
+            }
+        });
 
     $(document).on('change', '.dozer-production', function () {
         const name = $(this).data('dozer-name');
@@ -1029,13 +1087,16 @@ calculateBCMS(doctype, name) {
 async handleDozerServiceChange(row) {
 
     let bcmValue = 0;
+    const location = String(this.frm.doc.location || '').trim();
 
     // --- Production Dozing rules ---
+    // Kriel Rehabilitation uses fixed BCM/hour rates.
+    // All other locations retain their existing rates.
     if (row.dozer_service === 'Production Dozing-50m') {
-        bcmValue = 180;
+        bcmValue = location === 'Kriel Rehabilitation' ? 75 : 180;
     }
     else if (row.dozer_service === 'Production Dozing-100m') {
-        bcmValue = 200;
+        bcmValue = location === 'Kriel Rehabilitation' ? 150 : 200;
     }
 
     // --- Zero-BCM services ---

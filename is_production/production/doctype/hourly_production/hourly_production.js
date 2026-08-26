@@ -1146,8 +1146,24 @@ frappe.ui.form.on('Hourly Production', {
     
       dozer_service(frm, cdt, cdn) {
         const row = frappe.get_doc(cdt, cdn);
+
+        // Non-production dozing remains zero
         if (row.dozer_service === 'No Dozing') {
             frappe.model.set_value(cdt, cdn, 'bcm_hour', 0);
+            return;
+        }
+
+        // Kriel Rehabilitation fixed production dozing rates
+        if (String(frm.doc.location || '').trim() === 'Kriel Rehabilitation') {
+            if (row.dozer_service === 'Production Dozing-50m') {
+                frappe.model.set_value(cdt, cdn, 'bcm_hour', 75);
+                return;
+            }
+
+            if (row.dozer_service === 'Production Dozing-100m') {
+                frappe.model.set_value(cdt, cdn, 'bcm_hour', 150);
+                return;
+            }
         }
     },
     mining_areas_dozer_child(frm) {
@@ -2506,3 +2522,35 @@ function calculate_exc_total_hours(frm, cdt, cdn) {
 
     frappe.model.set_value(cdt, cdn, 'exc_total_hours', total);
 }
+
+// ============================================================
+// Kriel Rehabilitation child dozer fixed BCM rates
+// ============================================================
+frappe.ui.form.on('Dozer Production', {
+    dozer_service(frm, cdt, cdn) {
+        const row = frappe.get_doc(cdt, cdn);
+        const location = String(frm.doc.location || '').trim();
+
+        // Existing non-production rule
+        if (row.dozer_service === 'No Dozing') {
+            frappe.model.set_value(cdt, cdn, 'bcm_hour', 0);
+            return;
+        }
+
+        // Only Kriel Rehabilitation uses these fixed rates
+        if (location !== 'Kriel Rehabilitation') {
+            return;
+        }
+
+        if (row.dozer_service === 'Production Dozing-50m') {
+            frappe.model.set_value(cdt, cdn, 'bcm_hour', 75);
+            return;
+        }
+
+        if (row.dozer_service === 'Production Dozing-100m') {
+            frappe.model.set_value(cdt, cdn, 'bcm_hour', 150);
+            return;
+        }
+    }
+});
+
