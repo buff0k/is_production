@@ -418,6 +418,28 @@ is_production.ui.HourlyProductionUI = class {
     dozerNames.forEach(dozerName => {
         const dozerData = this.frm.doc.dozer_production?.find(d => d.asset_name === dozerName) || {};
 
+        // Kriel Rehabilitation fixed BCM rates must also be applied
+        // when an existing dozer row is first rendered.
+        let displayBcmHour = parseFloat(dozerData.bcm_hour) || 0;
+        const location = String(this.frm.doc.location || '').trim();
+
+        if (location === 'Kriel Rehabilitation') {
+            if (dozerData.dozer_service === 'Production Dozing-50m') {
+                displayBcmHour = 75;
+                dozerData.bcm_hour = 75;
+            } else if (dozerData.dozer_service === 'Production Dozing-100m') {
+                displayBcmHour = 150;
+                dozerData.bcm_hour = 150;
+            } else if (
+                dozerData.dozer_service === 'No Dozing' ||
+                dozerData.dozer_service === 'Tip Dozing' ||
+                dozerData.dozer_service === 'Levelling'
+            ) {
+                displayBcmHour = 0;
+                dozerData.bcm_hour = 0;
+            }
+        }
+
         const serviceOptionsHtml = // In renderDozersUI, replace the service options part with:
         `
             <option value="No Dozing" ${dozerData.dozer_service === 'No Dozing' ? 'selected' : ''}>No Dozing</option>
@@ -443,7 +465,7 @@ is_production.ui.HourlyProductionUI = class {
                 <label>BCM/Hour</label>
                         <input type="number"
                             class="form-control dozer-production"
-                            value="${dozerData.bcm_hour || 0}"
+                            value="${displayBcmHour}"
                             data-dozer-name="${dozerName}"
                             readonly
                             disabled>
@@ -1065,13 +1087,16 @@ calculateBCMS(doctype, name) {
 async handleDozerServiceChange(row) {
 
     let bcmValue = 0;
+    const location = String(this.frm.doc.location || '').trim();
 
     // --- Production Dozing rules ---
+    // Kriel Rehabilitation uses fixed BCM/hour rates.
+    // All other locations retain their existing rates.
     if (row.dozer_service === 'Production Dozing-50m') {
-        bcmValue = 180;
+        bcmValue = location === 'Kriel Rehabilitation' ? 75 : 180;
     }
     else if (row.dozer_service === 'Production Dozing-100m') {
-        bcmValue = 200;
+        bcmValue = location === 'Kriel Rehabilitation' ? 150 : 200;
     }
 
     // --- Zero-BCM services ---
