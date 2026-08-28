@@ -2526,3 +2526,1436 @@ frappe.query_reports["Truck and Shovel Productivity"] = {
     }
 
 })();
+
+
+// ============================================================
+// TRUCK AND SHOVEL PRODUCTIVITY
+// PRINT CURRENT SELECTED REPORT
+// ============================================================
+
+(function () {
+
+    const reportSettings =
+        frappe.query_reports[
+            "Truck and Shovel Productivity"
+        ];
+
+    if (!reportSettings) {
+        return;
+    }
+
+    const oldOnload =
+        reportSettings.onload;
+
+    reportSettings.onload =
+        function(report) {
+
+            if (
+                typeof oldOnload
+                === "function"
+            ) {
+                oldOnload.apply(
+                    this,
+                    arguments
+                );
+            }
+
+            install_print_button(
+                report
+            );
+        };
+
+
+    function install_print_button(
+        report
+    ) {
+
+        if (
+            !report ||
+            !report.page
+        ) {
+            return;
+        }
+
+        if (
+            report.tsp_print_button_installed
+        ) {
+            return;
+        }
+
+        report.tsp_print_button_installed =
+            true;
+
+        report.page.add_inner_button(
+            __("Print Report"),
+            function() {
+                print_current_report();
+            }
+        );
+    }
+
+
+    function esc(value) {
+
+        return frappe.utils.escape_html(
+            String(
+                value === null ||
+                value === undefined
+                    ? ""
+                    : value
+            )
+        );
+    }
+
+
+    function filter_value(
+        fieldname
+    ) {
+
+        return (
+            frappe.query_report
+                .get_filter_value(
+                    fieldname
+                )
+            || ""
+        );
+    }
+
+
+    function user_date(
+        value
+    ) {
+
+        if (!value) {
+            return "";
+        }
+
+        try {
+            return frappe.datetime
+                .str_to_user(
+                    value
+                );
+        } catch (e) {
+            return value;
+        }
+    }
+
+
+    function build_filters() {
+
+        return `
+            <div class="print-filters">
+
+                <div>
+                    <b>From:</b>
+                    ${esc(
+                        user_date(
+                            filter_value(
+                                "from_date"
+                            )
+                        )
+                    )}
+                </div>
+
+                <div>
+                    <b>To:</b>
+                    ${esc(
+                        user_date(
+                            filter_value(
+                                "to_date"
+                            )
+                        )
+                    )}
+                </div>
+
+                <div>
+                    <b>Site:</b>
+                    ${esc(
+                        filter_value("site")
+                        || "All"
+                    )}
+                </div>
+
+                <div>
+                    <b>Excavator:</b>
+                    ${esc(
+                        filter_value(
+                            "excavator"
+                        )
+                        || "All"
+                    )}
+                </div>
+
+                <div>
+                    <b>ADT:</b>
+                    ${esc(
+                        filter_value("adt")
+                        || "All"
+                    )}
+                </div>
+
+                <div>
+                    <b>View:</b>
+                    ${esc(
+                        filter_value("view")
+                    )}
+                </div>
+
+            </div>
+        `;
+    }
+
+
+
+    function get_table_html() {
+
+        const $datatable =
+            $(".report-wrapper .datatable:visible")
+                .first();
+
+        if (!$datatable.length) {
+            return "";
+        }
+
+
+        // ====================================================
+        // HEADER
+        // ====================================================
+
+        const headers = [];
+
+        const $headerRow =
+            $datatable
+                .find(
+                    ".dt-header .dt-row"
+                )
+                .first();
+
+        $headerRow
+            .children(".dt-cell")
+            .each(function(index) {
+
+                // Skip DataTable row-number/tree utility column.
+                if (index === 0) {
+                    return;
+                }
+
+                const text =
+                    $(this)
+                        .find(
+                            ".dt-cell__content"
+                        )
+                        .first()
+                        .text()
+                        .trim();
+
+                headers.push(
+                    text || ""
+                );
+            });
+
+
+        // ====================================================
+        // VISIBLE BODY ROWS ONLY
+        // ====================================================
+
+        const rows = [];
+
+        $datatable
+            .find(
+                ".dt-scrollable .dt-row:visible"
+            )
+            .each(function() {
+
+                const $row =
+                    $(this);
+
+                // Ignore header/filter rows.
+                if (
+                    $row.closest(
+                        ".dt-header"
+                    ).length
+                ) {
+                    return;
+                }
+
+                const cells = [];
+
+                $row
+                    .children(
+                        ".dt-cell"
+                    )
+                    .each(
+                        function(index) {
+
+                            // Skip row-number/tree utility column.
+                            if (index === 0) {
+                                return;
+                            }
+
+                            const $content =
+                                $(this)
+                                    .find(
+                                        ".dt-cell__content"
+                                    )
+                                    .first();
+
+                            let value =
+                                $content
+                                    .text()
+                                    .trim();
+
+                            cells.push(
+                                value
+                            );
+                        }
+                    );
+
+                if (
+                    cells.length
+                ) {
+                    rows.push(
+                        cells
+                    );
+                }
+            });
+
+
+        // ====================================================
+        // BUILD CLEAN PRINT TABLE
+        // ====================================================
+
+        let html =
+            '<table class="tsp-print-table">';
+
+
+        html += "<thead><tr>";
+
+        headers.forEach(
+            function(header) {
+
+                html +=
+                    "<th>" +
+                    esc(header) +
+                    "</th>";
+            }
+        );
+
+        html += "</tr></thead>";
+
+
+        html += "<tbody>";
+
+        rows.forEach(
+            function(cells) {
+
+                html += "<tr>";
+
+                cells.forEach(
+                    function(value) {
+
+                        html +=
+                            "<td>" +
+                            esc(value) +
+                            "</td>";
+                    }
+                );
+
+                html += "</tr>";
+            }
+        );
+
+        html += "</tbody>";
+
+        html += "</table>";
+
+        return html;
+    }
+
+
+    function print_current_report() {
+
+        const tableHtml =
+            get_table_html();
+
+        if (!tableHtml) {
+
+            frappe.msgprint(
+                __(
+                    "No report data is visible to print."
+                )
+            );
+
+            return;
+        }
+
+        const view =
+            filter_value(
+                "view"
+            );
+
+        const printWindow =
+            window.open(
+                "",
+                "_blank",
+                "width=1500,height=900"
+            );
+
+        if (!printWindow) {
+
+            frappe.msgprint(
+                __(
+                    "Please allow pop-ups for this site."
+                )
+            );
+
+            return;
+        }
+
+        const html = `
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="utf-8">
+
+<title>
+Truck and Shovel Productivity - ${esc(view)}
+</title>
+
+<style>
+
+@page {
+    size: A3 landscape;
+    margin: 10mm;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 12px;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    color: #111;
+    background: #fff;
+    overflow-x: auto !important;
+}
+
+h1 {
+    margin: 0 0 6px 0;
+    font-size: 24px;
+    line-height: 1.2;
+}
+
+.subtitle {
+    margin-bottom: 12px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.print-filters {
+    display: grid;
+    grid-template-columns:
+        repeat(
+            3,
+            minmax(260px, 1fr)
+        );
+    gap: 8px;
+    padding: 10px;
+    margin-bottom: 12px;
+    border: 1px solid #999;
+    background: #f5f5f5;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.generated {
+    margin-bottom: 8px;
+    text-align: right;
+    font-size: 11px;
+}
+
+.tsp-print-table {
+    width: 100%;
+    min-width: 1800px;
+    border-collapse: collapse;
+    table-layout: auto;
+    font-size: 13px;
+    margin: 0;
+}
+
+.tsp-print-table th {
+    background: #e6e6e6;
+    font-weight: 700;
+    border: 1px solid #777;
+    padding: 7px 6px;
+    text-align: left;
+    white-space: nowrap;
+    line-height: 1.25;
+    font-size: 13px;
+}
+
+.tsp-print-table td {
+    border: 1px solid #aaa;
+    padding: 6px;
+    vertical-align: middle;
+    white-space: nowrap;
+    line-height: 1.3;
+    font-size: 13px;
+}
+
+.tsp-print-table tbody tr {
+    page-break-inside: avoid;
+}
+
+.tsp-print-table th:nth-last-child(-n+6),
+.tsp-print-table td:nth-last-child(-n+6) {
+    text-align: right;
+}
+
+.datatable,
+.dt-scrollable,
+.dt-header,
+.dt-body {
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+.dt-row {
+    display: flex !important;
+    width: 100% !important;
+    page-break-inside: avoid;
+}
+
+.dt-cell {
+    min-width: 0 !important;
+    max-width: none !important;
+    padding: 3px !important;
+    border-right: 1px solid #ddd !important;
+    border-bottom: 1px solid #ddd !important;
+    white-space: normal !important;
+    overflow: visible !important;
+}
+
+.dt-header .dt-cell {
+    font-weight: 700 !important;
+    background: #ececec !important;
+    border-top: 1px solid #aaa !important;
+}
+
+.dt-cell__content {
+    font-size: 9px !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+
+button,
+.btn,
+.tsp-hourly-detail-btn {
+    display: none !important;
+}
+
+
+.tsp-print-table thead {
+    display: table-header-group;
+}
+
+@media screen {
+
+    body {
+        min-width: 1850px !important;
+    }
+
+    .tsp-print-table {
+        min-width: 1800px !important;
+    }
+}
+
+
+.tsp-print-table tfoot {
+    display: table-footer-group;
+}
+
+.tsp-print-table tr {
+    page-break-inside: avoid;
+}
+
+/* Wider text columns */
+.tsp-print-table th:nth-child(1),
+.tsp-print-table td:nth-child(1) {
+    width: 8%;
+}
+
+.tsp-print-table th:nth-child(2),
+.tsp-print-table td:nth-child(2) {
+    width: 8%;
+}
+
+.tsp-print-table th:nth-child(3),
+.tsp-print-table td:nth-child(3) {
+    width: 12%;
+}
+
+.tsp-print-table th:nth-child(4),
+.tsp-print-table td:nth-child(4) {
+    width: 10%;
+}
+
+.tsp-print-table th:nth-child(5),
+.tsp-print-table td:nth-child(5) {
+    width: 12%;
+}
+
+.tsp-print-table th:nth-child(6),
+.tsp-print-table td:nth-child(6) {
+    width: 9%;
+}
+
+.tsp-print-table th:nth-child(7),
+.tsp-print-table td:nth-child(7) {
+    width: 10%;
+}
+
+/* Numeric columns */
+.tsp-print-table th:nth-child(n+8),
+.tsp-print-table td:nth-child(n+8) {
+    text-align: right;
+}
+
+
+html,
+body {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+body {
+    display: block !important;
+}
+
+.tsp-print-table {
+    margin-bottom: 0 !important;
+}
+
+.tsp-print-table tbody {
+    height: auto !important;
+    min-height: 0 !important;
+}
+
+.tsp-print-table tr:last-child td {
+    border-bottom: 1px solid #777;
+}
+
+.datatable,
+.dt-scrollable,
+.dt-body,
+.dt-header {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+@media print {
+
+    body {
+        font-size: 11pt !important;
+    }
+
+    .tsp-print-table {
+        font-size: 9pt !important;
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+
+    .tsp-print-table th,
+    .tsp-print-table td {
+        font-size: 9pt !important;
+        padding: 4px !important;
+    }
+
+
+
+    html,
+    body {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    body {
+        padding: 0;
+        margin: 0;
+    }
+
+    .tsp-print-table {
+        margin-bottom: 0 !important;
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>
+Truck and Shovel Productivity
+</h1>
+
+<div class="subtitle">
+${esc(view)}
+</div>
+
+${build_filters()}
+
+<div class="generated">
+Generated:
+${esc(
+    frappe.datetime.now_datetime()
+)}
+</div>
+
+${tableHtml}
+
+<script>
+window.onload = function() {
+
+    setTimeout(
+        function() {
+
+            try {
+                document.documentElement.style.height =
+                    "auto";
+
+                document.body.style.height =
+                    "auto";
+
+                document.body.style.minHeight =
+                    "0";
+
+                const contentHeight =
+                    document.body.scrollHeight;
+
+                if (
+                    contentHeight &&
+                    window.resizeTo
+                ) {
+                    window.resizeTo(
+                        Math.max(
+                            1200,
+                            window.outerWidth
+                        ),
+                        Math.min(
+                            contentHeight + 100,
+                            screen.availHeight
+                        )
+                    );
+                }
+
+            } catch (e) {
+                console.warn(
+                    "Could not resize print window",
+                    e
+                );
+            }
+
+            window.print();
+
+        },
+        400
+    );
+};
+<\/script>
+
+</body>
+
+</html>
+        `;
+
+        printWindow.document.open();
+        printWindow.document.write(
+            html
+        );
+        printWindow.document.close();
+    }
+
+})();
+
+
+// ============================================================
+// TRUCK AND SHOVEL PRODUCTIVITY
+// DOWNLOAD CURRENT REPORT AS STANDALONE HTML
+// ============================================================
+
+(function () {
+
+    const reportSettings =
+        frappe.query_reports[
+            "Truck and Shovel Productivity"
+        ];
+
+    if (!reportSettings) {
+        return;
+    }
+
+
+    const oldOnloadDownload =
+        reportSettings.onload;
+
+
+    reportSettings.onload =
+        function(report) {
+
+            if (
+                typeof oldOnloadDownload
+                === "function"
+            ) {
+                oldOnloadDownload.apply(
+                    this,
+                    arguments
+                );
+            }
+
+            install_download_button(
+                report
+            );
+        };
+
+
+    function install_download_button(
+        report
+    ) {
+
+        if (
+            !report ||
+            !report.page
+        ) {
+            return;
+        }
+
+        if (
+            report.tsp_download_button_installed
+        ) {
+            return;
+        }
+
+        report.tsp_download_button_installed =
+            true;
+
+
+        report.page.add_inner_button(
+            __("Download Report"),
+            function() {
+
+                download_current_report();
+            }
+        );
+    }
+
+
+    function d_esc(value) {
+
+        return frappe.utils.escape_html(
+            String(
+                value === null ||
+                value === undefined
+                    ? ""
+                    : value
+            )
+        );
+    }
+
+
+    function d_filter_value(
+        fieldname
+    ) {
+
+        return (
+            frappe.query_report
+                .get_filter_value(
+                    fieldname
+                )
+            || ""
+        );
+    }
+
+
+    function d_user_date(
+        value
+    ) {
+
+        if (!value) {
+            return "";
+        }
+
+        try {
+
+            return frappe.datetime
+                .str_to_user(
+                    value
+                );
+
+        } catch (e) {
+
+            return value;
+        }
+    }
+
+
+    function d_build_filters() {
+
+        return `
+            <div class="print-filters">
+
+                <div>
+                    <b>From:</b>
+                    ${d_esc(
+                        d_user_date(
+                            d_filter_value(
+                                "from_date"
+                            )
+                        )
+                    )}
+                </div>
+
+                <div>
+                    <b>To:</b>
+                    ${d_esc(
+                        d_user_date(
+                            d_filter_value(
+                                "to_date"
+                            )
+                        )
+                    )}
+                </div>
+
+                <div>
+                    <b>Site:</b>
+                    ${d_esc(
+                        d_filter_value(
+                            "site"
+                        )
+                        || "All"
+                    )}
+                </div>
+
+                <div>
+                    <b>Excavator:</b>
+                    ${d_esc(
+                        d_filter_value(
+                            "excavator"
+                        )
+                        || "All"
+                    )}
+                </div>
+
+                <div>
+                    <b>ADT:</b>
+                    ${d_esc(
+                        d_filter_value(
+                            "adt"
+                        )
+                        || "All"
+                    )}
+                </div>
+
+                <div>
+                    <b>View:</b>
+                    ${d_esc(
+                        d_filter_value(
+                            "view"
+                        )
+                    )}
+                </div>
+
+            </div>
+        `;
+    }
+
+
+    function d_get_table_html() {
+
+        if (
+            typeof get_table_html
+            === "function"
+        ) {
+
+            return get_table_html();
+        }
+
+
+        const $datatable =
+            $(".report-wrapper .datatable:visible")
+                .first();
+
+        if (!$datatable.length) {
+            return "";
+        }
+
+
+        const headers = [];
+
+        const $headerRow =
+            $datatable
+                .find(
+                    ".dt-header .dt-row"
+                )
+                .first();
+
+
+        $headerRow
+            .children(".dt-cell")
+            .each(function(index) {
+
+                if (index === 0) {
+                    return;
+                }
+
+                const value =
+                    $(this)
+                        .find(
+                            ".dt-cell__content"
+                        )
+                        .first()
+                        .text()
+                        .trim();
+
+                headers.push(
+                    value || ""
+                );
+            });
+
+
+        const rows = [];
+
+        $datatable
+            .find(
+                ".dt-scrollable .dt-row:visible"
+            )
+            .each(function() {
+
+                const $row =
+                    $(this);
+
+                if (
+                    $row.closest(
+                        ".dt-header"
+                    ).length
+                ) {
+                    return;
+                }
+
+                const cells = [];
+
+                $row
+                    .children(
+                        ".dt-cell"
+                    )
+                    .each(
+                        function(index) {
+
+                            if (
+                                index === 0
+                            ) {
+                                return;
+                            }
+
+                            const value =
+                                $(this)
+                                    .find(
+                                        ".dt-cell__content"
+                                    )
+                                    .first()
+                                    .text()
+                                    .trim();
+
+                            cells.push(
+                                value
+                            );
+                        }
+                    );
+
+                if (
+                    cells.length
+                ) {
+                    rows.push(
+                        cells
+                    );
+                }
+            });
+
+
+        let html =
+            '<table class="tsp-print-table">';
+
+        html +=
+            "<thead><tr>";
+
+        headers.forEach(
+            function(header) {
+
+                html +=
+                    "<th>" +
+                    d_esc(header) +
+                    "</th>";
+            }
+        );
+
+        html +=
+            "</tr></thead>";
+
+        html +=
+            "<tbody>";
+
+
+        rows.forEach(
+            function(cells) {
+
+                html +=
+                    "<tr>";
+
+                cells.forEach(
+                    function(value) {
+
+                        html +=
+                            "<td>" +
+                            d_esc(value) +
+                            "</td>";
+                    }
+                );
+
+                html +=
+                    "</tr>";
+            }
+        );
+
+        html +=
+            "</tbody>";
+
+        html +=
+            "</table>";
+
+        return html;
+    }
+
+
+    function download_current_report() {
+
+        const tableHtml =
+            d_get_table_html();
+
+        if (!tableHtml) {
+
+            frappe.msgprint(
+                __(
+                    "No report data is visible to download."
+                )
+            );
+
+            return;
+        }
+
+
+        const view =
+            d_filter_value(
+                "view"
+            );
+
+
+        const fromDate =
+            d_filter_value(
+                "from_date"
+            );
+
+
+        const toDate =
+            d_filter_value(
+                "to_date"
+            );
+
+
+        const site =
+            d_filter_value(
+                "site"
+            );
+
+
+        const generated =
+            frappe.datetime
+                .now_datetime();
+
+
+        const html = `
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<meta charset="utf-8">
+
+<title>
+Truck and Shovel Productivity - ${d_esc(view)}
+</title>
+
+<style>
+
+@page {
+    size: A3 landscape;
+    margin: 10mm;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: auto;
+    min-height: 0;
+}
+
+body {
+    margin: 0;
+    padding: 12px;
+    font-family: Arial, sans-serif;
+    font-size: 13px;
+    color: #111;
+    background: #fff;
+    overflow-x: auto;
+}
+
+h1 {
+    margin: 0 0 6px 0;
+    font-size: 24px;
+    line-height: 1.2;
+}
+
+.subtitle {
+    margin-bottom: 12px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.print-filters {
+    display: grid;
+
+    grid-template-columns:
+        repeat(
+            3,
+            minmax(
+                260px,
+                1fr
+            )
+        );
+
+    gap: 8px;
+
+    padding: 10px;
+
+    margin-bottom: 12px;
+
+    border: 1px solid #999;
+
+    background: #f5f5f5;
+
+    font-size: 13px;
+
+    line-height: 1.4;
+}
+
+.generated {
+    margin-bottom: 8px;
+    text-align: right;
+    font-size: 11px;
+}
+
+.tsp-print-table {
+    width: 100%;
+    min-width: 1800px;
+    border-collapse: collapse;
+    table-layout: auto;
+    font-size: 13px;
+    margin: 0;
+}
+
+.tsp-print-table thead {
+    display: table-header-group;
+}
+
+.tsp-print-table th {
+    background: #e6e6e6;
+    font-weight: 700;
+    border: 1px solid #777;
+    padding: 7px 6px;
+    text-align: left;
+    white-space: nowrap;
+    line-height: 1.25;
+    font-size: 13px;
+}
+
+.tsp-print-table td {
+    border: 1px solid #aaa;
+    padding: 6px;
+    vertical-align: middle;
+    white-space: nowrap;
+    line-height: 1.3;
+    font-size: 13px;
+}
+
+.tsp-print-table tr {
+    page-break-inside: avoid;
+}
+
+.tsp-print-table th:nth-last-child(-n+6),
+.tsp-print-table td:nth-last-child(-n+6) {
+    text-align: right;
+}
+
+@media print {
+
+    body {
+        padding: 0;
+    }
+
+    .tsp-print-table {
+        min-width: 0;
+        width: 100%;
+        font-size: 9pt;
+    }
+
+    .tsp-print-table th,
+    .tsp-print-table td {
+        font-size: 9pt;
+        padding: 4px;
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>
+Truck and Shovel Productivity
+</h1>
+
+<div class="subtitle">
+${d_esc(view)}
+</div>
+
+${d_build_filters()}
+
+<div class="generated">
+Generated:
+${d_esc(generated)}
+</div>
+
+${tableHtml}
+
+</body>
+
+</html>
+        `;
+
+
+        const blob =
+            new Blob(
+                [html],
+                {
+                    type:
+                        "text/html;charset=utf-8"
+                }
+            );
+
+
+        const url =
+            URL.createObjectURL(
+                blob
+            );
+
+
+        const filename =
+            (
+                "Truck_and_Shovel_Productivity_"
+                +
+                String(view || "Report")
+                    .replace(
+                        /[^a-zA-Z0-9_-]+/g,
+                        "_"
+                    )
+                +
+                "_"
+                +
+                String(fromDate || "")
+                +
+                "_to_"
+                +
+                String(toDate || "")
+                +
+                (
+                    site
+                        ? "_"
+                          +
+                          String(site)
+                              .replace(
+                                  /[^a-zA-Z0-9_-]+/g,
+                                  "_"
+                              )
+                        : ""
+                )
+                +
+                ".html"
+            );
+
+
+        const link =
+            document.createElement(
+                "a"
+            );
+
+
+        link.href =
+            url;
+
+        link.download =
+            filename;
+
+
+        document.body.appendChild(
+            link
+        );
+
+
+        link.click();
+
+
+        document.body.removeChild(
+            link
+        );
+
+
+        setTimeout(
+            function() {
+
+                URL.revokeObjectURL(
+                    url
+                );
+            },
+            1000
+        );
+    }
+
+})();
