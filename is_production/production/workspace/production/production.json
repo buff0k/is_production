@@ -186,6 +186,16 @@
   },
   {
    "hidden": 0,
+   "is_query_report": 1,
+   "label": "Pre-Use Report",
+   "link_count": 0,
+   "link_to": "Pre-Use Report",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
    "is_query_report": 0,
    "label": "Management Dashboards",
    "link_count": 4,
