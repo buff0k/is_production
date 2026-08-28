@@ -1,7 +1,7 @@
 {
  "app": "is_production",
  "charts": [],
- "content": "[{\"id\": \"IBeodD0yEv\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\">Production</span>\", \"col\": 12}}, {\"id\": \"oLOLs79C1E\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Production Dashboard\", \"col\": 12}}, {\"id\": \"54c6d753c8\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Daily A&U Engine Dashboard\", \"col\": 12}}, {\"id\": \"kcBx_OD-Kv\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Production Efficiency ( Weekly)\", \"col\": 12}}, {\"id\": \"YoeOJfxDNK\", \"type\": \"card\", \"data\": {\"card_name\": \"Management Dashboards\", \"col\": 4}}, {\"id\": \"oMUDY_5KXL\", \"type\": \"card\", \"data\": {\"card_name\": \"Planning\", \"col\": 4}}, {\"id\": \"otyz_jgqrE\", \"type\": \"card\", \"data\": {\"card_name\": \"Production Drilling and Diesel\", \"col\": 4}}, {\"id\": \"03mtDZtvFg\", \"type\": \"card\", \"data\": {\"card_name\": \"Breakdowns and Lost Hours\", \"col\": 4}}, {\"id\": \"obgFqF53Fu\", \"type\": \"card\", \"data\": {\"card_name\": \"Reporting\", \"col\": 4}}, {\"id\": \"zAvmRDUYuM\", \"type\": \"card\", \"data\": {\"card_name\": \"Diesel\", \"col\": 4}}]",
+ "content": "[{\"id\":\"IBeodD0yEv\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Production</span>\",\"col\":12}},{\"id\":\"oLOLs79C1E\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Dashboard\",\"col\":12}},{\"id\":\"54c6d753c8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Daily A&U Engine Dashboard\",\"col\":12}},{\"id\":\"kcBx_OD-Kv\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Efficiency ( Weekly)\",\"col\":12}},{\"id\":\"YoeOJfxDNK\",\"type\":\"card\",\"data\":{\"card_name\":\"Management Dashboards\",\"col\":4}},{\"id\":\"oMUDY_5KXL\",\"type\":\"card\",\"data\":{\"card_name\":\"Planning\",\"col\":4}},{\"id\":\"otyz_jgqrE\",\"type\":\"card\",\"data\":{\"card_name\":\"Production Drilling and Diesel\",\"col\":4}},{\"id\":\"03mtDZtvFg\",\"type\":\"card\",\"data\":{\"card_name\":\"Breakdowns and Lost Hours\",\"col\":4}},{\"id\":\"obgFqF53Fu\",\"type\":\"card\",\"data\":{\"card_name\":\"Reporting\",\"col\":4}},{\"id\":\"zAvmRDUYuM\",\"type\":\"card\",\"data\":{\"card_name\":\"Diesel\",\"col\":4}}]",
  "creation": "2024-07-29 15:25:05.760313",
  "custom_blocks": [],
  "docstatus": 0,
@@ -68,7 +68,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Planning",
-   "link_count": 5,
+   "link_count": 0,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -126,79 +126,8 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Breakdowns and Lost Hours",
-   "link_count": 3,
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Card Break"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Breakdowns",
-   "link_count": 0,
-   "link_to": "Plant Breakdown or Maintenance",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Breakdown Records",
-   "link_count": 0,
-   "link_to": "Breakdown History",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Other Lost Hours",
-   "link_count": 0,
-   "link_to": "Daily Lost Hours Recon",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Downtime Verification",
-   "link_count": 0,
-   "link_to": "Down Time",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Plant Breakdown or Maintenance",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Control Room Correction Dashboard",
-   "link_count": 0,
-   "link_to": "Downtime Correction Dashboard",
-   "link_type": "Report",
-   "onboard": 0,
-   "report_ref_doctype": "Mechanical Downtime sign-off",
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 1,
-   "label": "Pre-Use Report",
-   "link_count": 0,
-   "link_to": "Pre-Use Report",
-   "link_type": "Report",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Management Dashboards",
-   "link_count": 4,
+   "link_count": 0,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -247,7 +176,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Reporting",
-   "link_count": 16,
+   "link_count": 0,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -414,9 +343,20 @@
   },
   {
    "hidden": 0,
+   "is_query_report": 1,
+   "label": "Truck and Shovel Productivity",
+   "link_count": 0,
+   "link_to": "Truck and Shovel Productivity",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Hourly Production",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
    "is_query_report": 0,
    "label": "Diesel",
-   "link_count": 1,
+   "link_count": 0,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -435,7 +375,7 @@
    "hidden": 0,
    "is_query_report": 0,
    "label": "Production Drilling and Diesel",
-   "link_count": 11,
+   "link_count": 0,
    "link_type": "DocType",
    "onboard": 0,
    "type": "Card Break"
@@ -549,9 +489,68 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Breakdowns and Lost Hours",
+   "link_count": 5,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Breakdowns",
+   "link_count": 0,
+   "link_to": "Plant Breakdown or Maintenance",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Breakdown Records",
+   "link_count": 0,
+   "link_to": "Breakdown History",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Other Lost Hours",
+   "link_count": 0,
+   "link_to": "Daily Lost Hours Recon",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Downtime Verification",
+   "link_count": 0,
+   "link_to": "Down Time",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Control Room Correction Dashboard",
+   "link_count": 0,
+   "link_to": "Downtime Correction Dashboard",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-08-18 13:14:35.163040",
+ "modified": "2026-08-28 14:10:17.114306",
  "modified_by": "Administrator",
  "module": "Production",
  "name": "Production",
