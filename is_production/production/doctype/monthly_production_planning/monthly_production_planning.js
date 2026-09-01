@@ -169,9 +169,45 @@ if (frm.doc.prod_adjust_factor == null) {
   // 3) Keep your location handler
   location(frm) {
     console.log("🧭 Location changed:", frm.doc.location);
-    if (frm.doc.location) {
-      frm.refresh();
+
+    if (!frm.doc.location) {
+      return;
     }
+
+    frm.refresh();
+
+    if (!frm.is_new() || (frm.doc.tub_factors || []).length) {
+      return;
+    }
+
+    frappe.call({
+      method: "is_production.production.doctype.monthly_production_planning.monthly_production_planning.get_previous_tub_factor_rows",
+      args: {
+        location: frm.doc.location
+      },
+      freeze: true,
+      freeze_message: __("Loading previous Tub Factors..."),
+      callback(r) {
+        const rows = r.message || [];
+
+        rows.forEach(values => {
+          const row = frm.add_child("tub_factors");
+          row.tub_factor = values.tub_factor;
+          row.item_name = values.item_name;
+          row.mat_type = values.mat_type;
+          row.factor_value = values.factor_value;
+        });
+
+        frm.refresh_field("tub_factors");
+
+        if (rows.length) {
+          frappe.show_alert({
+            message: __(` previous Tub Factor row(s) loaded.`),
+            indicator: "green"
+          }, 5);
+        }
+      }
+    });
   },
  // Section: Refresh Machines from Assets (non-destructive)
 refresh_machines_from_assets(frm) {
