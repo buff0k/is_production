@@ -110,6 +110,9 @@ class MonthlyProductionPlanning(Document):
                 "tub_factors",
                 {
                     "tub_factor": tub_factor_name,
+                    "item_name": previous_row.item_name,
+                    "mat_type": previous_row.mat_type,
+                    "factor_value": previous_row.factor_value,
                 },
             )
 
@@ -571,3 +574,85 @@ def dashboard_monthly_production_query(doctype, txt, searchfield, start, page_le
         LIMIT %(start)s, %(page_len)s
     """, values)
 
+
+
+@frappe.whitelist()
+def get_previous_tub_factor_rows(location):
+    """Return complete approved Tub Factor rows from the latest plan at a site."""
+
+    location = str(location or "").strip()
+
+    if not location:
+        return []
+
+    previous_plan = frappe.db.sql(
+        """
+        SELECT mpp.name
+        FROM `tabMonthly Production Planning` mpp
+        WHERE mpp.location = %(location)s
+          AND mpp.docstatus < 2
+          AND EXISTS (
+                SELECT 1
+                FROM `tabMonthly Production Tub Factor` mptf
+                WHERE mptf.parent = mpp.name
+                  AND mptf.parenttype = 'Monthly Production Planning'
+                  AND mptf.parentfield = 'tub_factors'
+                  AND IFNULL(mptf.tub_factor, '') != ''
+          )
+        ORDER BY
+            mpp.prod_month_end_date DESC,
+            mpp.creation DESC
+        LIMIT 1
+        """,
+        {"location": location},
+        as_dict=True,
+    )
+
+    if not previous_plan:
+        return []
+
+    previous_doc = frappe.get_doc(
+        "Monthly Production Planning",
+        previous_plan[0].name,
+    )
+
+    output = []
+    copied_names = set()
+
+    for previous_row in previous_doc.get("tub_factors") or []:
+        tub_factor_name = previous_row.tub_factor
+
+        if (
+            not tub_factor_name
+            or tub_factor_name in copied_names
+        ):
+            continue
+
+        factor = frappe.db.get_value(
+            "Tub Factor",
+            {
+                "name": tub_factor_name,
+                "docstatus": 1,
+            },
+            [
+                "name",
+                "item_name",
+                "mat_type",
+                "tub_factor",
+            ],
+            as_dict=True,
+        )
+
+        if not factor:
+            continue
+
+        output.append({
+            "tub_factor": factor.name,
+            "item_name": factor.item_name,
+            "mat_type": factor.mat_type,
+            "factor_value": factor.tub_factor,
+        })
+
+        copied_names.add(tub_factor_name)
+
+    return output
