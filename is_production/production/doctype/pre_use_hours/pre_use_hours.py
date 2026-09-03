@@ -18,6 +18,64 @@ class PreUseHours(Document):
         """
         self._normalize_asset_links()
 
+    def validate(self):
+        """
+        HARD server-side machine-hour validation.
+
+        Normal users may edit existing Pre-Use Hours records,
+        but they may NOT save machine hours outside the permitted
+        shift maximum.
+
+        Exemptions:
+            - Information Officer
+            - Plot 22
+
+        Example:
+            Previous Start = 138
+            Current Start  = 157
+            Difference     = 19 hours
+            Maximum        = 12 hours
+
+            Normal Production User -> BLOCK SAVE
+        """
+
+        if self.shift_date:
+            self.shift_date = getdate(self.shift_date)
+
+        # Plot 22 keeps its requested exemption.
+        if self.location == "Plot 22":
+            return
+
+        session_user = frappe.session.user
+
+        # Read directly from the database rather than relying on
+        # browser role cache.
+        is_information_officer = bool(
+            frappe.db.exists(
+                "Has Role",
+                {
+                    "parent": session_user,
+                    "parenttype": "User",
+                    "role": "Information Officer",
+                },
+            )
+        )
+
+        # Information Officer keeps the requested exemption.
+        if is_information_officer:
+            return
+
+        # =====================================================
+        # HARD RULE FOR ALL OTHER USERS
+        # =====================================================
+        #
+        # This runs during Frappe's validate lifecycle on EVERY
+        # normal document save, including edits/re-saves.
+        #
+        self.validate_previous_shift_hours()
+        self.validate_current_shift_hours()
+
+
     def _normalize_asset_links(self):
         rows = self.get("pre_use_assets") or []
         values = sorted({r.asset_name for r in rows if getattr(r, "asset_name", None)})
@@ -50,59 +108,229 @@ class PreUseHours(Document):
                 r.asset_name = code_to_name[v]
 
     def before_save(self):
-        """
-        Called before saving the 'Pre-Use Hours' document.
-        Performs integrity checks on the current and validates the previous record.
-        """
         try:
-            # normalize early for all downstream logic
             self.shift_date = getdate(self.shift_date)
-            monthly_plan = get_monthly_production_plan(self.location, self.shift_date)
+
+            monthly_plan = get_monthly_production_plan(
+                self.location,
+                self.shift_date,
+            )
+
             if not monthly_plan:
                 frappe.throw(
-                    "No Monthly Production Planning data found for the selected location and shift date."
+                    "No Monthly Production Planning data found "
+                    "for the selected location and shift date."
                 )
 
             validate_shift_date(self, monthly_plan)
 
-            # Plot 22 is excluded from all Pre-Use Hours integrity checks
-            if self.location == "Plot 22":
+            # =====================================================
+            # DETERMINE HARD-VALIDATION EXEMPTIONS
+            # =====================================================
+            #
+            # Read Information Officer directly from Has Role.
+            # This avoids an old/cached browser role being used to
+            # bypass the machine-hour validation.
+            #
+            session_user = frappe.session.user
+
+            is_information_officer = bool(
+                frappe.db.exists(
+                    "Has Role",
+                    {
+                        "parent": session_user,
+                        "parenttype": "User",
+                        "role": "Information Officer",
+                    },
+                )
+            )
+
+            is_plot_22 = self.location == "Plot 22"
+
+            # =====================================================
+            # NORMAL USERS - HARD MACHINE-HOUR VALIDATION
+            # =====================================================
+            #
+            # Normal users MUST pass this before the save can
+            # continue.
+            #
+            # Example:
+            #   Previous Start = 138
+            #   Current Start  = 157
+            #   Worked         = 19
+            #   Maximum        = 12
+            #
+            # Result:
+            #   SAVE BLOCKED
+            #
+            if not is_information_officer and not is_plot_22:
+
+                # Strict chronological sequence is only required
+                # for a brand-new capture.
+                if self.is_new():
+                    check_previous_record_sequence(
+                        self,
+                        monthly_plan,
+                    )
+
+                # ALWAYS validate machine hours for normal users,
+                # including edits/re-saves of existing records.
+                self.validate_previous_shift_hours()
+                self.validate_current_shift_hours()
+
+            # =====================================================
+            # PLOT 22 EXEMPTION
+            # =====================================================
+            if is_plot_22:
                 self.data_integ_indicator = "🟢"
-                self.data_integrity_summary = "<p><b>✅ Plot 22 excluded from integrity checks.</b></p>"
+                self.data_integrity_summary = (
+                    "<p><b>✅ Plot 22 excluded from "
+                    "integrity checks.</b></p>"
+                )
+
+                # Maintain engine-hour linkage even though Plot 22
+                # bypasses the hard maximum-hour validation.
+                self.update_previous_eng_hrs_end()
                 return
 
-            # Users with Information Officer role are excluded from all Pre-Use Hours integrity checks
-            if "Information Officer" in frappe.get_roles(frappe.session.user):
+            # =====================================================
+            # INFORMATION OFFICER EXEMPTION
+            # =====================================================
+            if is_information_officer:
                 self.data_integ_indicator = "🟢"
-                self.data_integrity_summary = "<p><b>✅ Information Officer excluded from integrity checks.</b></p>"
+                self.data_integrity_summary = (
+                    "<p><b>✅ Information Officer excluded from "
+                    "integrity checks.</b></p>"
+                )
+
+                # Maintain engine-hour linkage even though the
+                # Information Officer bypasses hard validation.
+                self.update_previous_eng_hrs_end()
                 return
 
-            check_previous_record_sequence(self, monthly_plan)
-            self.validate_previous_shift_hours()
+            # =====================================================
+            # NORMAL USER - CONTINUE SAVE
+            # =====================================================
             self.evaluate_data_integrity()
             self.update_previous_eng_hrs_end()
 
-        except Exception as e:
-            frappe.log_error(message=frappe.get_traceback(), title="Pre-Use Hours Validation Error")
+        except Exception:
+            frappe.log_error(
+                message=frappe.get_traceback(),
+                title="Pre-Use Hours Validation Error",
+            )
             raise
 
+    def validate_current_shift_hours(self):
+        """
+        Block saving when this Pre-Use record contains completed
+        machine hours outside the permitted shift maximum.
 
+        This is important when a previously saved record is edited
+        after Engine Hours End was populated by the following shift.
 
+        Example:
+            EX01
+            Start = 2020
+            End   = 2035
+            Difference = 15 hours
 
+        If maximum allowed = 12:
+            SAVE MUST BE BLOCKED.
+        """
+        bad_assets = []
 
+        (
+            max_shift_hours,
+            _max_daily_hours,
+            saturday_plan_hours,
+        ) = get_preuse_hour_limits(
+            self.location,
+            self.shift_date,
+        )
 
+        for row in self.get("pre_use_assets", []):
+            if (
+                not row.asset_name
+                or row.eng_hrs_start is None
+                or row.eng_hrs_end is None
+            ):
+                continue
 
+            start = flt(row.eng_hrs_start)
+            end = flt(row.eng_hrs_end)
 
+            # Preserve existing legacy baseline handling.
+            # Start = 0 or End = 0 means the engine reading is
+            # not yet available / not captured.
+            #
+            # Do not create false negative working hours.
+            if start == 0 or end == 0:
+                continue
 
+            working_hours = round(end - start, 1)
 
+            if (
+                working_hours < 0
+                or working_hours > max_shift_hours
+            ):
+                bad_assets.append({
+                    "asset": row.asset_name,
+                    "start": row.eng_hrs_start,
+                    "end": row.eng_hrs_end,
+                    "working_hours": working_hours,
+                    "max_hours": max_shift_hours,
+                    "saturday_plan_hours": saturday_plan_hours,
+                })
 
+        if not bad_assets:
+            return
 
+        cards_html = "".join(
+            f"""
+            <div style="
+                border:1px solid #d9d9d9;
+                border-radius:8px;
+                padding:12px;
+                margin:10px 0;
+                background:#fafafa;
+            ">
+                <div style="font-size:15px; margin-bottom:8px;">
+                    <b>Asset:</b> {b['asset']}
+                </div>
 
+                <div><b>Start Hours:</b> {b['start']}</div>
+                <div><b>End Hours:</b> {b['end']}</div>
+                <div>
+                    <b>Calculated Hours:</b>
+                    <span style="color:#c0392b;">
+                        {b['working_hours']:+g}
+                    </span>
+                </div>
+                <div><b>Maximum Allowed:</b> {b['max_hours']:g}</div>
+            </div>
+            """
+            for b in bad_assets
+        )
 
+        table_html = f"""
+            <div style="font-size:14px; line-height:1.6;">
+                <p style="margin-bottom:8px;">
+                    <b>❌ Machine hours need to be fixed</b>
+                </p>
 
+                {cards_html}
 
+                <p style="margin-top:12px; color:#666;">
+                    Please correct the machine hours before saving again.
+                </p>
+            </div>
+        """
 
-
+        frappe.throw(
+            table_html,
+            title="Machine Hours Need To Be Fixed"
+        )
 
 
     def validate_previous_shift_hours(self):
@@ -115,6 +343,14 @@ class PreUseHours(Document):
 
         for cr in self.pre_use_assets:
             if not cr.asset_name or cr.eng_hrs_start is None:
+                continue
+
+            # Zero means engine hours were NOT captured for this
+            # asset in the current shift.
+            #
+            # Do not use zero to close the previous shift and do
+            # not calculate a false negative working-hours value.
+            if flt(cr.eng_hrs_start) == 0:
                 continue
 
 
@@ -149,42 +385,96 @@ class PreUseHours(Document):
                     "prev_doc": prev_row.parent,
                 })
 
-        if bad_assets:
-            rows_html = "".join(
-                f"<tr><td>{b['asset']}</td><td>{b['prev_doc']}</td><td>{b['prev_start']}</td>"
-                f"<td>{b['new_start']}</td><td>{b['wh']}</td>"
-                f"<td>{b['max_hours']:g}</td></tr>"
-                for b in bad_assets
-            )
-            table_html = f"""
-                <h4>❌ Cannot save this shift</h4>
-                <p>The following assets would create invalid working hours in the previous shift:</p>
-                <table class="table table-bordered" style="width:100%; border-collapse: collapse;">
-                    <tr>
-                        <th>Asset</th>
-                        <th>Previous Document</th>
-                        <th>Previous Start</th>
-                        <th>Current Start</th>
-                        <th>Calculated Hours</th>
-                        <th>Maximum Allowed</th>
-                    </tr>
-                    {rows_html}
-                </table>
-                <p style="color:gray; margin-top:10px;">
-                    Please adjust the <b>engine start hours</b> in the current shift so that the
-                    previous shift's working hours are within the configured maximum shown above.
-                </p>
+        # No invalid machines = validation passes.
+        if not bad_assets:
+            return
+
+        cards_html = "".join(
+            f"""
+            <div style="
+                border:1px solid #d8d8d8;
+                border-radius:8px;
+                padding:12px 14px;
+                margin:10px 0;
+                background:#fafafa;
+                line-height:1.7;
+            ">
+                <div style="
+                    font-size:15px;
+                    margin-bottom:8px;
+                ">
+                    <b>Machine:</b> {b['asset']}
+                </div>
+
+                <div>
+                    <b>Previous Document:</b>
+                    {b['prev_doc']}
+                </div>
+
+                <div>
+                    <b>Previous Start:</b>
+                    {b['prev_start']}
+                </div>
+
+                <div>
+                    <b>Current Start:</b>
+                    {b['new_start']}
+                </div>
+
+                <div>
+                    <b>Calculated Hours:</b>
+                    <span style="
+                        font-weight:600;
+                        color:#c0392b;
+                    ">
+                        {b['wh']}
+                    </span>
+                </div>
+
+                <div>
+                    <b>Maximum Allowed:</b>
+                    {b['max_hours']} hours
+                </div>
+            </div>
             """
-            frappe.throw(table_html)
+            for b in bad_assets
+        )
 
+        popup_html = f"""
+            <div style="
+                font-size:14px;
+                line-height:1.6;
+                max-width:100%;
+            ">
+                <div style="
+                    font-size:16px;
+                    font-weight:600;
+                    margin-bottom:8px;
+                ">
+                    ❌ Cannot save this shift
+                </div>
 
+                <div style="margin-bottom:10px;">
+                    The following machine hours need to be fixed:
+                </div>
 
+                {cards_html}
 
+                <div style="
+                    margin-top:12px;
+                    color:#666;
+                ">
+                    Please adjust the
+                    <b>engine start hours</b>
+                    before saving again.
+                </div>
+            </div>
+        """
 
-
-
-
-
+        frappe.throw(
+            popup_html,
+            title="Machine Hours Need To Be Fixed"
+        )
 
     def update_previous_eng_hrs_end(self):
         """
@@ -196,6 +486,13 @@ class PreUseHours(Document):
 
             for cr in self.pre_use_assets:
                 if not cr.asset_name or cr.eng_hrs_start is None:
+                    continue
+
+                # Zero means NOT CAPTURED.
+                #
+                # Never overwrite the previous shift's valid
+                # Engine Hours End with 0.
+                if flt(cr.eng_hrs_start) == 0:
                     continue
 
                 prev_row = get_previous_asset_row(cr.asset_name, self.shift_date, self.shift)
