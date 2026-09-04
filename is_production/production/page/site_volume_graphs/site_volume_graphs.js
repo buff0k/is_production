@@ -74,6 +74,162 @@ function render_site_volume_graphs_page(wrapper, pageKey) {
   const $status = $(`<div class="isd-dashboard-status text-muted"></div>`).appendTo($wrap);
   const $dash = $(`<div class="isd-dashboard-grid"></div>`).appendTo($wrap);
 
+  // ---------------------------------------------------------
+  // AUTO DEFAULT CURRENT MONTH - HOURLY-HOURLY
+  //
+  // Every time this page opens:
+  //   September 2026 -> September-2026-Hourly-Hourly
+  //   October 2026   -> October-2026-Hourly-Hourly
+  //
+  // The user can still manually select another month afterwards.
+  // ---------------------------------------------------------
+  async function select_current_month_default() {
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        year: "numeric",
+        timeZone: "Africa/Johannesburg"
+      }).formatToParts(new Date());
+
+      const monthPart = parts.find((part) => part.type === "month");
+      const yearPart = parts.find((part) => part.type === "year");
+
+      const month = monthPart ? monthPart.value : "";
+      const year = yearPart ? yearPart.value : "";
+
+      if (!month || !year) {
+        console.warn("Could not determine current month/year.");
+        return;
+      }
+
+      const exactName = `${month}-${year}-Hourly-Hourly`;
+      const monthPrefix = `${month}-${year}-`;
+
+      console.log(
+        "Site Volume Graphs: looking for current-month default:",
+        exactName
+      );
+
+      // First try the exact preferred current-month record.
+      let records = await frappe.db.get_list(
+        "Define Monthly Production",
+        {
+          fields: ["name"],
+          filters: [
+            ["name", "=", exactName]
+          ],
+          limit: 1
+        }
+      );
+
+      // Fallback:
+      // If the exact name does not exist, find current-month records
+      // and prefer one ending in Hourly-Hourly.
+      if (!records || !records.length) {
+        records = await frappe.db.get_list(
+          "Define Monthly Production",
+          {
+            fields: ["name"],
+            filters: [
+              ["name", "like", `${monthPrefix}%`]
+            ],
+            order_by: "modified desc",
+            limit: 50
+          }
+        );
+      }
+
+      const names = (records || [])
+        .map((row) => row && row.name ? String(row.name).trim() : "")
+        .filter(Boolean);
+
+      let selectedName =
+        names.find((name) => name === exactName) ||
+        names.find((name) => /-Hourly-Hourly$/i.test(name)) ||
+        "";
+
+      if (!selectedName) {
+        console.warn(
+          "Site Volume Graphs: current month not found. Falling back to latest existing Hourly-Hourly record."
+        );
+
+        const latestRecords = await frappe.db.get_list(
+          "Define Monthly Production",
+          {
+            fields: ["name"],
+            filters: [
+              ["name", "like", "%-Hourly-Hourly"]
+            ],
+            order_by: "creation desc",
+            limit: 20
+          }
+        );
+
+        const latestNames = (latestRecords || [])
+          .map((row) => row && row.name ? String(row.name).trim() : "")
+          .filter(Boolean);
+
+        selectedName =
+          latestNames.find((name) => /-Hourly-Hourly$/i.test(name)) || "";
+      }
+
+      if (!selectedName) {
+        // Do not leave an old month's saved selection active.
+        localStorage.removeItem(STORAGE_KEY);
+
+        if (dmp.get_value()) {
+          await dmp.set_value("");
+        }
+
+        destroy_charts();
+        $dash.empty();
+
+        $status.text(
+          "No Hourly-Hourly Define Monthly Production records were found. Please select another month."
+        );
+
+        console.warn(
+          "Site Volume Graphs: no Hourly-Hourly Define Monthly Production records found."
+        );
+
+        return;
+      }
+
+      console.log(
+        "Site Volume Graphs: current-month default selected:",
+        selectedName
+      );
+
+      // This triggers the existing change handler,
+      // which saves the value and loads the graphs.
+      if (dmp.get_value() !== selectedName) {
+        await dmp.set_value(selectedName);
+      } else {
+        localStorage.setItem(STORAGE_KEY, selectedName);
+        clear_site_colour_cache();
+        load_and_render(false);
+        start_aligned_refresh();
+      }
+
+    } catch (error) {
+      console.error(
+        "Could not auto-select current Define Monthly Production:",
+        error
+      );
+
+      $status.text(
+        "Could not automatically select the current month. Please select a Define Monthly Production."
+      );
+    }
+  }
+
+  // Old manually selected months must not become the default
+  // when the page is opened again.
+  localStorage.removeItem(STORAGE_KEY);
+
+  // Automatically select and load the current month.
+  select_current_month_default();
+
   // -------------------------
   // Global site colours
   // -------------------------
