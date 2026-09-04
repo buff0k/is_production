@@ -5,6 +5,7 @@
 
 import frappe
 from datetime import datetime, timedelta
+from frappe.utils import getdate
 
 
 # =========================================================
@@ -73,7 +74,9 @@ def execute(filters=None):
 
     columns = get_columns()
 
-    prod_date = get_operational_day()
+    prod_date = get_selected_production_day(
+        filters.get("monthly_production_planning")
+    )
     active_sites = get_active_planning_sites(prod_date)
 
     excavators_by_site = get_all_excavators()
@@ -114,6 +117,22 @@ def execute(filters=None):
             ))
 
     return columns, data
+
+
+def get_selected_production_day(plan_name=None):
+    operational_day = get_operational_day()
+
+    if not plan_name:
+        return operational_day
+
+    plan = frappe.get_doc("Monthly Production Planning", plan_name)
+    start_date = getdate(plan.prod_month_start_date) if plan.prod_month_start_date else None
+    end_date = getdate(plan.prod_month_end_date) if plan.prod_month_end_date else None
+
+    if start_date and end_date and start_date <= operational_day <= end_date:
+        return operational_day
+
+    return end_date or operational_day
 
 
 def get_active_planning_sites(prod_date):

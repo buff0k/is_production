@@ -3,9 +3,29 @@
 
 
 frappe.query_reports["Hourly Dashboard"] = {
-    filters: [],
+    filters: [
+        {
+            fieldname: "monthly_production_planning",
+            label: __("Monthly Production Planning"),
+            fieldtype: "Link",
+            options: "Monthly Production Planning"
+        }
+    ],
 
     onload: function (report) {
+        if (!report.get_filter_value("monthly_production_planning")) {
+            frappe.db.get_list("Monthly Production Planning", {
+                fields: ["name"],
+                order_by: "prod_month_end_date desc, modified desc",
+                limit: 1
+            }).then((rows) => {
+                if (rows.length) {
+                    report.set_filter_value("monthly_production_planning", rows[0].name);
+                    report.refresh();
+                }
+            });
+        }
+
         if (report._auto_refresh_started) return;
 
         report._auto_refresh_started = true;
