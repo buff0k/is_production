@@ -19,6 +19,14 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     single_column: true
   });
 
+  const mpp = page.add_field({
+    fieldtype: "Link",
+    label: __("Monthly Production Planning"),
+    fieldname: "monthly_production_planning",
+    options: "Monthly Production Planning",
+    change: () => load_and_render(false)
+  });
+
   // -------------------------
   // Runtime site colour mapping
   // Source: Production Dashboard Setup singleton via whitelisted method
@@ -348,7 +356,7 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
     $status.text(is_auto ? "Refreshing..." : "Loading...");
 
     return Promise.all([
-      run_report({}),
+      run_report({ monthly_production_planning: mpp.get_value() || "" }),
       get_site_colour_map()
     ])
       .then(([res, siteColourMap]) => {
@@ -383,8 +391,18 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   // -------------------------
   // Initial load
   // -------------------------
-  load_and_render(false);
-  start_aligned_refresh();
+  frappe.db.get_list("Monthly Production Planning", {
+    fields: ["name"],
+    order_by: "prod_month_end_date desc, modified desc",
+    limit: 1
+  }).then((rows) => {
+    if (rows.length) {
+      mpp.set_value(rows[0].name);
+    } else {
+      load_and_render(false);
+    }
+    start_aligned_refresh();
+  });
 
   // -------------------------
   // Cleanup
