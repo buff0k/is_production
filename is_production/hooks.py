@@ -107,3 +107,71 @@ standard_portal_menu_items = [
 		"role": "External Surveyor",
 	}
 ]
+
+# BEGIN DEFINE MONTHLY PRODUCTION AUTO SYNC
+
+_define_monthly_sync_handler = (
+    "is_production.production.doctype."
+    "define_monthly_production.auto_sync."
+    "sync_monthly_production_plan"
+)
+
+_define_monthly_remove_handler = (
+    "is_production.production.doctype."
+    "define_monthly_production.auto_sync."
+    "remove_monthly_production_plan"
+)
+
+if "doc_events" not in globals():
+    doc_events = {}
+
+_mpp_doc_events = doc_events.setdefault(
+    "Monthly Production Planning",
+    {},
+)
+
+
+def _add_mpp_doc_event(event, handler):
+    existing = _mpp_doc_events.get(event)
+
+    if not existing:
+        _mpp_doc_events[event] = handler
+        return
+
+    if isinstance(existing, (list, tuple)):
+        values = list(existing)
+
+        if handler not in values:
+            values.append(handler)
+
+        _mpp_doc_events[event] = values
+        return
+
+    if existing != handler:
+        _mpp_doc_events[event] = [
+            existing,
+            handler,
+        ]
+
+
+_add_mpp_doc_event(
+    "after_insert",
+    _define_monthly_sync_handler,
+)
+
+_add_mpp_doc_event(
+    "on_update",
+    _define_monthly_sync_handler,
+)
+
+_add_mpp_doc_event(
+    "on_cancel",
+    _define_monthly_remove_handler,
+)
+
+_add_mpp_doc_event(
+    "on_trash",
+    _define_monthly_remove_handler,
+)
+
+# END DEFINE MONTHLY PRODUCTION AUTO SYNC
