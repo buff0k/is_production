@@ -58,38 +58,31 @@ HOUR_SLOT_MAP = {
     "5:00-6:00": 24,
 }
 
+SITE_ORDER = [
+    "Klipfontein",
+    "Uitgevallen",
+    "Gwab",
+    "Koppie",
+    "Kriel Rehabilitation",
+    "Bankfontein",
+]
+
 
 def execute(filters=None):
     filters = filters or {}
 
     columns = get_columns()
 
-    if not filters.get("define_monthly_production"):
-        return columns, []
-
-    plan = frappe.get_doc(
-        "Define Monthly Production",
-        filters.get("define_monthly_production")
-    )
-
     prod_date = get_operational_day()
+    active_sites = get_active_planning_sites(prod_date)
 
     excavators_by_site = get_all_excavators()
     hourly_data = get_all_hourly_data(prod_date)
 
     data = []
-    seen_sites = set()
-
-    for site_order, plan_row in enumerate(plan.define or []):
-        site = (plan_row.site or "").strip()
-        if not site:
+    for site_order, site in enumerate(SITE_ORDER):
+        if site not in active_sites:
             continue
-
-        # Avoid duplicated site blocks if the plan accidentally contains
-        # the same site more than once.
-        if site in seen_sites:
-            continue
-        seen_sites.add(site)
 
         excavators = excavators_by_site.get(site, [])
         site_data = hourly_data.get(site, {})
@@ -121,6 +114,23 @@ def execute(filters=None):
             ))
 
     return columns, data
+
+
+def get_active_planning_sites(prod_date):
+    """Return sites covered by their latest valid monthly production plan."""
+    rows = frappe.get_all(
+        "Monthly Production Planning",
+        filters={
+            "location": ["in", SITE_ORDER],
+            "prod_month_start_date": ["<=", prod_date],
+            "prod_month_end_date": [">=", prod_date],
+            "docstatus": ["<", 2],
+        },
+        fields=["name", "location", "prod_month_end_date", "modified"],
+        order_by="prod_month_end_date desc, modified desc",
+    )
+
+    return {row.location for row in rows if row.location}
 
 
 def get_columns():
