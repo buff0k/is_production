@@ -3,7 +3,6 @@
 
 frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   const REPORT_NAME = "Hourly Dashboard";
-  const STORAGE_KEY = "hourly_dash_define_monthly_production";
   const SITE_COLOUR_METHOD =
     "is_production.production.doctype.production_dashboard_setup.production_dashboard_setup.get_site_colour_map";
 
@@ -49,32 +48,6 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   function clear_site_colour_cache() {
     _site_colour_map = null;
   }
-
-  // -------------------------
-  // Filter
-  // -------------------------
-  const dmp = page.add_field({
-    fieldtype: "Link",
-    label: __("Define Monthly Production"),
-    fieldname: "define_monthly_production",
-    options: "Define Monthly Production",
-    reqd: 1,
-    change: () => {
-      const val = dmp.get_value();
-
-      if (!val) {
-        localStorage.removeItem(STORAGE_KEY);
-        $status.text("Select a Define Monthly Production to load the dashboard.");
-        $dash.empty();
-        return;
-      }
-
-      localStorage.setItem(STORAGE_KEY, val);
-      clear_site_colour_cache();
-      load_and_render(false);
-      start_aligned_refresh();
-    }
-  });
 
   // -------------------------
   // Dashboard container
@@ -130,11 +103,6 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
 
     const auto_refresh = () => {
       if (_refreshing) {
-        schedule_next();
-        return;
-      }
-
-      if (!dmp.get_value()) {
         schedule_next();
         return;
       }
@@ -377,16 +345,10 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   // Main loader
   // -------------------------
   function load_and_render(is_auto) {
-    const val = dmp.get_value();
-
-    if (!val) {
-      return Promise.resolve();
-    }
-
     $status.text(is_auto ? "Refreshing..." : "Loading...");
 
     return Promise.all([
-      run_report({ define_monthly_production: val }),
+      run_report({}),
       get_site_colour_map()
     ])
       .then(([res, siteColourMap]) => {
@@ -419,22 +381,10 @@ frappe.pages["hourly-dashboard"].on_page_load = function (wrapper) {
   }
 
   // -------------------------
-  // Restore last selection
+  // Initial load
   // -------------------------
-  const last = localStorage.getItem(STORAGE_KEY);
-
-  if (last) {
-    dmp.set_value(last);
-
-    setTimeout(() => {
-      if (dmp.get_value()) {
-        load_and_render(false);
-        start_aligned_refresh();
-      }
-    }, 0);
-  } else {
-    $status.text("Select a Define Monthly Production to load the dashboard.");
-  }
+  load_and_render(false);
+  start_aligned_refresh();
 
   // -------------------------
   // Cleanup
