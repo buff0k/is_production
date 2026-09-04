@@ -744,9 +744,46 @@ main,
             });
     }
 
+    // ---------------------------------------------------------
+    // DESK-ALIGNED REFRESH SCHEDULER
+    //
+    // Refresh exactly at:
+    //   HH:10
+    //   HH:30
+    //
+    // Example:
+    //   09:10
+    //   09:30
+    //   10:10
+    //   10:30
+    // ---------------------------------------------------------
+    function ms_until_next_refresh() {
+        const now = new Date();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+        const ms = now.getMilliseconds();
+
+        let nextMinute;
+
+        if (minutes < 10) {
+            nextMinute = 10;
+        } else if (minutes < 30) {
+            nextMinute = 30;
+        } else {
+            // 70 means next hour at minute 10.
+            nextMinute = 70;
+        }
+
+        return (
+            (nextMinute - minutes) * 60 * 1000 -
+            seconds * 1000 -
+            ms
+        );
+    }
+
     function clear_existing_timer() {
         if (_timer) {
-            clearInterval(_timer);
+            clearTimeout(_timer);
             _timer = null;
         }
     }
@@ -754,11 +791,24 @@ main,
     function start_auto_refresh() {
         stop_auto_refresh();
 
-        _timer = setInterval(function () {
-            if (String(input.value || "").trim()) {
-                safe_refresh(true);
-            }
-        }, REFRESH_INTERVAL_MS);
+        function schedule_next() {
+            clear_existing_timer();
+
+            _timer = setTimeout(function () {
+                if (!String(input.value || "").trim()) {
+                    schedule_next();
+                    return;
+                }
+
+                safe_refresh(true)
+                    .finally(function () {
+                        schedule_next();
+                    });
+
+            }, ms_until_next_refresh());
+        }
+
+        schedule_next();
     }
 
     function stop_auto_refresh() {
@@ -844,7 +894,7 @@ main,
                     minute: "2-digit"
                 });
 
-                statusEl.textContent = "Last updated: " + time + " (refreshes every 10 minutes)";
+                statusEl.textContent = "Last updated: " + time + " (refreshes at :10 and :30)";
             })
             .catch(function (e) {
                 console.error("Site Volume Graphs portal error:", e);
@@ -928,15 +978,144 @@ main,
 
     window.setTimeout(hard_reload_page, HARD_RELOAD_INTERVAL_MS);
 
-    const last = localStorage.getItem(STORAGE_KEY);
+    // ---------------------------------------------------------
+    // AUTO DEFAULT CURRENT MONTH - PORTAL
+    //
+    // Every time this page opens:
+    //   September 2026 -> September-2026-Hourly-Hourly
+    //   October 2026   -> October-2026-Hourly-Hourly
+    //
+    // User can still manually select another month afterwards.
+    // ---------------------------------------------------------
+    async function initialise_current_month_default() {
+        try {
+            const parts = new Intl.DateTimeFormat("en-US", {
+                month: "long",
+                year: "numeric",
+                timeZone: "Africa/Johannesburg"
+            }).formatToParts(new Date());
 
-    if (last) {
-        input.value = last;
-        safe_refresh(false);
-        start_auto_refresh();
-    } else {
-        statusEl.textContent = "Select a Define Monthly Production to load the graphs.";
+            const monthPart = parts.find(function (part) {
+                return part.type === "month";
+            });
+
+            const yearPart = parts.find(function (part) {
+                return part.type === "year";
+            });
+
+            const month = monthPart ? monthPart.value : "";
+            const year = yearPart ? yearPart.value : "";
+
+            if (!month || !year) {
+                statusEl.textContent =
+                    "Could not determine the current production month.";
+                return;
+            }
+
+            const exactName = month + "-" + year + "-Hourly-Hourly";
+            const monthPrefix = month + "-" + year + "-";
+
+            console.log(
+                "Site Volume Graphs portal: looking for current month:",
+                exactName
+            );
+
+            // First search for the exact preferred record.
+            let results = await search_define_monthly_production(exactName);
+
+            let selectedName = (results || []).find(function (name) {
+                return String(name || "").trim() === exactName;
+            }) || "";
+
+            // If exact search did not return it, search all records
+            // for the current month and prefer Hourly-Hourly.
+            if (!selectedName) {
+                results = await search_define_monthly_production(monthPrefix);
+
+                selectedName = (results || []).find(function (name) {
+                    const value = String(name || "").trim();
+
+                    return (
+                        value.indexOf(monthPrefix) === 0 &&
+                        /-Hourly-Hourly$/i.test(value)
+                    );
+                }) || "";
+            }
+
+            if (!selectedName) {
+                console.warn(
+                    "Site Volume Graphs portal: current month not found. Falling back to latest existing Hourly-Hourly record."
+                );
+
+                const latestResponse = await call_method("frappe.client.get_list", {
+                    doctype: "Define Monthly Production",
+                    fields: ["name"],
+                    filters: [
+                        ["name", "like", "%-Hourly-Hourly"]
+                    ],
+                    order_by: "creation desc",
+                    limit_page_length: 20
+                });
+
+                const latestRows = (latestResponse && latestResponse.message) || [];
+
+                selectedName = latestRows
+                    .map(function (row) {
+                        return row && row.name ? String(row.name).trim() : "";
+                    })
+                    .filter(Boolean)
+                    .find(function (name) {
+                        return /-Hourly-Hourly$/i.test(name);
+                    }) || "";
+            }
+
+            if (!selectedName) {
+                localStorage.removeItem(STORAGE_KEY);
+                input.value = "";
+
+                stop_auto_refresh();
+                destroyCharts();
+                dashEl.innerHTML = "";
+
+                statusEl.textContent =
+                    "No Hourly-Hourly Define Monthly Production records were found. Please select another month.";
+
+                console.warn(
+                    "Site Volume Graphs portal: no Hourly-Hourly Define Monthly Production records found."
+                );
+
+                return;
+            }
+
+            // Current month always becomes the page-opening default.
+            input.value = selectedName;
+            localStorage.setItem(STORAGE_KEY, selectedName);
+
+            console.log(
+                "Site Volume Graphs portal: selected default:",
+                selectedName
+            );
+
+            await safe_refresh(false);
+            start_auto_refresh();
+
+        } catch (e) {
+            console.error(
+                "Could not auto-select current Define Monthly Production:",
+                e
+            );
+
+            statusEl.textContent =
+                "Could not automatically select the current month. " +
+                "Please select a Define Monthly Production.";
+        }
     }
+
+    // Do not allow an old manually selected month to become
+    // the default the next time the portal page opens.
+    localStorage.removeItem(STORAGE_KEY);
+
+    initialise_current_month_default();
 
     window.addEventListener("beforeunload", function () {
         stop_auto_refresh();
