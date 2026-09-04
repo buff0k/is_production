@@ -154,7 +154,15 @@ main,
     <div class="portal-topbar">
         <h1 class="portal-title">Hourly Dashboard</h1>
 
-        <div id="default_month" class="portal-filter">Loading latest production month...</div>
+        <div class="portal-filter">
+            <input
+                type="text"
+                id="monthly_production_planning"
+                placeholder="Search Monthly Production Planning"
+                autocomplete="off"
+            >
+            <div id="monthly_production_planning_dropdown" class="portal-dropdown"></div>
+        </div>
     </div>
 
     <div id="dashboard_status">Loading...</div>
@@ -189,7 +197,8 @@ main,
         "24-01", "01-02", "02-03", "03-04", "04-05", "05-06"
     );
 
-    const monthEl = document.getElementById("default_month");
+    const input = document.getElementById("monthly_production_planning");
+    const dropdown = document.getElementById("monthly_production_planning_dropdown");
     const statusEl = document.getElementById("dashboard_status");
     const dashEl = document.getElementById("dashboard_grid");
 
@@ -568,7 +577,9 @@ main,
     }
 
     function run_report() {
-        return call_method("is_production.templates.pages.portal_hourly_dashboard.run_portal_report", {});
+        return call_method("is_production.templates.pages.portal_hourly_dashboard.run_portal_report", {
+            monthly_production_planning: input.value || ""
+        });
     }
 
     function load_and_render(is_auto) {
@@ -578,9 +589,9 @@ main,
             .then(function (r) {
                 const response = r.message || {};
                 renderDashboard(response);
-                monthEl.textContent = response.default_month
-                    ? "Production Month: " + response.default_month
-                    : "No Monthly Production Planning found";
+                if (!input.value && response.selected_plan) {
+                    input.value = response.selected_plan;
+                }
 
                 const time = new Date().toLocaleTimeString([], {
                     hour: "2-digit",
@@ -596,6 +607,38 @@ main,
                 throw e;
             });
     }
+
+    async function render_dropdown() {
+        const r = await call_method(
+            "is_production.templates.pages.portal_hourly_dashboard.search_monthly_production_planning",
+            { txt: input.value || "" }
+        );
+        const results = r.message || [];
+        dropdown.innerHTML = results.length
+            ? results.map(function (option) {
+                return '<div class="portal-option" data-value="' + escapeHtml(option) + '">' +
+                    escapeHtml(option) + '</div>';
+            }).join("")
+            : '<div class="portal-empty">No matches found</div>';
+        dropdown.style.display = "block";
+    }
+
+    input.addEventListener("focus", render_dropdown);
+    input.addEventListener("input", render_dropdown);
+
+    dropdown.addEventListener("mousedown", function (e) {
+        const optionEl = e.target.closest(".portal-option");
+        if (!optionEl) return;
+        input.value = optionEl.getAttribute("data-value");
+        dropdown.style.display = "none";
+        safe_refresh(false);
+    });
+
+    document.addEventListener("click", function (e) {
+        if (!input.closest(".portal-filter").contains(e.target)) {
+            dropdown.style.display = "none";
+        }
+    });
 
     document.addEventListener("visibilitychange", refresh_when_visible_again);
     window.addEventListener("focus", refresh_when_visible_again);
