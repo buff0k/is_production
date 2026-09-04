@@ -93,6 +93,17 @@ def _get_default_month():
     return formatdate(latest[0].prod_month_end_date, "MMMM yyyy")
 
 
+def _get_latest_plan_name():
+    latest = frappe.get_all(
+        "Monthly Production Planning",
+        filters={"docstatus": ["<", 2]},
+        fields=["name"],
+        order_by="prod_month_end_date desc, modified desc",
+        limit_page_length=1,
+    )
+    return latest[0].name if latest else ""
+
+
 def _get_site_colour_map():
     try:
         method = frappe.get_attr(SITE_COLOUR_METHOD)
@@ -106,19 +117,22 @@ def _get_site_colour_map():
         return {}
 
 
-def _run_hourly_dashboard_report():
+def _run_hourly_dashboard_report(monthly_production_planning=None):
+    filters = {
+        "monthly_production_planning": monthly_production_planning or "",
+    }
     try:
         run_report = frappe.get_attr("frappe.desk.query_report.run")
 
         try:
             return run_report(
                 report_name=REPORT_NAME,
-                filters={},
+                filters=filters,
             )
         except TypeError:
             return run_report(
                 REPORT_NAME,
-                {},
+                filters,
             )
 
     except Exception:
@@ -130,13 +144,29 @@ def _run_hourly_dashboard_report():
 
 
 @frappe.whitelist()
-def run_portal_report():
+def run_portal_report(monthly_production_planning=None):
     _check_access()
-    payload = _run_hourly_dashboard_report()
+    selected_plan = monthly_production_planning or _get_latest_plan_name()
+    payload = _run_hourly_dashboard_report(selected_plan)
 
     return {
         "payload": payload,
         "site_order_map": _get_site_order_map(),
         "site_colour_map": _get_site_colour_map(),
         "default_month": _get_default_month(),
+        "selected_plan": selected_plan,
     }
+
+
+@frappe.whitelist()
+def search_monthly_production_planning(txt=None):
+    _check_access()
+    filters = [["name", "like", f"%{(txt or '').strip()}%"]] if txt else []
+    rows = frappe.get_all(
+        "Monthly Production Planning",
+        filters=filters,
+        fields=["name"],
+        order_by="prod_month_end_date desc, modified desc",
+        limit_page_length=20,
+    )
+    return [row.name for row in rows]
