@@ -1,6 +1,7 @@
 import json
 import frappe
 from frappe import _
+from frappe.utils import formatdate
 
 
 REPORT_NAME = "Hourly Dashboard"
@@ -19,6 +20,15 @@ ALLOWED_ROLES = [
     "Safety User",
     "Control Clerk",
     "All",
+]
+
+SITE_ORDER = [
+    "Klipfontein",
+    "Uitgevallen",
+    "Gwab",
+    "Koppie",
+    "Kriel Rehabilitation",
+    "Bankfontein",
 ]
 
 
@@ -61,43 +71,26 @@ def _as_dict(value):
     return {}
 
 
-def _get_site_order_map(docname):
-    if not docname:
-        return {}
+def _get_site_order_map():
+    return {site: index for index, site in enumerate(SITE_ORDER)}
 
-    try:
-        doc = frappe.get_doc("Define Monthly Production", docname)
-    except Exception:
-        return {}
 
-    site_order_map = {}
+def _get_default_month():
+    latest = frappe.get_all(
+        "Monthly Production Planning",
+        filters={
+            "location": ["in", SITE_ORDER],
+            "docstatus": ["<", 2],
+        },
+        fields=["prod_month_end_date"],
+        order_by="prod_month_end_date desc, modified desc",
+        limit_page_length=1,
+    )
 
-    possible_tables = [
-        "define",
-        "sites",
-        "site_table",
-        "production_sites",
-        "monthly_production_sites",
-        "define_monthly_production_sites",
-    ]
+    if not latest or not latest[0].prod_month_end_date:
+        return ""
 
-    for table_name in possible_tables:
-        rows = doc.get(table_name) or []
-
-        for idx, row in enumerate(rows):
-            site = (
-                row.get("site")
-                or row.get("location")
-                or row.get("mining_site")
-                or row.get("production_site")
-            )
-
-            site = (site or "").strip()
-
-            if site and site not in site_order_map:
-                site_order_map[site] = idx
-
-    return site_order_map
+    return formatdate(latest[0].prod_month_end_date, "MMMM yyyy")
 
 
 def _get_site_colour_map():
@@ -113,23 +106,19 @@ def _get_site_colour_map():
         return {}
 
 
-def _run_hourly_dashboard_report(define_monthly_production):
-    filters = {
-        "define_monthly_production": define_monthly_production,
-    }
-
+def _run_hourly_dashboard_report():
     try:
         run_report = frappe.get_attr("frappe.desk.query_report.run")
 
         try:
             return run_report(
                 report_name=REPORT_NAME,
-                filters=filters,
+                filters={},
             )
         except TypeError:
             return run_report(
                 REPORT_NAME,
-                filters,
+                {},
             )
 
     except Exception:
@@ -141,38 +130,13 @@ def _run_hourly_dashboard_report(define_monthly_production):
 
 
 @frappe.whitelist()
-def run_portal_report(define_monthly_production):
+def run_portal_report():
     _check_access()
-
-    if not define_monthly_production:
-        frappe.throw(_("Define Monthly Production is required."))
-
-    payload = _run_hourly_dashboard_report(define_monthly_production)
+    payload = _run_hourly_dashboard_report()
 
     return {
         "payload": payload,
-        "site_order_map": _get_site_order_map(define_monthly_production),
+        "site_order_map": _get_site_order_map(),
         "site_colour_map": _get_site_colour_map(),
+        "default_month": _get_default_month(),
     }
-
-
-@frappe.whitelist()
-def search_define_monthly_production(txt=None):
-    _check_access()
-
-    txt = (txt or "").strip()
-
-    filters = []
-
-    if txt:
-        filters.append(["name", "like", f"%{txt}%"])
-
-    rows = frappe.get_all(
-        "Define Monthly Production",
-        filters=filters,
-        fields=["name"],
-        order_by="modified desc",
-        limit_page_length=20,
-    )
-
-    return [row.name for row in rows]
