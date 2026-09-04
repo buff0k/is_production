@@ -3,15 +3,7 @@
 
 
 frappe.query_reports["Hourly Dashboard"] = {
-    filters: [
-        {
-            fieldname: "define_monthly_production",
-            label: __("Define Monthly Production"),
-            fieldtype: "Link",
-            options: "Define Monthly Production",
-            reqd: 1
-        }
-    ],
+    filters: [],
 
     onload: function (report) {
         if (report._auto_refresh_started) return;
