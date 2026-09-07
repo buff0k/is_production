@@ -850,16 +850,16 @@ function updateProductionTimeSummary(frm) {
       tot_shift_morning_hours: sums.morning,
       tot_shift_afternoon_hours: sums.afternoon,
       total_month_prod_hours: totalHours,
-      num_prod_days: sums.prodDays,
-      prod_days_completed: completedDays,
+      num_prod_days: totalHours / getFullProductionDayHours(frm),
+      prod_days_completed: completedHours / getFullProductionDayHours(frm),
       month_prod_hours_completed: completedHours,
-      month_remaining_production_days: remainingDays,
+      month_remaining_production_days: remainingHours / getFullProductionDayHours(frm),
       month_remaining_prod_hours: remainingHours
     });
 
     if (frm.doc.monthly_target_bcm) {
       frm.set_value({
-        target_bcm_day: flt(frm.doc.monthly_target_bcm) / (sums.prodDays || 1),
+        target_bcm_day: flt(frm.doc.monthly_target_bcm) / ((totalHours / getFullProductionDayHours(frm)) || 1),
         target_bcm_hour: flt(frm.doc.monthly_target_bcm) / (totalHours || 1)
       });
     } else {
@@ -889,6 +889,34 @@ function updateProductionTimeSummary(frm) {
 }
 
 
+
+
+
+// -----------------------------------------------------------------------------
+// Equivalent Production Day
+//
+// 2x12Hour:
+//     Normal full day = 2 shifts x configured weekday working hours
+//     Example: 9 + 9 = 18 hours
+//
+//     18 / 18 = 1.000 day
+//      6 / 18 = 0.333 day
+//     14 / 18 = 0.778 day
+//
+// 3x8Hour:
+//     Normal full day = 3 shifts x configured weekday working hours
+// -----------------------------------------------------------------------------
+function getFullProductionDayHours(frm) {
+  const perShiftHours = flt(frm.doc.weekday_shift_hours);
+
+  if (frm.doc.shift_system === '3x8Hour') {
+    const fullDayHours = perShiftHours * 3;
+    return fullDayHours > 0 ? fullDayHours : 24;
+  }
+
+  const fullDayHours = perShiftHours * 2;
+  return fullDayHours > 0 ? fullDayHours : 18;
+}
 
 
 function calculateAndSetProductionStats(frm) {
@@ -958,16 +986,16 @@ function calculateAndSetProductionStats(frm) {
       tot_shift_morning_hours: sums.morning,
       tot_shift_afternoon_hours: sums.afternoon,
       total_month_prod_hours: totalHrs,
-      num_prod_days: sums.days,
-      prod_days_completed: completedDays,
+      num_prod_days: totalHrs / getFullProductionDayHours(frm),
+      prod_days_completed: completedHours / getFullProductionDayHours(frm),
       month_prod_hours_completed: completedHours,
-      month_remaining_production_days: remainingDays,
+      month_remaining_production_days: remainingHrs / getFullProductionDayHours(frm),
       month_remaining_prod_hours: remainingHrs
     });
 
     if (frm.doc.monthly_target_bcm) {
       frm.set_value({
-        target_bcm_day: flt(frm.doc.monthly_target_bcm) / (sums.days || 1),
+        target_bcm_day: flt(frm.doc.monthly_target_bcm) / ((totalHrs / getFullProductionDayHours(frm)) || 1),
         target_bcm_hour: flt(frm.doc.monthly_target_bcm) / (totalHrs || 1)
       });
     } else {

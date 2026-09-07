@@ -232,15 +232,8 @@ class MonthlyProductionPlanning(Document):
         self.tot_shift_morning_hours = totals["morning"]
         self.tot_shift_afternoon_hours = totals["afternoon"]
         self.total_month_prod_hours = total_hours
-        self.num_prod_days = sum(
-            1 for row in self.month_prod_days
-            if any([
-                row.shift_day_hours,
-                row.shift_night_hours,
-                row.shift_morning_hours,
-                row.shift_afternoon_hours,
-            ])
-        )
+        full_day_hours = self.get_full_production_day_hours()
+        self.num_prod_days = (total_hours / full_day_hours) if full_day_hours else 0
 
         if self.monthly_target_bcm:
             self.target_bcm_day = self.monthly_target_bcm / self.num_prod_days if self.num_prod_days else 0
@@ -273,6 +266,30 @@ class MonthlyProductionPlanning(Document):
 
         return hours
     
+
+    def get_full_production_day_hours(self):
+        """
+        Convert configured shift working hours to one normal production day.
+
+        2x12Hour example:
+            weekday shift hours = 9
+            full production day = 9 + 9 = 18 hours
+
+        Therefore:
+            18 hours = 1.000 day
+             6 hours = 0.333 day
+            14 hours = 0.778 day
+        """
+        per_shift_hours = flt(self.weekday_shift_hours)
+
+        if self.shift_system == "3x8Hour":
+            full_day_hours = per_shift_hours * 3
+            return full_day_hours if full_day_hours > 0 else 24.0
+
+        full_day_hours = per_shift_hours * 2
+        return full_day_hours if full_day_hours > 0 else 18.0
+
+
     def update_mtd_production(self):
         """
         Server-side Month-to-Date update: aggregates Hourly Production and Survey data
@@ -447,7 +464,20 @@ class MonthlyProductionPlanning(Document):
                     done_hours += hrs
 
         actual = total_ts + total_dz + survey_var
-        mtd_day = actual / done_days if done_days else 0
+        full_day_hours = self.get_full_production_day_hours()
+
+        equivalent_total_days = (
+            (self.total_month_prod_hours or 0) / full_day_hours
+            if full_day_hours else 0
+        )
+        equivalent_done_days = (
+            done_hours / full_day_hours
+            if full_day_hours else 0
+        )
+
+        self.num_prod_days = equivalent_total_days
+
+        mtd_day = actual / equivalent_done_days if equivalent_done_days else 0
         mtd_hour = actual / done_hours if done_hours else 0
         forecast = mtd_hour * (self.total_month_prod_hours or 0)
 
@@ -467,9 +497,9 @@ class MonthlyProductionPlanning(Document):
         else:
             self.split_ratio = 0
 
-        self.prod_days_completed = done_days
+        self.prod_days_completed = equivalent_done_days
         self.month_prod_hours_completed = done_hours
-        self.month_remaining_production_days = (self.num_prod_days or 0) - done_days
+        self.month_remaining_production_days = (max((self.total_month_prod_hours or 0) - done_hours, 0) / full_day_hours) if full_day_hours else 0
         self.month_remaining_prod_hours = (self.total_month_prod_hours or 0) - done_hours
         self.mtd_bcm_day = mtd_day
         self.mtd_bcm_hour = mtd_hour
