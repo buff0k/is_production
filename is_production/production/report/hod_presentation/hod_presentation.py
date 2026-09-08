@@ -68,13 +68,6 @@ AU_CATEGORIES = [
     "ADT",
     "Dozer",
     "Excavator",
-    "Grader",
-    "Service Truck",
-    "TLB",
-    "Water Bowser",
-    "Diesel Bowsers",
-    "Drills",
-    "Loader",
 ]
 
 AU_CATEGORY_TITLES = {
