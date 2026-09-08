@@ -203,7 +203,8 @@
   },
   {
    "fieldname": "num_prod_days",
-   "fieldtype": "Int",
+   "fieldtype": "Float",
+   "precision": "2",
    "label": "Number of Production Days",
    "read_only": 1
   },
@@ -235,7 +236,8 @@
   },
   {
    "fieldname": "prod_days_completed",
-   "fieldtype": "Int",
+   "fieldtype": "Float",
+   "precision": "2",
    "label": "Number of Production Days Completed",
    "read_only": 1
   },
@@ -269,7 +271,8 @@
   },
   {
    "fieldname": "month_remaining_production_days",
-   "fieldtype": "Int",
+   "fieldtype": "Float",
+   "precision": "2",
    "label": "Month Remaining Production Days"
   },
   {
