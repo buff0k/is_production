@@ -36,8 +36,8 @@ MAX_VALID_WORKING_HOURS = 24.0
 EXCAVATOR_CATEGORY_PATTERN = "%excavat%"
 
 DAILY_AVAILABILITY_MODULE = (
-    "engineering.engineering.page.daily_availability_dashboard."
-    "daily_availability_dashboard"
+    "engineering.engineering.page.daily_availability_and_utilization_dashboard."
+    "daily_availability_and_utilization_dashboard"
 )
 
 SUMMARY_TYPES = (
@@ -59,6 +59,7 @@ AU_TARGET_FILTERS = (
 DEFAULT_SUMMARY_TYPE = "Average Per Machine"
 DEFAULT_MACHINE_SCOPE = "Include Swing/Spare"
 DEFAULT_AU_TARGET_FILTER = "85% A & U"
+DEFAULT_ASSET_OWNERSHIP = "Isambane & Excavo Assets"
 
 AVAILABILITY_TARGET = 85.0
 UTILISATION_TARGET = 80.0
@@ -67,13 +68,6 @@ AU_CATEGORIES = [
     "ADT",
     "Dozer",
     "Excavator",
-    "Grader",
-    "Service Truck",
-    "TLB",
-    "Water Bowser",
-    "Diesel Bowsers",
-    "Drills",
-    "Loader",
 ]
 
 AU_CATEGORY_TITLES = {
@@ -1213,11 +1207,17 @@ def get_availability_summary(
     )
 
     try:
+        dashboard_scope = _dashboard_machine_scope(machine_scope)
+        filters["machine_scope"] = dashboard_scope
+        filters["asset_ownership"] = DEFAULT_ASSET_OWNERSHIP
+
         source_rows = module.fetch_grouped_data(
             site,
             start_text,
             end_text,
-            machine_scope,
+            dashboard_scope,
+            au_target_filter,
+            DEFAULT_ASSET_OWNERSHIP,
         ) or []
 
         spare_map = module.get_spare_swing_asset_map(
@@ -1296,7 +1296,7 @@ def get_availability_summary(
             )
 
             is_spare = (
-                machine_scope == "Swing/Spare Machines"
+                dashboard_scope == "Swing/Spare Machines"
                 or bool(spare_reason)
             )
 
@@ -1357,8 +1357,9 @@ def get_availability_summary(
             start_date=start_date,
             end_date=end_date,
             site=site,
-            machine_scope=machine_scope,
+            machine_scope=dashboard_scope,
             au_target_filter=au_target_filter,
+            source_rows=source_rows,
         )
 
     return {
@@ -1397,88 +1398,65 @@ def _build_daily_availability_series(
     site,
     machine_scope,
     au_target_filter,
+    source_rows,
 ):
-    output = {
-        category: []
-        for category in AU_CATEGORIES
-    }
+    """Build every daily point from the one Engine query already loaded."""
+    output = {category: [] for category in AU_CATEGORIES}
+    shift_rows = [
+        row
+        for row in (source_rows or [])
+        if isinstance(row, dict)
+        and int(row.get("indent") or 0) == 3
+        and not row.get("is_formula_row")
+    ]
+
+    rows_by_date = defaultdict(list)
+    for row in shift_rows:
+        row_date = (
+            row.get("shift_date")
+            or row.get("date")
+            or row.get("production_date")
+        )
+        if row_date:
+            rows_by_date[str(getdate(row_date))].append(row)
 
     current_date = getdate(start_date)
     final_date = getdate(end_date)
 
     while current_date <= final_date:
         date_text = str(current_date)
-
-        filters = frappe._dict(
-            {
-                "start_date": date_text,
-                "end_date": date_text,
-                "from_date": date_text,
-                "to_date": date_text,
-                "location": site,
-                "site": site,
-                "summary_type": "Daily Summary",
-                "machine_scope": machine_scope,
-                "au_target_filter": au_target_filter,
-            }
+        date_shift_rows = rows_by_date.get(date_text, [])
+        date_rows = (
+            module.au_engine.build_tree_rows(date_shift_rows)
+            if date_shift_rows
+            else []
         )
-
-        rows = module.fetch_grouped_data(
-            site,
-            date_text,
-            date_text,
-            machine_scope,
-        ) or []
-
-        spare_map = module.get_spare_swing_asset_map(
-            filters
-        ) or {}
-
-        rows = (
-            module.apply_machine_scope_filter_to_dashboard_rows(
-                rows,
-                filters,
-                spare_map,
-            )
-            or []
-        )
-
         averages = (
-            module.build_summary_averages_from_source_rows(
-                rows
-            )
-            or {}
-        )
-
-        averages, _ = _apply_au_target_filter(
-            module,
-            averages,
-            {
-                category: []
-                for category in AU_CATEGORIES
-            },
-            filters,
+            module.build_summary_averages_from_source_rows(date_rows)
+            if date_rows
+            else {}
         )
 
         for category in AU_CATEGORIES:
             values = averages.get(category) or {}
-
-            output[category].append(
-                {
-                    "date": date_text,
-                    "day": current_date.strftime("%d"),
-                    "availability": _percentage_or_none(
-                        values.get("avail")
-                    ),
-                    "utilisation": _percentage_or_none(
-                        values.get("util")
-                    ),
-                }
-            )
+            output[category].append({
+                "date": date_text,
+                "day": current_date.strftime("%d"),
+                "availability": _percentage_or_none(values.get("avail")),
+                "utilisation": _percentage_or_none(values.get("util")),
+            })
 
         current_date += timedelta(days=1)
 
     return output
+
+
+def _dashboard_machine_scope(machine_scope):
+    if machine_scope == "Include Swing/Spare":
+        return "Production + Swing/Spare Machines"
+
+    return machine_scope
+
 
 
 def _load_daily_availability_module():
@@ -2365,8 +2343,11 @@ def get_availability_dashboard_html(
             "summary_type": summary_type,
             "machine_scope": machine_scope,
             "au_target_filter": au_target_filter,
+            "asset_ownership": DEFAULT_ASSET_OWNERSHIP,
+            "hours_display": "Hours Average per Category",
         }
     )
+    dashboard_filters["machine_scope"] = _dashboard_machine_scope(machine_scope)
 
     try:
         result = module.execute(
