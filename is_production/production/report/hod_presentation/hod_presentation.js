@@ -307,17 +307,40 @@ async function downloadHodPresentation(report) {
             index < auSites.length;
             index += 1
         ) {
+            const siteName =
+                selectedSites[index] ||
+                `Site ${index + 1}`;
+
             capturedSlides.push({
                 title:
                     "Availability & Utilisation - " +
-                    (
-                        selectedSites[index] ||
-                        `Site ${index + 1}`
-                    ),
+                    siteName,
                 image_data: await captureHodSection(
                     auSites[index]
                 )
             });
+
+            const hoursPanel =
+                auSites[index].querySelector(
+                    '.daily-dashboard-tab-panel[data-panel="hours"]'
+                );
+
+            for (
+                const categorySection
+                of getHodHoursCategorySections(hoursPanel)
+            ) {
+                capturedSlides.push({
+                    title:
+                        categorySection.category +
+                        " Hours Based Performance - " +
+                        siteName,
+                    image_data:
+                        await captureHodHoursSection(
+                            categorySection.element,
+                            hoursPanel
+                        )
+                });
+            }
         }
 
         if (!capturedSlides.length) {
@@ -407,7 +430,89 @@ async function waitForHodDashboards(
 }
 
 
-async function captureHodSection(element) {
+const HOD_PRESENTATION_HOURS_CATEGORIES = [
+    "ADT",
+    "Dozer",
+    "Excavator"
+];
+
+
+function getHodHoursCategorySections(hoursPanel) {
+    if (!hoursPanel) {
+        return [];
+    }
+
+    const chartsRoot =
+        hoursPanel.firstElementChild ||
+        hoursPanel;
+
+    return HOD_PRESENTATION_HOURS_CATEGORIES
+        .map(category => {
+            const element = Array.from(
+                chartsRoot.children || []
+            ).find(candidate => {
+                const heading =
+                    candidate.firstElementChild;
+
+                const headingText = (
+                    heading?.textContent || ""
+                ).trim().toLowerCase();
+
+                return headingText.startsWith(
+                    category.toLowerCase() + " —"
+                ) || headingText.startsWith(
+                    category.toLowerCase() + " -"
+                );
+            });
+
+            return element
+                ? { category, element }
+                : null;
+        })
+        .filter(Boolean);
+}
+
+
+async function captureHodHoursSection(
+    element,
+    hoursPanel
+) {
+    const originalStyle =
+        hoursPanel.getAttribute("style");
+
+    hoursPanel.style.display = "block";
+    hoursPanel.style.width = "1180px";
+    hoursPanel.style.maxWidth = "none";
+    hoursPanel.style.overflow = "visible";
+
+    await new Promise(resolve => {
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(resolve);
+        });
+    });
+
+    try {
+        return await captureHodSection(
+            element,
+            {
+                quality: 0.92,
+                pixelRatio: 1
+            }
+        );
+    } finally {
+        if (originalStyle === null) {
+            hoursPanel.removeAttribute("style");
+        } else {
+            hoursPanel.setAttribute(
+                "style",
+                originalStyle
+            );
+        }
+    }
+}
+
+
+async function captureHodSection(element, options = {}) {
     if (!element) {
         throw new Error(
             __("The report section was not found.")
@@ -432,8 +537,10 @@ async function captureHodSection(element) {
         window.htmlToImage.toJpeg(
             element,
             {
-                quality: 0.82,
-                pixelRatio: 0.75,
+                quality:
+                    options.quality || 0.82,
+                pixelRatio:
+                    options.pixelRatio || 0.75,
                 backgroundColor: "#f7f8fa",
                 cacheBust: true,
                 width: captureWidth,
