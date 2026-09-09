@@ -69,6 +69,7 @@ frappe.query_reports["HOD Presentation"] = {
     onload(report) {
         injectHodPresentationStyles();
         bindHodDashboardTabs(report);
+        ensureHodInteractiveReport();
 
         report.page.add_inner_button(__("Download Presentation"), () => {
             downloadHodPresentation(report);
@@ -138,6 +139,37 @@ frappe.query_reports["HOD Presentation"] = {
         return value;
     }
 };
+
+function ensureHodInteractiveReport() {
+    frappe.call({
+        method:
+            "is_production.production.report." +
+            "hod_presentation.hod_presentation." +
+            "ensure_interactive_report",
+        freeze: false
+    }).then(response => {
+        if (!response.message) {
+            return;
+        }
+
+        frappe.show_alert({
+            message: __(
+                "HOD Presentation switched to live report mode."
+            ),
+            indicator: "green"
+        });
+
+        window.setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    }).catch(error => {
+        console.warn(
+            "Could not verify HOD report mode.",
+            error
+        );
+    });
+}
+
 
 function bindHodDashboardTabs(report) {
     if (!report?.page?.main) {
@@ -336,7 +368,9 @@ async function downloadHodPresentation(report) {
 
         if (productionSection) {
             capturedSlides.push({
-                title: "HOD Production Summary",
+                title:
+                    "HOD Production Summary - " +
+                    selectedSites.join(" / "),
                 image_data: await captureHodSection(
                     productionSection
                 )
@@ -1189,6 +1223,12 @@ async function loadHodAvailabilityDashboards(
                     $dashboard[0]
                 );
 
+                $dashboard.prepend(`
+                    <div class="hod-browser-dashboard-site-name">
+                        ${hodEscape(row.site)}
+                    </div>
+                `);
+
                 $target
                     .empty()
                     .append(
@@ -2018,6 +2058,18 @@ function injectHodPresentationStyles() {
         .hod-browser-au-error {
             color: #b91c1c;
             background: #fff7f7;
+        }
+
+        .hod-browser-dashboard-site-name {
+            padding: 12px 16px;
+            background: #0f1f53;
+            color: #ffffff;
+            border-bottom: 4px solid #e03124;
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: 0.4px;
+            text-align: center;
+            text-transform: uppercase;
         }
 
         .hod-browser-au-dashboard-copy {
