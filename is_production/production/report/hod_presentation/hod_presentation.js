@@ -311,14 +311,27 @@ async function downloadHodPresentation(report) {
                 selectedSites[index] ||
                 `Site ${index + 1}`;
 
-            capturedSlides.push({
-                title:
-                    "Availability & Utilisation - " +
-                    siteName,
-                image_data: await captureHodSection(
-                    auSites[index]
-                )
-            });
+            const auPanel =
+                auSites[index].querySelector(
+                    '.daily-dashboard-tab-panel[data-panel="au"]'
+                );
+
+            for (
+                const categorySection
+                of getHodAuCategorySections(auPanel)
+            ) {
+                capturedSlides.push({
+                    title:
+                        categorySection.title +
+                        " - " +
+                        siteName,
+                    image_data:
+                        await captureHodCategorySection(
+                            categorySection.element,
+                            auPanel
+                        )
+                });
+            }
 
             const hoursPanel =
                 auSites[index].querySelector(
@@ -335,7 +348,7 @@ async function downloadHodPresentation(report) {
                         " Hours Based Performance - " +
                         siteName,
                     image_data:
-                        await captureHodHoursSection(
+                        await captureHodCategorySection(
                             categorySection.element,
                             hoursPanel
                         )
@@ -437,6 +450,54 @@ const HOD_PRESENTATION_HOURS_CATEGORIES = [
 ];
 
 
+function getHodCategoryFromHeading(value) {
+    const headingText = String(
+        value || ""
+    ).trim().toLowerCase();
+
+    return HOD_PRESENTATION_HOURS_CATEGORIES
+        .find(category => {
+            const categoryText =
+                category.toLowerCase();
+
+            return (
+                headingText.startsWith(
+                    categoryText + " "
+                ) ||
+                headingText === categoryText
+            );
+        }) || "";
+}
+
+
+function getHodAuCategorySections(auPanel) {
+    if (!auPanel) {
+        return [];
+    }
+
+    return Array.from(
+        auPanel.querySelectorAll(
+            ".isd-chart-section"
+        )
+    )
+        .map(element => {
+            const title = (
+                element.querySelector(
+                    ".isd-chart-section-title"
+                )?.textContent || ""
+            ).trim();
+
+            const category =
+                getHodCategoryFromHeading(title);
+
+            return category
+                ? { category, title, element }
+                : null;
+        })
+        .filter(Boolean);
+}
+
+
 function getHodHoursCategorySections(hoursPanel) {
     if (!hoursPanel) {
         return [];
@@ -473,7 +534,7 @@ function getHodHoursCategorySections(hoursPanel) {
 }
 
 
-async function captureHodHoursSection(
+async function captureHodCategorySection(
     element,
     hoursPanel
 ) {
@@ -869,6 +930,69 @@ function renderHodPresentationLayout(report) {
 }
 
 
+function filterHodDashboardCategories(
+    dashboard
+) {
+    if (!dashboard) {
+        return;
+    }
+
+    dashboard.querySelectorAll(
+        ".isd-metric"
+    ).forEach(element => {
+        const category =
+            getHodCategoryFromHeading(
+                element.querySelector(
+                    ".isd-metric-title"
+                )?.textContent
+            );
+
+        if (!category) {
+            element.remove();
+        }
+    });
+
+    dashboard.querySelectorAll(
+        ".isd-chart-section"
+    ).forEach(element => {
+        const category =
+            getHodCategoryFromHeading(
+                element.querySelector(
+                    ".isd-chart-section-title"
+                )?.textContent
+            );
+
+        if (!category) {
+            element.remove();
+        }
+    });
+
+    const hoursPanel =
+        dashboard.querySelector(
+            '.daily-dashboard-tab-panel[data-panel="hours"]'
+        );
+
+    if (hoursPanel) {
+        const chartsRoot =
+            hoursPanel.firstElementChild ||
+            hoursPanel;
+
+        Array.from(
+            chartsRoot.children || []
+        ).forEach(element => {
+            if (
+                !getHodCategoryFromHeading(
+                    element.firstElementChild
+                        ?.textContent
+                )
+            ) {
+                element.remove();
+            }
+        });
+    }
+}
+
+
 async function loadHodAvailabilityDashboards(
     report,
     rows,
@@ -968,6 +1092,10 @@ async function loadHodAvailabilityDashboards(
 
                 $dashboard.html(
                     dashboardHtml
+                );
+
+                filterHodDashboardCategories(
+                    $dashboard[0]
                 );
 
                 $target
@@ -1846,17 +1974,6 @@ function injectHodPresentationStyles() {
         .hod-browser-au-dashboard-copy
         .isd-contentrow {
             width: 100% !important;
-        }
-
-        /*
-         * Show every asset-category average bubble.
-         * Only the first graph is displayed because
-         * ADT is the first chart section returned by
-         * the Daily Availability Dashboard.
-         */
-        .hod-browser-au-dashboard-copy
-        .isd-chart-section:not(:first-child) {
-            display: none !important;
         }
 
         .hod-browser-au-dashboard-copy
