@@ -536,15 +536,55 @@ function getHodHoursCategorySections(hoursPanel) {
 
 async function captureHodCategorySection(
     element,
-    hoursPanel
+    categoryPanel
 ) {
-    const originalStyle =
-        hoursPanel.getAttribute("style");
+    const styledElements = [
+        categoryPanel,
+        element,
+        ...element.querySelectorAll(
+            ".frappe-card, .isd-chart, .isd-chart-stack"
+        )
+    ];
 
-    hoursPanel.style.display = "block";
-    hoursPanel.style.width = "1180px";
-    hoursPanel.style.maxWidth = "none";
-    hoursPanel.style.overflow = "visible";
+    const originalStyles = styledElements.map(
+        node => ({
+            node,
+            style: node.getAttribute("style")
+        })
+    );
+
+    const svgWidths = Array.from(
+        element.querySelectorAll("svg")
+    ).map(svg => {
+        return Number(
+            svg.getAttribute("width") ||
+            svg.viewBox?.baseVal?.width ||
+            svg.scrollWidth ||
+            0
+        );
+    });
+
+    const fullWidth = Math.max(
+        1180,
+        element.scrollWidth,
+        ...svgWidths.map(width => width + 90)
+    );
+
+    categoryPanel.style.display = "block";
+    categoryPanel.style.width = `${fullWidth}px`;
+    categoryPanel.style.maxWidth = "none";
+    categoryPanel.style.overflow = "visible";
+
+    element.style.width = `${fullWidth}px`;
+    element.style.maxWidth = "none";
+    element.style.overflow = "visible";
+
+    element.querySelectorAll(
+        ".frappe-card, .isd-chart, .isd-chart-stack"
+    ).forEach(node => {
+        node.style.maxWidth = "none";
+        node.style.overflow = "visible";
+    });
 
     await new Promise(resolve => {
         window.requestAnimationFrame(() => {
@@ -557,18 +597,23 @@ async function captureHodCategorySection(
             element,
             {
                 quality: 0.92,
-                pixelRatio: 1
+                pixelRatio: 1,
+                width: fullWidth
             }
         );
     } finally {
-        if (originalStyle === null) {
-            hoursPanel.removeAttribute("style");
-        } else {
-            hoursPanel.setAttribute(
-                "style",
-                originalStyle
-            );
-        }
+        originalStyles.forEach(
+            ({ node, style }) => {
+                if (style === null) {
+                    node.removeAttribute("style");
+                } else {
+                    node.setAttribute(
+                        "style",
+                        style
+                    );
+                }
+            }
+        );
     }
 }
 
@@ -581,6 +626,7 @@ async function captureHodSection(element, options = {}) {
     }
 
     const captureWidth = Math.max(
+        Number(options.width || 0),
         element.scrollWidth,
         element.offsetWidth,
         element.clientWidth,
