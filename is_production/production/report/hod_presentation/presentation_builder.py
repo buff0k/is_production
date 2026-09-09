@@ -85,7 +85,20 @@ def build_hod_presentation(
                 continue
 
             slide = _blank_slide(prs)
-            _add_image_fitted(slide, image_bytes)
+            slide_title = str(
+                captured.get("title")
+                or site
+            )
+            _add_slide_heading(
+                slide,
+                slide_title,
+            )
+            _add_image_fitted(
+                slide,
+                image_bytes,
+                top_inches=0.72,
+                height_inches=6.68,
+            )
 
         if not prs.slides:
             _add_error_slide(
@@ -124,7 +137,13 @@ def _decode_image_data(value) -> bytes | None:
             return None
 
 
-def _add_image_fitted(slide, image_bytes: bytes) -> None:
+def _add_image_fitted(
+    slide,
+    image_bytes: bytes,
+    *,
+    top_inches: float = 0.0,
+    height_inches: float = SLIDE_HEIGHT,
+) -> None:
     image_stream = BytesIO(image_bytes)
 
     picture = slide.shapes.add_picture(
@@ -134,14 +153,15 @@ def _add_image_fitted(slide, image_bytes: bytes) -> None:
     )
 
     slide_w = Inches(SLIDE_WIDTH)
-    slide_h = Inches(SLIDE_HEIGHT)
+    slide_h = Inches(height_inches)
+    top_offset = Inches(top_inches)
 
     image_w = picture.width
     image_h = picture.height
 
     if not image_w or not image_h:
         picture.left = 0
-        picture.top = 0
+        picture.top = top_offset
         picture.width = slide_w
         picture.height = slide_h
         return
@@ -157,7 +177,47 @@ def _add_image_fitted(slide, image_bytes: bytes) -> None:
     picture.width = fitted_w
     picture.height = fitted_h
     picture.left = int((slide_w - fitted_w) / 2)
-    picture.top = int((slide_h - fitted_h) / 2)
+    picture.top = (
+        top_offset
+        + int((slide_h - fitted_h) / 2)
+    )
+
+
+def _add_slide_heading(slide, title: str) -> None:
+    banner = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        0,
+        0,
+        Inches(SLIDE_WIDTH),
+        Inches(0.68),
+    )
+    banner.fill.solid()
+    banner.fill.fore_color.rgb = _rgb("0F1F53")
+    banner.line.fill.background()
+
+    accent = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        0,
+        Inches(0.64),
+        Inches(SLIDE_WIDTH),
+        Inches(0.04),
+    )
+    accent.fill.solid()
+    accent.fill.fore_color.rgb = _rgb(RED)
+    accent.line.fill.background()
+
+    _add_text(
+        slide,
+        title,
+        0.35,
+        0.08,
+        12.63,
+        0.48,
+        20,
+        WHITE,
+        bold=True,
+        align=PP_ALIGN.CENTER,
+    )
 
 
 def _blank_slide(prs: Presentation):
