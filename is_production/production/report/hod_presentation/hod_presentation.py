@@ -2415,6 +2415,47 @@ def get_availability_dashboard_html(
 
 
 @frappe.whitelist()
+def ensure_interactive_report():
+    """Keep HOD Presentation out of Frappe's prepared-report queue."""
+    check_report_access()
+
+    values = frappe.db.get_value(
+        "Report",
+        REPORT_NAME,
+        [
+            "prepared_report",
+            "disable_prepared_report_automation",
+        ],
+        as_dict=True,
+    ) or {}
+
+    needs_update = (
+        bool(values.get("prepared_report"))
+        or not bool(
+            values.get(
+                "disable_prepared_report_automation"
+            )
+        )
+    )
+
+    if not needs_update:
+        return False
+
+    frappe.db.set_value(
+        "Report",
+        REPORT_NAME,
+        {
+            "prepared_report": 0,
+            "disable_prepared_report_automation": 1,
+        },
+        update_modified=False,
+    )
+    frappe.clear_cache(doctype="Report")
+
+    return True
+
+
+@frappe.whitelist()
 def download_presentation(
     start_date=None,
     end_date=None,
