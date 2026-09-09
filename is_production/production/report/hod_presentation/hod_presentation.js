@@ -68,6 +68,7 @@ frappe.query_reports["HOD Presentation"] = {
 
     onload(report) {
         injectHodPresentationStyles();
+        bindHodDashboardTabs(report);
 
         report.page.add_inner_button(__("Download Presentation"), () => {
             downloadHodPresentation(report);
@@ -137,6 +138,50 @@ frappe.query_reports["HOD Presentation"] = {
         return value;
     }
 };
+
+function bindHodDashboardTabs(report) {
+    if (!report?.page?.main) {
+        return;
+    }
+
+    report.page.main
+        .off(
+            "click.hodDashboardTabs",
+            ".daily-dashboard-tab-button"
+        )
+        .on(
+            "click.hodDashboardTabs",
+            ".daily-dashboard-tab-button",
+            function () {
+                const button = $(this);
+                const dashboard = button.closest(
+                    ".hod-browser-au-dashboard-copy"
+                );
+                const selectedTab =
+                    button.attr("data-tab");
+
+                dashboard
+                    .find(".daily-dashboard-tab-button")
+                    .removeClass("btn-primary")
+                    .addClass("btn-default");
+
+                button
+                    .removeClass("btn-default")
+                    .addClass("btn-primary");
+
+                dashboard
+                    .find(".daily-dashboard-tab-panel")
+                    .hide();
+
+                dashboard
+                    .find(
+                        `.daily-dashboard-tab-panel[data-panel="${selectedTab}"]`
+                    )
+                    .show();
+            }
+        );
+}
+
 
 function normaliseHodSites(value) {
     if (Array.isArray(value)) {
