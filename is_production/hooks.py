@@ -6,12 +6,12 @@ app_email = "eben@isambane.co.za"
 app_license = "mit"
 required_apps = ["frappe/erpnext", "shridarpatil/frappe_whatsapp"]
 source_link = "http://github.com/buff0k/is_production"
-app_logo_url = "/assets/is_production/images/is-logo.svg"
+app_logo_url = "/assets/is_production/images/is-logo.png"
 app_home = "/desk/production"
 add_to_apps_screen = [
     {
         "name": app_name,
-        "logo": "/assets/is_production/images/is-logo.svg",
+        "logo": "/assets/is_production/images/is-logo.png",
         "title": app_title,
         "route": app_home,
         "has_permission": "is_production.production.utils.check_app_permission",
