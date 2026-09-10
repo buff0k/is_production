@@ -17,6 +17,8 @@
   "weekday_required_hours",
   "sat_required_shift_hours",
   "general_lost_hours_section",
+  "general_lost_hours_table",
+  "general_lost_hours_detail_total",
   "gen_training_hours",
   "weather_non_work_hours",
   "vfl_non_work_hours",
@@ -123,12 +125,27 @@
    "label": "General Lost Hours"
   },
   {
+   "fieldname": "general_lost_hours_table",
+   "fieldtype": "Table",
+   "label": "General Lost Hours Detail",
+   "options": "Daily General Lost Hours"
+  },
+  {
+   "fieldname": "general_lost_hours_detail_total",
+   "fieldtype": "Float",
+   "label": "Total General Lost Hours Detail",
+   "read_only": 1,
+   "precision": "2",
+   "default": "0"
+  },
+  {
    "fieldname": "gen_training_hours",
    "fieldtype": "Float",
    "label": "Training Non Work Hours",
    "non_negative": 1,
    "precision": "1",
-   "reqd": 1
+   "reqd": 0,
+   "hidden": 1
   },
   {
    "fieldname": "weather_non_work_hours",
@@ -136,7 +153,8 @@
    "label": "Weather Conditions Non Work Hours",
    "non_negative": 1,
    "precision": "1",
-   "reqd": 1
+   "reqd": 0,
+   "hidden": 1
   },
   {
    "fieldname": "vfl_non_work_hours",
@@ -144,7 +162,8 @@
    "label": "VFL Non Work Hours",
    "non_negative": 1,
    "precision": "1",
-   "reqd": 1
+   "reqd": 0,
+   "hidden": 1
   },
   {
    "fieldname": "other_non_work_hours",
@@ -152,16 +171,21 @@
    "label": "Other Non Work Hours",
    "non_negative": 1,
    "precision": "1",
-   "reqd": 1
+   "reqd": 0,
+   "hidden": 1
   },
   {
    "fieldname": "column_break_nuby",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 1,
+   "reqd": 0
   },
   {
    "fieldname": "gen_lost_hours_comments",
    "fieldtype": "Small Text",
-   "label": "General Lost Hours Comments"
+   "label": "General Lost Hours Comments",
+   "hidden": 1,
+   "reqd": 0
   },
   {
    "fieldname": "day_of_week",
@@ -175,7 +199,9 @@
    "label": "Total General Non Breakdown Lost Hours",
    "non_negative": 1,
    "precision": "2",
-   "read_only": 1
+   "read_only": 1,
+   "hidden": 1,
+   "reqd": 0
   },
   {
    "fieldname": "dust_water_bowser_issues_hours",
@@ -183,7 +209,8 @@
    "label": "Dust and or Water Bowser Lost Hours",
    "non_negative": 1,
    "precision": "1",
-   "reqd": 1
+   "reqd": 0,
+   "hidden": 1
   },
   {
    "fieldname": "diesel_or_diesel_bowser_hours",
@@ -191,7 +218,8 @@
    "label": "Diesel and or Diesel Bowser Lost Hours",
    "non_negative": 1,
    "precision": "1",
-   "reqd": 1
+   "reqd": 0,
+   "hidden": 1
   },
   {
    "fieldname": "blasting",
@@ -199,7 +227,8 @@
    "label": "Blasting",
    "non_negative": 1,
    "precision": "1",
-   "reqd": 1
+   "reqd": 0,
+   "hidden": 1
   }
  ],
  "grid_page_length": 50,
