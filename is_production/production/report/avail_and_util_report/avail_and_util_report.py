@@ -1872,109 +1872,609 @@ def summary_row(rows, indent, **extra_fields):
 
 
 def attach_reasons(data, filters):
-    key_map = {(d.get("asset_name"), str(d.get("shift_date")), d.get("location"))
-               for d in data if d.get("asset_name") and d.get("shift_date")}
+    """
+    Attach breakdown and General Lost Hour reasons.
+
+    General Lost Hours rule:
+    - Specific machine -> only that machine
+    - ALL Equipment    -> every machine
+    - Blank machine    -> do not distribute
+    """
+
+    key_map = {
+        (
+            d.get("asset_name"),
+            str(d.get("shift_date")),
+            d.get("location"),
+        )
+        for d in data
+        if d.get("asset_name")
+        and d.get("shift_date")
+    }
+
     if not key_map:
         return
 
-    asset_names = list({a for a, _, _ in key_map})
-    start_date = filters.get("start_date")
-    end_date = filters.get("end_date")
-    location = filters.get("location")
+    asset_names = list(
+        {
+            asset
+            for asset, _, _
+            in key_map
+        }
+    )
 
-    breakdown_rows = frappe.db.sql("""
+    start_date = filters.get(
+        "start_date"
+    )
+
+    end_date = filters.get(
+        "end_date"
+    )
+
+    location = filters.get(
+        "location"
+    )
+
+
+    # ========================================================
+    # BREAKDOWN REASONS
+    # ========================================================
+
+    breakdown_rows = frappe.db.sql(
+        """
         SELECT
             bh.asset_name,
             DATE(bh.update_date_time) AS shift_date,
             bh.location,
             bh.breakdown_reason_updates
         FROM `tabBreakdown History` bh
-        WHERE bh.asset_name IN %(assets)s
-          AND DATE(bh.update_date_time) BETWEEN %(start)s AND %(end)s
-    """, {"assets": tuple(asset_names), "start": start_date, "end": end_date}, as_dict=True)
+        WHERE
+            bh.asset_name IN %(assets)s
+            AND DATE(bh.update_date_time)
+                BETWEEN %(start)s AND %(end)s
+        """,
+        {
+            "assets": tuple(asset_names),
+            "start": start_date,
+            "end": end_date,
+        },
+        as_dict=True,
+    )
+
 
     breakdown_map = {}
+
     for r in breakdown_rows:
-        k = (r.asset_name, str(r.shift_date), r.location)
-        breakdown_map.setdefault(k, []).append(r.breakdown_reason_updates)
 
-    delay_rows = frappe.db.sql("""
+        key = (
+            r.asset_name,
+            str(r.shift_date),
+            r.location,
+        )
+
+        breakdown_map.setdefault(
+            key,
+            []
+        ).append(
+            r.breakdown_reason_updates
+        )
+
+
+    # ========================================================
+    # GENERAL LOST HOURS - CHILD ROWS
+    #
+    # IMPORTANT:
+    # We no longer use parent gen_lost_hours_comments because
+    # that caused one site's delays to appear on every asset.
+    # ========================================================
+
+    general_rows = frappe.db.sql(
+        """
         SELECT
-            location,
-            shift_date,
-            shift,
-            gen_lost_hours_comments,
-            total_general_lost_hours
-        FROM `tabDaily Lost Hours Recon`
-        WHERE shift_date BETWEEN %(start)s AND %(end)s
-          {loc_filter}
-    """.format(loc_filter="AND location = %(loc)s" if location else ""),
-        {"start": start_date, "end": end_date, "loc": location}, as_dict=True)
+            r.location,
+            r.shift_date,
+            r.shift,
 
-    plant_rows = frappe.db.sql("""
+            g.machine,
+            g.lost_hour_category,
+            g.reason_description,
+            g.start_time,
+            g.end_time,
+            g.total_hours,
+            g.location AS delay_location
+
+        FROM `tabDaily Lost Hours Recon` r
+
+        INNER JOIN `tabDaily General Lost Hours` g
+            ON g.parent = r.name
+
+        WHERE
+            r.shift_date
+                BETWEEN %(start)s AND %(end)s
+
+            {loc_filter}
+
+            AND IFNULL(
+                TRIM(g.machine),
+                ''
+            ) != ''
+        """.format(
+            loc_filter=(
+                "AND r.location = %(loc)s"
+                if location
+                else ""
+            )
+        ),
+        {
+            "start": start_date,
+            "end": end_date,
+            "loc": location,
+        },
+        as_dict=True,
+    )
+
+
+    # ========================================================
+    # PLANT SPECIFIC LOST HOURS
+    # ========================================================
+
+    plant_rows = frappe.db.sql(
+        """
         SELECT
             r.location,
             r.shift_date,
             r.shift,
             a.asset_name,
             a.total_plant_specific_lost_hours
+
         FROM `tabDaily Lost Hours Recon` r
+
         INNER JOIN `tabDaily Lost Hours Assets` a
             ON a.parent = r.name
-        WHERE r.shift_date BETWEEN %(start)s AND %(end)s
-          {loc_filter}
-          AND IFNULL(a.total_plant_specific_lost_hours, 0) != 0
-    """.format(loc_filter="AND r.location = %(loc)s" if location else ""),
-        {"start": start_date, "end": end_date, "loc": location}, as_dict=True)
 
-    delay_map = {(r.location, str(r.shift_date)): (r.gen_lost_hours_comments or "") for r in delay_rows}
+        WHERE
+            r.shift_date
+                BETWEEN %(start)s AND %(end)s
 
-    captured_general_map = {
-        (r.location, str(r.shift_date), (r.shift or "")): (r.total_general_lost_hours or 0)
-        for r in delay_rows
-    }
+            {loc_filter}
 
-    captured_plant_map = {}
-    for r in plant_rows:
-        k = (r.location, str(r.shift_date), (r.shift or ""), r.asset_name)
-        captured_plant_map[k] = (captured_plant_map.get(k, 0) + (r.total_plant_specific_lost_hours or 0))
+            AND IFNULL(
+                a.total_plant_specific_lost_hours,
+                0
+            ) != 0
+        """.format(
+            loc_filter=(
+                "AND r.location = %(loc)s"
+                if location
+                else ""
+            )
+        ),
+        {
+            "start": start_date,
+            "end": end_date,
+            "loc": location,
+        },
+        as_dict=True,
+    )
 
-    for row in data:
-        if not row.get("shift_date"):
+
+    # ========================================================
+    # GENERAL HOURS + REASON MAP
+    #
+    # Key:
+    # (
+    #   site,
+    #   date,
+    #   shift,
+    #   machine
+    # )
+    # ========================================================
+
+    general_hours_map = {}
+    general_reason_map = {}
+
+
+    def clean_time(value):
+
+        if value is None:
+            return ""
+
+        return str(value).split(".")[0]
+
+
+    for r in general_rows:
+
+        machine = (
+            r.machine
+            or ""
+        ).strip()
+
+
+        # Blank machine must NOT apply to everybody.
+        if not machine:
             continue
 
+
+        key = (
+            r.location,
+            str(r.shift_date),
+            (r.shift or ""),
+            machine,
+        )
+
+
+        general_hours_map[
+            key
+        ] = (
+            general_hours_map.get(
+                key,
+                0
+            )
+            +
+            (r.total_hours or 0)
+        )
+
+
+        pieces = []
+
+
+        # Keep machine visible in popup for audit clarity.
+        pieces.append(
+            machine
+        )
+
+
+        if r.lost_hour_category:
+
+            pieces.append(
+                str(
+                    r.lost_hour_category
+                )
+            )
+
+
+        if r.reason_description:
+
+            pieces.append(
+                str(
+                    r.reason_description
+                )
+            )
+
+
+        start_time = clean_time(
+            r.start_time
+        )
+
+        end_time = clean_time(
+            r.end_time
+        )
+
+
+        if start_time or end_time:
+
+            pieces.append(
+                f"{start_time}-{end_time}"
+            )
+
+
+        reason_text = " - ".join(
+            piece
+            for piece in pieces
+            if piece
+        )
+
+
+        if reason_text:
+
+            general_reason_map.setdefault(
+                key,
+                []
+            ).append(
+                reason_text
+            )
+
+
+    # ========================================================
+    # PLANT-SPECIFIC HOURS MAP
+    # ========================================================
+
+    captured_plant_map = {}
+
+    for r in plant_rows:
+
+        key = (
+            r.location,
+            str(r.shift_date),
+            (r.shift or ""),
+            r.asset_name,
+        )
+
+        captured_plant_map[
+            key
+        ] = (
+            captured_plant_map.get(
+                key,
+                0
+            )
+            +
+            (
+                r.total_plant_specific_lost_hours
+                or 0
+            )
+        )
+
+
+    # ========================================================
+    # APPLY TO REPORT ROWS
+    # ========================================================
+
+    for row in data:
+
+        if not row.get(
+            "shift_date"
+        ):
+            continue
+
+
+        # Preserve existing behaviour:
+        # detailed report reasons belong on asset rows.
         if row.get("indent") == 1:
             continue
 
-        k2 = (row.get("location"), str(row["shift_date"]))
-        shift = (row.get("shift") or "")
-        asset = row.get("asset_name")
 
-        def captured_for(s):
-            general = captured_general_map.get((k2[0], k2[1], s), 0)
-            plant = captured_plant_map.get((k2[0], k2[1], s, asset), 0) if asset else 0
-            return general + plant
+        site = row.get(
+            "location"
+        )
 
-        if shift in ("Day", "Night"):
-            captured = captured_for(shift)
+        date_key = str(
+            row["shift_date"]
+        )
+
+        shift = (
+            row.get("shift")
+            or ""
+        )
+
+        asset = row.get(
+            "asset_name"
+        )
+
+
+        # ====================================================
+        # CAPTURED HOURS FOR ONE SHIFT
+        # ====================================================
+
+        def captured_for(
+            shift_name
+        ):
+
+            general = 0
+
+
+            if asset:
+
+                # Delay captured specifically against machine.
+                general += (
+                    general_hours_map.get(
+                        (
+                            site,
+                            date_key,
+                            shift_name,
+                            asset,
+                        ),
+                        0,
+                    )
+                )
+
+
+                # Operation-wide delay.
+                general += (
+                    general_hours_map.get(
+                        (
+                            site,
+                            date_key,
+                            shift_name,
+                            "ALL Equipment",
+                        ),
+                        0,
+                    )
+                )
+
+
+            plant = (
+                captured_plant_map.get(
+                    (
+                        site,
+                        date_key,
+                        shift_name,
+                        asset,
+                    ),
+                    0,
+                )
+                if asset
+                else 0
+            )
+
+
+            return (
+                general
+                +
+                plant
+            )
+
+
+        if shift in (
+            "Day",
+            "Night",
+        ):
+
+            captured = captured_for(
+                shift
+            )
+
         else:
-            captured = captured_for("Day") + captured_for("Night")
 
-        row["captured_other_lost_hours"] = round(captured or 0, 1)
-        row["other_lost_hours_variance"] = round(
-            (row.get("shift_other_lost_hours") or 0) - (row.get("captured_other_lost_hours") or 0),
+            captured = (
+                captured_for(
+                    "Day"
+                )
+                +
+                captured_for(
+                    "Night"
+                )
+            )
+
+
+        row[
+            "captured_other_lost_hours"
+        ] = round(
+            captured or 0,
             1
         )
 
-        if row.get("asset_name"):
-            k1 = (row["asset_name"], str(row["shift_date"]), row.get("location"))
-            row["breakdown_reason"] = "; ".join(breakdown_map.get(k1, [])) if k1 in breakdown_map else ""
 
-        row["other_delay_reason"] = delay_map.get(k2, "")
+        row[
+            "other_lost_hours_variance"
+        ] = round(
+            (
+                row.get(
+                    "shift_other_lost_hours"
+                )
+                or 0
+            )
+            -
+            (
+                row.get(
+                    "captured_other_lost_hours"
+                )
+                or 0
+            ),
+            1,
+        )
 
-        apply_formula_fields(row)
+
+        # ====================================================
+        # BREAKDOWN REASON
+        # ====================================================
+
+        if asset:
+
+            breakdown_key = (
+                asset,
+                date_key,
+                site,
+            )
+
+            row[
+                "breakdown_reason"
+            ] = (
+                "; ".join(
+                    breakdown_map.get(
+                        breakdown_key,
+                        []
+                    )
+                )
+                if breakdown_key
+                in breakdown_map
+                else ""
+            )
+
+
+        # ====================================================
+        # GENERAL DELAY REASONS FOR THIS MACHINE ONLY
+        # ====================================================
+
+        def reasons_for(
+            shift_name
+        ):
+
+            reasons = []
+
+
+            if asset:
+
+                # ALL Equipment reason applies to every machine.
+                reasons.extend(
+                    general_reason_map.get(
+                        (
+                            site,
+                            date_key,
+                            shift_name,
+                            "ALL Equipment",
+                        ),
+                        [],
+                    )
+                )
+
+
+                # Machine-specific reasons.
+                reasons.extend(
+                    general_reason_map.get(
+                        (
+                            site,
+                            date_key,
+                            shift_name,
+                            asset,
+                        ),
+                        [],
+                    )
+                )
+
+
+            return reasons
+
+
+        if shift in (
+            "Day",
+            "Night",
+        ):
+
+            delay_reasons = (
+                reasons_for(
+                    shift
+                )
+            )
+
+        else:
+
+            delay_reasons = (
+                reasons_for(
+                    "Day"
+                )
+                +
+                reasons_for(
+                    "Night"
+                )
+            )
+
+
+        # Remove duplicate strings while preserving order.
+        delay_reasons = list(
+            dict.fromkeys(
+                delay_reasons
+            )
+        )
+
+
+        row[
+            "other_delay_reason"
+        ] = "; ".join(
+            delay_reasons
+        )
+
+
+        apply_formula_fields(
+            row
+        )
+
 
     frappe.log_error(
-        f"Avail & Util Detailed fetched {len(breakdown_rows)} breakdowns and {len(delay_rows)} daily comments",
-        "Avail Util Debug"
+        (
+            "Avail & Util Detailed fetched "
+            f"{len(breakdown_rows)} breakdowns and "
+            f"{len(general_rows)} machine-specific "
+            "General Lost Hour rows"
+        ),
+        "Avail Util Debug",
     )
