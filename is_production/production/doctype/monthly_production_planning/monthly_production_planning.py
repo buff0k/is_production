@@ -10,6 +10,14 @@ from frappe.exceptions import TimestampMismatchError
 from frappe.utils import add_days, flt, get_datetime, getdate
 
 
+# MPP_MACHINE_ALLOCATION_SERVER_ROLE_CONTROL
+MPP_MACHINE_ALLOCATION_ROLES = {
+    "Production Area Manager",
+    "Engineering Area Manager",
+    "Information Officer",
+}
+
+
 class MonthlyProductionPlanning(Document):
     def before_insert(self):
         """
@@ -19,6 +27,7 @@ class MonthlyProductionPlanning(Document):
         Existing manually selected Tub Factors are never overwritten.
         """
         self.copy_tub_factors_from_previous_plan()
+        self.copy_machine_allocation_from_previous_plan()
 
     def validate(self):
         """
@@ -26,6 +35,7 @@ class MonthlyProductionPlanning(Document):
         Only sync month_prod_days when production date/shift setup changed.
         """
         self.validate_shift_hours()
+        self.validate_machine_allocation_access()
 
         # Production Month End Invoicing must follow the captured Production Month End Date.
         # Each site can have its own captured month-end date.
@@ -119,6 +129,350 @@ class MonthlyProductionPlanning(Document):
             copied_names.add(tub_factor_name)
 
         
+    # MPP_MACHINE_ALLOCATION_CARRY_FORWARD
+    def _get_previous_machine_plan(self):
+        """
+        Get the latest previous Monthly Production Planning document
+        for the same location that contains Excavator/ADT or Dozer
+        planning.
+
+        Where the new production start date is available, only plans
+        ending before that start date are considered.
+        """
+        if not self.location:
+            return None
+
+        params = {
+            "location": self.location,
+        }
+
+        date_condition = ""
+
+        if self.prod_month_start_date:
+            params["start_date"] = getdate(
+                self.prod_month_start_date
+            )
+
+            date_condition = """
+                AND COALESCE(
+                    mpp.prod_month_end_date,
+                    mpp.prod_month_start_date
+                ) < %(start_date)s
+            """
+
+        previous = frappe.db.sql(
+            f"""
+            SELECT mpp.name
+            FROM `tabMonthly Production Planning` mpp
+            WHERE mpp.location = %(location)s
+              AND mpp.docstatus < 2
+              {date_condition}
+              AND (
+                    EXISTS (
+                        SELECT 1
+                        FROM `tabExcavator Truck Link` etl
+                        WHERE etl.parent = mpp.name
+                          AND etl.parenttype =
+                              'Monthly Production Planning'
+                          AND etl.parentfield =
+                              'excavator_truck_assignments'
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM `tabDozers Planned` dz
+                        WHERE dz.parent = mpp.name
+                          AND dz.parenttype =
+                              'Monthly Production Planning'
+                          AND dz.parentfield =
+                              'dozer_table'
+                    )
+              )
+            ORDER BY
+                COALESCE(
+                    mpp.prod_month_end_date,
+                    mpp.prod_month_start_date
+                ) DESC,
+                mpp.creation DESC
+            LIMIT 1
+            """,
+            params,
+            as_dict=True,
+        )
+
+        if not previous:
+            return None
+
+        return frappe.get_doc(
+            "Monthly Production Planning",
+            previous[0].name,
+        )
+
+
+    def copy_machine_allocation_from_previous_plan(self):
+        """
+        New monthly plans inherit the previous month's complete
+        production-machine setup for the same location.
+
+        This includes:
+        - Assigned Excavators
+        - Spare/Swing Excavators
+        - Assigned ADTs
+        - Spare/Swing ADTs
+        - Excavator/ADT sort order
+        - Assigned Dozers
+        - Spare/Swing Dozers
+        - Dozing Type
+        - Production machine counts
+
+        Existing rows on the new document are never overwritten.
+        """
+        if not self.is_new():
+            return
+
+        if not self.location:
+            return
+
+        previous = self._get_previous_machine_plan()
+
+        if not previous:
+            return
+
+        copied_excavator_truck = False
+        copied_dozers = False
+
+        # ------------------------------------------------------
+        # Excavators / ADTs
+        # ------------------------------------------------------
+        if not self.get("excavator_truck_assignments"):
+            for row in (
+                previous.get("excavator_truck_assignments")
+                or []
+            ):
+                self.append(
+                    "excavator_truck_assignments",
+                    {
+                        "excavator": row.excavator,
+                        "excavator_model":
+                            row.excavator_model,
+                        "truck": row.truck,
+                        "truck_model":
+                            row.truck_model,
+                        "sort_order":
+                            row.sort_order,
+                    },
+                )
+
+            copied_excavator_truck = True
+
+        # ------------------------------------------------------
+        # Dozers
+        # ------------------------------------------------------
+        if not self.get("dozer_table"):
+            for row in previous.get("dozer_table") or []:
+                self.append(
+                    "dozer_table",
+                    {
+                        "asset_name": row.asset_name,
+                        "item_name": row.item_name,
+                        "dozing_type": row.dozing_type,
+                    },
+                )
+
+            copied_dozers = True
+
+        # ------------------------------------------------------
+        # Keep the production counts consistent with the
+        # inherited machine arrangement.
+        # ------------------------------------------------------
+        if copied_excavator_truck:
+            self.num_excavators = (
+                previous.num_excavators or 0
+            )
+            self.num_trucks = (
+                previous.num_trucks or 0
+            )
+
+        if copied_dozers:
+            self.num_dozers = (
+                previous.num_dozers or 0
+            )
+
+
+    def validate_machine_allocation_access(self):
+        """
+        Only the approved machine-allocation roles may change:
+
+        - Excavator / ADT assignment
+        - Spare/Swing Excavators
+        - Spare/Swing ADTs
+        - Excavator / ADT ordering
+        - Dozer assignment
+        - Spare/Swing Dozers
+        - Dozing Type
+
+        Other users may still save unrelated Monthly Production
+        Planning fields if their normal Frappe permissions allow it.
+        """
+        user = frappe.session.user
+        roles = set(frappe.get_roles(user) or [])
+
+        if roles.intersection(MPP_MACHINE_ALLOCATION_ROLES):
+            return
+
+        current_excavators = self._excavator_truck_snapshot(self)
+        current_dozers = self._dozer_snapshot(self)
+        current_counts = self._machine_count_snapshot(self)
+
+        # ----------------------------------------------------------
+        # New document:
+        # unauthorized users must not create machine allocations.
+        # ----------------------------------------------------------
+        if self.is_new():
+            previous = self._get_previous_machine_plan()
+
+            if previous:
+                previous_excavators = (
+                    self._excavator_truck_snapshot(
+                        previous
+                    )
+                )
+                previous_dozers = self._dozer_snapshot(
+                    previous
+                )
+                previous_counts = (
+                    self._machine_count_snapshot(
+                        previous
+                    )
+                )
+
+                if (
+                    current_excavators
+                    != previous_excavators
+                    or current_dozers
+                    != previous_dozers
+                    or current_counts
+                    != previous_counts
+                ):
+                    self._throw_machine_allocation_permission_error()
+
+                return
+
+            # First-ever plan for a location:
+            # non-manager may create it only without machine
+            # allocation. A manager must establish the initial
+            # machine arrangement.
+            if (
+                current_excavators
+                or current_dozers
+                or any(current_counts)
+            ):
+                self._throw_machine_allocation_permission_error()
+
+            return
+
+        # ----------------------------------------------------------
+        # Existing document:
+        # compare submitted values against the saved database state.
+        # ----------------------------------------------------------
+        before = self.get_doc_before_save()
+
+        if not before and self.name and frappe.db.exists(
+            "Monthly Production Planning",
+            self.name,
+        ):
+            before = frappe.get_doc(
+                "Monthly Production Planning",
+                self.name,
+            )
+
+        if not before:
+            return
+
+        previous_excavators = self._excavator_truck_snapshot(before)
+        previous_dozers = self._dozer_snapshot(before)
+        previous_counts = self._machine_count_snapshot(before)
+
+        excavator_changed = current_excavators != previous_excavators
+        dozer_changed = current_dozers != previous_dozers
+        counts_changed = current_counts != previous_counts
+
+        if excavator_changed or dozer_changed or counts_changed:
+            self._throw_machine_allocation_permission_error()
+
+    @staticmethod
+    def _excavator_truck_snapshot(doc):
+        """
+        Return a stable representation of Excavator / ADT allocation.
+
+        Child row names and idx values are intentionally ignored.
+        sort_order IS included because changing machine order is also
+        part of the restricted machine-allocation interface.
+        """
+        rows = []
+
+        for row in doc.get("excavator_truck_assignments") or []:
+            rows.append(
+                (
+                    row.excavator or "",
+                    row.excavator_model or "",
+                    row.truck or "",
+                    row.truck_model or "",
+                    int(row.sort_order or 0),
+                )
+            )
+
+        return sorted(rows)
+
+    @staticmethod
+    def _dozer_snapshot(doc):
+        """
+        Return a stable representation of Dozer allocation.
+
+        dozing_type is included because Assigned versus Spare/Swing
+        status is controlled through the Dozer planning interface.
+        """
+        rows = []
+
+        for row in doc.get("dozer_table") or []:
+            rows.append(
+                (
+                    row.asset_name or "",
+                    row.item_name or "",
+                    row.dozing_type or "",
+                )
+            )
+
+        return sorted(rows)
+
+    @staticmethod
+    def _machine_count_snapshot(doc):
+        """
+        Protect the persisted production-machine counts calculated
+        from the Excavator / ADT / Dozer allocation interface.
+        """
+        return (
+            int(doc.get("num_excavators") or 0),
+            int(doc.get("num_trucks") or 0),
+            int(doc.get("num_dozers") or 0),
+        )
+
+    @staticmethod
+    def _throw_machine_allocation_permission_error():
+        frappe.throw(
+            (
+                "You can view the planned Excavators, ADTs and Dozers, "
+                "but you are not permitted to change their allocation.<br><br>"
+                "Only users with one of these roles may add, remove, "
+                "assign or move machines:<br>"
+                "<b>Production Area Manager</b><br>"
+                "<b>Engineering Area Manager</b><br>"
+                "<b>Information Officer</b>"
+            ),
+            title="Machine Allocation Permission Required",
+            exc=frappe.PermissionError,
+        )
+
+
     def validate_shift_hours(self):
         """
         Validate that shift hours don't exceed 12
