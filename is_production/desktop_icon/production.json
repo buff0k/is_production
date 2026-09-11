@@ -1,6 +1,6 @@
 {
  "app": "is_production",
- "creation": "2026-01-14 08:06:58.856867",
+ "creation": "2026-06-18 09:47:55.553206",
  "docstatus": 0,
  "doctype": "Desktop Icon",
  "hidden": 0,
@@ -10,8 +10,8 @@
  "link": "/app/production",
  "link_to": "Production",
  "link_type": "Workspace Sidebar",
- "logo_url": "/assets/is_production/images/is-logo.svg",
- "modified": "2026-04-14 06:07:36.392650",
+ "logo_url": "/assets/is_production/images/is-logo.png",
+ "modified": "2026-09-11 18:45:13.229347",
  "modified_by": "Administrator",
  "name": "Production",
  "owner": "Administrator",
