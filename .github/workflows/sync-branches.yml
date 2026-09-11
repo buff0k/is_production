@@ -36,7 +36,7 @@ jobs:
           fi
       - name: Push merged branch
         if: steps.merge.outputs.conflict == 'false'
-        run: git push origin ${{ matrix.branch }}
+        run: git push --force-with-lease origin ${{ matrix.branch }}
       - name: Open PR when merge conflicts
         if: steps.merge.outputs.conflict == 'true'
         uses: peter-evans/create-pull-request@v6
