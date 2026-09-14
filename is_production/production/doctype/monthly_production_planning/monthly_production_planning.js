@@ -26,6 +26,77 @@ function calculateGeoRefDescription(frm, cdt, cdn) {
 //                      Now start the actual event‐handler object
 // ──────────────────────────────────────────────────────────────────────────────
 
+
+// MPP_SAFE_MACHINE_ROLE_CONTROL
+var MPP_MACHINE_MANAGER_ROLES = [
+  "Production Area Manager",
+  "Engineering Area Manager",
+  "Information Officer"
+];
+
+function canManageMonthlyPlanningMachines() {
+  const roles = Array.isArray(frappe.user_roles)
+    ? frappe.user_roles
+    : [];
+
+  return MPP_MACHINE_MANAGER_ROLES.some(role =>
+    roles.includes(role)
+  );
+}
+
+function showMachinePlanningPermissionMessage() {
+  frappe.msgprint({
+    title: __("Permission Required"),
+    indicator: "orange",
+    message: __(
+      "Only Production Area Manager, Engineering Area Manager or Information Officer may change Excavator, ADT or Dozer allocations."
+    )
+  });
+}
+
+function applySafeMachinePlanningReadOnly(frm) {
+  if (canManageMonthlyPlanningMachines()) {
+    return;
+  }
+
+  [
+    "dnd_html_truck_ui",
+    "dnd_dozer_assigned"
+  ].forEach(fieldname => {
+    const field = frm.get_field(fieldname);
+
+    if (!field || !field.$wrapper) {
+      return;
+    }
+
+    const wrapper = field.$wrapper;
+
+    // Hide only controls belonging to the custom machine UI.
+    wrapper
+      .find(
+        "#add-excavators, " +
+        "#add-trucks, " +
+        "#add-dozers, " +
+        "button.btn-danger"
+      )
+      .hide();
+
+    // Dozing Type remains visible but cannot be changed.
+    wrapper
+      .find("select")
+      .prop("disabled", true);
+
+    // Drag functions are separately blocked below.
+    wrapper
+      .find(".truck-item, .excavator-item, .dozer-item")
+      .css({
+        cursor: "default",
+        "user-select": "text"
+      });
+  });
+}
+
+
 frappe.ui.form.on('Monthly Production Planning', {
 
   setup(frm) {
@@ -1177,6 +1248,10 @@ function enableDragAndDrop(frm) {
 }
 
 function enableTruckDragAndDrop(frm) {
+  if (!canManageMonthlyPlanningMachines()) {
+    return;
+  }
+
   $('.truck-bin').each(function () {
     Sortable.create(this, {
       group: 'trucks',
@@ -1227,6 +1302,10 @@ function enableTruckDragAndDrop(frm) {
 }
 
 function enableExcavatorDragAndDrop(frm) {
+  if (!canManageMonthlyPlanningMachines()) {
+    return;
+  }
+
   $('.excavator-bin').each(function () {
     Sortable.create(this, {
       group: 'excavators',
@@ -1270,6 +1349,10 @@ function enableExcavatorDragAndDrop(frm) {
 
 
 function enableDozerDragAndDrop(frm) {
+  if (!canManageMonthlyPlanningMachines()) {
+    return;
+  }
+
   $('.dozer-bin').each(function () {
     Sortable.create(this, {
       group: 'dozers',
@@ -1319,6 +1402,11 @@ function enableDozerDragAndDrop(frm) {
 
 
 function addExcavatorsOnce(frm) {
+  if (!canManageMonthlyPlanningMachines()) {
+    showMachinePlanningPermissionMessage();
+    return;
+  }
+
   console.log("🔄 Attempting to add unassigned Excavators...");
 
   frappe.db.get_list('Asset', {
@@ -1351,6 +1439,11 @@ function addExcavatorsOnce(frm) {
 }
 
 function addTrucksOnce(frm) {
+  if (!canManageMonthlyPlanningMachines()) {
+    showMachinePlanningPermissionMessage();
+    return;
+  }
+
   console.log("🔄 Attempting to add unassigned Trucks...");
   frappe.db.get_list('Asset', {
     filters: { asset_category: 'ADT', location: frm.doc.location, docstatus: 1 },
@@ -1382,6 +1475,11 @@ function addTrucksOnce(frm) {
 
 // Add Dozers handler
 function addDozersOnce(frm) {
+  if (!canManageMonthlyPlanningMachines()) {
+    showMachinePlanningPermissionMessage();
+    return;
+  }
+
   console.log("Attempting to add Spare/Swing unit Dozers...");
 
   frappe.db.get_list('Asset', {
@@ -1428,26 +1526,37 @@ function addDozersOnce(frm) {
 
 
 function renderTruckAssignmentUI(frm) {
-  console.log("Rendering Excavator/Truck UI");
+  // MPP_DIRECT_RENDER_ROLE_CONTROL
+  const canManage = canManageMonthlyPlanningMachines();
+
+  console.log(
+    "Rendering Excavator/Truck UI",
+    "user=",
+    frappe.session.user,
+    "canManage=",
+    canManage
+  );
 
   const wrapper = frm.get_field('dnd_html_truck_ui').$wrapper.empty();
 
-  const controls = $(`
-    <div style="margin-bottom:12px;display:flex;gap:8px;">
-      <button id="add-excavators" class="btn btn-primary btn-sm">+ Add Excavators</button>
-      <button id="add-trucks" class="btn btn-secondary btn-sm">+ Add Trucks</button>
-    </div>
-  `).appendTo(wrapper);
+  if (canManage) {
+    const controls = $(`
+      <div style="margin-bottom:12px;display:flex;gap:8px;">
+        <button id="add-excavators" class="btn btn-primary btn-sm">+ Add Excavators</button>
+        <button id="add-trucks" class="btn btn-secondary btn-sm">+ Add Trucks</button>
+      </div>
+    `).appendTo(wrapper);
 
-  controls
-    .find('#add-excavators')
-    .off('click')
-    .on('click', () => addExcavatorsOnce(frm));
+    controls
+      .find('#add-excavators')
+      .off('click')
+      .on('click', () => addExcavatorsOnce(frm));
 
-  controls
-    .find('#add-trucks')
-    .off('click')
-    .on('click', () => addTrucksOnce(frm));
+    controls
+      .find('#add-trucks')
+      .off('click')
+      .on('click', () => addTrucksOnce(frm));
+  }
 
   const assignments = frm.doc.excavator_truck_assignments || [];
   const teamsMap = {};
@@ -1544,29 +1653,31 @@ function renderTruckAssignmentUI(frm) {
       </div>
     `);
 
-    $('<button class="btn btn-danger btn-xs" ' +
-      'style="position:absolute;background:transparent;top:8px;right:8px;">🗑️</button>')
-      .appendTo(section)
-      .off('click')
-      .on('click', () => {
-        console.log("Moving excavator team to Spare/Swing unit:", excId);
+    if (canManage) {
+      $('<button class="btn btn-danger btn-xs" ' +
+        'style="position:absolute;background:transparent;top:8px;right:8px;">🗑️</button>')
+        .appendTo(section)
+        .off('click')
+        .on('click', () => {
+          console.log("Moving excavator team to Spare/Swing unit:", excId);
 
-        removeActiveEmptyExcavator(frm, excId);
+          removeActiveEmptyExcavator(frm, excId);
 
-        (frm.doc.excavator_truck_assignments || []).forEach(row => {
-          if (row.excavator === excId && row.truck) {
-            row.excavator = null;
-            row.excavator_model = null;
-          }
+          (frm.doc.excavator_truck_assignments || []).forEach(row => {
+            if (row.excavator === excId && row.truck) {
+              row.excavator = null;
+              row.excavator_model = null;
+            }
+          });
+
+          frm.refresh_field('excavator_truck_assignments');
+          frm.dirty();
+
+          frm.save().then(() => {
+            renderTruckAssignmentUI(frm);
+          });
         });
-
-        frm.refresh_field('excavator_truck_assignments');
-        frm.dirty();
-
-        frm.save().then(() => {
-          renderTruckAssignmentUI(frm);
-        });
-      });
+    }
 
     if (!data.trucks.length) {
       section.find('.truck-bin').append('<li><em>No trucks assigned. Drag ADTs here.</em></li>');
@@ -1583,12 +1694,14 @@ function renderTruckAssignmentUI(frm) {
         </li>
       `);
 
-      $('<button class="btn btn-danger btn-xs" style="background:transparent;">🗑️</button>')
-        .appendTo(li)
-        .off('click')
-        .on('click', () => {
-          moveTruckBackToSpare(frm, t.id);
-        });
+      if (canManage) {
+        $('<button class="btn btn-danger btn-xs" style="background:transparent;">🗑️</button>')
+          .appendTo(li)
+          .off('click')
+          .on('click', () => {
+            moveTruckBackToSpare(frm, t.id);
+          });
+      }
 
       section.find('.truck-bin').append(li);
     });
@@ -1622,31 +1735,33 @@ function renderTruckAssignmentUI(frm) {
       </div>
     `);
 
-    $('<button class="btn btn-danger btn-xs" ' +
-      'style="position:absolute;background:transparent;top:6px;right:6px;">🗑️</button>')
-      .appendTo(excCard)
-      .off('click')
-      .on('click', () => {
-        console.log("Removing Spare/Swing unit excavator:", e.id);
+    if (canManage) {
+      $('<button class="btn btn-danger btn-xs" ' +
+        'style="position:absolute;background:transparent;top:6px;right:6px;">🗑️</button>')
+        .appendTo(excCard)
+        .off('click')
+        .on('click', () => {
+          console.log("Removing Spare/Swing unit excavator:", e.id);
 
-        const row = (frm.doc.excavator_truck_assignments || [])
-          .find(r => r.excavator === e.id && !r.truck);
+          const row = (frm.doc.excavator_truck_assignments || [])
+            .find(r => r.excavator === e.id && !r.truck);
 
-        if (row) {
-          frappe.model.clear_doc(row.doctype, row.name);
+          if (row) {
+            frappe.model.clear_doc(row.doctype, row.name);
 
-          frm.doc.excavator_truck_assignments = frm.doc.excavator_truck_assignments
-            .filter(r => r.name !== row.name);
+            frm.doc.excavator_truck_assignments = frm.doc.excavator_truck_assignments
+              .filter(r => r.name !== row.name);
 
-          removeActiveEmptyExcavator(frm, e.id);
+            removeActiveEmptyExcavator(frm, e.id);
 
-          frm.refresh_field('excavator_truck_assignments');
+            frm.refresh_field('excavator_truck_assignments');
 
-          frm.save().then(() => {
-            renderTruckAssignmentUI(frm);
-          });
-        }
-      });
+            frm.save().then(() => {
+              renderTruckAssignmentUI(frm);
+            });
+          }
+        });
+    }
 
     spareExcBin.append(excCard);
   });
@@ -1676,17 +1791,21 @@ function renderTruckAssignmentUI(frm) {
       </li>
     `);
 
-    $('<button class="btn btn-danger btn-xs" style="background:transparent;">🗑️</button>')
-      .appendTo(li)
-      .off('click')
-      .on('click', () => {
-        moveTruckBackToSpare(frm, t.id);
-      });
+    if (canManage) {
+      $('<button class="btn btn-danger btn-xs" style="background:transparent;">🗑️</button>')
+        .appendTo(li)
+        .off('click')
+        .on('click', () => {
+          moveTruckBackToSpare(frm, t.id);
+        });
+    }
 
     spareTruckSec.find('.truck-bin').append(li);
   });
 
-  enableDragAndDrop(frm);
+  if (canManage) {
+    enableDragAndDrop(frm);
+  }
 }
 
 
@@ -1701,18 +1820,28 @@ function renderTruckAssignmentUI(frm) {
 //
 
 function renderDozerAssignmentUI(frm) {
-  console.log("Rendering Dozer UI");
+  const canManage = canManageMonthlyPlanningMachines();
+
+  console.log(
+    "Rendering Dozer UI",
+    "user=",
+    frappe.session.user,
+    "canManage=",
+    canManage
+  );
 
   const wrapper = frm.get_field('dnd_dozer_assigned').$wrapper.empty();
 
-  $('<div style="margin-bottom:12px;">' +
-    '<button type="button" id="add-dozers" class="btn btn-primary btn-sm">' +
-    '+ Add Dozers' +
-    '</button>' +
-    '</div>').appendTo(wrapper)
-    .find('#add-dozers')
-    .off('click')
-    .on('click', () => addDozersOnce(frm));
+  if (canManage) {
+    $('<div style="margin-bottom:12px;">' +
+      '<button type="button" id="add-dozers" class="btn btn-primary btn-sm">' +
+      '+ Add Dozers' +
+      '</button>' +
+      '</div>').appendTo(wrapper)
+      .find('#add-dozers')
+      .off('click')
+      .on('click', () => addDozersOnce(frm));
+  }
 
   const container = $(`
     <div style="display:flex;gap:24px;">
@@ -1812,44 +1941,50 @@ function renderDozerAssignmentUI(frm) {
       );
     });
 
-    card.find('.dozing-type-select').val(row.dozing_type || '');
-
     card.find('.dozing-type-select')
-      .off('change')
-      .on('change', e => {
-        const newType = e.target.value;
+      .val(row.dozing_type || '')
+      .prop('disabled', !canManage);
 
-        frappe.model.set_value(row.doctype, row.name, 'dozing_type', newType)
-          .then(() => {
-            frm.refresh_field('dozer_table');
-            frm.dirty();
+    if (canManage) {
+      card.find('.dozing-type-select')
+        .off('change')
+        .on('change', e => {
+          const newType = e.target.value;
 
-            frm.save().then(() => {
-              frm.trigger('update_equipment_counts');
-              renderDozerAssignmentUI(frm);
+          frappe.model.set_value(row.doctype, row.name, 'dozing_type', newType)
+            .then(() => {
+              frm.refresh_field('dozer_table');
+              frm.dirty();
+
+              frm.save().then(() => {
+                frm.trigger('update_equipment_counts');
+                renderDozerAssignmentUI(frm);
+              });
             });
-          });
-      });
-
-    $('<button class="btn btn-danger btn-xs" ' +
-      'style="position:absolute;background:transparent;top:8px;right:8px;">Trash</button>')
-      .appendTo(card)
-      .off('click')
-      .on('click', () => {
-        const dozerName = card.attr('data-dozer-name');
-
-        frm.doc.dozer_table = (frm.doc.dozer_table || []).filter(
-          r => r.asset_name !== dozerName
-        );
-
-        frm.refresh_field('dozer_table');
-        frm.dirty();
-
-        frm.save().then(() => {
-          frm.trigger('update_equipment_counts');
-          renderDozerAssignmentUI(frm);
         });
-      });
+    }
+
+    if (canManage) {
+      $('<button class="btn btn-danger btn-xs" ' +
+        'style="position:absolute;background:transparent;top:8px;right:8px;">Trash</button>')
+        .appendTo(card)
+        .off('click')
+        .on('click', () => {
+          const dozerName = card.attr('data-dozer-name');
+
+          frm.doc.dozer_table = (frm.doc.dozer_table || []).filter(
+            r => r.asset_name !== dozerName
+          );
+
+          frm.refresh_field('dozer_table');
+          frm.dirty();
+
+          frm.save().then(() => {
+            frm.trigger('update_equipment_counts');
+            renderDozerAssignmentUI(frm);
+          });
+        });
+    }
 
     return card;
   }
@@ -1862,7 +1997,9 @@ function renderDozerAssignmentUI(frm) {
     spareBin.append(makeDozerCard(row, idx, false));
   });
 
-  enableDragAndDrop(frm);
+  if (canManage) {
+    enableDragAndDrop(frm);
+  }
 }
 
 

@@ -18,11 +18,9 @@ class TubFactor(Document):
 
     def validate(self):
         self._validate_definition()
-        self._validate_canonical_name()
 
     def before_submit(self):
         self._validate_definition()
-        self._validate_canonical_name()
 
     def before_cancel(self):
         reference = frappe.db.get_value(
